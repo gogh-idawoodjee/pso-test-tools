@@ -1,0 +1,23 @@
+created:
+    - database/factories/CustomerFactory.php
+    - database/factories/RegionFactory.php
+    - database/factories/StatusFactory.php
+    - database/factories/TaskFactory.php
+    - database/factories/TaskStatusFactory.php
+    - database/migrations/2025_03_08_221205_create_customers_table.php
+    - database/migrations/2025_03_08_221206_create_regions_table.php
+    - database/migrations/2025_03_08_221207_create_statuses_table.php
+    - database/migrations/2025_03_08_221208_create_tasks_table.php
+    - database/migrations/2025_03_08_221209_create_task_statuses_table.php
+    - app/Models/Customer.php
+    - app/Models/Region.php
+    - app/Models/Status.php
+    - app/Models/Task.php
+    - app/Models/TaskStatus.php
+models:
+    User: { name: string, email: string, email_verified_at: 'datetime nullable', password: string, remember_token: 'string nullable' }
+    Customer: { name: string, address: string, city: string, postcode: string, country: string, status_id: unsignedInteger, relationships: { belongsTo: 'Status, Region', hasMany: Task }, region_id: unsignedInteger }
+    Region: { name: string, relationships: { hasMany: Customer } }
+    Status: { name: string, relationships: { hasMany: Customer } }
+    Task: { appt_window_start: datetime, appt_window_finish: datetime, duration: integer, type: string, task_status_id: unsignedInteger, relationships: { belongsTo: 'TaskStatus,Customer' } }
+    TaskStatus: { name: string, relationships: { hasMany: Task } }

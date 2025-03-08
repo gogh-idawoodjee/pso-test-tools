@@ -1,0 +1,42 @@
+models:
+  Customer:
+    name: string
+    address: string
+    city: string
+    postcode: string
+    country: string
+    status_id: unsignedInteger
+    relationships:
+      belongsTo: Status, Region
+      hasMany: Task
+    region_id: unsignedInteger
+
+
+
+
+  Region:
+    name: string
+    relationships:
+      hasMany: Customer
+
+  Status:
+    name: string
+    relationships:
+      hasMany: Customer
+
+
+  Task:
+    appt_window_start: datetime
+    appt_window_finish: datetime
+    duration: integer
+    type: string
+    task_status_id: unsignedInteger
+    relationships:
+      belongsTo: TaskStatus,Customer
+
+
+  TaskStatus:
+    name: string
+    relationships:
+      hasMany: Task
+
