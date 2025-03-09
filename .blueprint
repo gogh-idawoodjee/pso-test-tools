@@ -4,11 +4,11 @@ created:
     - database/factories/TaskFactory.php
     - database/factories/EnvironmentFactory.php
     - database/factories/DatasetFactory.php
-    - database/migrations/2025_03_09_224955_create_customers_table.php
-    - database/migrations/2025_03_09_224956_create_regions_table.php
-    - database/migrations/2025_03_09_224957_create_tasks_table.php
-    - database/migrations/2025_03_09_224958_create_environments_table.php
-    - database/migrations/2025_03_09_224959_create_datasets_table.php
+    - database/migrations/2025_03_09_231308_create_customers_table.php
+    - database/migrations/2025_03_09_231309_create_regions_table.php
+    - database/migrations/2025_03_09_231310_create_tasks_table.php
+    - database/migrations/2025_03_09_231311_create_environments_table.php
+    - database/migrations/2025_03_09_231312_create_datasets_table.php
     - app/Models/Customer.php
     - app/Models/Region.php
     - app/Models/Task.php
@@ -16,7 +16,7 @@ created:
     - app/Models/Dataset.php
 models:
     User: { name: string, email: string, email_verified_at: 'datetime nullable', password: string, remember_token: 'string nullable' }
-    Customer: { id: uuid, name: string, address: string, city: string, postcode: string, country: string, status: string, relationships: { belongsTo: Region, hasMany: Task }, region_id: unsignedInteger }
+    Customer: { id: uuid, name: string, address: string, city: string, postcode: string, country: string, status: string, lat: decimal, long: decimal, relationships: { belongsTo: Region, hasMany: Task }, region_id: unsignedInteger }
     Region: { id: uuid, name: string, relationships: { hasMany: Customer } }
     Task: { id: uuid, appt_window_start: datetime, appt_window_finish: datetime, duration: integer, type: string, status: int, relationships: { belongsTo: Customer } }
     Environment: { id: uuid, name: string, base_url: url, description: string, account_id: string, username: string, password: string, relationships: { belongsTo: User, hasMany: Dataset } }

@@ -19,6 +19,8 @@ return new class extends Migration
             $table->string('postcode');
             $table->string('country');
             $table->string('status');
+            $table->decimal('lat');
+            $table->decimal('long');
             $table->foreignId('region_id');
             $table->timestamps();
         });

@@ -28,6 +28,8 @@ class CustomerFactory extends Factory
             'postcode' => fake()->postcode(),
             'country' => fake()->country(),
             'status' => fake()->word(),
+            'lat' => fake()->latitude(),
+            'long' => fake()->randomFloat(0, 0, 9999999999.),
             'region_id' => Region::factory(),
         ];
     }
