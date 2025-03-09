@@ -8,9 +8,18 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Customer extends Model
+class Environment extends Model
 {
     use HasFactory, HasUuids;
+
+    /**
+     * The attributes that should be hidden for serialization.
+     *
+     * @var array
+     */
+    protected $hidden = [
+        'password',
+    ];
 
     /**
      * The attributes that should be cast to native types.
@@ -18,16 +27,16 @@ class Customer extends Model
      * @var array
      */
     protected $casts = [
-        'region_id' => 'integer',
+        'user_id' => 'integer',
     ];
 
-    public function region(): BelongsTo
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Region::class);
+        return $this->belongsTo(User::class);
     }
 
-    public function tasks(): HasMany
+    public function datasets(): HasMany
     {
-        return $this->hasMany(Task::class);
+        return $this->hasMany(Dataset::class);
     }
 }

@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 use App\Models\Customer;
 use App\Models\Task;
-use App\Models\TaskStatus;
 
 class TaskFactory extends Factory
 {
@@ -27,7 +26,7 @@ class TaskFactory extends Factory
             'appt_window_finish' => fake()->dateTime(),
             'duration' => fake()->numberBetween(-10000, 10000),
             'type' => fake()->word(),
-            'task_status_id' => TaskStatus::factory(),
+            'status' => fake()->word(),
             'customer_id' => Customer::factory(),
         ];
     }

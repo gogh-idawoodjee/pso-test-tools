@@ -6,9 +6,8 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class Customer extends Model
+class Dataset extends Model
 {
     use HasFactory, HasUuids;
 
@@ -18,16 +17,11 @@ class Customer extends Model
      * @var array
      */
     protected $casts = [
-        'region_id' => 'integer',
+        'environment_id' => 'integer',
     ];
 
-    public function region(): BelongsTo
+    public function environment(): BelongsTo
     {
-        return $this->belongsTo(Region::class);
-    }
-
-    public function tasks(): HasMany
-    {
-        return $this->hasMany(Task::class);
+        return $this->belongsTo(Environment::class);
     }
 }

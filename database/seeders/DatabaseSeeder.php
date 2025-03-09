@@ -2,9 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Models\Environment;
 use App\Models\User;
+
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Hash;
+use Ramsey\Uuid\Uuid;
 
 class DatabaseSeeder extends Seeder
 {
@@ -14,6 +19,22 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // User::factory(10)->create();
+        User::create([
+            'name' => 'ishy',
+            'email' => 'idawoodjee@mac.com',
+            'password' => Hash::make('manman'),
+        ]);
+
+        Environment::create([
+            'name' => 'The Drome',
+            'id' => Uuid::uuid4()->toString(),
+            'base_url' => 'https://pso.thetechnodro.me',
+            'description' => 'the drome',
+            'account_id' => 'Default',
+            'username' => 'admin',
+            'password' => Crypt::encrypt('Ohyouthinkdarknessisyourally1!'),
+            'user_id' => '1'
+        ]);
 
         User::factory()->create([
             'name' => 'Test User',

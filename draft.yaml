@@ -1,42 +1,50 @@
 models:
   Customer:
+    id: uuid
     name: string
     address: string
     city: string
     postcode: string
     country: string
-    status_id: unsignedInteger
+    status: string
     relationships:
-      belongsTo: Status, Region
+      belongsTo: Region
       hasMany: Task
     region_id: unsignedInteger
 
-
-
-
   Region:
+    id: uuid
     name: string
     relationships:
       hasMany: Customer
-
-  Status:
-    name: string
-    relationships:
-      hasMany: Customer
-
 
   Task:
+    id: uuid
     appt_window_start: datetime
     appt_window_finish: datetime
     duration: integer
     type: string
-    task_status_id: unsignedInteger
+    status: int
     relationships:
-      belongsTo: TaskStatus,Customer
+      belongsTo: Customer
 
-
-  TaskStatus:
+  Environment:
+    id: uuid
     name: string
+    base_url: url
+    description: string
+    account_id: string
+    username: string
+    password: string
     relationships:
-      hasMany: Task
+      belongsTo: User
+      hasMany: Dataset
+
+  Dataset:
+    id: uuid
+    name: string
+    rota: string
+    relationships:
+      belongsTo: Environment
+
 

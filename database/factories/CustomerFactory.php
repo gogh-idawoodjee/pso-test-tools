@@ -4,9 +4,8 @@ namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
-use App\Models\;
 use App\Models\Customer;
-use App\Models\Status;
+use App\Models\Region;
 
 class CustomerFactory extends Factory
 {
@@ -28,8 +27,8 @@ class CustomerFactory extends Factory
             'city' => fake()->city(),
             'postcode' => fake()->postcode(),
             'country' => fake()->country(),
-            'status_id' => Status::factory(),
-            'region_id' => ::factory(),
+            'status' => fake()->word(),
+            'region_id' => Region::factory(),
         ];
     }
 }

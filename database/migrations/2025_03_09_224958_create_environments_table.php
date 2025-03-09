@@ -11,9 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('statuses', function (Blueprint $table) {
-            $table->id();
+        Schema::create('environments', function (Blueprint $table) {
+            $table->uuid('id');
             $table->string('name');
+            $table->string('base_url');
+            $table->string('description');
+            $table->string('account_id');
+            $table->string('username');
+            $table->string('password');
+            $table->foreignId('user_id');
             $table->timestamps();
         });
     }
@@ -23,6 +29,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('statuses');
+        Schema::dropIfExists('environments');
     }
 };
