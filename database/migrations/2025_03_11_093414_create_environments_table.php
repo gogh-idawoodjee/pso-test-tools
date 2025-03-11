@@ -12,13 +12,13 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('environments', function (Blueprint $table) {
-            $table->uuid('id');
-            $table->string('name');
+            $table->string('account_id');
             $table->string('base_url');
             $table->string('description');
-            $table->string('account_id');
-            $table->string('username');
+            $table->uuid('id');
+            $table->string('name');
             $table->string('password');
+            $table->string('username');
             $table->foreignId('user_id');
             $table->timestamps();
         });

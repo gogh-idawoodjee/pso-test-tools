@@ -10,17 +10,15 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;
-use Filament\Infolists\InfolistsServiceProvider;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
+
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
@@ -30,14 +28,14 @@ class CustomerResource extends Resource
         return $infolist
             ->name('Customer')
             ->schema([
-                TextEntry::make('name')
-//                Infolists\Components\TextEntry::make('name'),
-//                Infolists\Components\TextEntry::make('address'),
-//                Infolists\Components\TextEntry::make('city'),
-//                Infolists\Components\TextEntry::make('postcode'),
-//                Infolists\Components\TextEntry::make('country'),
-//                Infolists\Components\TextEntry::make('status'),
-//                Infolists\Components\TextEntry::make('region_id'),
+                TextEntry::make('name'),
+                TextEntry::make('name'),
+                TextEntry::make('address'),
+                TextEntry::make('city'),
+                TextEntry::make('postcode'),
+                TextEntry::make('country'),
+                TextEntry::make('status'),
+                TextEntry::make('region_id'),
 
             ]);
     }
@@ -60,6 +58,10 @@ class CustomerResource extends Resource
                     ->enum(Status::class)
                     ->options(Status::class)
                     ->required(),
+                Forms\Components\TextInput::make('lat')
+                    ->numeric(),
+                Forms\Components\TextInput::make('long')
+                    ->numeric(),
                 Forms\Components\Select::make('region_id')
                     ->searchable()
                     ->relationship('region', 'name')
@@ -86,6 +88,12 @@ class CustomerResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('status')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('lat')
+                    ->numeric()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('long')
+                    ->numeric()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('region.name')
                     ->numeric()
                     ->sortable(),

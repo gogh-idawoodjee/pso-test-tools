@@ -1,52 +1,39 @@
 models:
   Customer:
-    id: uuid
-    name: string
     address: string
     city: string
-    postcode: string
     country: string
-    status: string
-    lat: decimal
-    long: decimal
-    relationships:
-      belongsTo: Region
-      hasMany: Task
+    id: uuid
+    lat: decimal nullable
+    long: decimal nullable
+    name: string
+    postcode: string
     region_id: unsignedInteger
-
-  Region:
-    id: uuid
-    name: string
-    relationships:
-      hasMany: Customer
-
-  Task:
-    id: uuid
-    appt_window_start: datetime
-    appt_window_finish: datetime
-    duration: integer
-    type: string
-    status: int
-    relationships:
-      belongsTo: Customer
-
-  Environment:
-    id: uuid
-    name: string
-    base_url: url
-    description: string
-    account_id: string
-    username: string
-    password: string
-    relationships:
-      belongsTo: User
-      hasMany: Dataset
-
+    relationships: {belongsTo: Region, hasMany: Task}
+    status: string
   Dataset:
     id: uuid
     name: string
+    relationships: {belongsTo: Environment}
     rota: string
-    relationships:
-      belongsTo: Environment
-
-
+  Environment:
+    account_id: string
+    base_url: url
+    description: string
+    id: uuid
+    name: string
+    password: string
+    relationships: {belongsTo: User, hasMany: Dataset}
+    username: string
+  Region:
+    id: uuid
+    name: string
+    relationships: {hasMany: Customer}
+  Task:
+    appt_window_finish: datetime
+    appt_window_start: datetime
+    duration: integer
+    id: uuid
+    relationships: {belongsTo: Customer}
+    status: int
+    type: string

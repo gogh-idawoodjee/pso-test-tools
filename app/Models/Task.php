@@ -17,8 +17,8 @@ class Task extends Model
      * @var array
      */
     protected $casts = [
-        'appt_window_start' => 'datetime',
         'appt_window_finish' => 'datetime',
+        'appt_window_start' => 'datetime',
         'customer_id' => 'integer',
     ];
 

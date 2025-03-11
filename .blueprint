@@ -1,23 +1,23 @@
 created:
     - database/factories/CustomerFactory.php
+    - database/factories/DatasetFactory.php
+    - database/factories/EnvironmentFactory.php
     - database/factories/RegionFactory.php
     - database/factories/TaskFactory.php
-    - database/factories/EnvironmentFactory.php
-    - database/factories/DatasetFactory.php
-    - database/migrations/2025_03_09_231308_create_customers_table.php
-    - database/migrations/2025_03_09_231309_create_regions_table.php
-    - database/migrations/2025_03_09_231310_create_tasks_table.php
-    - database/migrations/2025_03_09_231311_create_environments_table.php
-    - database/migrations/2025_03_09_231312_create_datasets_table.php
+    - database/migrations/2025_03_11_093412_create_customers_table.php
+    - database/migrations/2025_03_11_093413_create_datasets_table.php
+    - database/migrations/2025_03_11_093414_create_environments_table.php
+    - database/migrations/2025_03_11_093415_create_regions_table.php
+    - database/migrations/2025_03_11_093416_create_tasks_table.php
     - app/Models/Customer.php
+    - app/Models/Dataset.php
+    - app/Models/Environment.php
     - app/Models/Region.php
     - app/Models/Task.php
-    - app/Models/Environment.php
-    - app/Models/Dataset.php
 models:
     User: { name: string, email: string, email_verified_at: 'datetime nullable', password: string, remember_token: 'string nullable' }
-    Customer: { id: uuid, name: string, address: string, city: string, postcode: string, country: string, status: string, lat: decimal, long: decimal, relationships: { belongsTo: Region, hasMany: Task }, region_id: unsignedInteger }
+    Customer: { address: string, city: string, country: string, id: uuid, lat: 'decimal nullable', long: 'decimal nullable', name: string, postcode: string, region_id: unsignedInteger, relationships: { belongsTo: Region, hasMany: Task }, status: string }
+    Dataset: { id: uuid, name: string, relationships: { belongsTo: Environment }, rota: string }
+    Environment: { account_id: string, base_url: url, description: string, id: uuid, name: string, password: string, relationships: { belongsTo: User, hasMany: Dataset }, username: string }
     Region: { id: uuid, name: string, relationships: { hasMany: Customer } }
-    Task: { id: uuid, appt_window_start: datetime, appt_window_finish: datetime, duration: integer, type: string, status: int, relationships: { belongsTo: Customer } }
-    Environment: { id: uuid, name: string, base_url: url, description: string, account_id: string, username: string, password: string, relationships: { belongsTo: User, hasMany: Dataset } }
-    Dataset: { id: uuid, name: string, rota: string, relationships: { belongsTo: Environment } }
+    Task: { appt_window_finish: datetime, appt_window_start: datetime, duration: integer, id: uuid, relationships: { belongsTo: Customer }, status: int, type: string }

@@ -22,15 +22,15 @@ class CustomerFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
             'address' => fake()->word(),
             'city' => fake()->city(),
-            'postcode' => fake()->postcode(),
             'country' => fake()->country(),
-            'status' => fake()->word(),
             'lat' => fake()->latitude(),
             'long' => fake()->randomFloat(0, 0, 9999999999.),
+            'name' => fake()->name(),
+            'postcode' => fake()->postcode(),
             'region_id' => Region::factory(),
+            'status' => fake()->word(),
         ];
     }
 }
