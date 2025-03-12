@@ -63,7 +63,10 @@ class EnvironmentResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('username')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('datasets_count')->counts('datasets'),
+                Tables\Columns\TextColumn::make('datasets_count')->counts('datasets')
+                ->label('Datasets')
+                ->badge()
+                ->alignCenter(),
 //                Tables\Columns\TextColumn::make('user.name')
 //                    ->numeric()
 //                    ->sortable(),

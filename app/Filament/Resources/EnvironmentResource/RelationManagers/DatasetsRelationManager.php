@@ -36,7 +36,8 @@ class DatasetsRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('name')
             ->columns([
-                Tables\Columns\TextColumn::make('name'),
+                Tables\Columns\TextInputColumn::make('name'),
+                Tables\Columns\TextInputColumn::make('rota'),
             ])
             ->filters([
                 //

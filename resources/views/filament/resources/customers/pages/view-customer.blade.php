@@ -11,6 +11,14 @@
             :managers="$relationManagers"
             :owner-record="$record"
             :page-class="static::class"
+
         />
     @endif
+    <x-filament::section collapsible="true">
+        <x-slot name="heading">
+            Appointment Booking
+        </x-slot>
+
+        {{-- Content --}}
+    </x-filament::section>
 </x-filament-panels::page>
