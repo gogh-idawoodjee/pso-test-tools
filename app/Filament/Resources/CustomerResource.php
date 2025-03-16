@@ -22,7 +22,7 @@ class CustomerResource extends Resource
     protected static ?string $model = Customer::class;
 
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
     public static function infolist(Infolist $infolist): Infolist
     {
@@ -30,7 +30,6 @@ class CustomerResource extends Resource
         return $infolist
             ->name('Customer')
             ->schema([
-                TextEntry::make('name'),
                 TextEntry::make('name'),
                 TextEntry::make('address'),
                 TextEntry::make('city'),
@@ -46,28 +45,33 @@ class CustomerResource extends Resource
     {
         return $form
             ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->required(),
-                Forms\Components\TextInput::make('address')
-                    ->required(),
-                Forms\Components\TextInput::make('city')
-                    ->required(),
-                Forms\Components\TextInput::make('postcode')
-                    ->required(),
-                Forms\Components\TextInput::make('country')
-                    ->required(),
-                Forms\Components\Select::make('status')
-                    ->enum(Status::class)
-                    ->options(Status::class)
-                    ->required(),
-                Forms\Components\TextInput::make('lat')
-                    ->numeric(),
-                Forms\Components\TextInput::make('long')
-                    ->numeric(),
-                Forms\Components\Select::make('region_id')
-                    ->searchable()
-                    ->relationship('region', 'name')
-                    ->required(),
+                Forms\Components\Section::make('Customer Info')->columns(2)
+                    ->schema([
+                        Forms\Components\TextInput::make('name')
+                            ->required(),
+                        Forms\Components\Select::make('status')
+                            ->enum(Status::class)
+                            ->options(Status::class)
+                            ->required(),
+                        Forms\Components\Fieldset::make('Location Info')->schema([
+                            Forms\Components\TextInput::make('address')
+                                ->required(),
+                            Forms\Components\TextInput::make('city')
+                                ->required(),
+                            Forms\Components\TextInput::make('postcode')
+                                ->required(),
+                            Forms\Components\TextInput::make('country')
+                                ->required(),
+                            Forms\Components\TextInput::make('lat')
+                                ->numeric(),
+                            Forms\Components\TextInput::make('long')
+                                ->numeric(),
+                            Forms\Components\Select::make('region_id')
+                                ->searchable()
+                                ->relationship('region', 'name')
+                                ->required(),
+                        ])
+                    ])
             ]);
     }
 
@@ -86,7 +90,8 @@ class CustomerResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('country')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('status')
+                // todo,change from enum to boolean
+                Tables\Columns\IconColumn::make('status')->boolean()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('lat')
                     ->numeric()

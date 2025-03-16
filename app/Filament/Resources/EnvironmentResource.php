@@ -5,7 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EnvironmentResource\Pages;
 use App\Filament\Resources\EnvironmentResource\RelationManagers;
 use App\Models\Environment;
-use Filament\Forms;
+
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -18,45 +18,27 @@ class EnvironmentResource extends Resource
 {
     protected static ?string $model = Environment::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-wrench-screwdriver';
 
 
     public static function form(Form $form): Form
     {
         return $form
-            ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->required(),
-                Forms\Components\TextInput::make('base_url')
-                    ->required(),
-                Forms\Components\TextInput::make('description')
-                    ->required(),
-                Forms\Components\TextInput::make('account_id')
-                    ->required(),
-                Forms\Components\TextInput::make('username')
-                    ->required(),
-                Forms\Components\TextInput::make('password')
-                    ->password()
-                    ->required(),
-//                Forms\Components\Select::make('user_id')
-//                    ->relationship('user', 'name')
-//                    ->required()
-            ]);
+            ->schema(Environment::getForm());
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-//                Tables\Columns\TextColumn::make('id')
-//                    ->label('ID')
-//                    ->searchable(),
+
                 Tables\Columns\TextColumn::make('name')
+                    ->description(function (Environment $record) {
+                        return $record->description;
+                    })
                     ->searchable(),
                 Tables\Columns\TextColumn::make('base_url')
                     ->label('Base URL')
-                    ->searchable(),
-                Tables\Columns\TextColumn::make('description')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('account_id')
                     ->label('Account ID')
@@ -64,12 +46,9 @@ class EnvironmentResource extends Resource
                 Tables\Columns\TextColumn::make('username')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('datasets_count')->counts('datasets')
-                ->label('Datasets')
-                ->badge()
-                ->alignCenter(),
-//                Tables\Columns\TextColumn::make('user.name')
-//                    ->numeric()
-//                    ->sortable(),
+                    ->label('Datasets')
+                    ->badge()
+                    ->alignCenter(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -83,8 +62,7 @@ class EnvironmentResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make('Manage')->label('Manage'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -106,7 +84,7 @@ class EnvironmentResource extends Resource
         return [
             'index' => Pages\ListEnvironments::route('/'),
             'create' => Pages\CreateEnvironment::route('/create'),
-            'view' => Pages\ViewEnvironment::route('/{record}'),
+//            'view' => Pages\ViewEnvironment::route('/{record}'),
             'edit' => Pages\EditEnvironment::route('/{record}/edit'),
         ];
     }

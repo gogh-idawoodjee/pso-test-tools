@@ -17,6 +17,7 @@ class DatasetResource extends Resource
 {
     protected static ?string $model = Dataset::class;
 
+    protected static bool $shouldRegisterNavigation = false;
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function form(Form $form): Form
@@ -36,6 +37,7 @@ class DatasetResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+
             ->columns([
                 Tables\Columns\TextColumn::make('id')
                     ->label('ID')
@@ -45,7 +47,6 @@ class DatasetResource extends Resource
                 Tables\Columns\TextColumn::make('rota')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('environment.name')
-                    ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -73,7 +74,7 @@ class DatasetResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+
         ];
     }
 

@@ -19,7 +19,7 @@ models:
   Environment:
     account_id: string
     base_url: url
-    description: string
+    description: string nullable
     id: uuid
     name: string
     password: string

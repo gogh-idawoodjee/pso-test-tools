@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\EnvironmentResource\RelationManagers;
 
+use App\Models\Dataset;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -34,6 +35,7 @@ class DatasetsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->description('Changed as saved as you go')
             ->recordTitleAttribute('name')
             ->columns([
                 Tables\Columns\TextInputColumn::make('name'),
@@ -46,8 +48,12 @@ class DatasetsRelationManager extends RelationManager
                 Tables\Actions\CreateAction::make(),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+//                Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
+                Tables\Actions\Action::make('psoload')
+                    ->action(function (Dataset $record) {
+                        $record->psoload();
+                    })
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
