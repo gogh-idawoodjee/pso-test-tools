@@ -4,11 +4,13 @@ namespace App\Models;
 
 use App\Rules\NoProdURL;
 use Filament\Forms;
+use Filament\Forms\Components\TextInput;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Hash;
 
 
 class Environment extends Model
@@ -38,7 +40,7 @@ class Environment extends Model
 
 
         return [
-            Forms\Components\Section::make('Environment Details')
+            Forms\Components\Section::make('Setup')
                 ->collapsible()
                 ->collapsed()
                 ->columns()
@@ -64,16 +66,43 @@ class Environment extends Model
                         ->label('Credentials')
                         ->columns()
                         ->schema([Forms\Components\TextInput::make('username')
-                            ->required(),
+                            ->required()->autocomplete(false),
                             Forms\Components\TextInput::make('password')
                                 ->password()
+                                ->dehydrateStateUsing(fn(string $state): string => Hash::make($state))
+                                ->dehydrated(fn(?string $state): bool => filled($state))
+                                ->autocomplete(false)
                                 ->required(),
                         ])
 
 //                Forms\Components\Select::make('user_id')
 //                    ->relationship('user', 'name')
 //                    ->required()
-                ])
+                ]),
+//            Forms\Components\Fieldset::make('PSO Initialization Settings')
+//                ->columns()
+//                ->schema([
+//                    Forms\Components\Toggle::make('send_to_pso')
+//                        ->dehydrated(false)
+//                        ->label('Send to PSO'),
+//                    Forms\Components\Toggle::make('keep_pso_data')
+//                        ->dehydrated(false)
+//                        ->label('Keep PSO Data')
+//                        ->requiredIf('send_to_pso', true),
+//                    TextInput::make('dse_duration')
+//                        ->dehydrated(false)
+//                        ->label('DSE Duration')
+//                        ->integer()
+//                        ->minValue(3)
+//                        ->placeholder(3),
+//                    TextInput::make('appointment_window')
+//                        ->dehydrated(false)
+//                        ->label('Appointment Window')
+//                        ->integer()
+//                        ->minValue(7)
+//                        ->placeholder(7),
+//
+//                ])
         ];
     }
 
