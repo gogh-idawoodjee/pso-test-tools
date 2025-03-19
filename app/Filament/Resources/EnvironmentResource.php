@@ -84,7 +84,7 @@ class EnvironmentResource extends Resource
         return [
             'index' => Pages\ListEnvironments::route('/'),
             'create' => Pages\CreateEnvironment::route('/create'),
-//            'view' => Pages\ViewEnvironment::route('/{record}'),
+//            'view' => Pages\PsoLoad::route('/{record}'),
             'edit' => Pages\EditEnvironment::route('/{record}/edit'),
         ];
     }

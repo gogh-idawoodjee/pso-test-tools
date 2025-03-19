@@ -42,7 +42,7 @@ class Environment extends Model
         return [
             Forms\Components\Section::make('Setup')
                 ->collapsible()
-                ->collapsed()
+//                ->collapsed()
                 ->columns()
                 ->icon('heroicon-o-wrench-screwdriver')
                 ->schema([
@@ -79,30 +79,7 @@ class Environment extends Model
 //                    ->relationship('user', 'name')
 //                    ->required()
                 ]),
-//            Forms\Components\Fieldset::make('PSO Initialization Settings')
-//                ->columns()
-//                ->schema([
-//                    Forms\Components\Toggle::make('send_to_pso')
-//                        ->dehydrated(false)
-//                        ->label('Send to PSO'),
-//                    Forms\Components\Toggle::make('keep_pso_data')
-//                        ->dehydrated(false)
-//                        ->label('Keep PSO Data')
-//                        ->requiredIf('send_to_pso', true),
-//                    TextInput::make('dse_duration')
-//                        ->dehydrated(false)
-//                        ->label('DSE Duration')
-//                        ->integer()
-//                        ->minValue(3)
-//                        ->placeholder(3),
-//                    TextInput::make('appointment_window')
-//                        ->dehydrated(false)
-//                        ->label('Appointment Window')
-//                        ->integer()
-//                        ->minValue(7)
-//                        ->placeholder(7),
-//
-//                ])
+
         ];
     }
 

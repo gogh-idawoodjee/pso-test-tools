@@ -49,7 +49,7 @@
     @endif
     after last endif
     <x-filament-panels::form>
-        {{ $psoform() }}
+{{--        {{ $psoform() }}--}}
     </x-filament-panels::form>
     {{ $stupidness }}
 
