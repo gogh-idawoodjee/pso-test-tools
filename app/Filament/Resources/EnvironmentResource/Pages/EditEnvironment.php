@@ -27,12 +27,18 @@ class EditEnvironment extends EditRecord
         return 'Environment';
     }
 
+    public function getContentTabIcon(): ?string
+    {
+        return 'heroicon-o-circle-stack';
+    }
+
 
     protected function getHeaderActions(): array
     {
         return [
 //            Actions\ViewAction::make()->label('Tools'),
             Actions\Action::make('tools')
+                ->icon('heroicon-o-wrench-screwdriver')
                 ->url('/psoload/' . $this->record->id),
             Actions\DeleteAction::make(),
         ];

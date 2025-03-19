@@ -2,14 +2,13 @@
 
 namespace App\Filament\Resources\EnvironmentResource\RelationManagers;
 
-use App\Models\Dataset;
+
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+
 
 class DatasetsRelationManager extends RelationManager
 {
@@ -21,8 +20,10 @@ class DatasetsRelationManager extends RelationManager
 
     public function isReadOnly(): bool
     {
+        parent::isReadOnly();
         return false;
     }
+
 
     public function form(Form $form): Form
     {
@@ -36,15 +37,16 @@ class DatasetsRelationManager extends RelationManager
             ]);
     }
 
+
     public function table(Table $table): Table
     {
-        $dataset_attributes = $this->dataset_attributes;
+
         return $table
-            ->description('Changed as saved as you go')
+            ->description('Changes are as saved as you go')
             ->recordTitleAttribute('name')
             ->columns([
-                Tables\Columns\TextInputColumn::make('name'),
-                Tables\Columns\TextInputColumn::make('rota'),
+                Tables\Columns\TextInputColumn::make('name')->label('Dataset ID'),
+                Tables\Columns\TextInputColumn::make('rota')->label('Rota ID'),
             ])
             ->filters([
                 //
@@ -53,15 +55,8 @@ class DatasetsRelationManager extends RelationManager
                 Tables\Actions\CreateAction::make(),
             ])
             ->actions([
-//                Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make(),
-                Tables\Actions\Action::make('psoload')
-                    ->action(function (Dataset $dataset, Forms\Get $get) use ($dataset_attributes) {
-                        $dataset->psoload($dataset_attributes);
-                    })
-//                    ->action(function (RelationManager $livewire, Dataset $dataset, Forms\Get $get) use ($dataset_attributes) {
-//                        $dataset->psoload($dataset_attributes);
-//                    })
+
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

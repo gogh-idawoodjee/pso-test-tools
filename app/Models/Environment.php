@@ -4,7 +4,7 @@ namespace App\Models;
 
 use App\Rules\NoProdURL;
 use Filament\Forms;
-use Filament\Forms\Components\TextInput;
+
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -75,9 +75,7 @@ class Environment extends Model
                                 ->required(),
                         ])
 
-//                Forms\Components\Select::make('user_id')
-//                    ->relationship('user', 'name')
-//                    ->required()
+
                 ]),
 
         ];

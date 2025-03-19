@@ -13,17 +13,22 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Resources\Pages\Page;
+use Illuminate\Contracts\Support\Htmlable;
+use Illuminate\Support\HtmlString;
 
 class PsoLoad extends Page
 
 {
     protected static string $resource = EnvironmentResource::class;
     protected static string $view = 'filament.resources.environment-resource.pages.pso-load';
-    protected static ?string $title = 'Tools';
+//    protected static ?string $title = 'Tools';
     protected static ?string $breadcrumb = 'Tools';
     public ?array $data = [];
 
+    protected static ?string $title ='Tools';
+
     private Environment $environment;
+
 
 
     public function mount(Environment $environment): void
@@ -31,9 +36,7 @@ class PsoLoad extends Page
         $this->environment = $environment;
         $this->form->fill();
 
-
     }
-
 
     public function form(Form $form): Form
     {

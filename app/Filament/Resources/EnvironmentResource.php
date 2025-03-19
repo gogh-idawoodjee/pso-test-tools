@@ -18,7 +18,7 @@ class EnvironmentResource extends Resource
 {
     protected static ?string $model = Environment::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-wrench-screwdriver';
+    protected static ?string $navigationIcon = 'heroicon-o-circle-stack';
 
 
     public static function form(Form $form): Form
@@ -74,7 +74,7 @@ class EnvironmentResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+
             RelationManagers\DatasetsRelationManager::class
         ];
     }
@@ -84,7 +84,6 @@ class EnvironmentResource extends Resource
         return [
             'index' => Pages\ListEnvironments::route('/'),
             'create' => Pages\CreateEnvironment::route('/create'),
-//            'view' => Pages\PsoLoad::route('/{record}'),
             'edit' => Pages\EditEnvironment::route('/{record}/edit'),
         ];
     }

@@ -10,6 +10,12 @@ class EditDataset extends EditRecord
 {
     protected static string $resource = DatasetResource::class;
 
+    public function getContentTabIcon(): ?string
+    {
+        return 'heroicon-o-wrench-screwdriver';
+    }
+
+
     protected function getHeaderActions(): array
     {
         return [
