@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\EnvironmentResource\Pages;
 
 use App\Filament\Resources\EnvironmentResource;
+use App\Models\Environment;
 use Filament\Actions;
 
 use Filament\Pages\Actions\Action;
@@ -39,7 +40,9 @@ class EditEnvironment extends EditRecord
 //            Actions\ViewAction::make()->label('Tools'),
             Actions\Action::make('tools')
                 ->icon('heroicon-o-wrench-screwdriver')
-                ->url('/psoload/' . $this->record->id),
+                ->url(function (Environment $record) {
+                    return route('environments.tools', ['environment' => $record]);
+                }),
             Actions\DeleteAction::make(),
         ];
     }
