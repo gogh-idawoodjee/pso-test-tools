@@ -5,7 +5,7 @@
 //            'fi-resource-record-' . $record->getKey(),
         ])>
 
-    {{ $this->form }}
+    {{ $this->psoload }}
 
 
 </x-filament-panels::page>

@@ -2,4 +2,4 @@
 
 use App\Filament\Resources\EnvironmentResource\Pages\PsoLoad;
 
-Route::get('psoload/{environment}', PsoLoad::class)->name('environments.tools');
+Route::get('psoload/{record}', PsoLoad::class)->name('environments.tools');

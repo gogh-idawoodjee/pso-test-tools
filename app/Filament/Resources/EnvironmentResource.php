@@ -64,10 +64,10 @@ class EnvironmentResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make('Manage')->label('Manage'),
                 Tables\Actions\Action::make('Tools')->label('Tools')
-                ->url(function(Environment $record) {
-                    return route('environments.tools', ['environment' => $record]);
-                })
-                ->icon('heroicon-o-wrench-screwdriver'),
+                    ->url(function (Environment $record) {
+                        return route('environments.tools', ['environment' => $record]);
+                    })
+                    ->icon('heroicon-o-wrench-screwdriver'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -90,6 +90,7 @@ class EnvironmentResource extends Resource
             'index' => Pages\ListEnvironments::route('/'),
             'create' => Pages\CreateEnvironment::route('/create'),
             'edit' => Pages\EditEnvironment::route('/{record}/edit'),
+            'tools' => Pages\PsoLoad::route('/psoload/{record}'),
         ];
     }
 }

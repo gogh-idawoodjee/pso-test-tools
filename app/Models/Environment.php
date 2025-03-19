@@ -76,7 +76,8 @@ class Environment extends Model
                         ])
 
 
-                ]),
+                ])
+            ,
 
         ];
     }
