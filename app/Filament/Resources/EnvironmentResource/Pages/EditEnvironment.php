@@ -6,7 +6,7 @@ use App\Filament\Resources\EnvironmentResource;
 use App\Models\Environment;
 use Filament\Actions;
 
-use Filament\Pages\Actions\Action;
+
 use Filament\Resources\Pages\EditRecord;
 
 
@@ -41,7 +41,7 @@ class EditEnvironment extends EditRecord
             Actions\Action::make('tools')
                 ->icon('heroicon-o-wrench-screwdriver')
                 ->url(function (Environment $record) {
-                    return route('environments.tools', ['environment' => $record]);
+                    return route('environments.tools', compact('record'));
                 }),
             Actions\DeleteAction::make(),
         ];

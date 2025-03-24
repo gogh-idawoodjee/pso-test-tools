@@ -5,8 +5,9 @@ namespace App\Filament\Resources\EnvironmentResource\Pages;
 use App\Enums\InputMode;
 use App\Enums\ProcessType;
 use App\Filament\Resources\EnvironmentResource;
-use App\Models\Environment;
+use App\Traits\PSOPayloads;
 use Carbon\Carbon;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Get;
 use Filament\Resources\Pages\Page;
@@ -19,32 +20,27 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 
-use Filament\Resources\Pages\ViewRecord;
+
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 
 class PsoLoad extends Page
 
 {
 
-    use InteractsWithRecord;
+    use InteractsWithRecord, PSOPayloads;
 
     protected static string $resource = EnvironmentResource::class;
     protected static string $view = 'filament.resources.environment-resource.pages.pso-load';
     protected static ?string $breadcrumb = 'Tools';
     public ?array $data = [];
 
+    public $response;
+
     protected static ?string $title = 'Tools';
 
 //    private Environment $environment;
 
-
-    protected function mutateFormDataBeforeFill(array $data): array
-    {
-        if (blank($data['base_url'])) {
-            $data['base_url'] = 'http://www.dcotc.com';
-        }
-        return $data;
-    }
 
     protected function getHeaderActions(): array
     {
@@ -52,7 +48,7 @@ class PsoLoad extends Page
 
             Action::make('Return to Environment')
                 ->icon('heroicon-o-arrow-uturn-left')
-                ->url('/environments/' . $this->record->id . '/edit')
+                ->url('/environments/' . $this->record->getKey() . '/edit')
 
         ];
     }
@@ -67,6 +63,8 @@ class PsoLoad extends Page
         $this->record = $this->resolveRecord($record);
         $this->setDefaults();
         $this->psoload->fill($this->record->toArray());
+        $this->response = new Collection();
+
     }
 
     private function setDefaults()
@@ -112,8 +110,7 @@ class PsoLoad extends Page
                     ->columns()
                     ->schema([
                         TextInput::make('base_url')
-                            ->label('Base URL')
-                            ->dehydrated(false),
+                            ->label('Base URL'),
                         TextInput::make('account_id')
                             ->label('Account ID'),
                         TextInput::make('username')
@@ -127,11 +124,15 @@ class PsoLoad extends Page
                     ->schema([
                         Toggle::make('send_to_pso')
                             ->dehydrated(false)
-                            ->label('Send to PSO'),
+                            ->label('Send to PSO')
+                            ->live(),
                         Toggle::make('keep_pso_data')
                             ->dehydrated(false)
                             ->label('Keep PSO Data')
-                            ->requiredIf('send_to_pso', true),
+                            ->requiredIf('send_to_pso', true)
+                            ->disabled(function (Get $get) {
+                                return !$get('send_to_pso');
+                            }),
                         TextInput::make('dse_duration')
                             ->dehydrated(false)
                             ->label('DSE Duration')
@@ -153,6 +154,7 @@ class PsoLoad extends Page
                             ->prefixIcon('heroicon-o-adjustments-horizontal'),
                         DateTimePicker::make('datetime')
                             ->dehydrated(false)
+                            ->label('Input Date Time')
                             ->prefixIcon('heroicon-o-clock')
                     ])
                     ->footerActions(
@@ -165,21 +167,49 @@ class PsoLoad extends Page
             ])->statePath('data');
     }
 
+
     public function sendToPSO($data)
     {
-//        dd($data('base_url'));
-        Http::post('https://webhook.site/7f7b00cc-813f-42ff-9511-586fa3a62a5b',
-            [
-                'dataset_id' => $data('dataset_id'),
-                'datetime' => $data('datetime'),
-                'dse_duration' => $data('dse_duration'),
-                'input_mode ' => $data('input_mode'),
 
-            ]);
+        $this->response = null;
+        $payload = $this->buildPayLoad($data);
+
+        $theresponse = Http::contentType('application/json')
+            ->accept('application/json')
+            ->post('https://pso-services.test/api/load', $payload);
+
+//        dd($theresponse->body());
+        $this->response = $theresponse->collect()->toJson(JSON_PRETTY_PRINT);
+//        dd($this->response);
+
+
     }
 
-    private function buildPayLoad()
+    private function buildPayLoad($data)
     {
+        $schema = [
+            'base_url' => $data('base_url'),
+            'dse_duration' => $data('dse_duration'),
+            'dataset_id' => $data('dataset_id'),
+            'rota_id' => $data('dataset_id'), //todo get this from dataset table
+            'description' => $data('input_mode') === InputMode::CHANGE ? 'Update Rota From Tool Box' : 'Load From Tool Box',
+            'send_to_pso' => $data('send_to_pso'),
+            'keep_pso_data' => $data('keep_pso_data'),
+            'account_id' => $data('account_id'),
+            'username' => $data('username'),
+            'password' => $data('password'),
+            'appointment_window' => $data('appointment_window'),
+            'process_type' => $data('process_type'),
+            'datetime' => $data('datetime'),
+            'input_mode' => $data('input_mode'),
+        ];
 
+        return $this->initialize_payload($schema);
     }
+
+//    public function render(): \Illuminate\Contracts\View\View
+//    {
+//        $this->dispatch('rules-filtered');
+//        return view('filament.resources.environment-resource.pages.pso-load');
+//    }
 }

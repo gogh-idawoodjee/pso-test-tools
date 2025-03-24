@@ -6,10 +6,10 @@ use Filament\Support\Contracts\HasLabel;
 
 enum ProcessType: string implements HasLabel
 {
-    case DYNAMIC = 'dynamic';
-    case APPOINTMENT = 'appointment';
-    case REACTIVE = 'reactive';
-    case STATIC = 'static';
+    case DYNAMIC = 'DYNAMIC';
+    case APPOINTMENT = 'APPOINTMENT';
+    case REACTIVE = 'REACTIVE';
+    case STATIC = 'STATIC';
 
     public function getLabel(): string|null
     {
@@ -23,6 +23,4 @@ enum ProcessType: string implements HasLabel
         };
 
     }
-
-
 }

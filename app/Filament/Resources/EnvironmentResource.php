@@ -65,7 +65,7 @@ class EnvironmentResource extends Resource
                 Tables\Actions\EditAction::make('Manage')->label('Manage'),
                 Tables\Actions\Action::make('Tools')->label('Tools')
                     ->url(function (Environment $record) {
-                        return route('environments.tools', ['environment' => $record]);
+                        return route('environments.tools', ['record' => $record]);
                     })
                     ->icon('heroicon-o-wrench-screwdriver'),
             ])

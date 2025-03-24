@@ -6,9 +6,8 @@ use Filament\Support\Contracts\HasLabel;
 
 enum InputMode: string implements HasLabel
 {
-    case LOAD = 'load';
-    case CHANGE = 'change';
-
+    case LOAD = 'LOAD';
+    case CHANGE = 'CHANGE';
 
     public function getLabel(): string|null
     {
@@ -19,6 +18,5 @@ enum InputMode: string implements HasLabel
         };
 
     }
-
 
 }
