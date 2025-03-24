@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('id');
             $table->string('name');
             $table->string('rota');
-            $table->foreignId('environment_id');
+            $table->foreignUuid('environment_id');
             $table->timestamps();
         });
     }

@@ -18,7 +18,7 @@ return new class extends Migration
             $table->uuid('id');
             $table->string('status');
             $table->string('type');
-            $table->foreignId('customer_id');
+            $table->foreignUuid('customer_id');
             $table->timestamps();
         });
     }
