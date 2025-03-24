@@ -5,10 +5,22 @@ namespace App\Traits;
 use App\Enums\InputMode;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Http;
+
 
 trait PSOPayloads
 {
+
+    public function sendtoPSO($api_segment, $payload)
+    {
+
+        $response = Http::contentType('application/json')
+            ->accept('application/json')
+            ->post('https://pso-services.test/api/' . $api_segment, $payload);
+
+        return $response->collect()->toJson(JSON_PRETTY_PRINT);
+
+    }
 
     public function initialize_payload($data)
     {

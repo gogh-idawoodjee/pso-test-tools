@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Get;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Forms\Components\Actions\Action as FormAction;
@@ -90,7 +91,6 @@ class PsoLoad extends Page
                     ->columns()
                     ->schema([
                         Select::make('dataset_id')
-                            ->dehydrated(false)
                             ->label('Dataset')
                             ->required()
                             ->placeholder('Select Dataset')
@@ -160,30 +160,38 @@ class PsoLoad extends Page
                     ->footerActions(
                         [FormAction::make('Push It Real Good')
                             ->action(function (Get $get) {
-                                $this->sendToPSO($get);
-                            }),]
+                                if(!$get('dataset_id')) {
+                                Notification::make('test')
+                                    ->title('fail bruv' . $get('dataset_id'))
+                                    ->success()
+                                    ->send();
+                                }
+                            })
+//                            ->action(function (Get $get) {
+//                                $this->sendToPSO('load', $this->buildPayLoad($get));
+//                            })
+                        ]
                     )
 
             ])->statePath('data');
     }
 
 
-    public function sendToPSO($data)
-    {
-
-        $this->response = null;
-        $payload = $this->buildPayLoad($data);
-
-        $theresponse = Http::contentType('application/json')
-            ->accept('application/json')
-            ->post('https://pso-services.test/api/load', $payload);
-
-//        dd($theresponse->body());
-        $this->response = $theresponse->collect()->toJson(JSON_PRETTY_PRINT);
-//        dd($this->response);
-
-
-    }
+//    public function sendToPSO($data)
+//        {
+//
+//
+//        $payload = $this->buildPayLoad($data);
+//
+//        $theresponse = Http::contentType('application/json')
+//            ->accept('application/json')
+//            ->post('https://pso-services.test/api/load', $payload);
+//
+////        dd($theresponse->body());
+//        $this->response = $theresponse->collect()->toJson(JSON_PRETTY_PRINT);
+////        dd($this->response);
+//
+//    }
 
     private function buildPayLoad($data)
     {
@@ -207,9 +215,4 @@ class PsoLoad extends Page
         return $this->initialize_payload($schema);
     }
 
-//    public function render(): \Illuminate\Contracts\View\View
-//    {
-//        $this->dispatch('rules-filtered');
-//        return view('filament.resources.environment-resource.pages.pso-load');
-//    }
 }
