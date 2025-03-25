@@ -9,12 +9,12 @@ models:
     name: string
     postcode: string
     region_id: unsignedInteger
-    relationships: {belongsTo: Region, hasMany: Task}
+    relationships: { belongsTo: Region, User, hasMany: Task }
     status: string
   Dataset:
     id: uuid
     name: string
-    relationships: {belongsTo: Environment}
+    relationships: { belongsTo: Environment }
     rota: string
   Environment:
     account_id: string
@@ -23,17 +23,17 @@ models:
     id: uuid
     name: string
     password: string
-    relationships: {belongsTo: User, hasMany: Dataset}
+    relationships: { belongsTo: User, hasMany: Dataset }
     username: string
   Region:
     id: uuid
     name: string
-    relationships: {hasMany: Customer}
+    relationships: { hasMany: Customer, belongsTo: User }
   Task:
     appt_window_finish: datetime
     appt_window_start: datetime
     duration: integer
     id: uuid
-    relationships: {belongsTo: Customer}
+    relationships: { belongsTo: Customer }
     status: int
     type: string

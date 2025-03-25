@@ -17,7 +17,14 @@ class EnvironmentResource extends Resource
     protected static ?string $model = Environment::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-circle-stack';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-circle-stack';
 
+    protected static ?string $navigationBadgeTooltip = 'The number of configured environments';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
 
     public static function form(Form $form): Form
     {

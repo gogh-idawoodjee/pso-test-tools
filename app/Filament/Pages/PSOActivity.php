@@ -5,7 +5,6 @@ namespace App\Filament\Pages;
 use App\Enums\TaskStatus;
 
 
-
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -22,10 +21,12 @@ class PSOActivity extends Page
 {
     use InteractsWithForms;
 
+    protected static ?string $navigationGroup = 'Services';
 
 
     public ?array $data = [];
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static ?string $activeNavigationIcon = 'heroicon-s-document-text';
 
     protected static ?string $navigationLabel = 'Activity Services';
     protected static ?string $title = 'Activity Services';
@@ -44,10 +45,8 @@ class PSOActivity extends Page
         return $form
             ->schema([
                 Section::make('Environment')
-                    ->icon('heroicon-o-circle-stack')
+                    ->icon('heroicon-s-circle-stack')
                     ->schema([]),
-
-//                Fieldset::make('Delete Skill'),
 
             ]);
 
@@ -58,11 +57,20 @@ class PSOActivity extends Page
         return $form
             ->schema([
                 Section::make('Activity Details')
+                    ->icon('heroicon-s-document-text')
                     ->schema([
                         Toggle::make('send_to_pso')->inline(false),
                         TextInput::make('activity_id')
                             ->label('Activity ID')
                             ->required(),
+                        Forms\Components\Actions::make([Forms\Components\Actions\Action::make('delete_activity')
+                            ->action(function (Forms\Get $get, Forms\Set $set) {
+//                                $set('excerpt', str($get('content'))->words(45, end: ''));
+                                // the update status thingy
+                                $this->deleteActivity();
+
+                            })->label('Delete Activity'),
+                        ])->columns(3),
                     ])->columns(),
                 Forms\Components\Tabs::make('activity_tabs')->tabs([
                     Forms\Components\Tabs\Tab::make('updatestatus_tab')
@@ -98,16 +106,26 @@ class PSOActivity extends Page
                     Forms\Components\Tabs\Tab::make('delete_sla_tab')
                         ->label('Delete SLA')
                         ->icon('heroicon-o-document-minus')
-                        ->schema([]),
+                        ->schema([
+                            Toggle::make('start_based'),
+                            TextInput::make('sla_type_id')
+                                ->required()
+                                ->label('SLA Type ID'),
+                            Forms\Components\Actions::make([Forms\Components\Actions\Action::make('delete_sla')
+                                ->action(function (Forms\Get $get, Forms\Set $set) {
+//                                $set('excerpt', str($get('content'))->words(45, end: ''));
+                                    // the update status thingy
+                                    $this->deleteSLA();
+
+                                })->label('Delete SLA'),
+                            ])->columns(3),
+                        ]),
                     Forms\Components\Tabs\Tab::make('generate_acitivities_tab')
                         ->label('Generate Activities')
                         ->icon('heroicon-o-document-duplicate')
                         ->schema([]),
-                    Forms\Components\Tabs\Tab::make('delete_activity_tab')
-                        ->label('Delete Activity')
-                        ->icon('heroicon-o-trash')
-                        ->schema([])
-                ]),
+
+                ])->contained(false),
             ])->statePath('data');
     }
 
@@ -116,5 +134,9 @@ class PSOActivity extends Page
         dd($this->activity_form->getState());
     }
 
+    public function deleteSLA(): void
+    {
+        dd($this->activity_form->getState());
+    }
 
 }
