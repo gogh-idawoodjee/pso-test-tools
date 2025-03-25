@@ -7,21 +7,42 @@ use Filament\Support\Contracts\HasLabel;
 enum TaskStatus: int implements HasLabel
 {
 
-    case DONOTSCHEDULE = -1;
-    case SCHEDULABLE = 0;
+    case IGNORE = -1;
+    case UNALLOCATED = 0;
     case ALLOCATED = 10;
+    case FOLLOW_ON = 20;
     case COMMITTED = 30;
+    case SENT = 32;
+    case DOWNLOADED = 35;
+    case ACCEPTED = 40;
+    case TRAVELLING = 50;
+    case WAITING = 55;
+    case ON_SITE = 60;
+    case PENDING_COMPLETION = 65;
+    case VISIT_COMPLETE = 68;
     case COMPLETED = 70;
+    case INCOMPLETE = 80;
 
     public function getLabel(): string|null
     {
 
         return match ($this) {
-            self::DONOTSCHEDULE => 'Do Not Schedule',
-            self::SCHEDULABLE => 'Schedulable',
+
+            self::IGNORE => 'Ignore',
+            self::UNALLOCATED => 'Unallocated',
             self::ALLOCATED => 'Allocated',
+            self::FOLLOW_ON => 'Follow On',
             self::COMMITTED => 'Committed',
+            self::SENT => 'Sent',
+            self::DOWNLOADED => 'Downloaded',
+            self::ACCEPTED => 'Accepted',
+            self::TRAVELLING => 'Travelling',
+            self::WAITING => 'Waiting',
+            self::ON_SITE => 'On Site',
+            self::PENDING_COMPLETION => 'Pending Completion',
+            self::VISIT_COMPLETE => 'Visit Complete',
             self::COMPLETED => 'Completed',
+            self::INCOMPLETE => 'Incomplete',
         };
 
     }

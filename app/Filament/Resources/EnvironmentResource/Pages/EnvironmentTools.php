@@ -7,7 +7,6 @@ use App\Enums\ProcessType;
 use App\Filament\Resources\EnvironmentResource;
 use App\Traits\PSOPayloads;
 use Carbon\Carbon;
-use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
@@ -20,28 +19,23 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
-
-
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Http;
 
-class PsoLoad extends Page
-
+class EnvironmentTools extends Page
 {
 
     use InteractsWithRecord, PSOPayloads;
 
     protected static string $resource = EnvironmentResource::class;
-    protected static string $view = 'filament.resources.environment-resource.pages.pso-load';
+
+    protected static string $view = 'filament.resources.environment-resource.pages.envtools';
+
     protected static ?string $breadcrumb = 'Tools';
     public ?array $data = [];
 
     public $response;
 
     protected static ?string $title = 'Tools';
-
-//    private Environment $environment;
-
 
     protected function getHeaderActions(): array
     {
@@ -68,7 +62,7 @@ class PsoLoad extends Page
 
     }
 
-    private function setDefaults()
+    private function setDefaults(): void
     {
         $this->record->dse_duration = 3;
         $this->record->input_mode = InputMode::LOAD;
@@ -76,12 +70,6 @@ class PsoLoad extends Page
         $this->record->process_type = ProcessType::APPOINTMENT;
         $this->record->datetime = Carbon::now();
     }
-
-//    public function mount(Environment $recordment): void
-//    {
-//        $this->environment = $environment;
-//        $this->form->fill();
-//    }
 
     public function psoload(Form $form): Form
     {
@@ -130,7 +118,7 @@ class PsoLoad extends Page
                             ->dehydrated(false)
                             ->label('Keep PSO Data')
                             ->requiredIf('send_to_pso', true)
-                            ->disabled(function (Get $get) {
+                            ->disabled(static function (Get $get) {
                                 return !$get('send_to_pso');
                             }),
                         TextInput::make('dse_duration')
@@ -160,11 +148,11 @@ class PsoLoad extends Page
                     ->footerActions(
                         [FormAction::make('Push It Real Good')
                             ->action(function (Get $get) {
-                                if(!$get('dataset_id')) {
-                                Notification::make('test')
-                                    ->title('fail bruv' . $get('dataset_id'))
-                                    ->success()
-                                    ->send();
+                                if (!$get('dataset_id')) {
+                                    Notification::make('test')
+                                        ->title('fail bruv' . $get('dataset_id'))
+                                        ->success()
+                                        ->send();
                                 }
                             })
 //                            ->action(function (Get $get) {
@@ -177,23 +165,7 @@ class PsoLoad extends Page
     }
 
 
-//    public function sendToPSO($data)
-//        {
-//
-//
-//        $payload = $this->buildPayLoad($data);
-//
-//        $theresponse = Http::contentType('application/json')
-//            ->accept('application/json')
-//            ->post('https://pso-services.test/api/load', $payload);
-//
-////        dd($theresponse->body());
-//        $this->response = $theresponse->collect()->toJson(JSON_PRETTY_PRINT);
-////        dd($this->response);
-//
-//    }
-
-    private function buildPayLoad($data)
+    private function buildPayLoad($data): array
     {
         $schema = [
             'base_url' => $data('base_url'),
@@ -214,5 +186,4 @@ class PsoLoad extends Page
 
         return $this->initialize_payload($schema);
     }
-
 }

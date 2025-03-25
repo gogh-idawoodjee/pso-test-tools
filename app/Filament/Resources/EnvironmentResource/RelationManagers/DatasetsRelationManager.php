@@ -14,6 +14,8 @@ class DatasetsRelationManager extends RelationManager
 {
     protected static string $relationship = 'datasets';
 
+
+
     public string $dse_duration;
     public array $dataset_attributes;
 
@@ -37,6 +39,7 @@ class DatasetsRelationManager extends RelationManager
             ]);
     }
 
+    protected static ?string $icon ='heroicon-o-cube-transparent';
 
     public function table(Table $table): Table
     {
@@ -52,7 +55,7 @@ class DatasetsRelationManager extends RelationManager
                 //
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make(),
+                Tables\Actions\CreateAction::make()->slideOver()->label('Add Dataset'),
             ])
             ->actions([
                 Tables\Actions\DeleteAction::make(),

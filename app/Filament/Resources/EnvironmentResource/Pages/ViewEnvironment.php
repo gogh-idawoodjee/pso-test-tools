@@ -12,7 +12,7 @@ class ViewEnvironment extends EditRecord
     protected static string $resource = EnvironmentResource::class;
 
 
-    protected static string $view = 'filament.resources.environment-resource.pages.pso-load';
+//    protected static string $view = 'filament.resources.environment-resource.pages.pso-load';
 
     protected function getHeaderActions(): array
     {

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\EnvironmentResource\Pages;
+use App\Filament\Resources\EnvironmentResource\Pages\testpage;
 use App\Filament\Resources\EnvironmentResource\RelationManagers;
 use App\Models\Environment;
 
@@ -65,7 +66,7 @@ class EnvironmentResource extends Resource
                 Tables\Actions\EditAction::make('Manage')->label('Manage'),
                 Tables\Actions\Action::make('Tools')->label('Tools')
                     ->url(function (Environment $record) {
-                        return route('environments.tools', ['record' => $record]);
+                        return self::getUrl('environmentTools', compact('record'));
                     })
                     ->icon('heroicon-o-wrench-screwdriver'),
             ])
@@ -90,7 +91,9 @@ class EnvironmentResource extends Resource
             'index' => Pages\ListEnvironments::route('/'),
             'create' => Pages\CreateEnvironment::route('/create'),
             'edit' => Pages\EditEnvironment::route('/{record}/edit'),
-            'tools' => Pages\PsoLoad::route('/psoload/{record}'),
+//            'tools' => Pages\PsoLoad::route('/psoload/{record}'),
+            'environmentTools' => Pages\EnvironmentTools::route('/environmentTools/{record}'),
+
         ];
     }
 }

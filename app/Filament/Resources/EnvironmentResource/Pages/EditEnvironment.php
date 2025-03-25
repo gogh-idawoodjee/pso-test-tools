@@ -41,7 +41,7 @@ class EditEnvironment extends EditRecord
             Actions\Action::make('tools')
                 ->icon('heroicon-o-wrench-screwdriver')
                 ->url(function (Environment $record) {
-                    return route('environments.tools', compact('record'));
+                    return EnvironmentResource::getUrl('environmentTools', compact('record'));
                 }),
             Actions\DeleteAction::make(),
         ];
