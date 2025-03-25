@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\EnvironmentResource\Pages;
-use App\Filament\Resources\EnvironmentResource\Pages\testpage;
 use App\Filament\Resources\EnvironmentResource\RelationManagers;
 use App\Models\Environment;
 
@@ -11,9 +10,7 @@ use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+
 
 class EnvironmentResource extends Resource
 {
@@ -34,7 +31,7 @@ class EnvironmentResource extends Resource
             ->columns([
 
                 Tables\Columns\TextColumn::make('name')
-                    ->description(function (Environment $record) {
+                    ->description(static function (Environment $record) {
                         return $record->description;
                     })
                     ->searchable(),
@@ -65,7 +62,7 @@ class EnvironmentResource extends Resource
             ->actions([
                 Tables\Actions\EditAction::make('Manage')->label('Manage'),
                 Tables\Actions\Action::make('Tools')->label('Tools')
-                    ->url(function (Environment $record) {
+                    ->url(static function (Environment $record) {
                         return self::getUrl('environmentTools', compact('record'));
                     })
                     ->icon('heroicon-o-wrench-screwdriver'),

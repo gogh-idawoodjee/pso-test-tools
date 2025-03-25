@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\UserOwnedModel;
 use App\Rules\NoProdURL;
 use Filament\Forms;
 
@@ -17,14 +18,19 @@ class Environment extends Model
 {
     use HasFactory, HasUuids;
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array
-     */
-    protected $hidden = [
-//        'password',
-    ];
+    protected static function booted(): void
+    {
+        static::addGlobalScope(new UserOwnedModel());
+    }
+
+//    /**
+//     * The attributes that should be hidden for serialization.
+//     *
+//     * @var array
+//     */
+////    protected $hidden = [
+//////        'password',
+////    ];
 
     /**
      * The attributes that should be cast to native types.
@@ -37,7 +43,6 @@ class Environment extends Model
 
     public static function getForm(): array
     {
-
 
         return [
             Forms\Components\Section::make('Setup')
@@ -70,7 +75,7 @@ class Environment extends Model
                             Forms\Components\TextInput::make('password')
                                 ->password()
                                 ->dehydrateStateUsing(fn(string $state): string => Hash::make($state))
-                                ->dehydrated(fn(?string $state): bool => filled($state))
+                                ->dehydrated(static fn(?string $state): bool => filled($state))
                                 ->autocomplete(false)
                                 ->required(),
                         ])
