@@ -94,6 +94,6 @@ class Environment extends Model
 
     public function datasets(): HasMany
     {
-        return $this->hasMany(Dataset::class);
+        return $this->hasMany(Dataset::class)->chaperone();
     }
 }

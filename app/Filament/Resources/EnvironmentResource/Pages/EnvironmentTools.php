@@ -20,6 +20,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Illuminate\Support\Collection;
+use Filament\Forms;
 
 class EnvironmentTools extends Page
 {
@@ -107,59 +108,83 @@ class EnvironmentTools extends Page
                             ->label('Password')
                             ->password(),
                     ]),
-                Section::make('PSO Input Reference Settings')
-                    ->columns()
-                    ->schema([
-                        Toggle::make('send_to_pso')
-                            ->dehydrated(false)
-                            ->label('Send to PSO')
-                            ->live(),
-                        Toggle::make('keep_pso_data')
-                            ->dehydrated(false)
-                            ->label('Keep PSO Data')
-                            ->requiredIf('send_to_pso', true)
-                            ->disabled(static function (Get $get) {
-                                return !$get('send_to_pso');
-                            }),
-                        TextInput::make('dse_duration')
-                            ->dehydrated(false)
-                            ->label('DSE Duration')
-                            ->integer()
-                            ->minValue(3)
-                            ->placeholder(3)
-                            ->prefixIcon('heroicon-o-cube-transparent'),
-                        TextInput::make('appointment_window')
-                            ->dehydrated(false)
-                            ->label('Appointment Window')
-                            ->integer()
-                            ->minValue(7)
-                            ->placeholder(7)
-                            ->prefixIcon('heroicon-o-calendar-date-range'),
-                        Select::make('process_type')
-                            ->enum(ProcessType::class)
-                            ->dehydrated(false)
-                            ->options(ProcessType::class)
-                            ->prefixIcon('heroicon-o-adjustments-horizontal'),
-                        DateTimePicker::make('datetime')
-                            ->dehydrated(false)
-                            ->label('Input Date Time')
-                            ->prefixIcon('heroicon-o-clock')
-                    ])
-                    ->footerActions(
-                        [FormAction::make('Push It Real Good')
-                            ->action(function (Get $get) {
-                                if (!$get('dataset_id')) {
-                                    Notification::make('test')
-                                        ->title('fail bruv' . $get('dataset_id'))
-                                        ->success()
-                                        ->send();
-                                }
-                            })
+                Forms\Components\Tabs::make('activity_tabs')->tabs([
+                    Forms\Components\Tabs\Tab::make('load_rota_tab')
+//                Section::make('PSO Input Reference Settings')
+                        ->schema([
+                            Toggle::make('send_to_pso')
+                                ->dehydrated(false)
+                                ->label('Send to PSO')
+                                ->live(),
+                            Toggle::make('keep_pso_data')
+                                ->dehydrated(false)
+                                ->label('Keep PSO Data')
+                                ->requiredIf('send_to_pso', true)
+                                ->disabled(static function (Get $get) {
+                                    return !$get('send_to_pso');
+                                }),
+                            TextInput::make('dse_duration')
+                                ->dehydrated(false)
+                                ->label('DSE Duration')
+                                ->integer()
+                                ->minValue(3)
+                                ->placeholder(3)
+                                ->prefixIcon('heroicon-o-cube-transparent'),
+                            TextInput::make('appointment_window')
+                                ->dehydrated(false)
+                                ->label('Appointment Window')
+                                ->integer()
+                                ->minValue(7)
+                                ->placeholder(7)
+                                ->prefixIcon('heroicon-o-calendar-date-range'),
+                            Select::make('process_type')
+                                ->enum(ProcessType::class)
+                                ->dehydrated(false)
+                                ->options(ProcessType::class)
+                                ->prefixIcon('heroicon-o-adjustments-horizontal'),
+                            DateTimePicker::make('datetime')
+                                ->dehydrated(false)
+                                ->label('Input Date Time')
+                                ->prefixIcon('heroicon-o-clock'),
+                            Forms\Components\Actions::make([Forms\Components\Actions\Action::make('push_it')
+                                ->action(function (Forms\Get $get, Forms\Set $set) {
+//                                $set('excerpt', str($get('content'))->words(45, end: ''));
+                                    // the update status thingy
+                                    $this->deleteActivity();
+
+                                })->label('Push it real good'),
+                            ])
+                        ])->columns()
+                        ->icon('heroicon-o-arrow-up-on-square')
+                        ->label('Initial Load and Rota'),
+                    Forms\Components\Tabs\Tab::make('travel_tab')
+                        ->schema([])
+                        ->icon('heroicon-o-map')
+                        ->label('Travel Analyzer'),
+                    Forms\Components\Tabs\Tab::make('system_usage_tab')
+                        ->schema([])
+                        ->icon('heroicon-o-cog')
+                        ->label('System Usage'),
+                    Forms\Components\Tabs\Tab::make('exception_tab')
+                        ->schema([])
+                        ->icon('heroicon-o-exclamation-circle')
+                        ->label('Exception Manager')
+                ])
+//                    ->footerActions(
+//                        [FormAction::make('Push It Real Good')
 //                            ->action(function (Get $get) {
-//                                $this->sendToPSO('load', $this->buildPayLoad($get));
+//                                if (!$get('dataset_id')) {
+//                                    Notification::make('test')
+//                                        ->title('fail bruv' . $get('dataset_id'))
+//                                        ->success()
+//                                        ->send();
+//                                }
 //                            })
-                        ]
-                    )
+////                            ->action(function (Get $get) {
+////                                $this->sendToPSO('load', $this->buildPayLoad($get));
+////                            })
+//                        ]
+//                    )
 
             ])->statePath('data');
     }
