@@ -6,6 +6,8 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Illuminate\Support\Collection;
 
 trait FormTrait
@@ -21,15 +23,35 @@ trait FormTrait
                 Section::make('Environment')
                     ->icon('heroicon-s-circle-stack')
                     ->schema([
-                        Toggle::make('send_to_pso')->inline(false),
-                        Select::make('Environment')
+                        Toggle::make('send_to_pso')
+                            ->label('Send to PSO')
+                            ->inline(false)
+                            ->afterStateUpdated(static function ($livewire, $component) {
+                                $livewire->validateOnly($component->getStatePath());
+                            })->live(),
+                        Select::make('environment_id')
                             ->options($this->environments->pluck('name', 'id'))
-                            ->requiredIf('send_to_pso', true),
-                        Select::make('Dataset')
+                            ->required(static fn(Get $get) => $get('send_to_pso'))
+                            ->afterStateUpdated(static function ($livewire, $component, Set $set, ?string $state) {
+                                $livewire->validateOnly($component->getStatePath());
+                            })
+                            ->live(),
+                        Select::make('dataset_id')
+                            ->options(function (Get $get) {
+                                return $this->environments->find($get('environment_id'))?->datasets->pluck('name', 'id');
+                            })->live()
                     ])->columns(3),
 
             ])->statePath('environment_data');
 
     }
 
+//    private function getEnvironment($selected_environment): array
+//    {
+//        dd($selected_environment);
+//        $myenvdetails = $this->environments->filter(function ($environment) use ($selected_environment) {
+//            return $environment->id == $selected_environment;
+//        });
+//        dd($myenvdetails);
+//    }
 }

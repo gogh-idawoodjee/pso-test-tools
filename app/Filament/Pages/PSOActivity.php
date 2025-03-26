@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+
 use App\Enums\TaskStatus;
 use App\Models\Environment;
 use App\Traits\FormTrait;
@@ -48,6 +49,7 @@ class PSOActivity extends Page
 
 
     }
+
 
 
     public function activity_form(Form $form): Form
@@ -144,12 +146,28 @@ class PSOActivity extends Page
 
     public function updateTaskStatus(): void
     {
-        dd($this->activity_form->getState());
+        $this->activity_form->getState();
+    }
+
+
+    private function TaskStatusPayload($data)
+    {
+        $schema = [
+            'base_url' => $data('base_url'),
+            'dataset_id' => $data('dataset_id'),
+            'send_to_pso' => $data('send_to_pso'),
+            'account_id' => $data('account_id'),
+            'username' => $data('username'),
+            'password' => $data('password'),
+            'resource_id' => $data('resource_id'),
+            'status' => $data('status'),
+            'activity_id' => $data('activity_id'),
+        ];
     }
 
     public function deleteSLA(): void
     {
-        dd($this->activity_form->getState());
+//        dd($this->activity_form->getState());
     }
 
 }
