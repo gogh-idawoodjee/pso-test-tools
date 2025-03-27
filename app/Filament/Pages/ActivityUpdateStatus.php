@@ -2,44 +2,51 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\HttpMethod;
+
 use App\Enums\TaskStatus;
 use App\Models\Environment;
 use App\Traits\FormTrait;
+use App\Traits\PSOPayloads;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
+
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Pages\Page;
 use Filament\Forms;
-use phpDocumentor\Reflection\DocBlock\Tags\Method;
+use Illuminate\Support\Carbon;
+
 
 class ActivityUpdateStatus extends Page
 {
 
-    use InteractsWithForms, FormTrait;
+    use InteractsWithForms, FormTrait, PSOPayloads;
 
 
+// View
     protected static string $view = 'filament.pages.activity-update-status';
+
+// Navigation
     protected static ?string $navigationParentItem = 'Activity Services';
-
     protected static ?string $navigationGroup = 'Services';
-
-    public ?array $activity_data = [];
-
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
     protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-path';
 
+// Page Information
     protected static ?string $title = 'Update Activity Status';
-
     protected static ?string $slug = 'activity-status';
+
+// Data
+    public ?array $activity_data = [];
 
 
     public function mount(): void
     {
         $this->environments = Environment::with('datasets')->get();
+//        $this->selectedEnvironment = new Environment();
         $this->env_form->fill();
         $this->activity_form->fill();
     }
@@ -57,15 +64,11 @@ class ActivityUpdateStatus extends Page
                 Section::make('Activity Details')
                     ->icon('heroicon-s-arrow-path')
                     ->schema([
-
                         TextInput::make('activity_id')
                             ->label('Activity ID')
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function ($livewire, $component) {
-                                $livewire->validateOnly($component->getStatePath());
-                            }),
-
+                            ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         Select::make('status')
                             ->enum(TaskStatus::class)
                             ->options(TaskStatus::class)
@@ -74,10 +77,9 @@ class ActivityUpdateStatus extends Page
                         Forms\Components\DateTimePicker::make('datetimefixed')
                             ->label('Date Time Fixed'),
                         TextInput::make('resource_id')
-                            ->label('Resource')
-                            ->required(static function (Get $get) {
-                                return $get('status') > 29;
-                            })
+                            ->label('Resource ID')
+                            ->helperText('Required if Status is Committed or higher')
+                            ->required(static fn(Get $get) => $get('status') > 29)
                             ->validationMessages([
                                 'required' => 'A resources is required for statuses Committed and higher'])
                             ->live(),
@@ -86,13 +88,9 @@ class ActivityUpdateStatus extends Page
 //                            }),
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('update_status')
                             ->action(function (Forms\Get $get, Forms\Set $set) {
-//                                $set('excerpt', str($get('content'))->words(45, end: ''));
-                                // the update status thingy
                                 $this->updateTaskStatus();
-
                             })
                         ]),
-
                     ])->columns(),
 
             ])->statePath('activity_data');
@@ -103,22 +101,32 @@ class ActivityUpdateStatus extends Page
         // validate
         $this->env_form->getState();
         $this->activity_form->getState();
-//        dd($this->environment_data);
+//        dd($this->TaskStatusPayload());
+
+        $status = TaskStatus::from($this->activity_data['status'])->ishServicesValue();
+
+        $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/' . $status, $this->TaskStatusPayload(), HttpMethod::PATCH);
+
     }
 
 
-    private function TaskStatusPayload($data)
+    private function TaskStatusPayload(): array
     {
-        $schema = [
-            'base_url' => $data('base_url'),
-            'dataset_id' => $data('dataset_id'),
-//            'send_to_pso' => $data('send_to_pso'),
-            'account_id' => $data('account_id'),
-            'username' => $data('username'),
-            'password' => $data('password'),
-            'resource_id' => $data('resource_id'),
-            'status' => $data('status'),
-            'activity_id' => $data('activity_id'),
+        $payload = [
+
+            'dataset_id' => $this->environment_data['dataset_id'],
+            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
+            'send_to_pso' => $this->environment_data['send_to_pso'],
+            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
+            'username' => $this->selectedEnvironment->getAttribute('username'),
+            'password' => $this->selectedEnvironment->getAttribute('password'),
+            'resource_id' => $this->activity_data['resource_id'],
+            'activity_id' => $this->activity_data['activity_id'],
         ];
+
+        if ($this->activity_data['datetimefixed']) {
+            $payload['date_time_fixed'] = Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i');
+        }
+        return $payload;
     }
 }

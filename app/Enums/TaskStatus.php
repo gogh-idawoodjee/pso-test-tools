@@ -46,4 +46,28 @@ enum TaskStatus: int implements HasLabel
         };
 
     }
+
+    public function ishServicesValue(): string|null
+    {
+
+        return match ($this) {
+
+            self::IGNORE => 'ignore',
+            self::UNALLOCATED => 'unallocated',
+            self::ALLOCATED => 'allocated',
+            self::FOLLOW_ON => 'followon',
+            self::COMMITTED => 'committed',
+            self::SENT => 'sent',
+            self::DOWNLOADED => 'downloaded',
+            self::ACCEPTED => 'accepted',
+            self::TRAVELLING => 'travelling',
+            self::WAITING => 'waiting',
+            self::ON_SITE => 'onsite',
+            self::PENDING_COMPLETION => 'pendingcompletion',
+            self::VISIT_COMPLETE => 'visitcomplete',
+            self::COMPLETED => 'completed',
+            self::INCOMPLETE => 'incomplete',
+        };
+
+    }
 }

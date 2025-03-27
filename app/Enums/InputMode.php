@@ -11,10 +11,10 @@ enum InputMode: string implements HasLabel
 
     public function getLabel(): string|null
     {
-
         return match ($this) {
             self::LOAD => 'Load',
-            self::CHANGE => 'Change',
+            self::CHANGE => 'Change'
+
         };
 
     }

@@ -8,5 +8,12 @@
 
     {{$this->activity_form}}
 
+    <pre>
+<x-torchlight-code language='json'>
+    {!! $this->response !!}
+
+
+    </x-torchlight-code>
+    </pre>
 
 </x-filament-panels::page>
