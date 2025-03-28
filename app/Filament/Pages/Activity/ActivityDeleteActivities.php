@@ -12,6 +12,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
+use JsonException;
+use Override;
 
 class ActivityDeleteActivities extends Page
 {
@@ -59,7 +61,7 @@ class ActivityDeleteActivities extends Page
         return $payload;
     }
 
-    protected function getForms(): array
+    #[Override] protected function getForms(): array
     {
         return ['env_form', 'activity_form'];
     }
@@ -85,7 +87,7 @@ class ActivityDeleteActivities extends Page
                             ->reorderable(false),
 
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('delete_activity')
-                            ->action(function (Forms\Get $get, Forms\Set $set) {
+                            ->action(function () {
                                 $this->deleteActivities();
                             })
                         ]),
@@ -94,6 +96,9 @@ class ActivityDeleteActivities extends Page
             ])->statePath('activity_data');
     }
 
+    /**
+     * @throws JsonException
+     */
     public function deleteActivities(): void
     {
         $this->validateForms($this->getForms());
