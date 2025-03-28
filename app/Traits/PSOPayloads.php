@@ -9,15 +9,18 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use JsonException;
+use SensitiveParameter;
 
 
 trait PSOPayloads
 {
 
+    // todo always get the token instead of sending user/pass to the API
+
     /**
      * @throws JsonException
      */
-    public function sendToPSO($api_segment, $payload, $method = HttpMethod::POST)
+    public function sendToPSO(#[SensitiveParameter] $api_segment, $payload, $method = HttpMethod::POST)
     {
 
         $response = Http::contentType('application/json')
@@ -43,7 +46,7 @@ trait PSOPayloads
 
     }
 
-    public function notifyPayloadSent($title, $body, $pass)
+    public function notifyPayloadSent($title, $body, $pass): void
     {
         Notification::make()
             ->title($title)

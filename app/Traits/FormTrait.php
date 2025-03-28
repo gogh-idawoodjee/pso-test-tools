@@ -21,6 +21,13 @@ trait FormTrait
 
     public $response;
 
+    public function validateForms($forms): void
+    {
+        foreach ($forms as $form) {
+            $this->{$form}->getState();
+        }
+    }
+
 
     public function env_form(Form $form): Form
     {
@@ -35,15 +42,21 @@ trait FormTrait
                             ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
                             ->live(),
                         Select::make('environment_id')
+                            ->prefixIcon('heroicon-o-globe-alt')
                             ->options($this->environments->pluck('name', 'id'))
-                            ->required(static fn(Get $get) => $get('send_to_pso'))
-//                            ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+//                            ->required(static fn(Get $get) => $get('send_to_pso'))
+                            ->required()
                             ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
                                 $livewire->validateOnly($component->getStatePath());
                                 $this->setCurrentEnvironment($state);
                             })
                             ->live(),
                         Select::make('dataset_id')
+                            ->prefixIcon('heroicon-o-cube-transparent')
+                            ->required()
+                            ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
+                                $livewire->validateOnly($component->getStatePath());
+                            })
                             ->options(function (Get $get) {
                                 return $this->environments->find($get('environment_id'))?->datasets->pluck('name', 'name');
                             })->live()

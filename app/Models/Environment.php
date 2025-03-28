@@ -12,13 +12,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Hash;
+use Override;
 
 
 class Environment extends Model
 {
     use HasFactory, HasUuids;
 
-    protected static function booted(): void
+    #[Override] protected static function booted(): void
     {
         static::addGlobalScope(new UserOwnedModel());
     }

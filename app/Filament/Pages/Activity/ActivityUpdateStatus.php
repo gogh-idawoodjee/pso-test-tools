@@ -1,22 +1,20 @@
 <?php
 
-namespace App\Filament\Pages;
+namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
-
 use App\Enums\TaskStatus;
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use App\Traits\PSOPayloads;
+use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Pages\Page;
-use Filament\Forms;
 use Illuminate\Support\Carbon;
 
 
@@ -65,18 +63,23 @@ class ActivityUpdateStatus extends Page
                     ->icon('heroicon-s-arrow-path')
                     ->schema([
                         TextInput::make('activity_id')
+                            ->prefixIcon('heroicon-o-clipboard')
                             ->label('Activity ID')
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         Select::make('status')
+                            ->prefixIcon('heroicon-o-adjustments-horizontal')
                             ->enum(TaskStatus::class)
                             ->options(TaskStatus::class)
                             ->required()
                             ->live(),
                         Forms\Components\DateTimePicker::make('datetimefixed')
+                            ->prefixIcon('heroicon-o-calendar')
                             ->label('Date Time Fixed'),
+
                         TextInput::make('resource_id')
+                            ->prefixIcon('heroicon-o-user')
                             ->label('Resource ID')
                             ->helperText('Required if Status is Committed or higher')
                             ->required(static fn(Get $get) => $get('status') > 29)
@@ -99,9 +102,7 @@ class ActivityUpdateStatus extends Page
     public function updateTaskStatus(): void
     {
         // validate
-        $this->env_form->getState();
-        $this->activity_form->getState();
-//        dd($this->TaskStatusPayload());
+        $this->validateForms($this->getForms());
 
         $status = TaskStatus::from($this->activity_data['status'])->ishServicesValue();
 
