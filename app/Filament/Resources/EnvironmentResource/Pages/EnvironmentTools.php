@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\EnvironmentResource\Pages;
 
+use App\Enums\HttpMethod;
 use App\Enums\InputMode;
 use App\Enums\ProcessType;
 use App\Filament\Resources\EnvironmentResource;
@@ -9,18 +10,17 @@ use App\Traits\PSOPayloads;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Get;
-use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
-use Filament\Forms\Components\Actions\Action as FormAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Arr;
 use Filament\Forms;
+use JsonException;
 
 class EnvironmentTools extends Page
 {
@@ -59,7 +59,6 @@ class EnvironmentTools extends Page
         $this->record = $this->resolveRecord($record);
         $this->setDefaults();
         $this->psoload->fill($this->record->toArray());
-        $this->response = new Collection();
 
     }
 
@@ -147,48 +146,43 @@ class EnvironmentTools extends Page
                                 ->label('Input Date Time')
                                 ->prefixIcon('heroicon-o-clock'),
                             Forms\Components\Actions::make([Forms\Components\Actions\Action::make('push_it')
-                                ->action(function (Forms\Get $get, Forms\Set $set) {
+                                ->action(function (Forms\Get $get) {
 //                                $set('excerpt', str($get('content'))->words(45, end: ''));
                                     // the update status thingy
-                                    $this->deleteActivity();
+                                    $this->initPSO($get);
 
                                 })->label('Push it real good'),
                             ])
                         ])->columns()
                         ->icon('heroicon-o-arrow-up-on-square')
                         ->label('Initial Load and Rota'),
-                    Forms\Components\Tabs\Tab::make('travel_tab')
-                        ->schema([])
-                        ->icon('heroicon-o-map')
-                        ->label('Travel Analyzer'),
+
                     Forms\Components\Tabs\Tab::make('system_usage_tab')
                         ->schema([])
                         ->icon('heroicon-o-cog')
                         ->label('System Usage'),
-                    Forms\Components\Tabs\Tab::make('exception_tab')
-                        ->schema([])
-                        ->icon('heroicon-o-exclamation-circle')
-                        ->label('Exception Manager')
+
                 ])
-//                    ->footerActions(
-//                        [FormAction::make('Push It Real Good')
-//                            ->action(function (Get $get) {
-//                                if (!$get('dataset_id')) {
-//                                    Notification::make('test')
-//                                        ->title('fail bruv' . $get('dataset_id'))
-//                                        ->success()
-//                                        ->send();
-//                                }
-//                            })
-////                            ->action(function (Get $get) {
-////                                $this->sendToPSO('load', $this->buildPayLoad($get));
-////                            })
-//                        ]
-//                    )
 
             ])->statePath('data');
     }
 
+
+    /**
+     * @throws JsonException
+     */
+    public function initPSO($data): void
+    {
+
+        foreach ($this->getForms() as $form) {
+            $this->{$form}->getState();
+        }
+        $segment = $this->data['input_mode'] === InputMode::LOAD ? 'load' : 'rotatodse';
+        $method = $this->data['input_mode'] === InputMode::LOAD ? HttpMethod::POST : HttpMethod::PATCH;
+
+        $this->response = $this->sendToPSO($segment, $this->buildPayLoad($data), $method);
+
+    }
 
     private function buildPayLoad($data): array
     {
@@ -210,5 +204,38 @@ class EnvironmentTools extends Page
         ];
 
         return $this->initialize_payload($schema);
+    }
+
+    public function initialize_payload($data): array
+    {
+        $payload =
+            [
+                'base_url' => $data['base_url'],
+                'datetime' => Carbon::parse($data['datetime'])->toAtomString() ?: Carbon::now()->toAtomString(),
+                'description' => $data['description'],
+                'organisation_id' => '2',
+                'dataset_id' => $data['dataset_id'],
+                'send_to_pso' => $data['send_to_pso'],
+
+            ];
+
+        if ($data['input_mode'] === InputMode::LOAD) {
+
+            $payload = Arr::add($payload, 'dse_duration', $data['dse_duration']);
+            $payload = Arr::add($payload, 'keep_pso_data', $data['keep_pso_data']);
+            $payload = Arr::add($payload, 'process_type', $data['process_type']);
+            $payload = Arr::add($payload, 'appointment_window', $data['appointment_window']);
+
+        }
+
+        if ($data['send_to_pso']) {
+
+            $payload = Arr::add($payload, 'username', $data['username']);
+            $payload = Arr::add($payload, 'password', $data['password']);
+            $payload = Arr::add($payload, 'account_id', $data['account_id']);
+
+        }
+
+        return $payload;
     }
 }
