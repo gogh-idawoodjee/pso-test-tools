@@ -21,6 +21,9 @@ trait FormTrait
 
     public $response;
 
+    public bool $isDataSetHidden = false;
+    public bool $isDataSetRequired = false;
+
     public function validateForms($forms): void
     {
         foreach ($forms as $form) {
@@ -50,10 +53,11 @@ trait FormTrait
                                 $livewire->validateOnly($component->getStatePath());
                                 $this->setCurrentEnvironment($state);
                             })
-                            ->live(),
+                            ->live()->columnSpan($this->isDataSetHidden ? 2 : 1),
                         Select::make('dataset_id')
                             ->prefixIcon('heroicon-o-cube-transparent')
-                            ->required()
+                            ->required(!$this->isDataSetRequired)
+                            ->hidden($this->isDataSetHidden)
                             ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
                                 $livewire->validateOnly($component->getStatePath());
                             })
@@ -72,12 +76,4 @@ trait FormTrait
 
     }
 
-//    private function getEnvironment($selected_environment): array
-//    {
-//        dd($selected_environment);
-//        $myenvdetails = $this->environments->filter(function ($environment) use ($selected_environment) {
-//            return $environment->id == $selected_environment;
-//        });
-//        dd($myenvdetails);
-//    }
 }

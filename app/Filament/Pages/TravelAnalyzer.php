@@ -38,6 +38,7 @@ class TravelAnalyzer extends Page
     {
 
         $this->environments = Environment::with('datasets')->get();
+        $this->isDataSetHidden = true;
 
     }
 
