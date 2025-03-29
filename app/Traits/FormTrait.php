@@ -18,7 +18,8 @@ trait FormTrait
     public ?array $environment_data = [];
     public Environment $selectedEnvironment;
     public $response;
-    public bool $isDataSetHidden, $isDataSetRequired = false;
+    public bool $isDataSetHidden = false;
+    public bool $isDataSetRequired = false;
 
     public function validateForms($forms): void
     {
@@ -32,7 +33,7 @@ trait FormTrait
     {
         return $form
             ->schema([
-                Section::make('Environment')
+                Section::make('env')
                     ->icon('heroicon-s-circle-stack')
                     ->schema([
                         Toggle::make('send_to_pso')

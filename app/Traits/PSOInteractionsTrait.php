@@ -77,6 +77,7 @@ trait PSOInteractionsTrait
         $response = Http::contentType('application/json')
             ->accept('application/json')
             ->{$method->value}('https://' . config('psott.pso-services-api') . '/api/' . $api_segment, $payload);
+dd($response->body());
 
         $pass = $response->successful();
 
@@ -85,7 +86,7 @@ trait PSOInteractionsTrait
         } elseif ($response->unauthorized()) {
             $body = 'invalid credentials';
         } else {
-            $body = json_decode($response->body(), false, 512, JSON_THROW_ON_ERROR)->description;
+            $body = json_decode($response->body(), false, 512, JSON_THROW_ON_ERROR);//->description;
         }
 
         $this->notifyPayloadSent($pass ? 'Success' : 'Error', $body, $pass);

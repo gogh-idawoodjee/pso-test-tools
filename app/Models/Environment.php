@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Hashing\BcryptHasher;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Override;
 
@@ -18,6 +20,8 @@ use Override;
 class Environment extends Model
 {
     use HasFactory, HasUuids;
+
+
 
     #[Override] protected static function booted(): void
     {
@@ -75,7 +79,7 @@ class Environment extends Model
                             ->required()->autocomplete(false),
                             Forms\Components\TextInput::make('password')
                                 ->password()
-                                ->dehydrateStateUsing(fn(string $state): string => Hash::make($state))
+                                ->dehydrateStateUsing(fn(string $state): string => Crypt::encryptString($state))
                                 ->dehydrated(static fn(?string $state): bool => filled($state))
                                 ->autocomplete(false)
                                 ->required(),

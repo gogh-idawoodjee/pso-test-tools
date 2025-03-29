@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 
+use App\Enums\HttpMethod;
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use App\Traits\GeocCodeTrait;
@@ -17,6 +18,7 @@ use Filament\Forms\Form;
 
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Crypt;
 
 
 class TravelAnalyzer extends Page
@@ -39,7 +41,8 @@ class TravelAnalyzer extends Page
     {
 
         $this->environments = Environment::with('datasets')->get();
-        $this->isDataSetHidden = true;
+        $this->env_form->fill();
+
 
     }
 
@@ -176,8 +179,24 @@ class TravelAnalyzer extends Page
     public function dotheThing($get)
     {
 
-        $token = $this->authenticatePSO($this->selectedEnvironment->base_url, $get('account_id'), $get('username'), $get('password'));
-//        dd($token);
+        $token = $this->authenticatePSO($this->selectedEnvironment->base_url, $this->selectedEnvironment->account_id, $this->selectedEnvironment->username, Crypt::decryptString($this->selectedEnvironment->password));
+
+
+        $schema = [
+            'base_url' => $this->selectedEnvironment->base_url,
+            'dataset_id' => $this->environment_data['dataset_id'],
+            'account_id' => $this->selectedEnvironment->account_id,
+            'lat_to' => $get('lat_to'),
+            'lat_from' => $get('lat_from'),
+            'long_from' => $get('long_from'),
+            'long_to' => $get('long_to'),
+            'send_to_pso' => $this->environment_data['send_to_pso'],
+            'google_api_key' => config('psott.google_api_key'),
+        ];
+
+
+        $this->response = $this->sendToPSO('travelanalyzer', $schema);
+        dd($this->response);
 
     }
 
