@@ -181,7 +181,6 @@ class TravelAnalyzer extends Page
 
         $token = $this->authenticatePSO($this->selectedEnvironment->base_url, $this->selectedEnvironment->account_id, $this->selectedEnvironment->username, Crypt::decryptString($this->selectedEnvironment->password));
 
-
         $schema = [
             'base_url' => $this->selectedEnvironment->base_url,
             'dataset_id' => $this->environment_data['dataset_id'],
@@ -193,7 +192,6 @@ class TravelAnalyzer extends Page
             'send_to_pso' => $this->environment_data['send_to_pso'],
             'google_api_key' => config('psott.google_api_key'),
         ];
-
 
         $this->response = $this->sendToPSO('travelanalyzer', $schema);
         dd($this->response);

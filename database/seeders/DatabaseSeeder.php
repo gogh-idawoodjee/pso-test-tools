@@ -32,7 +32,18 @@ class DatabaseSeeder extends Seeder
             'description' => 'the drome',
             'account_id' => 'Default',
             'username' => 'admin',
-            'password' => Crypt::encrypt('Ohyouthinkdarknessisyourally1!'),
+            'password' => Crypt::encrypt('fakepass!'),
+            'user_id' => '1'
+        ]);
+
+        Environment::create([
+            'name' => 'The Drome',
+            'id' => Uuid::uuid4()->toString(),
+            'base_url' => 'https://enercare-pso-tst.ifs.cloud',
+            'description' => 'EC Test',
+            'account_id' => 'Default',
+            'username' => 'idawoodjee',
+            'password' => Crypt::encrypt('fakepassword'),
             'user_id' => '1'
         ]);
 
