@@ -22,7 +22,7 @@ class ActivityDeleteActivities extends Page
 
 // Navigation
     protected static ?string $navigationParentItem = 'Activity Services';
-    protected static ?string $navigationGroup = 'Services';
+    protected static ?string $navigationGroup = 'API Services';
     protected static ?string $navigationIcon = 'heroicon-o-trash';
     protected static ?string $activeNavigationIcon = 'heroicon-s-trash';
 

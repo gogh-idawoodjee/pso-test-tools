@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Filament\Pages;
+namespace App\Filament\Pages\Activity;
 
 use App\Models\Environment;
 use App\Traits\FormTrait;
@@ -28,7 +28,7 @@ class ActivityGenerateActivities extends Page
 
 // Navigation
     protected static ?string $navigationParentItem = 'Activity Services';
-    protected static ?string $navigationGroup = 'Services';
+    protected static ?string $navigationGroup = 'API Services';
     protected static ?string $navigationIcon = 'heroicon-o-document-plus';
     protected static ?string $activeNavigationIcon = 'heroicon-s-document-plus';
 

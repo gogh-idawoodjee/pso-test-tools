@@ -29,7 +29,7 @@ class ActivityUpdateStatus extends Page
 
 // Navigation
     protected static ?string $navigationParentItem = 'Activity Services';
-    protected static ?string $navigationGroup = 'Services';
+    protected static ?string $navigationGroup = 'API Services';
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
     protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-path';
 

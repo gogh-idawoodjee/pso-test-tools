@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Filament\Pages;
+namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
-
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use App\Traits\PSOPayloads;
@@ -26,7 +25,7 @@ class ActivityDeleteSla extends Page
 
 // Navigation
     protected static ?string $navigationParentItem = 'Activity Services';
-    protected static ?string $navigationGroup = 'Services';
+    protected static ?string $navigationGroup = 'API Services';
     protected static ?string $navigationIcon = 'heroicon-o-trash';
     protected static ?string $activeNavigationIcon = 'heroicon-s-trash';
 
