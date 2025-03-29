@@ -14,7 +14,7 @@ class ModellingServices extends Page
     protected static ?string $navigationIcon = 'heroicon-o-cube-transparent';
     protected static ?string $activeNavigationIcon = 'heroicon-s-cube-transparent';
 
-    protected static ?string $navigationGroup = 'Services';
+    protected static ?string $navigationGroup = 'API Services';
     protected static ?string $navigationLabel = 'Modelling Services';
     protected static ?string $title = 'Modelling Services';
     protected static ?string $slug = 'modelling-services';

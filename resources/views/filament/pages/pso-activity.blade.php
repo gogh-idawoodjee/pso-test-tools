@@ -3,9 +3,7 @@
     '/' => 'Home',
     '/activity-services' => 'Activity Services',
 ]"/>
-    {{$this->env_form}}
-
-    {{$this->activity_form}}
+check out the services on the left
 
 
 </x-filament-panels::page>

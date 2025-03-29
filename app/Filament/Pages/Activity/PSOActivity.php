@@ -47,7 +47,6 @@ class PSOActivity extends Page
 
         $this->environments = Environment::with('datasets')->get();
 
-
     }
 
 

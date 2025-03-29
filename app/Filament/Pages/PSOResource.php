@@ -26,7 +26,7 @@ class PSOResource extends Page
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $activeNavigationIcon = 'heroicon-s-user-group';
-    protected static ?string $navigationGroup = 'Services';
+    protected static ?string $navigationGroup = 'API Services';
 
     protected static ?string $navigationLabel = 'Resource Services';
     protected static ?string $title = 'Resource Services';

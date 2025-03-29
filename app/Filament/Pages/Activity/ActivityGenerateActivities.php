@@ -4,6 +4,7 @@ namespace App\Filament\Pages\Activity;
 
 use App\Models\Environment;
 use App\Traits\FormTrait;
+use App\Traits\GeocCodeTrait;
 use App\Traits\PSOPayloads;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
@@ -20,7 +21,7 @@ use Spatie\Geocoder\Geocoder;
 
 class ActivityGenerateActivities extends Page
 {
-    use InteractsWithForms, FormTrait, PSOPayloads;
+    use InteractsWithForms, FormTrait, PSOPayloads, GeocCodeTrait;
 
 
 // View
@@ -224,17 +225,6 @@ class ActivityGenerateActivities extends Page
         $this->validateForms($this->getForms());
 
         $this->response = $this->sendToPSO('activity', $this->generateActivitiesPayload());
-
-    }
-
-    public function geocodeAddress($address): array
-    {
-        $client = new Client();
-
-        $geocoder = new Geocoder($client);
-        $geocoder->setApiKey(config('geocoder.key'));
-        return $geocoder->getCoordinatesForAddress($address);
-
 
     }
 
