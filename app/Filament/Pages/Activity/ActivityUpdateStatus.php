@@ -6,7 +6,7 @@ use App\Enums\HttpMethod;
 use App\Enums\TaskStatus;
 use App\Models\Environment;
 use App\Traits\FormTrait;
-use App\Traits\PSOPayloads;
+use App\Traits\PSOInteractionsTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -21,7 +21,7 @@ use Illuminate\Support\Carbon;
 class ActivityUpdateStatus extends Page
 {
 
-    use InteractsWithForms, FormTrait, PSOPayloads;
+    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
 
 
 // View
@@ -94,7 +94,9 @@ class ActivityUpdateStatus extends Page
                                 $this->updateTaskStatus();
                             })
                         ]),
-                    ])->columns(),
+
+                    ])
+                    ->columns(),
 
             ])->statePath('activity_data');
     }

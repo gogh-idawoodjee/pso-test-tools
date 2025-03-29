@@ -5,7 +5,7 @@ namespace App\Filament\Pages\Activity;
 use App\Enums\HttpMethod;
 use App\Models\Environment;
 use App\Traits\FormTrait;
-use App\Traits\PSOPayloads;
+use App\Traits\PSOInteractionsTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
@@ -18,7 +18,7 @@ use Override;
 class ActivityDeleteActivities extends Page
 {
 
-    use InteractsWithForms, FormTrait, PSOPayloads;
+    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
 
 // Navigation
     protected static ?string $navigationParentItem = 'Activity Services';

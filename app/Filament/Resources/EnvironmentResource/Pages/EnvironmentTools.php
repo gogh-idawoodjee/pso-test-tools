@@ -6,7 +6,7 @@ use App\Enums\HttpMethod;
 use App\Enums\InputMode;
 use App\Enums\ProcessType;
 use App\Filament\Resources\EnvironmentResource;
-use App\Traits\PSOPayloads;
+use App\Traits\PSOInteractionsTrait;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Get;
@@ -25,7 +25,7 @@ use JsonException;
 class EnvironmentTools extends Page
 {
 
-    use InteractsWithRecord, PSOPayloads;
+    use InteractsWithRecord, PSOInteractionsTrait;
 
     protected static string $resource = EnvironmentResource::class;
 

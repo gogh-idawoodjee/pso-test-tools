@@ -16,13 +16,9 @@ trait FormTrait
 
     public Collection $environments;
     public ?array $environment_data = [];
-
     public Environment $selectedEnvironment;
-
     public $response;
-
-    public bool $isDataSetHidden = false;
-    public bool $isDataSetRequired = false;
+    public bool $isDataSetHidden, $isDataSetRequired = false;
 
     public function validateForms($forms): void
     {
@@ -47,7 +43,6 @@ trait FormTrait
                         Select::make('environment_id')
                             ->prefixIcon('heroicon-o-globe-alt')
                             ->options($this->environments->pluck('name', 'id'))
-//                            ->required(static fn(Get $get) => $get('send_to_pso'))
                             ->required()
                             ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
                                 $livewire->validateOnly($component->getStatePath());

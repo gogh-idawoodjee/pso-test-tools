@@ -6,6 +6,7 @@ namespace App\Filament\Pages;
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use App\Traits\GeocCodeTrait;
+use App\Traits\PSOInteractionsTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 
@@ -21,7 +22,7 @@ use Filament\Pages\Page;
 class TravelAnalyzer extends Page
 {
 
-    use InteractsWithForms, FormTrait, GeocCodeTrait;
+    use InteractsWithForms, FormTrait, GeocCodeTrait, PSOInteractionsTrait;
 
     protected static ?string $navigationIcon = 'heroicon-o-map';
     protected static ?string $navigationGroup = 'Additional Tools';
@@ -161,9 +162,23 @@ class TravelAnalyzer extends Page
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),
 
-                    ])->columns(2),
+                    ])
+                    ->footerActions([
+                        Forms\Components\Actions\Action::make('analyze_travel')
+                            ->action(function (Forms\Get $get, Forms\Set $set) {
+                                $this->dotheThing($get);
+                            })
+                    ])
+                    ->columns(2),
             ])->statePath('data');
     }
 
+    public function dotheThing($get)
+    {
+
+        $token = $this->authenticatePSO($this->selectedEnvironment->base_url, $get('account_id'), $get('username'), $get('password'));
+//        dd($token);
+
+    }
 
 }
