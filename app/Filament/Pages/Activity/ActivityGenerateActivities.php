@@ -2,34 +2,22 @@
 
 namespace App\Filament\Pages\Activity;
 
-use App\Models\Environment;
-use App\Traits\FormTrait;
+use App\Filament\BasePages\PSOActivity;
+
 use App\Traits\GeocCodeTrait;
-use App\Traits\PSOInteractionsTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
-use Filament\Pages\Page;
-use GuzzleHttp\Client;
 use JsonException;
-use Override;
-use Spatie\Geocoder\Geocoder;
 
-
-class ActivityGenerateActivities extends Page
+class ActivityGenerateActivities extends PSOActivity
 {
-    use InteractsWithForms, FormTrait, PSOInteractionsTrait, GeocCodeTrait;
-
+    use GeocCodeTrait;
 
 // View
     protected static string $view = 'filament.pages.activity-generate-activities';
-
-// Navigation
-    protected static ?string $navigationParentItem = 'Activity Services';
-    protected static ?string $navigationGroup = 'API Services';
     protected static ?string $navigationIcon = 'heroicon-o-document-plus';
     protected static ?string $activeNavigationIcon = 'heroicon-s-document-plus';
 
@@ -38,22 +26,7 @@ class ActivityGenerateActivities extends Page
     protected static ?string $slug = 'activity-generate';
 
 // Data
-    public ?array $activity_data = [];
 
-
-    public function mount(): void
-    {
-        $this->environments = Environment::with('datasets')->get();
-//        $this->selectedEnvironment = new Environment();
-        $this->env_form->fill();
-        $this->activity_form->fill();
-    }
-
-
-    #[Override] protected function getForms(): array
-    {
-        return ['env_form', 'activity_form'];
-    }
 
     public function activity_form(Form $form): Form
     {
@@ -231,26 +204,40 @@ class ActivityGenerateActivities extends Page
 
     private function generateActivitiesPayload(): array
     {
-        $payload = [
 
-            'dataset_id' => $this->environment_data['dataset_id'],
-            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
-            'send_to_pso' => $this->environment_data['send_to_pso'],
-            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
-            'username' => $this->selectedEnvironment->getAttribute('username'),
-            'password' => $this->selectedEnvironment->getAttribute('password'),
-            'activity_id' => $this->activity_data['activity_id'],
-            'activity_type_id' => $this->activity_data['activity_type_id'],
-            'sla_type_id' => $this->activity_data['sla_type_id'],
-            'base_value' => $this->activity_data['base_value'],
-            'duration' => $this->activity_data['duration'],
-            'priority' => $this->activity_data['priority'],
-            'lat' => $this->activity_data['latitude'],
-            'long' => $this->activity_data['longitude'],
-            'relative_day' => $this->activity_data['relative_day'],
-            'relative_day_end' => $this->activity_data['relative_day_end'],
-            'window_size' => $this->activity_data['window_size'],
-        ];
+        $payload = array_merge($this->environnment_payload_data(),
+            ['activity_id' => $this->activity_data['activity_id'],
+                'activity_type_id' => $this->activity_data['activity_type_id'],
+                'sla_type_id' => $this->activity_data['sla_type_id'],
+                'base_value' => $this->activity_data['base_value'],
+                'duration' => $this->activity_data['duration'],
+                'priority' => $this->activity_data['priority'],
+                'lat' => $this->activity_data['latitude'],
+                'long' => $this->activity_data['longitude'],
+                'relative_day' => $this->activity_data['relative_day'],
+                'relative_day_end' => $this->activity_data['relative_day_end'],
+                'window_size' => $this->activity_data['window_size']
+            ]);
+//        $payload = [
+//
+//            'dataset_id' => $this->environment_data['dataset_id'],
+//            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
+//            'send_to_pso' => $this->environment_data['send_to_pso'],
+//            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
+//            'username' => $this->selectedEnvironment->getAttribute('username'),
+//            'password' => $this->selectedEnvironment->getAttribute('password'),
+//            'activity_id' => $this->activity_data['activity_id'],
+//            'activity_type_id' => $this->activity_data['activity_type_id'],
+//            'sla_type_id' => $this->activity_data['sla_type_id'],
+//            'base_value' => $this->activity_data['base_value'],
+//            'duration' => $this->activity_data['duration'],
+//            'priority' => $this->activity_data['priority'],
+//            'lat' => $this->activity_data['latitude'],
+//            'long' => $this->activity_data['longitude'],
+//            'relative_day' => $this->activity_data['relative_day'],
+//            'relative_day_end' => $this->activity_data['relative_day_end'],
+//            'window_size' => $this->activity_data['window_size'],
+//        ];
 
         if ($skills = collect($this->activity_data['skills'])->pluck('skill')->filter()->values()) {
             $payload['skills'] = $skills;

@@ -3,28 +3,21 @@
 namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
-use App\Models\Environment;
-use App\Traits\FormTrait;
-use App\Traits\PSOInteractionsTrait;
+use App\Filament\BasePages\PSOActivity;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
-use Filament\Pages\Page;
+use Illuminate\Support\Arr;
 use JsonException;
-use Override;
 
-class ActivityDeleteActivities extends Page
+
+class ActivityDeleteActivities extends PSOActivity
 {
 
-    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
-
 // Navigation
-    protected static ?string $navigationParentItem = 'Activity Services';
-    protected static ?string $navigationGroup = 'API Services';
-    protected static ?string $navigationIcon = 'heroicon-o-trash';
     protected static ?string $activeNavigationIcon = 'heroicon-s-trash';
+    protected static ?string $navigationLabel = 'Delete Activity';
 
     protected static ?string $title = 'Delete Activities';
     protected static ?string $slug = 'activity-delete';
@@ -32,38 +25,24 @@ class ActivityDeleteActivities extends Page
 // View
     protected static string $view = 'filament.pages.activity-delete-activities';
 
-    public ?array $activity_data = [];
-
-    public function mount(): void
-    {
-        $this->environments = Environment::with('datasets')->get();
-
-        $this->env_form->fill();
-        $this->activity_form->fill();
-    }
-
     /**
      * @param array $activity_list
      * @return array
      */
     public function getPayload(array $activity_list): array
     {
-        $payload = [
 
-            'dataset_id' => $this->environment_data['dataset_id'],
-            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
-            'send_to_pso' => $this->environment_data['send_to_pso'],
-            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
-            'username' => $this->selectedEnvironment->getAttribute('username'),
-            'password' => $this->selectedEnvironment->getAttribute('password'),
-            'activities' => $activity_list,
-        ];
-        return $payload;
-    }
-
-    #[Override] protected function getForms(): array
-    {
-        return ['env_form', 'activity_form'];
+        return Arr::add($this->environnment_payload_data(), 'activities', $activity_list);
+//        return [
+//
+//            'dataset_id' => $this->environment_data['dataset_id'],
+//            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
+//            'send_to_pso' => $this->environment_data['send_to_pso'],
+//            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
+//            'username' => $this->selectedEnvironment->getAttribute('username'),
+//            'password' => $this->selectedEnvironment->getAttribute('password'),
+//            'activities' => $activity_list,
+//        ];
     }
 
     public function activity_form(Form $form): Form
@@ -106,6 +85,8 @@ class ActivityDeleteActivities extends Page
         $activity_list = collect($this->activity_data['activities'])->pluck('activity_id')->all();
 
         $payload = $this->getPayload($activity_list);
+
+        // todo, I the payload is bigger than this no?
 
         $this->response = $this->sendToPSO('activity', $payload, HttpMethod::DELETE);
 

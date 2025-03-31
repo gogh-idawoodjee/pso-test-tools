@@ -33,7 +33,7 @@ trait FormTrait
     {
         return $form
             ->schema([
-                Section::make('env')
+                Section::make('Environment')
                     ->icon('heroicon-s-circle-stack')
                     ->schema([
                         Toggle::make('send_to_pso')
@@ -70,6 +70,20 @@ trait FormTrait
     {
         $this->selectedEnvironment = $this->environments->find($id);
 
+    }
+
+    public function environnment_payload_data()
+    {
+        return [
+
+            'dataset_id' => $this->environment_data['dataset_id'],
+            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
+            'send_to_pso' => $this->environment_data['send_to_pso'],
+            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
+            'username' => $this->selectedEnvironment->getAttribute('username'),
+            'password' => $this->selectedEnvironment->getAttribute('password')
+
+        ];
     }
 
 }

@@ -4,32 +4,27 @@ namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
 use App\Enums\TaskStatus;
-use App\Models\Environment;
-use App\Traits\FormTrait;
-use App\Traits\PSOInteractionsTrait;
+use App\Filament\BasePages\PSOActivity;
+
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
-use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
+use JsonException;
 
 
-class ActivityUpdateStatus extends Page
+class ActivityUpdateStatus extends PSOActivity
 {
-
-    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
 
 
 // View
     protected static string $view = 'filament.pages.activity-update-status';
 
 // Navigation
-    protected static ?string $navigationParentItem = 'Activity Services';
-    protected static ?string $navigationGroup = 'API Services';
+
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
     protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-path';
 
@@ -37,23 +32,6 @@ class ActivityUpdateStatus extends Page
     protected static ?string $title = 'Update Activity Status';
     protected static ?string $slug = 'activity-status';
 
-// Data
-    public ?array $activity_data = [];
-
-
-    public function mount(): void
-    {
-        $this->environments = Environment::with('datasets')->get();
-//        $this->selectedEnvironment = new Environment();
-        $this->env_form->fill();
-        $this->activity_form->fill();
-    }
-
-
-    protected function getForms(): array
-    {
-        return ['env_form', 'activity_form'];
-    }
 
     public function activity_form(Form $form): Form
     {
@@ -101,6 +79,9 @@ class ActivityUpdateStatus extends Page
             ])->statePath('activity_data');
     }
 
+    /**
+     * @throws JsonException
+     */
     public function updateTaskStatus(): void
     {
         // validate
@@ -115,17 +96,24 @@ class ActivityUpdateStatus extends Page
 
     private function TaskStatusPayload(): array
     {
-        $payload = [
 
-            'dataset_id' => $this->environment_data['dataset_id'],
-            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
-            'send_to_pso' => $this->environment_data['send_to_pso'],
-            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
-            'username' => $this->selectedEnvironment->getAttribute('username'),
-            'password' => $this->selectedEnvironment->getAttribute('password'),
-            'resource_id' => $this->activity_data['resource_id'],
-            'activity_id' => $this->activity_data['activity_id'],
-        ];
+        $payload = array_merge($this->environnment_payload_data(),
+            [
+                'resource_id' => $this->activity_data['resource_id'],
+                'activity_id' => $this->activity_data['activity_id'],
+            ]);
+
+//        $payload = [
+//
+//            'dataset_id' => $this->environment_data['dataset_id'],
+//            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
+//            'send_to_pso' => $this->environment_data['send_to_pso'],
+//            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
+//            'username' => $this->selectedEnvironment->getAttribute('username'),
+//            'password' => $this->selectedEnvironment->getAttribute('password'),
+//            'resource_id' => $this->activity_data['resource_id'],
+//            'activity_id' => $this->activity_data['activity_id'],
+//        ];
 
         if ($this->activity_data['datetimefixed']) {
             $payload['date_time_fixed'] = Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i');

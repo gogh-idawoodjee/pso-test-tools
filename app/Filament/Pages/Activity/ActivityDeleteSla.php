@@ -3,29 +3,22 @@
 namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
-use App\Models\Environment;
-use App\Traits\FormTrait;
-use App\Traits\PSOInteractionsTrait;
+use App\Filament\BasePages\PSOActivity;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
-use Filament\Pages\Page;
 use JsonException;
-use Override;
 
-class ActivityDeleteSla extends Page
+
+class ActivityDeleteSla extends PSOActivity
 {
-
-    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
 
 // View
     protected static string $view = 'filament.pages.activity-delete-sla';
 
 // Navigation
-    protected static ?string $navigationParentItem = 'Activity Services';
-    protected static ?string $navigationGroup = 'API Services';
+
     protected static ?string $navigationIcon = 'heroicon-o-trash';
     protected static ?string $activeNavigationIcon = 'heroicon-s-trash';
 
@@ -34,20 +27,6 @@ class ActivityDeleteSla extends Page
     protected static ?string $slug = 'activity-delete-sla';
 
 // Data
-    public ?array $activity_data = [];
-
-    public function mount(): void
-    {
-        $this->environments = Environment::with('datasets')->get();
-//        $this->selectedEnvironment = new Environment();
-        $this->env_form->fill();
-        $this->activity_form->fill();
-    }
-
-    #[Override] protected function getForms(): array
-    {
-        return ['env_form', 'activity_form'];
-    }
 
     public function activity_form(Form $form): Form
     {
@@ -106,19 +85,29 @@ class ActivityDeleteSla extends Page
 
     private function deleteSLAPayload(): array
     {
-        return [
 
-            'dataset_id' => $this->environment_data['dataset_id'],
-            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
-            'send_to_pso' => $this->environment_data['send_to_pso'],
-            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
-            'username' => $this->selectedEnvironment->getAttribute('username'),
-            'password' => $this->selectedEnvironment->getAttribute('password'),
-            'start_based' => $this->activity_data['start_based'],
-            'sla_type_id' => $this->activity_data['sla_type_id'],
-            'activity_id' => $this->activity_data['activity_id'],
-            'priority' => $this->activity_data['priority'],
-        ];
+        return array_merge(
+            $this->environnment_payload_data(),
+            [
+                'sla_type_id' => $this->activity_data['sla_type_id'],
+                'start_based' => $this->activity_data['start_based'],
+                'activity_id' => $this->activity_data['activity_id'],
+                'priority' => $this->activity_data['priority'],
+            ]);
+
+//        return [
+//
+//            'dataset_id' => $this->environment_data['dataset_id'],
+//            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
+//            'send_to_pso' => $this->environment_data['send_to_pso'],
+//            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
+//            'username' => $this->selectedEnvironment->getAttribute('username'),
+//            'password' => $this->selectedEnvironment->getAttribute('password'),
+//            'start_based' => $this->activity_data['start_based'],
+//            'sla_type_id' => $this->activity_data['sla_type_id'],
+//            'activity_id' => $this->activity_data['activity_id'],
+//            'priority' => $this->activity_data['priority'],
+//        ];
 
     }
 }

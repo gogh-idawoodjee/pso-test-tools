@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Enums\HttpMethod;
+use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -61,7 +62,7 @@ trait PSOInteractionsTrait
                 'status' => $e->response->status(),
             ]);
             return null;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             // Handle any other unforeseen exceptions
             Log::error('Unexpected error during PSO authentication: ' . $e->getMessage());
             return null;
