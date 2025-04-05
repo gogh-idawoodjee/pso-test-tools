@@ -102,6 +102,7 @@ class ResourceEvent extends PSOResourceBasePage
                                 ->label('Generate Event')
                                 ->action(function () {
                                     $this->generateEvent();
+                                    $this->dispatch('open-modal', id: 'show-json');
                                 })
                         ]),
                     ])

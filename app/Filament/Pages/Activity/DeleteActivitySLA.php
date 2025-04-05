@@ -65,6 +65,7 @@ class DeleteActivitySLA extends PSOActivityBasePage
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('update_status')
                             ->action(function (Forms\Get $get, Forms\Set $set) {
                                 $this->deleteSLA();
+                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
                     ])->columns(),

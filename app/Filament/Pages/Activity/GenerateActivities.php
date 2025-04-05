@@ -161,6 +161,7 @@ class GenerateActivities extends PSOActivityBasePage
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('create_activity')
                             ->action(function () {
                                 $this->createActivity();
+                                $this->dispatch('open-modal', id: 'show-json');
                             }),
                         ]),
 

@@ -68,6 +68,7 @@ class DeleteActivities extends PSOActivityBasePage
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('delete_activity')
                             ->action(function () {
                                 $this->deleteActivities();
+                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
                     ]),

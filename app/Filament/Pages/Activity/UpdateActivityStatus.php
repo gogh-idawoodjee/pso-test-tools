@@ -71,6 +71,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('update_status')
                             ->action(function (Forms\Get $get, Forms\Set $set) {
                                 $this->updateTaskStatus();
+                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
 
