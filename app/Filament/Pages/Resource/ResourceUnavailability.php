@@ -3,6 +3,7 @@
 namespace App\Filament\Pages\Resource;
 
 use App\Filament\BasePages\PSOResource;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
@@ -44,10 +45,11 @@ class ResourceUnavailability extends PSOResource
                         ->label('Base Date/Time')
                         ->required(),
                     TextInput::make('duration')
+                        ->label('Duration (minutes)')
                         ->prefixIcon('heroicon-s-arrows-up-down')
                         ->required()
-                        ->minValue(1)
-                        ->maxValue(24)
+                        ->minValue(5)
+                        ->maxValue(1440)
                         ->numeric()
                         ->live(),
                     TextInput::make('time_zone')
@@ -65,7 +67,8 @@ class ResourceUnavailability extends PSOResource
                         ->label('Generate Event')
                         ->action(function () {
                             $this->generateUnavailability();
-                        })
+
+                        })->slideOver()
                     ]),
                 ])
                 ->columns()

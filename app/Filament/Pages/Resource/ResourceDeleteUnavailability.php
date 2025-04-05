@@ -51,6 +51,7 @@ class ResourceDeleteUnavailability extends PSOResource
 
         $env_payload = $this->environnment_payload_data();
 
+
         $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['unavailability_id'], $env_payload, HttpMethod::DELETE);
 
     }

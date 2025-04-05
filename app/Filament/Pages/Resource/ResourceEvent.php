@@ -97,11 +97,13 @@ class ResourceEvent extends PSOResource
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ]),
-                        Actions::make([Actions\Action::make('generate_event')
-                            ->label('Generate Event')
-                            ->action(function () {
-                                $this->generateEvent();
-                            })
+                        Actions::make([
+                            Actions\Action::make('generate_event')
+                                ->label('Generate Event')
+                                ->action(function () {
+                                    $this->generateEvent();
+                                })
+                                ->slideOver(true)
                         ]),
                     ])
                     ->columns(3)
@@ -116,9 +118,22 @@ class ResourceEvent extends PSOResource
     {
         $this->validateForms($this->getForms());
 
-        $env_payload = $this->environnment_payload_data();
 
-        $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/event', $env_payload);
+        $payload = array_merge(
+            $this->environnment_payload_data(),
+            [
+                'resource_id' => $this->resource_data['resource_id'],
+                'event_type' => $this->resource_data['event_type'],
+            ],
+            array_filter([
+                'event_date_time' => $this->resource_data['event_date_time'] ?? null,
+                'lat' => $this->resource_data['latitude'] ?? null,
+                'long' => $this->resource_data['longitude'] ?? null
+            ])
+        );
+
+        $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/event', $payload);
+        $this->dispatch('open-modal', id: 'show-json');
 
     }
 
