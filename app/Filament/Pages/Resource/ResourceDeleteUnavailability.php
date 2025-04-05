@@ -9,7 +9,7 @@ use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
-use Illuminate\Support\Arr;
+
 
 class ResourceDeleteUnavailability extends PSOResource
 {
@@ -31,7 +31,7 @@ class ResourceDeleteUnavailability extends PSOResource
                     ->schema([
                         TextInput::make('unavailability_id')
                             ->prefixIcon('heroicon-o-clipboard')
-                            ->label('Activity ID')
+                            ->label('Unavailability ID')
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),

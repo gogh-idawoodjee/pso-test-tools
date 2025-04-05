@@ -3,7 +3,7 @@
 namespace App\Filament\Pages;
 
 
-use App\Enums\HttpMethod;
+
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use App\Traits\GeocCodeTrait;
@@ -16,9 +16,10 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 
-use Filament\Notifications\Notification;
+
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Crypt;
+use JsonException;
 
 
 class TravelAnalyzer extends Page
@@ -87,28 +88,29 @@ class TravelAnalyzer extends Page
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(function (Forms\Get $get, Forms\Set $set) {
-                                                if ($get('address_from')) {
-                                                    $coords = $this->geocodeAddress($get('address_from'));
-                                                    if ($coords['lat'] && $coords['lng']) {
-                                                        $set('lat_from', $coords['lat']);
-                                                        $set('long_from', $coords['lng']);
-                                                        Notification::make('passedgeo')
-                                                            ->icon('heroicon-s-map')
-                                                            ->title('Successful Geocode')
-                                                            ->success()
-                                                            ->send();
-                                                    } else {
-                                                        Notification::make('failedgeo')
-                                                            ->title('Failed Geocode')
-                                                            ->danger()
-                                                            ->send();
-                                                    }
-                                                } else {
-                                                    Notification::make('noaddress')
-                                                        ->title('Please enter an address')
-                                                        ->warning()
-                                                        ->send();
-                                                }
+                                                $this->geocodeFormAddress($get, $set,'lat_from','long_from','address_from');
+                                                //                                                if ($get('address_from')) {
+//                                                    $coords = $this->performGeocode($get('address_from'));
+//                                                    if ($coords['lat'] && $coords['lng']) {
+//                                                        $set('lat_from', $coords['lat']);
+//                                                        $set('long_from', $coords['lng']);
+//                                                        Notification::make('passedgeo')
+//                                                            ->icon('heroicon-s-map')
+//                                                            ->title('Successful Geocode')
+//                                                            ->success()
+//                                                            ->send();
+//                                                    } else {
+//                                                        Notification::make('failedgeo')
+//                                                            ->title('Failed Geocode')
+//                                                            ->danger()
+//                                                            ->send();
+//                                                    }
+//                                                } else {
+//                                                    Notification::make('noaddress')
+//                                                        ->title('Please enter an address')
+//                                                        ->warning()
+//                                                        ->send();
+//                                                }
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),
@@ -139,28 +141,29 @@ class TravelAnalyzer extends Page
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(function (Forms\Get $get, Forms\Set $set) {
-                                                if ($get('address_to')) {
-                                                    $coords = $this->geocodeAddress($get('address_to'));
-                                                    if ($coords['lat'] && $coords['lng']) {
-                                                        $set('lat_to', $coords['lat']);
-                                                        $set('long_to', $coords['lng']);
-                                                        Notification::make('passedgeo')
-                                                            ->icon('heroicon-s-map')
-                                                            ->title('Successful Geocode')
-                                                            ->success()
-                                                            ->send();
-                                                    } else {
-                                                        Notification::make('failedgeo')
-                                                            ->title('Failed Geocode')
-                                                            ->danger()
-                                                            ->send();
-                                                    }
-                                                } else {
-                                                    Notification::make('noaddress')
-                                                        ->title('Please enter an address')
-                                                        ->warning()
-                                                        ->send();
-                                                }
+                                                $this->geocodeFormAddress($get, $set,'lat_to','long_to','address_to');
+//                                                if ($get('address_to')) {
+//                                                    $coords = $this->performGeocode($get('address_to'));
+//                                                    if ($coords['lat'] && $coords['lng']) {
+//                                                        $set('lat_to', $coords['lat']);
+//                                                        $set('long_to', $coords['lng']);
+//                                                        Notification::make('passedgeo')
+//                                                            ->icon('heroicon-s-map')
+//                                                            ->title('Successful Geocode')
+//                                                            ->success()
+//                                                            ->send();
+//                                                    } else {
+//                                                        Notification::make('failedgeo')
+//                                                            ->title('Failed Geocode')
+//                                                            ->danger()
+//                                                            ->send();
+//                                                    }
+//                                                } else {
+//                                                    Notification::make('noaddress')
+//                                                        ->title('Please enter an address')
+//                                                        ->warning()
+//                                                        ->send();
+//                                                }
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),
@@ -172,10 +175,13 @@ class TravelAnalyzer extends Page
                                 $this->dotheThing($get);
                             })
                     ])
-                    ->columns(2),
+                    ->columns(),
             ])->statePath('data');
     }
 
+    /**
+     * @throws JsonException
+     */
     public function dotheThing($get)
     {
 

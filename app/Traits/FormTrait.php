@@ -21,6 +21,8 @@ trait FormTrait
     public bool $isDataSetHidden = false;
     public bool $isDataSetRequired = false;
 
+    public bool $isAuthenticationRequired = false;
+
     public function validateForms($forms): void
     {
         foreach ($forms as $form) {
@@ -34,13 +36,16 @@ trait FormTrait
         return $form
             ->schema([
                 Section::make('Environment')
+                    ->description($this->isAuthenticationRequired ? 'This function requires PSO Authentication. Send to PSO must be selected.' : null)
                     ->icon('heroicon-s-circle-stack')
                     ->schema([
                         Toggle::make('send_to_pso')
                             ->label('Send to PSO')
                             ->inline(false)
                             ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
-                            ->live(),
+                            ->live()
+                            ->default($this->isAuthenticationRequired ? 'checked' : null)
+                            ->disabled($this->isAuthenticationRequired),
                         Select::make('environment_id')
                             ->prefixIcon('heroicon-o-globe-alt')
                             ->options($this->environments->pluck('name', 'id'))
@@ -54,7 +59,7 @@ trait FormTrait
                             ->prefixIcon('heroicon-o-cube-transparent')
                             ->required(!$this->isDataSetRequired)
                             ->hidden($this->isDataSetHidden)
-                            ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
+                            ->afterStateUpdated(static function ($livewire, $component, Set $set, ?string $state) {
                                 $livewire->validateOnly($component->getStatePath());
                             })
                             ->options(function (Get $get) {
@@ -72,7 +77,7 @@ trait FormTrait
 
     }
 
-    public function environnment_payload_data()
+    public function environnment_payload_data(): array
     {
         return [
 

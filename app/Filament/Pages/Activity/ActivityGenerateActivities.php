@@ -9,7 +9,7 @@ use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
-use Filament\Notifications\Notification;
+
 use JsonException;
 
 class ActivityGenerateActivities extends PSOActivity
@@ -139,28 +139,7 @@ class ActivityGenerateActivities extends PSOActivity
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(function (Forms\Get $get, Forms\Set $set) {
-                                                if ($get('address')) {
-                                                    $coords = $this->geocodeAddress($get('address'));
-                                                    if ($coords['lat'] && $coords['lng']) {
-                                                        $set('latitude', $coords['lat']);
-                                                        $set('longitude', $coords['lng']);
-                                                        Notification::make('passedgeo')
-                                                            ->icon('heroicon-s-map')
-                                                            ->title('Successful Geocode')
-                                                            ->success()
-                                                            ->send();
-                                                    } else {
-                                                        Notification::make('failedgeo')
-                                                            ->title('Failed Geocode')
-                                                            ->danger()
-                                                            ->send();
-                                                    }
-                                                } else {
-                                                    Notification::make('noaddress')
-                                                        ->title('Please enter an address')
-                                                        ->warning()
-                                                        ->send();
-                                                }
+                                                $this->geocodeFormAddress($get, $set);
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ]),

@@ -5,14 +5,16 @@ namespace App\Filament\BasePages;
 
 use App\Models\Environment;
 use App\Traits\FormTrait;
+use App\Traits\PSOInteractionsTrait;
 use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Form;
+
 use Filament\Pages\Page;
+use Override;
 
 
 class PSOResource extends Page
 {
-    use InteractsWithForms, FormTrait;
+    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $activeNavigationIcon = 'heroicon-s-user-group';
@@ -29,7 +31,7 @@ class PSOResource extends Page
     public ?array $resource_data = [];
 
 
-    #[\Override] protected function getForms(): array
+    #[Override] protected function getForms(): array
     {
         return ['env_form', 'resource_form'];
     }
@@ -43,8 +45,6 @@ class PSOResource extends Page
         $this->resource_form->fill();
 
     }
-
-
 
 
 }

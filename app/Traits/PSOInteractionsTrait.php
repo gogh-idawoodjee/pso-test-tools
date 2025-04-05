@@ -82,10 +82,10 @@ trait PSOInteractionsTrait
 
         $pass = $response->successful();
 
-        if ($response->failed()) {
-            $body = 'see the response below';
-        } elseif ($response->unauthorized()) {
+        if ($response->unauthorized()) {
             $body = 'invalid credentials';
+        } elseif ($response->failed()) {
+            $body = 'see the response below';
         } else {
             $body = json_decode($response->body(), false, 512, JSON_THROW_ON_ERROR)->description;
         }

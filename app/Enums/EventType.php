@@ -24,7 +24,7 @@ enum EventType: string implements HasLabel
             self::BREAKON => 'Break On',
             self::BREAKOFF => 'Break Off',
             self::CE => 'CE Mode',
-            self::GPSFIX => 'GPS Fixed',
+            self::GPSFIX => 'GPS Fix',
             self::LOGON => 'Logged On',
             self::LOGOFF => 'Logged Off',
         };
