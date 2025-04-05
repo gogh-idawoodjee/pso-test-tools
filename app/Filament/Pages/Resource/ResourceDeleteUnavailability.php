@@ -9,6 +9,7 @@ use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use JsonException;
 
 
 class ResourceDeleteUnavailability extends PSOResourceBasePage
@@ -38,7 +39,7 @@ class ResourceDeleteUnavailability extends PSOResourceBasePage
                         Actions::make([Actions\Action::make('delete_unavailability')
                             ->action(function () {
                                 $this->deleteUnavailability();
-                                $this->dispatch('open-modal', id: 'show-json');
+
                             })
                         ]),
                     ])
@@ -46,14 +47,19 @@ class ResourceDeleteUnavailability extends PSOResourceBasePage
             ->statePath('resource_data');
     }
 
+    /**
+     * @throws JsonException
+     */
     public function deleteUnavailability(): void
     {
+        $this->response = null;
         $this->validateForms($this->getForms());
 
-        $env_payload = $this->environnment_payload_data();
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $this->environnment_payload_data())) {
+            $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['unavailability_id'], $this->environnment_payload_data(), HttpMethod::DELETE);
+            $this->dispatch('open-modal', id: 'show-json');
+        }
 
-
-        $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['unavailability_id'], $env_payload, HttpMethod::DELETE);
 
     }
 

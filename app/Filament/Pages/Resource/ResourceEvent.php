@@ -102,7 +102,6 @@ class ResourceEvent extends PSOResourceBasePage
                                 ->label('Generate Event')
                                 ->action(function () {
                                     $this->generateEvent();
-                                    $this->dispatch('open-modal', id: 'show-json');
                                 })
                         ]),
                     ])
@@ -116,6 +115,7 @@ class ResourceEvent extends PSOResourceBasePage
      */
     public function generateEvent(): void
     {
+        $this->response = null;
         $this->validateForms($this->getForms());
 
 
@@ -132,8 +132,11 @@ class ResourceEvent extends PSOResourceBasePage
             ])
         );
 
-        $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/event', $payload);
-        $this->dispatch('open-modal', id: 'show-json');
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+            $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/event', $payload);
+            $this->dispatch('open-modal', id: 'show-json');
+        }
+
 
     }
 

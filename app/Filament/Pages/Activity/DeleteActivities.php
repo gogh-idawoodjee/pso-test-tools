@@ -3,6 +3,7 @@
 namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
+
 use App\Filament\BasePages\PSOActivityBasePage;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
@@ -33,16 +34,7 @@ class DeleteActivities extends PSOActivityBasePage
     {
 
         return Arr::add($this->environnment_payload_data(), 'activities', $activity_list);
-//        return [
-//
-//            'dataset_id' => $this->environment_data['dataset_id'],
-//            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
-//            'send_to_pso' => $this->environment_data['send_to_pso'],
-//            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
-//            'username' => $this->selectedEnvironment->getAttribute('username'),
-//            'password' => $this->selectedEnvironment->getAttribute('password'),
-//            'activities' => $activity_list,
-//        ];
+
     }
 
     public function activity_form(Form $form): Form
@@ -68,7 +60,6 @@ class DeleteActivities extends PSOActivityBasePage
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('delete_activity')
                             ->action(function () {
                                 $this->deleteActivities();
-                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
                     ]),
@@ -81,15 +72,19 @@ class DeleteActivities extends PSOActivityBasePage
      */
     public function deleteActivities(): void
     {
+        // clear the response
+        $this->response = null;
         $this->validateForms($this->getForms());
+        // Create the payload
+        $payload = $this->getPayload(
+            collect($this->activity_data['activities'])->pluck('activity_id')->all()
+        );
 
-        $activity_list = collect($this->activity_data['activities'])->pluck('activity_id')->all();
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+            $this->response = $this->sendToPSO('activity', $payload, HttpMethod::DELETE);
+            $this->dispatch('open-modal', id: 'show-json');
+        }
 
-        $payload = $this->getPayload($activity_list);
-
-        // todo, I the payload is bigger than this no?
-
-        $this->response = $this->sendToPSO('activity', $payload, HttpMethod::DELETE);
 
     }
 }

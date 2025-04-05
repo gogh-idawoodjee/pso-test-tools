@@ -14,20 +14,15 @@ use Override;
 
 class PSOResourceBasePage extends Page
 {
-    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
+    use InteractsWithForms, FormTrait;
 
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
     protected static ?string $activeNavigationIcon = 'heroicon-s-user-group';
-
     protected static ?string $title = 'Resource Services';
     protected static ?string $slug = 'resource-services';
-
     protected static string $view = 'filament.pages.pso-resource';
-
     protected static ?string $navigationGroup = 'API Services';
     protected static ?string $navigationParentItem = 'Resource Services';
-
-
     public ?array $resource_data = [];
 
 
@@ -40,11 +35,9 @@ class PSOResourceBasePage extends Page
     {
 
         $this->environments = Environment::with('datasets')->get();
-//        $this->selectedEnvironment = new Environment();
         $this->env_form->fill();
         $this->resource_form->fill();
 
     }
-
 
 }

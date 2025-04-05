@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages\Activity;
 
+use App\Enums\HttpMethod;
 use App\Filament\BasePages\PSOActivityBasePage;
 
 use App\Traits\GeocCodeTrait;
@@ -161,7 +162,7 @@ class GenerateActivities extends PSOActivityBasePage
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('create_activity')
                             ->action(function () {
                                 $this->createActivity();
-                                $this->dispatch('open-modal', id: 'show-json');
+
                             }),
                         ]),
 
@@ -175,17 +176,20 @@ class GenerateActivities extends PSOActivityBasePage
      */
     public function createActivity(): void
     {
-
+        $this->response = null;
         $this->validateForms($this->getForms());
 
-        $this->response = $this->sendToPSO('activity', $this->generateActivitiesPayload());
+
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $this->generateActivitiesPayload())) {
+            $this->response = $this->sendToPSO('activity', $this->generateActivitiesPayload());
+            $this->dispatch('open-modal', id: 'show-json');
+        }
 
     }
 
 
     private function generateActivitiesPayload(): array
     {
-
         $payload = array_merge($this->environnment_payload_data(),
             ['activity_id' => $this->activity_data['activity_id'],
                 'activity_type_id' => $this->activity_data['activity_type_id'],
@@ -199,31 +203,10 @@ class GenerateActivities extends PSOActivityBasePage
                 'relative_day_end' => $this->activity_data['relative_day_end'],
                 'window_size' => $this->activity_data['window_size']
             ]);
-//        $payload = [
-//
-//            'dataset_id' => $this->environment_data['dataset_id'],
-//            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
-//            'send_to_pso' => $this->environment_data['send_to_pso'],
-//            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
-//            'username' => $this->selectedEnvironment->getAttribute('username'),
-//            'password' => $this->selectedEnvironment->getAttribute('password'),
-//            'activity_id' => $this->activity_data['activity_id'],
-//            'activity_type_id' => $this->activity_data['activity_type_id'],
-//            'sla_type_id' => $this->activity_data['sla_type_id'],
-//            'base_value' => $this->activity_data['base_value'],
-//            'duration' => $this->activity_data['duration'],
-//            'priority' => $this->activity_data['priority'],
-//            'lat' => $this->activity_data['latitude'],
-//            'long' => $this->activity_data['longitude'],
-//            'relative_day' => $this->activity_data['relative_day'],
-//            'relative_day_end' => $this->activity_data['relative_day_end'],
-//            'window_size' => $this->activity_data['window_size'],
-//        ];
 
         if ($skills = collect($this->activity_data['skills'])->pluck('skill')->filter()->values()) {
             $payload['skills'] = $skills;
         }
-
 
         if ($regions = collect($this->activity_data['regions'])->pluck('region')->filter()->values()) {
             $payload['regions'] = $regions;

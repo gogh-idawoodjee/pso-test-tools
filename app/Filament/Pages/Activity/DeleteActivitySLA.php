@@ -65,7 +65,6 @@ class DeleteActivitySLA extends PSOActivityBasePage
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('update_status')
                             ->action(function (Forms\Get $get, Forms\Set $set) {
                                 $this->deleteSLA();
-                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
                     ])->columns(),
@@ -76,40 +75,26 @@ class DeleteActivitySLA extends PSOActivityBasePage
     /**
      * @throws JsonException
      */
-    public function deleteSLA(): void
+
+
+    private function deleteSLA(): array
     {
-        // validate
+
+        $this->response = null;
         $this->validateForms($this->getForms());
 
-        $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/sla', $this->deleteSLAPayload(), HttpMethod::DELETE);
 
-    }
+        $payload = array_merge($this->environnment_payload_data(), [
+            'sla_type_id' => $this->activity_data['sla_type_id'],
+            'start_based' => $this->activity_data['start_based'],
+            'activity_id' => $this->activity_data['activity_id'],
+            'priority' => $this->activity_data['priority'],
+        ]);
 
-    private function deleteSLAPayload(): array
-    {
-
-        return array_merge(
-            $this->environnment_payload_data(),
-            [
-                'sla_type_id' => $this->activity_data['sla_type_id'],
-                'start_based' => $this->activity_data['start_based'],
-                'activity_id' => $this->activity_data['activity_id'],
-                'priority' => $this->activity_data['priority'],
-            ]);
-
-//        return [
-//
-//            'dataset_id' => $this->environment_data['dataset_id'],
-//            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
-//            'send_to_pso' => $this->environment_data['send_to_pso'],
-//            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
-//            'username' => $this->selectedEnvironment->getAttribute('username'),
-//            'password' => $this->selectedEnvironment->getAttribute('password'),
-//            'start_based' => $this->activity_data['start_based'],
-//            'sla_type_id' => $this->activity_data['sla_type_id'],
-//            'activity_id' => $this->activity_data['activity_id'],
-//            'priority' => $this->activity_data['priority'],
-//        ];
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+            $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/sla', $payload, HttpMethod::DELETE);
+            $this->dispatch('open-modal', id: 'show-json');
+        }
 
     }
 }

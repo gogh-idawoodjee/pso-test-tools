@@ -12,7 +12,7 @@ use Override;
 
 class PSOActivityBasePage extends Page
 {
-    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
+    use InteractsWithForms, FormTrait;
 
     protected static ?string $navigationGroup = 'API Services';
     protected static ?string $navigationParentItem='Activity Services';

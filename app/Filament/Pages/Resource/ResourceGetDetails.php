@@ -41,7 +41,6 @@ class ResourceGetDetails extends PSOResourceBasePage
                         Actions::make([Actions\Action::make('get_resource')
                             ->action(function () {
                                 $this->getResource();
-                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
                     ])
@@ -54,11 +53,13 @@ class ResourceGetDetails extends PSOResourceBasePage
      */
     public function getResource(): void
     {
+        $this->response = null;
         $this->validateForms($this->getForms());
 
-        $env_payload = $this->environnment_payload_data();
-
-        $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'], $env_payload, HttpMethod::GET);
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $this->environnment_payload_data())) {
+            $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'], $this->environnment_payload_data(), HttpMethod::GET);
+            $this->dispatch('open-modal', id: 'show-json');
+        }
 
     }
 }

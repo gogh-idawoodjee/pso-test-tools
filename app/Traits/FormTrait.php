@@ -9,10 +9,14 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Crypt;
 
 trait FormTrait
 {
+
+    use PSOInteractionsTrait;
 
     public ?Collection $environments;
     public ?array $environment_data = [];
@@ -87,16 +91,43 @@ trait FormTrait
 
     public function environnment_payload_data(): array
     {
+        // todo might not need this one anymore, this will be part of authenticate PSO
+
         return [
 
             'dataset_id' => $this->environment_data['dataset_id'],
             'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
             'send_to_pso' => $this->environment_data['send_to_pso'],
-            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
-            'username' => $this->selectedEnvironment->getAttribute('username'),
-            'password' => $this->selectedEnvironment->getAttribute('password')
+            'account_id' => $this->selectedEnvironment->getAttribute('account_id')
 
         ];
+    }
+
+    public function setupPayload($send_to_pso, $payload)
+    {
+
+        $token = $send_to_pso ? $this->authenticatePSO(
+            $this->selectedEnvironment->getAttribute('base_url'),
+            $this->selectedEnvironment->getAttribute('account_id'),
+            $this->selectedEnvironment->getAttribute('username'),
+            Crypt::decryptString($this->selectedEnvironment->getAttribute('password'))
+        ) : null;
+
+
+        if ($send_to_pso && !$token) {
+
+            $this->notifyPayloadSent('Send to PSO Failed', 'Please see the event log (when it is actually completed)', false);
+
+            return false;
+        }
+
+        if ($token) {
+            $payload = Arr::add($payload, 'token', $token);
+        }
+
+        return $payload; // will either return a payload or false
+
+
     }
 
 }

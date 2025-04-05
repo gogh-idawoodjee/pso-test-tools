@@ -71,7 +71,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('update_status')
                             ->action(function (Forms\Get $get, Forms\Set $set) {
                                 $this->updateTaskStatus();
-                                $this->dispatch('open-modal', id: 'show-json');
+
                             })
                         ]),
 
@@ -86,12 +86,18 @@ class UpdateActivityStatus extends PSOActivityBasePage
      */
     public function updateTaskStatus(): void
     {
+        $this->response = null;
+
         // validate
         $this->validateForms($this->getForms());
 
         $status = TaskStatus::from($this->activity_data['status'])->ishServicesValue();
 
-        $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/' . $status, $this->TaskStatusPayload(), HttpMethod::PATCH);
+
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $this->TaskStatusPayload())) {
+            $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/' . $status, $this->TaskStatusPayload(), HttpMethod::PATCH);
+            $this->dispatch('open-modal', id: 'show-json');
+        }
 
     }
 
@@ -105,17 +111,6 @@ class UpdateActivityStatus extends PSOActivityBasePage
                 'activity_id' => $this->activity_data['activity_id'],
             ]);
 
-//        $payload = [
-//
-//            'dataset_id' => $this->environment_data['dataset_id'],
-//            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
-//            'send_to_pso' => $this->environment_data['send_to_pso'],
-//            'account_id' => $this->selectedEnvironment->getAttribute('account_id'),
-//            'username' => $this->selectedEnvironment->getAttribute('username'),
-//            'password' => $this->selectedEnvironment->getAttribute('password'),
-//            'resource_id' => $this->activity_data['resource_id'],
-//            'activity_id' => $this->activity_data['activity_id'],
-//        ];
 
         if ($this->activity_data['datetimefixed']) {
             $payload['date_time_fixed'] = Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i');

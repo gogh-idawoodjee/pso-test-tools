@@ -62,7 +62,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
                             ->label('Update Shift')
                             ->action(function () {
                                 $this->updateShift();
-                                $this->dispatch('open-modal', id: 'show-json');
+
                             })
                         ]),
                     ])
@@ -76,6 +76,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
      */
     public function updateShift(): void
     {
+        $this->response = null;
         $this->validateForms($this->getForms());
 
 
@@ -93,7 +94,11 @@ class ResourceUpdateShift extends PSOResourceBasePage
             ])
         );
 
-        $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/shift', $payload, HttpMethod::PATCH);
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+            $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/shift', $payload, HttpMethod::PATCH);
+            $this->dispatch('open-modal', id: 'show-json');
+        }
+
 
     }
 }

@@ -67,7 +67,6 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                             ->label('Generate Event')
                             ->action(function () {
                                 $this->updateUnavailability();
-                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ])->columnSpan(2),
                     ])
@@ -81,6 +80,7 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
      */
     public function updateUnavailability(): void
     {
+        $this->response = null;
         $this->validateForms($this->getForms());
 
 
@@ -95,7 +95,11 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
             ])
         );
 
-        $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['resource_id'] . '/unavailability', $payload);
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+            $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['resource_id'] . '/unavailability', $payload);
+            $this->dispatch('open-modal', id: 'show-json');
+        }
+
 
     }
 }

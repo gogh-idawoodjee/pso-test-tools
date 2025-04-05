@@ -3,22 +3,16 @@
 namespace App\Filament\Pages;
 
 
-
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use App\Traits\GeocCodeTrait;
 use App\Traits\PSOInteractionsTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
-
 use Filament\Forms\Components\TextInput;
-
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
-
-
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Crypt;
 use JsonException;
 
 
@@ -43,7 +37,6 @@ class TravelAnalyzer extends Page
 
         $this->environments = Environment::with('datasets')->get();
         $this->env_form->fill();
-
 
     }
 
@@ -88,29 +81,8 @@ class TravelAnalyzer extends Page
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(function (Forms\Get $get, Forms\Set $set) {
-                                                $this->geocodeFormAddress($get, $set,'lat_from','long_from','address_from');
-                                                //                                                if ($get('address_from')) {
-//                                                    $coords = $this->performGeocode($get('address_from'));
-//                                                    if ($coords['lat'] && $coords['lng']) {
-//                                                        $set('lat_from', $coords['lat']);
-//                                                        $set('long_from', $coords['lng']);
-//                                                        Notification::make('passedgeo')
-//                                                            ->icon('heroicon-s-map')
-//                                                            ->title('Successful Geocode')
-//                                                            ->success()
-//                                                            ->send();
-//                                                    } else {
-//                                                        Notification::make('failedgeo')
-//                                                            ->title('Failed Geocode')
-//                                                            ->danger()
-//                                                            ->send();
-//                                                    }
-//                                                } else {
-//                                                    Notification::make('noaddress')
-//                                                        ->title('Please enter an address')
-//                                                        ->warning()
-//                                                        ->send();
-//                                                }
+                                                $this->geocodeFormAddress($get, $set, 'lat_from', 'long_from', 'address_from');
+
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),
@@ -141,29 +113,7 @@ class TravelAnalyzer extends Page
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(function (Forms\Get $get, Forms\Set $set) {
-                                                $this->geocodeFormAddress($get, $set,'lat_to','long_to','address_to');
-//                                                if ($get('address_to')) {
-//                                                    $coords = $this->performGeocode($get('address_to'));
-//                                                    if ($coords['lat'] && $coords['lng']) {
-//                                                        $set('lat_to', $coords['lat']);
-//                                                        $set('long_to', $coords['lng']);
-//                                                        Notification::make('passedgeo')
-//                                                            ->icon('heroicon-s-map')
-//                                                            ->title('Successful Geocode')
-//                                                            ->success()
-//                                                            ->send();
-//                                                    } else {
-//                                                        Notification::make('failedgeo')
-//                                                            ->title('Failed Geocode')
-//                                                            ->danger()
-//                                                            ->send();
-//                                                    }
-//                                                } else {
-//                                                    Notification::make('noaddress')
-//                                                        ->title('Please enter an address')
-//                                                        ->warning()
-//                                                        ->send();
-//                                                }
+                                                $this->geocodeFormAddress($get, $set, 'lat_to', 'long_to', 'address_to');
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),
@@ -171,7 +121,7 @@ class TravelAnalyzer extends Page
                     ])
                     ->footerActions([
                         Forms\Components\Actions\Action::make('analyze_travel')
-                            ->action(function (Forms\Get $get, Forms\Set $set) {
+                            ->action(function (Forms\Get $get) {
                                 $this->dotheThing($get);
                             })
                     ])
@@ -182,26 +132,27 @@ class TravelAnalyzer extends Page
     /**
      * @throws JsonException
      */
-    public function dotheThing($get)
+    public function dotheThing($get): void
     {
 
-        $token = $this->authenticatePSO($this->selectedEnvironment->base_url, $this->selectedEnvironment->account_id, $this->selectedEnvironment->username, Crypt::decryptString($this->selectedEnvironment->password));
+        $this->response = null;
+        $this->validateForms($this->getForms());
 
-        $schema = [
-            'base_url' => $this->selectedEnvironment->base_url,
-            'dataset_id' => $this->environment_data['dataset_id'],
-            'account_id' => $this->selectedEnvironment->account_id,
-            'lat_to' => $get('lat_to'),
-            'lat_from' => $get('lat_from'),
-            'long_from' => $get('long_from'),
-            'long_to' => $get('long_to'),
-            'send_to_pso' => $this->environment_data['send_to_pso'],
-            'google_api_key' => config('psott.google_api_key'),
-        ];
+        $payload = array_merge($this->environnment_payload_data(),
+            [
+                'lat_to' => $get('lat_to'),
+                'lat_from' => $get('lat_from'),
+                'long_from' => $get('long_from'),
+                'long_to' => $get('long_to'),
+                'send_to_pso' => $this->environment_data['send_to_pso'],
+                'google_api_key' => config('psott.google_api_key'),
+            ]);
 
-        $this->response = $this->sendToPSO('travelanalyzer', $schema);
-        dd($this->response);
+
+        if ($this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+            $this->response = $this->sendToPSO('travelanalyzer', $payload);
+            $this->dispatch('open-modal', id: 'show-json');
+        }
 
     }
-
 }
