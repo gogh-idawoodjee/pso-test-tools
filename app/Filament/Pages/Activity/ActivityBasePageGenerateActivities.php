@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages\Activity;
 
-use App\Filament\BasePages\PSOActivity;
+use App\Filament\BasePages\PSOActivityBasePage;
 
 use App\Traits\GeocCodeTrait;
 use Filament\Forms;
@@ -12,7 +12,7 @@ use Filament\Forms\Form;
 
 use JsonException;
 
-class ActivityGenerateActivities extends PSOActivity
+class ActivityBasePageGenerateActivities extends PSOActivityBasePage
 {
     use GeocCodeTrait;
 

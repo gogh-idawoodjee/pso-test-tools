@@ -2,7 +2,7 @@
 
 namespace App\Filament\Pages\Resource;
 
-use App\Filament\BasePages\PSOResource;
+use App\Filament\BasePages\PSOResourceBasePage;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
@@ -12,7 +12,7 @@ use Filament\Forms\Form;
 use JsonException;
 
 
-class ResourceUpdateUnavailability extends PSOResource
+class ResourceBasePageUpdateUnavailability extends PSOResourceBasePage
 {
 
     protected static ?string $title = 'Update Unavailablity';

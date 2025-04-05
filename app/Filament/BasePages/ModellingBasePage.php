@@ -10,7 +10,7 @@ use Filament\Pages\Page;
 use Override;
 
 
-class PSOActivity extends Page
+class ModellingBasePage extends Page
 {
     use InteractsWithForms, FormTrait, PSOInteractionsTrait;
 

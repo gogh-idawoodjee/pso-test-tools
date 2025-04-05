@@ -3,7 +3,7 @@
 namespace App\Filament\Pages\Resource;
 
 use App\Enums\HttpMethod;
-use App\Filament\BasePages\PSOResource;
+use App\Filament\BasePages\PSOResourceBasePage;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Section;
@@ -11,7 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 
 
-class ResourceDeleteUnavailability extends PSOResource
+class ResourceBasePageDeleteUnavailability extends PSOResourceBasePage
 {
 
     protected static ?string $title = 'Delete Unavailablity';

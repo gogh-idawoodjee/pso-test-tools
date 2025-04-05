@@ -3,7 +3,7 @@
 namespace App\Filament\Pages\Resource;
 
 use App\Enums\HttpMethod;
-use App\Filament\BasePages\PSOResource;
+use App\Filament\BasePages\PSOResourceBasePage;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
@@ -13,7 +13,7 @@ use Filament\Forms\Form;
 use JsonException;
 
 
-class ResourceUpdateShift extends PSOResource
+class ResourceBasePageUpdateShift extends PSOResourceBasePage
 {
 
     protected static ?string $title = 'Update Shift';

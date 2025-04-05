@@ -3,7 +3,7 @@
 namespace App\Filament\Pages\Resource;
 
 use App\Enums\EventType;
-use App\Filament\BasePages\PSOResource;
+use App\Filament\BasePages\PSOResourceBasePage;
 use App\Traits\GeocCodeTrait;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
@@ -18,7 +18,7 @@ use Filament\Forms\Set;
 use JsonException;
 
 
-class ResourceEvent extends PSOResource
+class ResourceBasePageEvent extends PSOResourceBasePage
 {
 
     use GeocCodeTrait;

@@ -4,7 +4,7 @@ namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
 use App\Enums\TaskStatus;
-use App\Filament\BasePages\PSOActivity;
+use App\Filament\BasePages\PSOActivityBasePage;
 
 use Filament\Forms;
 use Filament\Forms\Components\Section;
@@ -16,7 +16,7 @@ use Illuminate\Support\Carbon;
 use JsonException;
 
 
-class ActivityUpdateStatus extends PSOActivity
+class ActivityBasePageUpdateStatus extends PSOActivityBasePage
 {
 
 

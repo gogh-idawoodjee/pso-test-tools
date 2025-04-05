@@ -4,7 +4,7 @@ namespace App\Filament\Pages\HomePages;
 
 use Filament\Pages\Page;
 
-class PSActivityHome extends Page
+class PSOActivityHome extends Page
 {
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $activeNavigationIcon = 'heroicon-s-document-text';

@@ -3,7 +3,7 @@
 namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
-use App\Filament\BasePages\PSOActivity;
+use App\Filament\BasePages\PSOActivityBasePage;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
@@ -12,7 +12,7 @@ use Illuminate\Support\Arr;
 use JsonException;
 
 
-class ActivityDeleteActivities extends PSOActivity
+class ActivityBasePageDeleteActivities extends PSOActivityBasePage
 {
 
 // Navigation
