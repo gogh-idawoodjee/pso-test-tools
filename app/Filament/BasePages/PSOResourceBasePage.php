@@ -5,7 +5,7 @@ namespace App\Filament\BasePages;
 
 use App\Models\Environment;
 use App\Traits\FormTrait;
-use App\Traits\PSOInteractionsTrait;
+
 use Filament\Forms\Concerns\InteractsWithForms;
 
 use Filament\Pages\Page;

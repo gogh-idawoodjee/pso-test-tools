@@ -1,1 +1,1 @@
-@include('filament.pages.resource.base')
+@include('filament.pages.resource-base')
