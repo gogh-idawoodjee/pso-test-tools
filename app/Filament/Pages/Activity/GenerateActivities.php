@@ -24,6 +24,7 @@ class GenerateActivities extends PSOActivityBasePage
 // Page Information
     protected static ?string $title = 'Generate Activities';
     protected static ?string $slug = 'activity-generate';
+    protected static ?string $navigationLabel = 'Generate Activities';
 
 // Data
 

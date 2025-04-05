@@ -24,28 +24,35 @@ trait GeocCodeTrait
 
     public function geocodeFormAddress(Get $get, Set $set, $lat_path = 'latitude', $long_path = 'longitude', $address_path = 'address'): void
     {
-        if ($get($address_path)) {
-            $coords = $this->performGeocode($get($address_path));
-            if ($coords['lat'] && $coords['lng']) {
-                $set($lat_path, $coords['lat']);
-                $set($long_path, $coords['lng']);
-                Notification::make('passedgeo')
-                    ->icon('heroicon-s-map')
-                    ->title('Successful Geocode')
-                    ->success()
-                    ->send();
-            } else {
-                Notification::make('failedgeo')
-                    ->title('Failed Geocode')
-                    ->danger()
-                    ->send();
-            }
+        $address = $get($address_path);
+
+        if (!$address) {
+            $this->sendGeocodeNotification('noaddress', 'Please enter an address', 'warning');
+            return;
+        }
+
+        $coords = $this->performGeocode($address);
+
+        if ($coords['lat'] && $coords['lng']) {
+            $set($lat_path, $coords['lat']);
+            $set($long_path, $coords['lng']);
+            $this->sendGeocodeNotification('passedgeo', 'Successful Geocode', 'success');
         } else {
-            Notification::make('noaddress')
-                ->title('Please enter an address')
-                ->warning()
-                ->send();
+            $this->sendGeocodeNotification('failedgeo', 'Failed Geocode', 'danger');
         }
     }
+
+    /**
+     * Send a geocode-related notification.
+     */
+    private function sendGeocodeNotification(string $key, string $message, string $type): void
+    {
+        Notification::make($key)
+            ->title($message)
+            ->icon('heroicon-s-map')
+            ->{$type}()  // Dynamically call the appropriate notification type (success, danger, warning)
+            ->send();
+    }
+
 
 }

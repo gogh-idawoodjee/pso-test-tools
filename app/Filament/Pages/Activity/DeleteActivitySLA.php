@@ -19,6 +19,7 @@ class DeleteActivitySLA extends PSOActivityBasePage
 
 // Navigation
 
+    protected static ?string $navigationLabel = 'Delete Activity SLA';
     protected static ?string $navigationIcon = 'heroicon-o-trash';
     protected static ?string $activeNavigationIcon = 'heroicon-s-trash';
 

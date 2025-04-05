@@ -27,6 +27,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
     protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-path';
+    protected static ?string $navigationLabel = 'Update Activity Status';
 
 // Page Information
     protected static ?string $title = 'Update Activity Status';

@@ -14,16 +14,17 @@ use Illuminate\Support\Collection;
 trait FormTrait
 {
 
-    public Collection $environments;
+    public ?Collection $environments;
     public ?array $environment_data = [];
-    public Environment $selectedEnvironment;
-    public $response;
+    public ?Environment $selectedEnvironment;
+    public mixed $response = null;
     public bool $isDataSetHidden = false;
     public bool $isDataSetRequired = false;
-
     public bool $isAuthenticationRequired = false;
 
-    public function validateForms($forms): void
+
+
+    public function validateForms(array $forms): void
     {
         foreach ($forms as $form) {
             $this->{$form}->getState();
@@ -59,16 +60,23 @@ trait FormTrait
                             ->prefixIcon('heroicon-o-cube-transparent')
                             ->required(!$this->isDataSetRequired)
                             ->hidden($this->isDataSetHidden)
-                            ->afterStateUpdated(static function ($livewire, $component, Set $set, ?string $state) {
+                            ->afterStateUpdated(static function ($livewire, $component) {
                                 $livewire->validateOnly($component->getStatePath());
                             })
-                            ->options(function (Get $get) {
-                                return $this->environments->find($get('environment_id'))?->datasets->pluck('name', 'name');
-                            })->live()
+                            ->options(fn(Get $get) => $this->getDatasetOptions($get))->live()
                     ])->columns(3),
 
             ])->statePath('environment_data');
 
+    }
+
+    private function getDatasetOptions(Get $get): array
+    {
+        return $this->environments
+            ->find($get('environment_id'))
+            ?->datasets
+            ->pluck('name', 'name')
+            ->toArray();
     }
 
     private function setCurrentEnvironment($id): void
