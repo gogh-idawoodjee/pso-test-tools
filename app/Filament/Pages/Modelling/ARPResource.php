@@ -2,11 +2,15 @@
 
 namespace App\Filament\Pages\Modelling;
 
-use Filament\Pages\Page;
+use App\Filament\BasePages\ModellingBasePage;
 
-class ARPResource extends Page
+
+class ARPResource extends ModellingBasePage
 {
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static string $view = 'filament.pages.modelling.a-r-p-resource';
+    protected static string $view = 'filament.pages.modelling.arp-resource';
+
+    protected static ?string $navigationLabel = 'Generate Resources';
+    protected static ?string $title = 'Generate Resources';
+    protected static ?string $slug = 'arp-resources';
 }

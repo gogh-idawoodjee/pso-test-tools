@@ -12,7 +12,7 @@ use Illuminate\Support\Arr;
 use JsonException;
 
 
-class ActivityBasePageDeleteActivities extends PSOActivityBasePage
+class DeleteActivities extends PSOActivityBasePage
 {
 
 // Navigation

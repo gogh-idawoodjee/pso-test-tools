@@ -13,7 +13,7 @@ use Filament\Forms\Form;
 use JsonException;
 
 
-class ResourceBasePageUpdateShift extends PSOResourceBasePage
+class ResourceUpdateShift extends PSOResourceBasePage
 {
 
     protected static ?string $title = 'Update Shift';

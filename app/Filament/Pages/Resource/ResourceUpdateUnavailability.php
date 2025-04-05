@@ -12,7 +12,7 @@ use Filament\Forms\Form;
 use JsonException;
 
 
-class ResourceBasePageUpdateUnavailability extends PSOResourceBasePage
+class ResourceUpdateUnavailability extends PSOResourceBasePage
 {
 
     protected static ?string $title = 'Update Unavailablity';

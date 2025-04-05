@@ -11,7 +11,7 @@ use Filament\Forms\Form;
 use JsonException;
 
 
-class ActivityBasePageDeleteSla extends PSOActivityBasePage
+class DeleteActivitySLA extends PSOActivityBasePage
 {
 
 // View

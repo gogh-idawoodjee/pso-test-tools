@@ -15,24 +15,24 @@ class ModellingBasePage extends Page
     use InteractsWithForms, FormTrait, PSOInteractionsTrait;
 
     protected static ?string $navigationGroup = 'API Services';
-    protected static ?string $navigationParentItem='Activity Services';
+    protected static ?string $navigationParentItem='Modelling Services';
 
-    public ?array $activity_data = [];
+    public ?array $modelling_data = [];
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $activeNavigationIcon = 'heroicon-s-document-text';
 
-    protected static ?string $navigationLabel = 'Activity Services';
-    protected static ?string $title = 'Activity Services';
-    protected static ?string $slug = 'activity-services';
+    protected static ?string $navigationLabel = 'Modelling Services';
+    protected static ?string $title = 'Modelling Services';
+    protected static ?string $slug = 'modelling-services';
 
 
-    protected static string $view = 'filament.pages.pso-activity';
+    protected static string $view = 'filament.pages.modelling-services';
 
 
     #[Override] protected function getForms(): array
     {
-        return ['env_form', 'activity_form'];
+        return ['env_form', 'modelling_form'];
     }
 
 
@@ -41,7 +41,7 @@ class ModellingBasePage extends Page
         $this->environments = Environment::with('datasets')->get();
 
         $this->env_form->fill();
-        $this->activity_form->fill();
+        $this->modelling_form->fill();
     }
 
 

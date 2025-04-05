@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages\Resource;
 
+
 use App\Enums\HttpMethod;
 use App\Filament\BasePages\PSOResourceBasePage;
 use Filament\Actions\Action;
@@ -9,35 +10,37 @@ use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
+use JsonException;
 
 
-class ResourceBasePageDeleteUnavailability extends PSOResourceBasePage
+class ResourceGetDetails extends PSOResourceBasePage
 {
 
-    protected static ?string $title = 'Delete Unavailablity';
-    protected static ?string $slug = 'resource-delete-unavailability';
+    protected static ?string $title = 'Get Resource Details';
+    protected static ?string $slug = 'resource-details';
+
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static string $view = 'filament.pages.resource-delete-unavailability';
+    protected static string $view = 'filament.pages.resource-get-details';
 
     public function resource_form(Form $form): Form
     {
 
         return $form
             ->schema([
-                // todo update API to make this a multi
-                Section::make('Unavailability')
+
+                Section::make('Resource')
                     ->schema([
-                        TextInput::make('unavailability_id')
+                        TextInput::make('resource_id')
                             ->prefixIcon('heroicon-o-clipboard')
-                            ->label('Unavailability ID')
+                            ->label('Resource ID')
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
-                        Actions::make([Actions\Action::make('delete_unavailability')
+                        Actions::make([Actions\Action::make('get_resource')
                             ->action(function () {
-                                $this->deleteUnavailability();
+                                $this->getResource();
                                 $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
@@ -46,15 +49,16 @@ class ResourceBasePageDeleteUnavailability extends PSOResourceBasePage
             ->statePath('resource_data');
     }
 
-    public function deleteUnavailability(): void
+    /**
+     * @throws JsonException
+     */
+    public function getResource(): void
     {
         $this->validateForms($this->getForms());
 
         $env_payload = $this->environnment_payload_data();
 
-
-        $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['unavailability_id'], $env_payload, HttpMethod::DELETE);
+        $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'], $env_payload, HttpMethod::GET);
 
     }
-
 }

@@ -18,7 +18,7 @@ use Filament\Forms\Set;
 use JsonException;
 
 
-class ResourceBasePageEvent extends PSOResourceBasePage
+class ResourceEvent extends PSOResourceBasePage
 {
 
     use GeocCodeTrait;

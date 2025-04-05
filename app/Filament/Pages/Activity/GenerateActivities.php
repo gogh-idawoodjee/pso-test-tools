@@ -12,7 +12,7 @@ use Filament\Forms\Form;
 
 use JsonException;
 
-class ActivityBasePageGenerateActivities extends PSOActivityBasePage
+class GenerateActivities extends PSOActivityBasePage
 {
     use GeocCodeTrait;
 

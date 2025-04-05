@@ -16,7 +16,7 @@ use Illuminate\Support\Carbon;
 use JsonException;
 
 
-class ActivityBasePageUpdateStatus extends PSOActivityBasePage
+class UpdateActivityStatus extends PSOActivityBasePage
 {
 
 

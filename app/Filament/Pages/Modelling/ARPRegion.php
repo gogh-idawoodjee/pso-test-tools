@@ -2,11 +2,14 @@
 
 namespace App\Filament\Pages\Modelling;
 
-use Filament\Pages\Page;
+use App\Filament\BasePages\ModellingBasePage;
 
-class ARPRegion extends Page
+
+class ARPRegion extends ModellingBasePage
 {
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static string $view = 'filament.pages.modelling.arp-region';
 
-    protected static string $view = 'filament.pages.modelling.a-r-p-region';
+    protected static ?string $navigationLabel = 'Generate Regions';
+    protected static ?string $title = 'Generate Regions';
+    protected static ?string $slug = 'arp-region';
 }
