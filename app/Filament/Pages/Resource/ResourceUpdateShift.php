@@ -62,6 +62,7 @@ class ResourceUpdateShift extends PSOResource
                             ->label('Update Shift')
                             ->action(function () {
                                 $this->updateShift();
+                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
                     ])

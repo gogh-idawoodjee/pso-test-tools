@@ -103,7 +103,6 @@ class ResourceEvent extends PSOResource
                                 ->action(function () {
                                     $this->generateEvent();
                                 })
-                                ->slideOver(true)
                         ]),
                     ])
                     ->columns(3)

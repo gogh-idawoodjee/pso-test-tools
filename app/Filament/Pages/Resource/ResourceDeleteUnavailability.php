@@ -38,6 +38,7 @@ class ResourceDeleteUnavailability extends PSOResource
                         Actions::make([Actions\Action::make('delete_unavailability')
                             ->action(function () {
                                 $this->deleteUnavailability();
+                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
                     ])

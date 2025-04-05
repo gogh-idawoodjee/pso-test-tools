@@ -67,7 +67,7 @@ class ResourceUnavailability extends PSOResource
                         ->label('Generate Event')
                         ->action(function () {
                             $this->generateUnavailability();
-
+                            $this->dispatch('open-modal', id: 'show-json');
                         })->slideOver()
                     ]),
                 ])

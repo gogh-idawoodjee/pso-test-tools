@@ -41,6 +41,7 @@ class ResourceGetDetails extends PSOResource
                         Actions::make([Actions\Action::make('get_resource')
                             ->action(function () {
                                 $this->getResource();
+                                $this->dispatch('open-modal', id: 'show-json');
                             })
                         ]),
                     ])
