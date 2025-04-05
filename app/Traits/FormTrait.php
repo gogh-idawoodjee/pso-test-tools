@@ -75,7 +75,7 @@ trait FormTrait
         return $this->environments
             ->find($get('environment_id'))
             ?->datasets
-            ->pluck('name', 'name')
+            ?->pluck('name', 'name')
             ->toArray() ?? [];
     }
 
