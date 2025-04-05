@@ -20,8 +20,8 @@ trait FormTrait
     public mixed $response = null;
     public bool $isDataSetHidden = false;
     public bool $isDataSetRequired = false;
-    public bool $isAuthenticationRequired = false;
 
+    public bool $isAuthenticationRequired = false;
 
 
     public function validateForms(array $forms): void
@@ -76,7 +76,7 @@ trait FormTrait
             ->find($get('environment_id'))
             ?->datasets
             ->pluck('name', 'name')
-            ->toArray();
+            ->toArray() ?? [];
     }
 
     private function setCurrentEnvironment($id): void
