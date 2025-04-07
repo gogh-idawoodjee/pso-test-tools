@@ -94,8 +94,8 @@ class UpdateActivityStatus extends PSOActivityBasePage
         $status = TaskStatus::from($this->activity_data['status'])->ishServicesValue();
 
 
-        if ($this->setupPayload($this->environment_data['send_to_pso'], $this->TaskStatusPayload())) {
-            $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/' . $status, $this->TaskStatusPayload(), HttpMethod::PATCH);
+        if ($tokenized_payload = $this->setupPayload($this->environment_data['send_to_pso'], $this->TaskStatusPayload())) {
+            $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/' . $status, $tokenized_payload, HttpMethod::PATCH);
             $this->dispatch('open-modal', id: 'show-json');
         }
 

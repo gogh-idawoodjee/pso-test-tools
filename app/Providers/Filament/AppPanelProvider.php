@@ -33,6 +33,9 @@ class AppPanelProvider extends PanelProvider
             ->id('app')
             ->path('/')
             ->login()
+            ->sidebarCollapsibleOnDesktop()
+            ->brandLogo(asset('images/pso_test_tools_logo_final.svg'))
+            ->favicon(asset('images/favicon.png'))
             ->colors([
                 'primary' => Color::Violet,
                 'gray' => Color::Slate,

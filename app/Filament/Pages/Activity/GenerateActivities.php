@@ -180,8 +180,8 @@ class GenerateActivities extends PSOActivityBasePage
         $this->validateForms($this->getForms());
 
 
-        if ($this->setupPayload($this->environment_data['send_to_pso'], $this->generateActivitiesPayload())) {
-            $this->response = $this->sendToPSO('activity', $this->generateActivitiesPayload());
+        if ($tokenized_payload = $this->setupPayload($this->environment_data['send_to_pso'], $this->generateActivitiesPayload())) {
+            $this->response = $this->sendToPSO('activity', $tokenized_payload);
             $this->dispatch('open-modal', id: 'show-json');
         }
 

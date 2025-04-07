@@ -20,7 +20,9 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Illuminate\Support\Arr;
 use Filament\Forms;
+use Illuminate\Support\Facades\Crypt;
 use JsonException;
+use Override;
 
 class EnvironmentTools extends Page
 {
@@ -34,11 +36,11 @@ class EnvironmentTools extends Page
     protected static ?string $breadcrumb = 'Tools';
     public ?array $data = [];
 
-    public $response;
+    public mixed $response = null;
 
     protected static ?string $title = 'Tools';
 
-    protected function getHeaderActions(): array
+    #[Override] protected function getHeaderActions(): array
     {
         return [
 
@@ -49,7 +51,7 @@ class EnvironmentTools extends Page
         ];
     }
 
-    protected function getForms(): array
+    #[Override] protected function getForms(): array
     {
         return ['psoload', 'form'];
     }
@@ -145,13 +147,14 @@ class EnvironmentTools extends Page
                                 ->dehydrated(false)
                                 ->label('Input Date Time')
                                 ->prefixIcon('heroicon-o-clock'),
-                            Forms\Components\Actions::make([Forms\Components\Actions\Action::make('push_it')
+                            Forms\Components\Actions::make([Forms\Components\Actions\Action::make('push_it')->slideOver()
                                 ->action(function (Forms\Get $get) {
 //                                $set('excerpt', str($get('content'))->words(45, end: ''));
                                     // the update status thingy
                                     $this->initPSO($get);
 
                                 })->label('Push it real good'),
+
                             ])
                         ])->columns()
                         ->icon('heroicon-o-arrow-up-on-square')
@@ -171,8 +174,10 @@ class EnvironmentTools extends Page
     /**
      * @throws JsonException
      */
-    public function initPSO($data): void
+    public function initPSO($data)
     {
+
+        $this->response = null;
 
         foreach ($this->getForms() as $form) {
             $this->{$form}->getState();
@@ -180,7 +185,28 @@ class EnvironmentTools extends Page
         $segment = $this->data['input_mode'] === InputMode::LOAD ? 'load' : 'rotatodse';
         $method = $this->data['input_mode'] === InputMode::LOAD ? HttpMethod::POST : HttpMethod::PATCH;
 
-        $this->response = $this->sendToPSO($segment, $this->buildPayLoad($data), $method);
+
+        $token = $this->data['send_to_pso'] ? $this->authenticatePSO(
+            $this->data['base_url'],
+            $this->data['account_id'],
+            $this->data['username'],
+            Crypt::decryptString($this->data['password'])
+        ) : null;
+
+
+        if ($this->data['send_to_pso'] && !$token) {
+
+            $this->notifyPayloadSent('Send to PSO Failed', 'Please see the event log (when it is actually completed)', false);
+            return false;
+        }
+
+        $payload = $this->buildPayLoad($data);
+        if ($token) {
+            $payload = Arr::add($payload, 'token', $token);
+        }
+
+        $this->response = $this->sendToPSO($segment, $payload, $method);
+        $this->dispatch('open-modal', id: 'show-json');
 
     }
 
@@ -195,8 +221,6 @@ class EnvironmentTools extends Page
             'send_to_pso' => $data('send_to_pso'),
             'keep_pso_data' => $data('keep_pso_data'),
             'account_id' => $data('account_id'),
-            'username' => $data('username'),
-            'password' => $data('password'),
             'appointment_window' => $data('appointment_window'),
             'process_type' => $data('process_type'),
             'datetime' => $data('datetime'),
@@ -230,8 +254,6 @@ class EnvironmentTools extends Page
 
         if ($data['send_to_pso']) {
 
-            $payload = Arr::add($payload, 'username', $data['username']);
-            $payload = Arr::add($payload, 'password', $data['password']);
             $payload = Arr::add($payload, 'account_id', $data['account_id']);
 
         }

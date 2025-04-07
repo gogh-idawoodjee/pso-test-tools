@@ -55,8 +55,8 @@ class ResourceDeleteUnavailability extends PSOResourceBasePage
         $this->response = null;
         $this->validateForms($this->getForms());
 
-        if ($this->setupPayload($this->environment_data['send_to_pso'], $this->environnment_payload_data())) {
-            $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['unavailability_id'], $this->environnment_payload_data(), HttpMethod::DELETE);
+        if ($tokenized_payload = $this->setupPayload($this->environment_data['send_to_pso'], $this->environnment_payload_data())) {
+            $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['unavailability_id'], $tokenized_payload, HttpMethod::DELETE);
             $this->dispatch('open-modal', id: 'show-json');
         }
 

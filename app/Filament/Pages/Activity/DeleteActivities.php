@@ -80,8 +80,8 @@ class DeleteActivities extends PSOActivityBasePage
             collect($this->activity_data['activities'])->pluck('activity_id')->all()
         );
 
-        if ($this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
-            $this->response = $this->sendToPSO('activity', $payload, HttpMethod::DELETE);
+        if ($tokenized_payload = $this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+            $this->response = $this->sendToPSO('activity', $tokenized_payload, HttpMethod::DELETE);
             $this->dispatch('open-modal', id: 'show-json');
         }
 

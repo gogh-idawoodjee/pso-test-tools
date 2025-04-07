@@ -91,7 +91,6 @@ trait FormTrait
 
     public function environnment_payload_data(): array
     {
-        // todo might not need this one anymore, this will be part of authenticate PSO
 
         return [
 
@@ -117,16 +116,16 @@ trait FormTrait
         if ($send_to_pso && !$token) {
 
             $this->notifyPayloadSent('Send to PSO Failed', 'Please see the event log (when it is actually completed)', false);
-
             return false;
         }
 
         if ($token) {
+
             $payload = Arr::add($payload, 'token', $token);
+
         }
 
         return $payload; // will either return a payload or false
-
 
     }
 
