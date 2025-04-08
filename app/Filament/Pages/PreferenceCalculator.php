@@ -141,16 +141,7 @@ class PreferenceCalculator extends Page
                                     ->label('Preference Tech 1')
                                     ->required()
                                     ->default(0.5)
-                                    ->live(debounce: 500)
-                                    ->numeric()
-                                    ->minValue(0)
-                                    ->maxValue(1)
-                                    ->step(0.1),
-                                TextInput::make('preference_tech2')
-                                    ->label('Preference Tech 2')
-                                    ->required()
-                                    ->live(debounce: 500)
-                                    ->default(0.7)
+                                    ->live(onBlur: true)
                                     ->numeric()
                                     ->minValue(0)
                                     ->maxValue(1)
@@ -158,15 +149,8 @@ class PreferenceCalculator extends Page
                                 TextInput::make('distance_tech1')
                                     ->label('Distance Away From Activity Tech 1')
                                     ->required()
-                                    ->live(debounce: 500)
+                                    ->live(onBlur: true)
                                     ->default(10)
-                                    ->numeric()
-                                    ->minValue(0.5),
-                                TextInput::make('distance_tech2')
-                                    ->label('Distance Away From Activity Tech 2')
-                                    ->required()
-                                    ->live(debounce: 500)
-                                    ->default(5)
                                     ->numeric()
                                     ->minValue(0.5),
                                 TextInput::make('drive_time_tech1')
@@ -174,41 +158,57 @@ class PreferenceCalculator extends Page
                                     ->helperText('leave blank if unknown')
                                     ->live(onBlur: true)
                                     ->numeric(),
-                                TextInput::make('drive_time_tech2')
-                                    ->label('Minutes Away From Activity Tech 2')
-                                    ->helperText('leave blank if unknown')
-                                    ->live(onBlur: true)
-                                    ->numeric(),
-                            ])->columnSpan(1),
-                        Fieldset::make('calculations')
-                            ->label('Results')
-                            ->schema([
-                                TextInput::make('travel_cost_tech1')
-                                    ->label('Travel Cost Tech 1')
-                                    ->disabled(),
-                                TextInput::make('travel_cost_tech2')
-                                    ->label('Travel Cost Tech 2')
-                                    ->disabled(),
-                                TextInput::make('wrench_time_cost_tech1')->disabled()->label('Wrench Time Cost Tech 1'),
-                                TextInput::make('wrench_time_cost_tech2')->disabled()->label('Wrench Time Cost Tech 1'),
-                                TextInput::make('drive_time_cost_tech1')->disabled()->label('Drive Time Cost Tech 1'),
-                                TextInput::make('drive_time_cost_tech2')->disabled()->label('Drive Time Cost Tech 2'),
                                 TextInput::make('allocation_value_tech1')->readOnly()
                                     ->label('Allocation Value Tech 1')
                                     ->extraAttributes([
                                         'class' => $this->allocationValueTech1Class,
                                         'style' => $this->allocationValueTech1Style ?? '',
                                     ]),
+                                TextInput::make('preference_tech2')
+                                    ->label('Preference Tech 2')
+                                    ->required()
+                                    ->live(onBlur: true)
+                                    ->default(0.7)
+                                    ->numeric()
+                                    ->minValue(0)
+                                    ->maxValue(1)
+                                    ->step(0.1),
+
+                                TextInput::make('distance_tech2')
+                                    ->label('Distance Away From Activity Tech 2')
+                                    ->required()
+                                    ->live(onBlur: true)
+                                    ->default(5)
+                                    ->numeric()
+                                    ->minValue(0.5),
+
+                                TextInput::make('drive_time_tech2')
+                                    ->label('Minutes Away From Activity Tech 2')
+                                    ->helperText('leave blank if unknown')
+                                    ->live(onBlur: true)
+                                    ->numeric(),
                                 TextInput::make('allocation_value_tech2')->readOnly()->label('Allocation Value Tech 2')
                                     ->extraAttributes([
                                         'class' => $this->allocationValueTech2Class,
                                         'style' => $this->allocationValueTech2Style ?? '',
                                     ]),
-                            ])->columnSpan(1),
-
+                            ])->columns(4),
                     ])
                     ->columns()
-                    ->afterStateUpdated(fn() => $this->performCalculation())
+                    ->afterStateUpdated(fn() => $this->performCalculation()),
+                Section::make('Detailed Cost Calculations')
+                    ->schema([
+                        TextInput::make('travel_cost_tech1')->label('Travel Cost Tech 1')->disabled(),
+                        TextInput::make('travel_cost_tech2')->label('Travel Cost Tech 2')->disabled(),
+                        TextInput::make('wrench_time_cost_tech1')->disabled()->label('Wrench Time Cost Tech 1'),
+                        TextInput::make('wrench_time_cost_tech2')->disabled()->label('Wrench Time Cost Tech 1'),
+                        TextInput::make('drive_time_cost_tech1')->disabled()->label('Drive Time Cost Tech 1'),
+                        TextInput::make('drive_time_cost_tech2')->disabled()->label('Drive Time Cost Tech 2'),
+                    ])
+                    ->collapsible(true)
+                    ->collapsed()
+                    ->columns(),
+
             ])
             ->statePath('preference_data');
     }
