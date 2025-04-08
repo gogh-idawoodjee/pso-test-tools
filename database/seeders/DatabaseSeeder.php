@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
         ]);
 
         Environment::create([
-            'name' => 'The Drome',
+            'name' => 'EC test',
             'id' => Uuid::uuid4()->toString(),
             'base_url' => 'https://enercare-pso-tst.ifs.cloud',
             'description' => 'EC Test',

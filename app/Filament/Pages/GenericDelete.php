@@ -17,6 +17,7 @@ use Filament\Forms;
 use Filament\Forms\Get;
 use Filament\Pages\Page;
 use Illuminate\Support\Str;
+use JsonException;
 use Override;
 
 class GenericDelete extends Page
@@ -59,7 +60,7 @@ class GenericDelete extends Page
     {
         return $form
             ->schema([
-                Section::make('Delete Object')
+                Section::make()
                     ->schema([
                         Select::make('object_type_id')
                             ->label('PSO Object')
@@ -136,6 +137,9 @@ class GenericDelete extends Page
     }
 
 
+    /**
+     * @throws JsonException
+     */
     public function delete_object()
     {
 

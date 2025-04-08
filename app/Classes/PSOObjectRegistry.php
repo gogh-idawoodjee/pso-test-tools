@@ -53,6 +53,13 @@ class PSOObjectRegistry
                     ['name' => 'id', 'type' => 'string'],
                 ],
             ],
+            'schedule_event' => [
+                'label' => 'Schedule Event',
+                'entity' => 'Schedule_Event',
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                ],
+            ],
             'resource_region' => [
                 'label' => 'Resource Region',
                 'entity' => 'Resource_Region',

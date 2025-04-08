@@ -52,6 +52,7 @@ trait FormTrait
                             ->default($this->isAuthenticationRequired ? 'checked' : null)
                             ->disabled($this->isAuthenticationRequired),
                         Select::make('environment_id')
+                            ->label('Environment')
                             ->prefixIcon('heroicon-o-globe-alt')
                             ->options($this->environments->pluck('name', 'id'))
                             ->required()
@@ -61,6 +62,7 @@ trait FormTrait
                             })
                             ->live()->columnSpan($this->isDataSetHidden ? 2 : 1),
                         Select::make('dataset_id')
+                            ->label('Dataset')
                             ->prefixIcon('heroicon-o-cube-transparent')
                             ->required(!$this->isDataSetRequired)
                             ->hidden($this->isDataSetHidden)
