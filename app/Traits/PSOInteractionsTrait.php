@@ -13,11 +13,11 @@ use JsonException;
 use SensitiveParameter;
 
 
-
 trait PSOInteractionsTrait
 {
 
     // todo always get the token instead of sending user/pass to the API
+    protected ?int $error_value = null;
 
     public function authenticatePSO(
         string $base_url,
@@ -26,6 +26,7 @@ trait PSOInteractionsTrait
         string $password
     ): ?string
     {
+
         if (!$base_url) {
             Log::warning('Base URL is missing for PSO authentication.');
             return null;
@@ -47,6 +48,7 @@ trait PSOInteractionsTrait
             // Check for 401 before throwing anything else
             if ($response->status() === 400) {
                 // todo build an event viewer
+                $this->error_value = 401;
                 Log::warning('Invalid PSO credentials provided.', compact('username', 'account_id'));
 
                 throw new Exception();
@@ -66,9 +68,11 @@ trait PSOInteractionsTrait
 
         } catch (ConnectionException $e) {
             Log::error('Connection error during PSO authentication', ['message' => $e->getMessage()]);
+            $this->error_value = 500;
             return null;
 
         } catch (RequestException $e) {
+            $this->error_value = 500;
             Log::error('HTTP error during PSO authentication', [
                 'message' => $e->getMessage(),
                 'response' => $e->response?->json(),
@@ -78,8 +82,10 @@ trait PSOInteractionsTrait
 
         } catch (Exception $e) {
             Log::error('Unexpected error during PSO authentication', ['message' => $e->getMessage()]);
+            $this->error_value = 500;
             return null;
         }
+        dd($sessionToken);
     }
 
 
