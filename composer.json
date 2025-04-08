@@ -18,8 +18,10 @@
         "psr/container": "^2.0",
         "psr/simple-cache": "^3.0",
         "saade/filament-fullcalendar": "^3.2",
+        "sentry/sentry-laravel": "^4.13",
         "spatie/geocoder": "^3.16",
         "spatie/laravel-activitylog": "^4.10",
+        "spatie/laravel-markdown": "^2.7",
         "tempest/highlight": "^2.11",
         "torchlight/torchlight-laravel": "^0.6.1"
     },
