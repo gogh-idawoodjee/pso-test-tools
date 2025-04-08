@@ -56,7 +56,7 @@ class ResourceGetDetails extends PSOResourceBasePage
         $this->response = null;
         $this->validateForms($this->getForms());
 
-        if ($tokenized_payload=$this->setupPayload($this->environment_data['send_to_pso'], $this->environnment_payload_data())) {
+        if ($tokenized_payload=$this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->environnment_payload_data())) {
             $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'], $tokenized_payload, HttpMethod::GET);
             $this->dispatch('open-modal', id: 'show-json');
         }

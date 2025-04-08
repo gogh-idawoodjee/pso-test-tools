@@ -149,7 +149,7 @@ class TravelAnalyzer extends Page
             ]);
 
 
-        if ($this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+        if ($this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSO('travelanalyzer', $payload);
             $this->dispatch('open-modal', id: 'show-json');
         }

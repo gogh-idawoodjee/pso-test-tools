@@ -102,7 +102,7 @@ trait FormTrait
         ];
     }
 
-    public function setupPayload($send_to_pso, $payload)
+    public function prepareTokenizedPayload($send_to_pso, $payload)
     {
 
         $token = $send_to_pso ? $this->authenticatePSO(

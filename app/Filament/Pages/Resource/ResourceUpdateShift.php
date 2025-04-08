@@ -94,7 +94,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
             ])
         );
 
-        if ($tokenized_payload = $this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+        if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/shift', $tokenized_payload, HttpMethod::PATCH);
             $this->dispatch('open-modal', id: 'show-json');
         }

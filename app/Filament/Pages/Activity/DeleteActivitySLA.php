@@ -91,7 +91,7 @@ class DeleteActivitySLA extends PSOActivityBasePage
             'priority' => $this->activity_data['priority'],
         ]);
 
-        if ($tokenized_payload = $this->setupPayload($this->environment_data['send_to_pso'], $payload)) {
+        if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/sla', $tokenized_payload, HttpMethod::DELETE);
             $this->dispatch('open-modal', id: 'show-json');
         }

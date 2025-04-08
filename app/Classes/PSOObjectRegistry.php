@@ -10,42 +10,63 @@ class PSOObjectRegistry
             'activity_sla' => [
                 'label' => 'Activity SLA',
                 'entity' => 'Activity_SLA',
-                'attributes' => ['activity_id', 'priority', 'sla_type_id', 'start_based'],
+                'attributes' => [
+                    ['name' => 'activity_id', 'type' => 'string'],
+                    ['name' => 'priority', 'type' => 'int'],
+                    ['name' => 'sla_type_id', 'type' => 'string'],
+                    ['name' => 'start_based', 'type' => 'boolean'],
+                ],
             ],
             'activity_skill' => [
                 'label' => 'Activity Skill',
                 'entity' => 'Activity_Skill',
-                'attributes' => ['activity_id', 'skill_id'],
+                'attributes' => [
+                    ['name' => 'activity_id', 'type' => 'string'],
+                    ['name' => 'skill_id', 'type' => 'string'],
+                ],
             ],
             'shift' => [
                 'label' => 'Shift',
                 'entity' => 'Shift',
-                'attributes' => ['id'],
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                ],
             ],
             'activity' => [
                 'label' => 'Activity',
                 'entity' => 'Activity',
-                'attributes' => ['id'],
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                ],
             ],
             'location' => [
                 'label' => 'Location',
                 'entity' => 'Location',
-                'attributes' => ['id'],
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                ],
             ],
             'location_region' => [
-                'label' => 'Location_Region',
+                'label' => 'Location Region',
                 'entity' => 'Location_Region',
-                'attributes' => ['id'],
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                ],
             ],
             'resource_region' => [
-                'label' => 'Resource_Region',
+                'label' => 'Resource Region',
                 'entity' => 'Resource_Region',
-                'attributes' => ['region_id', 'resource_id'],
+                'attributes' => [
+                    ['name' => 'region_id', 'type' => 'string'],
+                    ['name' => 'resource_id', 'type' => 'string'],
+                ],
             ],
             'resource_region_availability' => [
-                'label' => 'Resource_Region_Availability',
+                'label' => 'Resource Region Availability',
                 'entity' => 'Resource_Region_Availability',
-                'attributes' => ['id'],
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                ],
             ],
         ];
     }
@@ -53,6 +74,14 @@ class PSOObjectRegistry
     public static function get(string $key): ?array
     {
         return self::all()[$key] ?? null;
+    }
+
+    public static function forSelect(): array
+    {
+        return collect(self::all())
+            ->mapWithKeys(static fn($item, $key) => [$key => $item['label']])
+            ->sort()
+            ->toArray();
     }
 
 }
