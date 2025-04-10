@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Classes\PSOObjectRegistry;
 
+
 use App\Enums\PSOEntities;
 use App\Models\Environment;
 use App\Traits\FormTrait;
@@ -15,6 +16,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
+
+
 use JsonException;
 use Override;
 
@@ -28,6 +31,7 @@ class GenerateCustomException extends Page
 
     protected static string $view = 'filament.pages.generate-custom-exception';
     protected static ?string $navigationGroup = 'Additional Tools';
+
 
     public ?array $exception_data = [];
     public ?array $PSOObjectTypes = [];
@@ -124,4 +128,5 @@ class GenerateCustomException extends Page
         }
 
     }
+
 }
