@@ -14,3 +14,5 @@ Artisan::command('logs:clear', function () {
     exec('rm -f ' . base_path('*.log'));
     $this->comment('Logs have been cleared!');
 })->describe('Clear log files');
+
+Schedule::command('telescope:prune')->daily();
