@@ -47,7 +47,7 @@ class GenerateCustomException extends Page
     {
         $this->environments = Environment::with('datasets')->get();
         $this->PSOObjectTypes = PSOObjectRegistry::findByEntities(PSOEntities::eventEntities());
-//dd($this->PSOObjectTypes);
+
         $this->exception_form->fill();
         $this->env_form->fill();
     }
@@ -64,6 +64,11 @@ class GenerateCustomException extends Page
                             ->options($this->PSOObjectTypes)
                             ->required()
                             ->reactive(), // Use reactive for live updates
+
+                        TextInput::make('schedule_exception_type_id')
+                            ->label('Schedule Exception Type ID')
+                            ->helperText('Please Ensure this exists in PSO')
+                            ->required(),
 
                         // Resource ID field visible when 'object_type_id' is 'Resource'
                         TextInput::make('resource_id')
@@ -108,13 +113,14 @@ class GenerateCustomException extends Page
         $this->validateForms($this->getForms());
 
         $object_id = $this->exception_data['object_type_id'];
-        $object_value = $this->exception_data['object_value'] === 'activity' ? $this->exception_data['activity_id'] : $this->exception_data['resource_id'];
+        $object_value = $this->exception_data['object_type_id'] === 'activity' ? $this->exception_data['activity_id'] : $this->exception_data['resource_id'];
 
 
         $payload = array_merge([
-            $object_id => $object_value,
+            $object_id . '_id' => $object_value,
             'label' => $this->exception_data['label'],
             'value' => $this->exception_data['value'],
+            'schedule_exception_type_id' => $this->exception_data['schedule_exception_type_id'],
         ],
             $this->environnment_payload_data()
         );
