@@ -21,14 +21,14 @@ use JsonException;
 use Override;
 
 class GenerateCustomException extends Page
-{
 
+{
     use InteractsWithForms, FormTrait;
 
     protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
     protected static ?string $activeNavigationIcon = 'heroicon-s-exclamation-triangle';
 
     protected static string $view = 'filament.pages.generate-custom-exception';
-    protected static ?string $navigationGroup = 'Additional Tools';g
+    protected static ?string $navigationGroup = 'Additional Tools';
 
 }
