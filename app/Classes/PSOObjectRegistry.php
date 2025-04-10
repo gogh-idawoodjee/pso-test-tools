@@ -39,6 +39,11 @@ class PSOObjectRegistry
                     ['name' => 'id', 'type' => 'string'],
                 ],
             ],
+            'resource' => [
+                'label' => 'Resource',
+                'entity' => 'Resource',
+                'attributes' => ['name' => 'id', 'type' => 'string'],
+            ],
             'location' => [
                 'label' => 'Location',
                 'entity' => 'Location',
@@ -91,4 +96,11 @@ class PSOObjectRegistry
             ->toArray();
     }
 
+    public static function findByEntities(array $entities): array
+    {
+        return collect(self::all())
+            ->filter(fn($object) => in_array($object['entity'], $entities, true))
+            ->mapWithKeys(static fn($item, $key) => [$key => $item['label']])
+            ->toArray();
+    }
 }
