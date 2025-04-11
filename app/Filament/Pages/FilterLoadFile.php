@@ -7,8 +7,10 @@ use Filament\Pages\Page;
 use App\Jobs\ProcessResourceFile;
 use Filament\Forms;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Log;
+use Override;
 
 class FilterLoadFile extends Page
 {
@@ -36,7 +38,7 @@ class FilterLoadFile extends Page
         ]);
     }
 
-    protected function getFormSchema(): array
+    #[Override] protected function getFormSchema(): array
     {
         return [
             Forms\Components\FileUpload::make('upload')
@@ -48,12 +50,12 @@ class FilterLoadFile extends Page
 
             Forms\Components\TextInput::make('regionIds')
                 ->label('Region IDs (comma-separated)')
-                ->helperText('e.g. SVRENF, SVLEED')
+                ->helperText('e.g. REG1, NORTH, DISTRICT2')
                 ->required(),
         ];
     }
 
-    public function submit()
+    public function submit(): void
     {
         $data = $this->form->getState();
         $this->jobId = (string)Str::uuid();
@@ -76,17 +78,20 @@ class FilterLoadFile extends Page
 
     public function checkStatus()
     {
-        \Log::info("Polling for job status [{$this->jobId}]");
-        \Log::info("Polling checkStatus for jobId: {$this->jobId}");
-        if (!$this->jobId) return;
+        Log::info("Polling for job status [{$this->jobId}]");
+        Log::info("Polling checkStatus for jobId: {$this->jobId}");
+        if (!$this->jobId) {
+            return;
+        }
 
-        $status = cache()->get("resource-job:{$this->jobId}:status", 'pending');
-        $this->progress = cache()->get("resource-job:{$this->jobId}:progress", 0);
-
-        \Log::info("Job status: {$status}, progress: {$this->progress}");
+//        $status = cache()->get("resource-job:{$this->jobId}:status", 'pending');
+        $status = Cache::get("resource-job:{$this->jobId}:status", 'pending');
+//        $this->progress = cache()->get("resource-job:{$this->jobId}:progress", 0);
+        $this->progress = Cache::get("resource-job:{$this->jobId}:progress", 0);
+        Log::info("Job status: {$status}, progress: {$this->progress}");
 
         if ($status === 'complete') {
-            $filename = cache()->get("resource-job:{$this->jobId}:file");
+            $filename = Cache::get("resource-job:{$this->jobId}:file");
             $this->downloadUrl = route('download', compact('filename'));
 
 
