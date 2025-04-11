@@ -17,6 +17,7 @@ class DeleteActivitySLA extends PSOActivityBasePage
 // View
     protected static string $view = 'filament.pages.activity-delete-sla';
 
+    protected static bool $shouldRegisterNavigation = false;
 // Navigation
 
     protected static ?string $navigationLabel = 'Delete Activity SLA';
