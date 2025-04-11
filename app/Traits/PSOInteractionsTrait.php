@@ -16,7 +16,6 @@ use SensitiveParameter;
 trait PSOInteractionsTrait
 {
 
-    // todo always get the token instead of sending user/pass to the API
     protected ?int $error_value = null;
 
     public function authenticatePSO(
@@ -35,7 +34,6 @@ trait PSOInteractionsTrait
         try {
             $timeout = config('psott.defaults.timeout', 10);
 
-//            dd($account_id, $username, $password);
             $response = Http::asForm()
                 ->timeout($timeout)
                 ->connectTimeout($timeout)
@@ -45,15 +43,11 @@ trait PSOInteractionsTrait
                     'password' => $password,
                 ]);
 
-//dd($response->body());
-
             // Check for 401 before throwing anything else
             if ($response->status() === 400) {
                 // todo build an event viewer
                 $this->error_value = 401;
                 Log::warning('Invalid PSO credentials provided.', compact('username', 'account_id'));
-
-//                throw new Exception();
 
             }
 
