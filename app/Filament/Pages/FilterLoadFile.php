@@ -41,17 +41,20 @@ class FilterLoadFile extends Page
     #[Override] protected function getFormSchema(): array
     {
         return [
-            Forms\Components\FileUpload::make('upload')
-                ->label('Upload JSON File')
-                ->disk('local')
-                ->directory('uploads')
-                ->acceptedFileTypes(['application/json'])
-                ->required(),
+            Forms\Components\Section::make()
+                ->schema([Forms\Components\FileUpload::make('upload')
+                    ->label('Upload JSON File')
+                    ->disk('local')
+                    ->directory('uploads')
+                    ->acceptedFileTypes(['application/json'])
+                    ->required(),
 
-            Forms\Components\TextInput::make('regionIds')
-                ->label('Region IDs (comma-separated)')
-                ->helperText('e.g. REG1, NORTH, DISTRICT2')
-                ->required(),
+                    Forms\Components\TextInput::make('regionIds')
+                        ->label('Region IDs to keep (comma-separated)')
+                        ->helperText('e.g. REG1, NORTH, DISTRICT2. All regions except these will be removed.')
+                        ->required(),
+                ]),
+
         ];
     }
 
