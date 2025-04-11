@@ -18,6 +18,7 @@ use Filament\Forms\Get;
 use Filament\Pages\Page;
 use Illuminate\Support\Str;
 use JsonException;
+
 use Override;
 
 class GenericDelete extends Page
@@ -31,14 +32,13 @@ class GenericDelete extends Page
     protected static ?string $navigationGroup = 'Additional Tools';
 
     public ?array $deletion_data = [];
-
     public ?array $PSOObjectTypes = [];
     public ?array $selectedPSOObject = null;
 
     #[Override]
     protected function getForms(): array
     {
-        return ['deletion_form', 'env_form'];
+        return ['deletion_form', 'env_form', 'json_form'];
     }
 
     public function mount(): void
@@ -52,8 +52,8 @@ class GenericDelete extends Page
             return ["object_pk{$index}" => null];
         })->toArray();
 
-        $this->deletion_form->fill();
-        $this->env_form->fill();
+        $this->fillForms($this->getForms());
+
     }
 
     public function deletion_form(Form $form): Form
@@ -140,7 +140,7 @@ class GenericDelete extends Page
     /**
      * @throws JsonException
      */
-    public function delete_object()
+    public function delete_object(): void
     {
 
         $this->response = null;
@@ -160,6 +160,7 @@ class GenericDelete extends Page
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
             $this->response = $this->sendToPSO('delete', $tokenized_payload, HttpMethod::DELETE);
+            $this->json_form_data['json_response_pretty'] = $this->response;
 
             $this->dispatch('open-modal', id: 'show-json');
         }

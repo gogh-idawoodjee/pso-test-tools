@@ -15,7 +15,6 @@ use SensitiveParameter;
 
 trait PSOInteractionsTrait
 {
-
     protected ?int $error_value = null;
 
     public function authenticatePSO(
@@ -110,7 +109,8 @@ trait PSOInteractionsTrait
             return json_encode(['input_payload' => json_decode($response->body(), false, 512, JSON_THROW_ON_ERROR)->original_payload], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         }
 
-        return $response->collect()->toJson(JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        return $response->collect();
+//        return $response->collect()->toJson(JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
     }
 

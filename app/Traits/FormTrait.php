@@ -12,6 +12,7 @@ use Filament\Forms\Set;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
+use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
 
 trait FormTrait
 {
@@ -20,6 +21,7 @@ trait FormTrait
 
     public ?Collection $environments;
     public ?array $environment_data = [];
+    public ?array $json_form_data = [];
     public ?Environment $selectedEnvironment;
     public mixed $response = null;
     public bool $isDataSetHidden = false;
@@ -35,6 +37,12 @@ trait FormTrait
         }
     }
 
+    protected function fillForms($forms): void
+    {
+        foreach ($forms as $form) {
+            $this->{$form}->fill();
+        }
+    }
 
     public function env_form(Form $form): Form
     {
@@ -129,6 +137,19 @@ trait FormTrait
 
         return $payload; // will either return a payload or false
 
+    }
+
+    protected function json_form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                PrettyJsonField::make('json_response_pretty')
+                    ->label('Response from Services')
+                    ->copyable()
+                    ->copyMessage('Your JSON is copied to the clipboard')
+                    ->copyMessageDuration(1500),
+
+            ])->statePath('json_form_data');
     }
 
 }
