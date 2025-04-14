@@ -31,10 +31,10 @@ class ProcessResourceFile implements ShouldQueue
             Cache::put("resource-job:{$this->jobId}:progress", 0);
 
             $raw = Storage::disk('local')->get($this->path);
-            $json = json_decode($raw, true);
+            $json = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
             $data = $json['dsScheduleData'] ?? [];
 
-            $regionIds = collect(explode(',', $this->regionIds))->map(fn($id) => trim($id))->filter();
+            $regionIds = collect(explode(',', $this->regionIds))->map(static fn($id) => trim($id))->filter();
 
             // ————— RESOURCE REGION FILTERING —————
             $validResourceIds = collect($data['Resource_Region'] ?? [])
@@ -44,25 +44,25 @@ class ProcessResourceFile implements ShouldQueue
                 ->toArray();
 
             $filteredResources = collect($data['Resources'] ?? [])
-                ->filter(fn($r) => in_array($r['id'], $validResourceIds))
+                ->filter(static fn($r) => in_array($r['id'], $validResourceIds))
                 ->values();
 
             $filteredShifts = collect($data['Shift'] ?? [])
-                ->filter(fn($shift) => in_array($shift['resource_id'], $validResourceIds))
+                ->filter(static fn($shift) => in_array($shift['resource_id'], $validResourceIds))
                 ->values();
 
             $validShiftIds = $filteredShifts->pluck('id')->toArray();
 
             $filteredShiftBreaks = collect($data['Shift_Break'] ?? [])
-                ->filter(fn($sb) => in_array($sb['shift_id'], $validShiftIds))
+                ->filter(static fn($sb) => in_array($sb['shift_id'], $validShiftIds))
                 ->values();
 
             $filteredResourceSkills = collect($data['Resource_Skill'] ?? [])
-                ->filter(fn($rs) => in_array($rs['resource_id'], $validResourceIds))
+                ->filter(static fn($rs) => in_array($rs['resource_id'], $validResourceIds))
                 ->values();
 
             $filteredResourceRegions = collect($data['Resource_Region'] ?? [])
-                ->filter(fn($rr) => in_array($rr['resource_id'], $validResourceIds))
+                ->filter(static fn($rr) => in_array($rr['resource_id'], $validResourceIds))
                 ->values();
 
             Cache::put("resource-job:{$this->jobId}:progress", 25);
@@ -75,17 +75,17 @@ class ProcessResourceFile implements ShouldQueue
                 ->toArray();
 
             $filteredActivities = collect($data['Activity'] ?? [])
-                ->filter(fn($a) => in_array($a['location_id'], $validLocationIds))
+                ->filter(static fn($a) => in_array($a['location_id'], $validLocationIds))
                 ->values();
 
             $validActivityIds = $filteredActivities->pluck('id')->toArray();
 
             $filteredActivitySLAs = collect($data['Activity_SLA'] ?? [])
-                ->filter(fn($sla) => in_array($sla['activity_id'], $validActivityIds))
+                ->filter(static fn($sla) => in_array($sla['activity_id'], $validActivityIds))
                 ->values();
 
             $filteredActivityStatuses = collect($data['Activity_Status'] ?? [])
-                ->filter(fn($status) => in_array($status['activity_id'], $validActivityIds))
+                ->filter(static fn($status) => in_array($status['activity_id'], $validActivityIds))
                 ->values();
 
             Cache::put("resource-job:{$this->jobId}:progress", 60);
@@ -118,12 +118,12 @@ class ProcessResourceFile implements ShouldQueue
             $filtered['Activity_SLA'] = $filteredActivitySLAs->toArray();
             $filtered['Activity_Status'] = $filteredActivityStatuses->toArray();
 
-            $jsonOut = json_encode(['dsScheduleData' => $filtered], JSON_PRETTY_PRINT);
+            $jsonOut = json_encode(['dsScheduleData' => $filtered], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
             $filename = "filtered_{$this->jobId}.json";
 
             Storage::disk('public')->put($filename, $jsonOut);
 
-            $downloadUrl = route('download.filtered', ['filename' => $filename]);
+            $downloadUrl = route('download.filtered', compact('filename'));
 
             Cache::put("resource-job:{$this->jobId}:progress", 90);
 
@@ -147,7 +147,7 @@ class ProcessResourceFile implements ShouldQueue
             Cache::put("resource-job:{$this->jobId}:status", 'complete');
             Cache::put("resource-job:{$this->jobId}:progress", 100);
 
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             Log::error("Job [{$this->jobId}] failed: " . $e->getMessage());
             Cache::put("resource-job:{$this->jobId}:status", 'failed');
         }
