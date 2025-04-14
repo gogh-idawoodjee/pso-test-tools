@@ -22,7 +22,7 @@ class ProcessResourceFile implements ShouldQueue
         public string $regionIds
     ) {}
 
-    public function handle()
+    public function handle(): void
     {
         try {
             Log::info("Processing job [{$this->jobId}] started");
@@ -31,10 +31,10 @@ class ProcessResourceFile implements ShouldQueue
             cache()->put("resource-job:{$this->jobId}:progress", 0);
 
             $regionList = collect(explode(',', $this->regionIds))
-                ->map(fn($id) => trim($id))
+                ->map(static fn($id) => trim($id))
                 ->filter();
 
-            $json = json_decode(Storage::disk('local')->get($this->path), true);
+            $json = json_decode(Storage::disk('local')->get($this->path), true, 512, JSON_THROW_ON_ERROR);
 
             if (!$json) {
                 Log::error("Invalid JSON or file not found: {$this->path}");
@@ -57,7 +57,7 @@ class ProcessResourceFile implements ShouldQueue
 
             foreach ($progressSteps as $index => $key) {
                 $filteredData['dsScheduleData'][$key] = collect($scheduleData[$key] ?? [])
-                    ->filter(fn($item) => $resourceIds->contains($item['resource_id'] ?? null))
+                    ->filter(static fn($item) => $resourceIds->contains($item['resource_id'] ?? null))
                     ->values()
                     ->all();
 
@@ -73,7 +73,7 @@ class ProcessResourceFile implements ShouldQueue
                 ->toArray();
 
             $filename = 'filtered_' . Str::random(8) . '.json';
-            Storage::disk('public')->put($filename, json_encode($filteredData, JSON_PRETTY_PRINT));
+            Storage::disk('public')->put($filename, json_encode($filteredData, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
 
             cache()->put("resource-job:{$this->jobId}:status", 'complete');
             cache()->put("resource-job:{$this->jobId}:file", $filename);
