@@ -7,6 +7,7 @@
         </x-filament::button>
     </form>
 
+    {{-- Progress bar while job is running --}}
     @if ($jobId && !$downloadUrl && !$preview)
         <div
             x-data="{ interval: null }"
@@ -16,12 +17,13 @@
             <div class="mt-6">
                 <p class="mb-2 font-semibold">Processing... {{ $progress }}%</p>
                 <div class="w-full h-4 bg-gray-200 rounded">
-                    <div class="h-4 bg-primary-500 rounded" style="width: {{ $progress }}%"></div>
+                    <div class="h-4 bg-primary-500 rounded transition-all duration-500" style="width: {{ $progress }}%"></div>
                 </div>
             </div>
         </div>
     @endif
 
+    {{-- Download button --}}
     @if ($downloadUrl)
         <div class="mt-6">
             <x-filament::button tag="a" href="{{ $downloadUrl }}" target="_blank">
@@ -30,14 +32,17 @@
         </div>
     @endif
 
+    {{-- Preview results for dry-run or full run --}}
     @if ($preview)
         <div class="mt-6">
             <x-filament::section>
-                <x-slot name="title">Dry Run Results</x-slot>
+                <x-slot name="title">Filter Summary</x-slot>
 
-                <ul class="list-disc pl-6">
-                    @foreach ($preview as $key => $value)
-                        <li><strong>{{ Str::headline($key) }}:</strong> {{ $value }}</li>
+                <ul class="list-disc pl-6 space-y-1">
+                    @foreach ($preview as $key => $info)
+                        <li>
+                            <strong>{{ Str::headline($key) }}:</strong> {{ $info }}
+                        </li>
                     @endforeach
                 </ul>
             </x-filament::section>

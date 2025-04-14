@@ -64,22 +64,23 @@ class FilterLoadFile extends Page
         ];
     }
 
-    public function submit(): void
+    public function submit()
     {
-
-        if (!$this->jobId) return;
+        Log::info("Submit clicked. Dry run: " . ($this->dryRun ? 'yes' : 'no'));
 
         $data = $this->form->getState();
-        $this->jobId = (string)Str::uuid();
+        $this->jobId = (string) Str::uuid();
 
-        cache()->put("resource-job:{$this->jobId}:status", 'pending');
-        cache()->put("resource-job:{$this->jobId}:progress", 0);
+        Log::info("Job ID: {$this->jobId}, File: " . $data['upload']);
+
+        Cache::put("resource-job:{$this->jobId}:status", 'pending');
+        Cache::put("resource-job:{$this->jobId}:progress", 0);
 
         ProcessResourceFile::dispatch(
             $this->jobId,
-            $data['upload'],        // file path
-            $data['regionIds'],     // region list
-            $data['dryRun'] ?? false // dryRun
+            $data['upload'],
+            $data['regionIds'],
+            $data['dryRun'] ?? false
         );
 
         Notification::make()
@@ -88,6 +89,7 @@ class FilterLoadFile extends Page
             ->success()
             ->send();
     }
+
 
     public function checkStatus()
     {
