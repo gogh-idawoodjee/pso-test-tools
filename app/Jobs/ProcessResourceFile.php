@@ -23,10 +23,8 @@ class ProcessResourceFile implements ShouldQueue
         public string $jobId,
         public string $path,
         public string $regionIds,
-        public bool   $dryRun = false,
-    )
-    {
-    }
+        public bool $dryRun = false, // 👈 this is the missing one
+    ) {}
 
     public function handle(): void
     {
@@ -60,7 +58,7 @@ class ProcessResourceFile implements ShouldQueue
             $filename = "filtered_{$this->jobId}.json";
             $jsonOut = json_encode(['dsScheduleData' => $filteredData], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
             Storage::disk('public')->put($filename, $jsonOut);
-            $downloadUrl = route('download.filtered', compact('filename'));
+            $downloadUrl = config('app.url') . '/download/' . urlencode($filename);
 
             // Zip if > 8MB
             $filePath = Storage::disk('public')->path($filename);

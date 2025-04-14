@@ -68,13 +68,23 @@ class FilterLoadFile extends Page
     {
         Log::info("Submit clicked. Dry run: " . ($this->dryRun ? 'yes' : 'no'));
 
-        $data = $this->form->getState();
-        $this->jobId = (string) Str::uuid();
+        if ($this->jobId) {
+            Cache::forget("resource-job:{$this->jobId}:status");
+            Cache::forget("resource-job:{$this->jobId}:progress");
+            Cache::forget("resource-job:{$this->jobId}:preview");
+            Cache::forget("resource-job:{$this->jobId}:download");
+            $this->downloadUrl = null;
+            $this->preview = [];
+            $this->progress = 0;
+        }
 
+        $data = $this->form->getState();
+        $this->jobId = (string)Str::uuid();
         Log::info("Job ID: {$this->jobId}, File: " . $data['upload']);
 
         Cache::put("resource-job:{$this->jobId}:status", 'pending');
         Cache::put("resource-job:{$this->jobId}:progress", 0);
+
 
         ProcessResourceFile::dispatch(
             $this->jobId,

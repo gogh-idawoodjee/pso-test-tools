@@ -14,4 +14,4 @@ Route::get('/download/{filename}', function ($filename) {
     return response()->download($path, $filename, [
         'Content-Type' => 'application/json',
     ]);
-})->name('download')->where('filename', '.*');
+})->name('download.filtered')->where('filename', '.*');

@@ -2,24 +2,25 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 class ResourceActivityFilterService
 {
     public function __construct(
-        protected array $data,
-        protected array $regionIds,
+        protected array   $data,
+        protected array   $regionIds,
         protected ?string $jobId = null,
-    ) {}
+    )
+    {
+    }
 
     public function filter(): array
     {
-        $regionIds = collect($this->regionIds)->filter()->map(fn($id) => trim($id))->toArray();
+        $regionIds = collect($this->regionIds)->filter()->map(static fn($id) => trim($id))->toArray();
 
-        // 1. Resource region filtering
+        // — Step 1: Filter resource-related stuff
         $validResourceIds = collect($this->data['Resource_Region'] ?? [])
-            ->filter(fn($rr) => in_array($rr['region_id'], $regionIds))
+            ->filter(static fn($rr) => in_array($rr['region_id'], $regionIds))
             ->pluck('resource_id')
             ->unique()
             ->toArray();
@@ -41,22 +42,20 @@ class ResourceActivityFilterService
         $resourceRegions = collect($this->data['Resource_Region'] ?? []);
         $filteredResourceRegions = $resourceRegions->whereIn('resource_id', $validResourceIds)->values();
 
-        if ($this->jobId) {
-            Cache::put("resource-job:{$this->jobId}:progress", 25);
-            usleep(300_000);
-        }
+        $this->updateProgress(25);
 
-        // 2. Activity region filtering
+        // — Step 2: Filter activity-related stuff
         $validLocationIds = collect($this->data['Location_Region'] ?? [])
-            ->filter(fn($lr) => in_array($lr['region_id'], $regionIds))
+            ->filter(static fn($lr) => in_array($lr['region_id'], $regionIds))
             ->pluck('location_id')
             ->unique()
             ->toArray();
 
         $allActivities = collect($this->data['Activity'] ?? []);
-        $skipped = $allActivities->filter(fn($a) => !isset($a['location_id']))->count();
+        $skipped = $allActivities->filter(static fn($a) => !isset($a['location_id']))->count();
+
         $filteredActivities = $allActivities
-            ->filter(fn($a) => isset($a['location_id']) && in_array($a['location_id'], $validLocationIds))
+            ->filter(static fn($a) => isset($a['location_id']) && in_array($a['location_id'], $validLocationIds))
             ->values();
 
         $validActivityIds = $filteredActivities->pluck('id')->toArray();
@@ -67,12 +66,9 @@ class ResourceActivityFilterService
         $activityStatuses = collect($this->data['Activity_Status'] ?? []);
         $filteredActivityStatuses = $activityStatuses->whereIn('activity_id', $validActivityIds)->values();
 
-        if ($this->jobId) {
-            Cache::put("resource-job:{$this->jobId}:progress", 50);
-            usleep(300_000);
-        }
+        $this->updateProgress(50);
 
-        // Prepare output
+        // — Step 3: Build filtered dataset
         $filtered = $this->data;
         $filtered['Resources'] = $filteredResources->all();
         $filtered['Shift'] = $filteredShifts->all();
@@ -83,12 +79,9 @@ class ResourceActivityFilterService
         $filtered['Activity_SLA'] = $filteredActivitySLAs->all();
         $filtered['Activity_Status'] = $filteredActivityStatuses->all();
 
-        if ($this->jobId) {
-            Cache::put("resource-job:{$this->jobId}:progress", 75);
-            usleep(300_000);
-        }
+        $this->updateProgress(75);
 
-        // Prepare summary
+        // — Step 4: Build summary
         $summary = [
             'resources' => [
                 'total' => $resources->count(),
@@ -126,5 +119,14 @@ class ResourceActivityFilterService
         ];
 
         return compact('filtered', 'summary');
+    }
+
+    protected function updateProgress(int $percent): void
+    {
+        if ($this->jobId) {
+            Log::info('percent complete:' . $percent);
+            Cache::put("resource-job:{$this->jobId}:progress", $percent);
+            usleep(500_000); // 0.5 sec
+        }
     }
 }
