@@ -26,15 +26,18 @@ class FilterLoadFile extends Page
 
     public $upload;
     public $regionIds = '';
+    public $dryRun = false;
     public $jobId = null;
     public $downloadUrl = null;
     public $progress = 0;
+    public $preview = [];
 
     public function mount(): void
     {
         $this->form->fill([
             'upload' => null,
             'regionIds' => '',
+            'dryRun' => false,
         ]);
     }
 
@@ -53,6 +56,9 @@ class FilterLoadFile extends Page
                         ->label('Region IDs to keep (comma-separated)')
                         ->helperText('e.g. REG1, NORTH, DISTRICT2. All regions except these will be removed.')
                         ->required(),
+                    Forms\Components\Toggle::make('dryRun')
+                        ->label('Preview Only (Dry Run)')
+                        ->helperText('Get counts without creating a filtered file'),
                 ]),
 
         ];
@@ -60,6 +66,9 @@ class FilterLoadFile extends Page
 
     public function submit(): void
     {
+
+        if (!$this->jobId) return;
+
         $data = $this->form->getState();
         $this->jobId = (string)Str::uuid();
 
@@ -68,13 +77,14 @@ class FilterLoadFile extends Page
 
         ProcessResourceFile::dispatch(
             $this->jobId,
-            $data['upload'], // path relative to local disk
-            $data['regionIds']
+            $data['upload'],        // file path
+            $data['regionIds'],     // region list
+            $data['dryRun'] ?? false // dryRun
         );
 
         Notification::make()
             ->title('Processing started')
-            ->body('Your file is being filtered. Please wait...')
+            ->body($data['dryRun'] ? 'Previewing filtered counts...' : 'Filtering in progress...')
             ->success()
             ->send();
     }
@@ -87,20 +97,17 @@ class FilterLoadFile extends Page
             return;
         }
 
-//        $status = cache()->get("resource-job:{$this->jobId}:status", 'pending');
-        $status = Cache::get("resource-job:{$this->jobId}:status", 'pending');
-//        $this->progress = cache()->get("resource-job:{$this->jobId}:progress", 0);
         $this->progress = Cache::get("resource-job:{$this->jobId}:progress", 0);
-        Log::info("Job status: {$status}, progress: {$this->progress}");
+        $status = Cache::get("resource-job:{$this->jobId}:status");
 
         if ($status === 'complete') {
-            $filename = Cache::get("resource-job:{$this->jobId}:file");
-            $this->downloadUrl = route('download', compact('filename'));
+            $this->downloadUrl = Cache::get("resource-job:{$this->jobId}:download");
+            $this->preview = Cache::get("resource-job:{$this->jobId}:preview", []);
 
 
             Notification::make()
-                ->title('Processing complete')
-                ->body('Your filtered file is ready to download.')
+                ->title('Done!')
+                ->body($this->downloadUrl ? 'File is ready to download.' : 'Preview complete.')
                 ->success()
                 ->send();
 
@@ -112,7 +119,7 @@ class FilterLoadFile extends Page
         if ($status === 'failed') {
             Notification::make()
                 ->title('Processing failed')
-                ->body('Something went wrong during file processing.')
+                ->body('Something went wrong during processing.')
                 ->danger()
                 ->send();
         }

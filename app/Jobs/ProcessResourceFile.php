@@ -7,10 +7,12 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 use Throwable;
+use ZipArchive;
 
 class ProcessResourceFile implements ShouldQueue
 {
@@ -25,64 +27,129 @@ class ProcessResourceFile implements ShouldQueue
     public function handle(): void
     {
         try {
-            Log::info("Processing job [{$this->jobId}] started");
+            Cache::put("resource-job:{$this->jobId}:status", 'processing');
+            Cache::put("resource-job:{$this->jobId}:progress", 0);
 
-            cache()->put("resource-job:{$this->jobId}:status", 'processing');
-            cache()->put("resource-job:{$this->jobId}:progress", 0);
+            $raw = Storage::disk('local')->get($this->path);
+            $json = json_decode($raw, true);
+            $data = $json['dsScheduleData'] ?? [];
 
-            $regionList = collect(explode(',', $this->regionIds))
-                ->map(static fn($id) => trim($id))
-                ->filter();
+            $regionIds = collect(explode(',', $this->regionIds))->map(fn($id) => trim($id))->filter();
 
-            $json = json_decode(Storage::disk('local')->get($this->path), true, 512, JSON_THROW_ON_ERROR);
+            // ————— RESOURCE REGION FILTERING —————
+            $validResourceIds = collect($data['Resource_Region'] ?? [])
+                ->filter(fn($rr) => $regionIds->contains($rr['region_id']))
+                ->pluck('resource_id')
+                ->unique()
+                ->toArray();
 
-            if (!$json) {
-                Log::error("Invalid JSON or file not found: {$this->path}");
-                cache()->put("resource-job:{$this->jobId}:status", 'failed');
+            $filteredResources = collect($data['Resources'] ?? [])
+                ->filter(fn($r) => in_array($r['id'], $validResourceIds))
+                ->values();
+
+            $filteredShifts = collect($data['Shift'] ?? [])
+                ->filter(fn($shift) => in_array($shift['resource_id'], $validResourceIds))
+                ->values();
+
+            $validShiftIds = $filteredShifts->pluck('id')->toArray();
+
+            $filteredShiftBreaks = collect($data['Shift_Break'] ?? [])
+                ->filter(fn($sb) => in_array($sb['shift_id'], $validShiftIds))
+                ->values();
+
+            $filteredResourceSkills = collect($data['Resource_Skill'] ?? [])
+                ->filter(fn($rs) => in_array($rs['resource_id'], $validResourceIds))
+                ->values();
+
+            $filteredResourceRegions = collect($data['Resource_Region'] ?? [])
+                ->filter(fn($rr) => in_array($rr['resource_id'], $validResourceIds))
+                ->values();
+
+            Cache::put("resource-job:{$this->jobId}:progress", 25);
+
+            // ————— ACTIVITY REGION FILTERING —————
+            $validLocationIds = collect($data['Location_Region'] ?? [])
+                ->filter(fn($lr) => $regionIds->contains($lr['region_id']))
+                ->pluck('location_id')
+                ->unique()
+                ->toArray();
+
+            $filteredActivities = collect($data['Activity'] ?? [])
+                ->filter(fn($a) => in_array($a['location_id'], $validLocationIds))
+                ->values();
+
+            $validActivityIds = $filteredActivities->pluck('id')->toArray();
+
+            $filteredActivitySLAs = collect($data['Activity_SLA'] ?? [])
+                ->filter(fn($sla) => in_array($sla['activity_id'], $validActivityIds))
+                ->values();
+
+            $filteredActivityStatuses = collect($data['Activity_Status'] ?? [])
+                ->filter(fn($status) => in_array($status['activity_id'], $validActivityIds))
+                ->values();
+
+            Cache::put("resource-job:{$this->jobId}:progress", 60);
+
+            // ————— DRY RUN? —————
+            if ($this->dryRun ?? false) {
+                Cache::put("resource-job:{$this->jobId}:status", 'complete');
+                Cache::put("resource-job:{$this->jobId}:progress", 100);
+                Cache::put("resource-job:{$this->jobId}:preview", [
+                    'resources' => $filteredResources->count(),
+                    'shifts' => $filteredShifts->count(),
+                    'shift_breaks' => $filteredShiftBreaks->count(),
+                    'resource_skills' => $filteredResourceSkills->count(),
+                    'activities' => $filteredActivities->count(),
+                    'activity_slas' => $filteredActivitySLAs->count(),
+                    'activity_statuses' => $filteredActivityStatuses->count(),
+                ]);
                 return;
             }
 
-            $scheduleData = $json['dsScheduleData'] ?? [];
+            // ————— COMBINE FINAL FILTERED STRUCTURE —————
+            $filtered = $data;
+            $filtered['Resources'] = $filteredResources->toArray();
+            $filtered['Shift'] = $filteredShifts->toArray();
+            $filtered['Shift_Break'] = $filteredShiftBreaks->toArray();
+            $filtered['Resource_Skill'] = $filteredResourceSkills->toArray();
+            $filtered['Resource_Region'] = $filteredResourceRegions->toArray();
 
-            $filteredResources = collect($scheduleData['Resource'] ?? [])
-                ->filter(fn ($r) => $regionList->contains($r['resource_region_id']))
-                ->values();
+            $filtered['Activity'] = $filteredActivities->toArray();
+            $filtered['Activity_SLA'] = $filteredActivitySLAs->toArray();
+            $filtered['Activity_Status'] = $filteredActivityStatuses->toArray();
 
-            $resourceIds = $filteredResources->pluck('id');
+            $jsonOut = json_encode(['dsScheduleData' => $filtered], JSON_PRETTY_PRINT);
+            $filename = "filtered_{$this->jobId}.json";
 
-            $progressSteps = ['Shift', 'Shift_Break', 'Resource_Skill'];
-            $filteredData = [
-                'dsScheduleData' => ['Resource' => $filteredResources->all()],
-            ];
+            Storage::disk('public')->put($filename, $jsonOut);
 
-            foreach ($progressSteps as $index => $key) {
-                $filteredData['dsScheduleData'][$key] = collect($scheduleData[$key] ?? [])
-                    ->filter(static fn($item) => $resourceIds->contains($item['resource_id'] ?? null))
-                    ->values()
-                    ->all();
+            $downloadUrl = route('download.filtered', ['filename' => $filename]);
 
-                $percent = (int)((($index + 1) / count($progressSteps)) * 100);
-                cache()->put("resource-job:{$this->jobId}:progress", $percent);
-                Log::info("Job [{$this->jobId}] progress updated: {$percent}%");
+            Cache::put("resource-job:{$this->jobId}:progress", 90);
 
-                usleep(300000); // 300ms delay
+            // ————— ZIP if > 8MB —————
+            $filePath = Storage::disk('public')->path($filename);
+            if (filesize($filePath) > 8 * 1024 * 1024) {
+                $zipName = Str::replaceLast('.json', '.zip', $filename);
+                $zipPath = Storage::disk('public')->path($zipName);
+
+                $zip = new ZipArchive;
+                if ($zip->open($zipPath, ZipArchive::CREATE) === true) {
+                    $zip->addFile($filePath, $filename);
+                    $zip->close();
+                }
+
+                Storage::disk('public')->delete($filename);
+                $downloadUrl = route('download.filtered', ['filename' => $zipName]);
             }
 
-            $filteredData['dsScheduleData'] += collect($scheduleData)
-                ->except(['Resource', 'Shift', 'Shift_Break', 'Resource_Skill'])
-                ->toArray();
+            Cache::put("resource-job:{$this->jobId}:download", $downloadUrl);
+            Cache::put("resource-job:{$this->jobId}:status", 'complete');
+            Cache::put("resource-job:{$this->jobId}:progress", 100);
 
-            $filename = 'filtered_' . Str::random(8) . '.json';
-            Storage::disk('public')->put($filename, json_encode($filteredData, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
-
-            cache()->put("resource-job:{$this->jobId}:status", 'complete');
-            cache()->put("resource-job:{$this->jobId}:file", $filename);
-
-            Log::info("Job [{$this->jobId}] completed. File: {$filename}");
-
-        } catch (Throwable $e) {
+        } catch (\Throwable $e) {
             Log::error("Job [{$this->jobId}] failed: " . $e->getMessage());
-            cache()->put("resource-job:{$this->jobId}:status", 'failed');
+            Cache::put("resource-job:{$this->jobId}:status", 'failed');
         }
     }
 }
