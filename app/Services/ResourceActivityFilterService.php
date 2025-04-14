@@ -54,6 +54,8 @@ class ResourceActivityFilterService
             ->unique()
             ->toArray();
 
+        $this->updateProgress(50);
+
         $allActivities = collect($this->data['Activity'] ?? []);
         $skipped = $allActivities->filter(static fn($a) => !isset($a['location_id']))->count();
 
@@ -69,7 +71,7 @@ class ResourceActivityFilterService
         $activityStatuses = collect($this->data['Activity_Status'] ?? []);
         $filteredActivityStatuses = $activityStatuses->whereIn('activity_id', $validActivityIds)->values();
 
-        $this->updateProgress(50);
+        $this->updateProgress(75);
 
         // — Step 3: Build filtered dataset
         $filtered = $this->data;
@@ -82,7 +84,7 @@ class ResourceActivityFilterService
         $filtered['Activity_SLA'] = $filteredActivitySLAs->all();
         $filtered['Activity_Status'] = $filteredActivityStatuses->all();
 
-        $this->updateProgress(75);
+        $this->updateProgress(90);
 
         // — Step 4: Build summary
         $summary = [
@@ -120,10 +122,10 @@ class ResourceActivityFilterService
                 'kept' => $filteredActivityStatuses->count(),
             ],
         ];
-
-        $this->updateProgress(90);
-        return compact('filtered', 'summary');
         $this->updateProgress(100);
+
+        return compact('filtered', 'summary');
+
     }
 
     protected function updateProgress(int $percent): void
