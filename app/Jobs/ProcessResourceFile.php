@@ -40,7 +40,7 @@ class ProcessResourceFile implements ShouldQueue
             $regionIds = collect(explode(',', $this->regionIds))->map(static fn($id) => trim($id))->toArray();
 
             // Filter and summarize
-            $service = new ResourceActivityFilterService($data, $regionIds);
+            $service = new ResourceActivityFilterService($data, $regionIds, $this->jobId);
             ['filtered' => $filteredData, 'summary' => $summary] = $service->filter();
 
             $formatted = DryRunSummaryFormatter::format($summary);

@@ -7,6 +7,7 @@ use Filament\Pages\Page;
 use App\Jobs\ProcessResourceFile;
 use Filament\Forms;
 use Filament\Notifications\Notification;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Log;
@@ -25,6 +26,7 @@ class FilterLoadFile extends Page
 
 
     public $upload;
+    public ?Carbon $jobCreatedAt = null;
     public $regionIds = '';
     public $dryRun = false;
     public $jobId = null;
@@ -49,6 +51,7 @@ class FilterLoadFile extends Page
                     ->label('Upload JSON File')
                     ->disk('local')
                     ->directory('uploads')
+                    ->maxSize(102400) // ← 100MB in kilobytes
                     ->acceptedFileTypes(['application/json'])
                     ->required(),
 
@@ -64,7 +67,7 @@ class FilterLoadFile extends Page
         ];
     }
 
-    public function submit()
+    public function submit(): void
     {
         Log::info("Submit clicked. Dry run: " . ($this->dryRun ? 'yes' : 'no'));
 
@@ -85,6 +88,7 @@ class FilterLoadFile extends Page
         Cache::put("resource-job:{$this->jobId}:status", 'pending');
         Cache::put("resource-job:{$this->jobId}:progress", 0);
 
+        $this->jobCreatedAt = Carbon::now();
 
         ProcessResourceFile::dispatch(
             $this->jobId,
@@ -101,16 +105,24 @@ class FilterLoadFile extends Page
     }
 
 
-    public function checkStatus()
+    public function checkStatus(): void
     {
-        Log::info("Polling for job status [{$this->jobId}]");
+
+
         Log::info("Polling checkStatus for jobId: {$this->jobId}");
         if (!$this->jobId) {
             return;
         }
 
         $this->progress = Cache::get("resource-job:{$this->jobId}:progress", 0);
+        Log::info("Live progress: {$this->progress}");
         $status = Cache::get("resource-job:{$this->jobId}:status");
+
+        if ($status === 'pending' && now()->diffInSeconds($this->jobCreatedAt) > 60) {
+            $this->progress = 100;
+            Notification::make()->title('Job timed out.')->warning()->send();
+            return;
+        }
 
         if ($status === 'complete') {
             $this->downloadUrl = Cache::get("resource-job:{$this->jobId}:download");

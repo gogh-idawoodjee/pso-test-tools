@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
+use Log;
 
 class ResourceActivityFilterService
 {
@@ -120,13 +121,18 @@ class ResourceActivityFilterService
             ],
         ];
 
+        $this->updateProgress(90);
         return compact('filtered', 'summary');
+        $this->updateProgress(100);
     }
 
     protected function updateProgress(int $percent): void
     {
+
+//        Log::info("Progress updated to {$percent} for job {$this->jobId}");
+
         if ($this->jobId) {
-            Log::info('percent complete:' . $percent);
+//            Log::info('percent complete:' . $percent);
             Cache::put("resource-job:{$this->jobId}:progress", $percent);
             usleep(500_000); // 0.5 sec
         }
