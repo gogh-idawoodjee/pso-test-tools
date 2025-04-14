@@ -18,6 +18,7 @@ class ResourceActivityFilterService
     public function filter(): array
     {
         $this->updateProgress(5); // after loading file
+        Log::info('5 percent mark');
         $regionIds = collect($this->regionIds)->filter()->map(static fn($id) => trim($id))->toArray();
         $this->updateProgress(10); // after first block
 
@@ -46,6 +47,7 @@ class ResourceActivityFilterService
         $filteredResourceRegions = $resourceRegions->whereIn('resource_id', $validResourceIds)->values();
 
         $this->updateProgress(25);
+        Log::info('25 percent mark');
 
         // — Step 2: Filter activity-related stuff
         $validLocationIds = collect($this->data['Location_Region'] ?? [])
@@ -55,6 +57,7 @@ class ResourceActivityFilterService
             ->toArray();
 
         $this->updateProgress(50);
+        Log::info('50 percent mark');
 
         $allActivities = collect($this->data['Activity'] ?? []);
         $skipped = $allActivities->filter(static fn($a) => !isset($a['location_id']))->count();
@@ -72,6 +75,8 @@ class ResourceActivityFilterService
         $filteredActivityStatuses = $activityStatuses->whereIn('activity_id', $validActivityIds)->values();
 
         $this->updateProgress(75);
+        Log::info('75 percent mark');
+
 
         // — Step 3: Build filtered dataset
         $filtered = $this->data;
@@ -85,6 +90,7 @@ class ResourceActivityFilterService
         $filtered['Activity_Status'] = $filteredActivityStatuses->all();
 
         $this->updateProgress(90);
+        Log::info('90 percent mark');
 
         // — Step 4: Build summary
         $summary = [
@@ -134,7 +140,7 @@ class ResourceActivityFilterService
 //        Log::info("Progress updated to {$percent} for job {$this->jobId}");
 
         if ($this->jobId) {
-//            Log::info('percent complete:' . $percent);
+            Log::info('percent complete:' . $percent);
             Cache::put("resource-job:{$this->jobId}:progress", $percent);
             usleep(500_000); // 0.5 sec
         }
