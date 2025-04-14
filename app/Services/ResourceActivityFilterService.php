@@ -16,7 +16,9 @@ class ResourceActivityFilterService
 
     public function filter(): array
     {
+        $this->updateProgress(5); // after loading file
         $regionIds = collect($this->regionIds)->filter()->map(static fn($id) => trim($id))->toArray();
+        $this->updateProgress(10); // after first block
 
         // — Step 1: Filter resource-related stuff
         $validResourceIds = collect($this->data['Resource_Region'] ?? [])
