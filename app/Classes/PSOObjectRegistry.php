@@ -42,7 +42,9 @@ class PSOObjectRegistry
             'resource' => [
                 'label' => 'Resource',
                 'entity' => 'Resource',
-                'attributes' => ['name' => 'id', 'type' => 'string'],
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string']
+                ],
             ],
             'location' => [
                 'label' => 'Location',
