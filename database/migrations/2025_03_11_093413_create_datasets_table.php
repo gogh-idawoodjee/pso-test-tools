@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        
         Schema::create('datasets', function (Blueprint $table) {
             // Use string() for UUID compatibility across SQLite and PostgreSQL
             $table->string('id')->primary(); // Use string for UUID storage in SQLite
