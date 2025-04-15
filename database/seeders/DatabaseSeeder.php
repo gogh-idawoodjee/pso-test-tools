@@ -22,7 +22,7 @@ class DatabaseSeeder extends Seeder
         User::create([
             'name' => 'ishy',
             'email' => 'idawoodjee@mac.com',
-            'password' => Hash::make('manman'),
+            'password' => Hash::make(env('MAIN_PASSWORD')),
         ]);
 
         Environment::create([
@@ -41,7 +41,7 @@ class DatabaseSeeder extends Seeder
             'id' => Uuid::uuid4()->toString(),
             'base_url' => 'https://enercare-pso-tst.ifs.cloud',
             'description' => 'EC Test',
-            'account_id' => 'Default',
+            'account_id' => 'encr',
             'username' => 'idawoodjee',
             'password' => Crypt::encrypt('fakepassword'),
             'user_id' => '1'
