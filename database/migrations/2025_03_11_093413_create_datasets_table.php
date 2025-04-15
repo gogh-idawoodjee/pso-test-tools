@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        
+
         Schema::create('datasets', function (Blueprint $table) {
             // Use string() for UUID compatibility across SQLite and PostgreSQL
             $table->string('id')->primary(); // Use string for UUID storage in SQLite
@@ -21,7 +21,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Foreign key constraint for environment_id, use 'string' for SQLite compatibility
-            $table->foreign('environment_id');
+//            $table->foreign('environment_id');
         });
     }
 
