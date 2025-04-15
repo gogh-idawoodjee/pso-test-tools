@@ -20,7 +20,7 @@ return new class extends Migration
             $table->timestamps();
 
             // Foreign key constraint for environment_id, use 'string' for SQLite compatibility
-            $table->foreign('environment_id');//->references('id')->on('environments')->onDelete('cascade');
+            $table->foreign('environment_id');
         });
     }
 
