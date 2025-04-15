@@ -23,8 +23,10 @@ class ProcessResourceFile implements ShouldQueue
         public string $jobId,
         public string $path,
         public string $regionIds,
-        public bool $dryRun = false, // 👈 this is the missing one
-    ) {}
+        public bool   $dryRun = false, // 👈 this is the missing one
+    )
+    {
+    }
 
     public function handle(): void
     {
@@ -46,7 +48,7 @@ class ProcessResourceFile implements ShouldQueue
             $formatted = DryRunSummaryFormatter::format($summary);
             Cache::put("resource-job:{$this->jobId}:progress", 75);
 
-            // Handle dry run — no file written
+            // Dry run? No file output
             if ($this->dryRun ?? false) {
                 Cache::put("resource-job:{$this->jobId}:status", 'complete');
                 Cache::put("resource-job:{$this->jobId}:progress", 100);
@@ -59,6 +61,7 @@ class ProcessResourceFile implements ShouldQueue
             $jsonOut = json_encode(['dsScheduleData' => $filteredData], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
             Storage::disk('public')->put($filename, $jsonOut);
             $downloadUrl = config('app.url') . '/download/' . urlencode($filename);
+            $finalDownloadFilename = $filename;
 
             // Zip if > 8MB
             $filePath = Storage::disk('public')->path($filename);
@@ -74,6 +77,7 @@ class ProcessResourceFile implements ShouldQueue
 
                 Storage::disk('public')->delete($filename);
                 $downloadUrl = route('download.filtered', ['filename' => $zipName]);
+                $finalDownloadFilename = $zipName;
             }
 
             // Finalize job
@@ -82,10 +86,15 @@ class ProcessResourceFile implements ShouldQueue
             Cache::put("resource-job:{$this->jobId}:status", 'complete');
             Cache::put("resource-job:{$this->jobId}:progress", 100);
 
+            // 🔥 Schedule cleanup
+            DeleteTemporaryFiles::dispatch($this->path, $finalDownloadFilename)
+                ->delay(now()->addHour());
+
         } catch (Throwable $e) {
             Log::error("Job [{$this->jobId}] failed: " . $e->getMessage());
             Cache::put("resource-job:{$this->jobId}:status", 'failed');
         }
     }
+
 
 }
