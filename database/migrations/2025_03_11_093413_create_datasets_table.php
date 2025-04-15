@@ -12,11 +12,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('datasets', function (Blueprint $table) {
-            $table->uuid('id');
+            // Use string() for UUID compatibility across SQLite and PostgreSQL
+            $table->string('id')->primary(); // Use string for UUID storage in SQLite
             $table->string('name');
             $table->string('rota');
-            $table->foreignUuid('environment_id');
+            $table->string('environment_id'); // Use string for foreign key UUID
             $table->timestamps();
+
+            // Foreign key constraint for environment_id, use 'string' for SQLite compatibility
+            $table->foreign('environment_id')->references('id')->on('environments')->onDelete('cascade');
         });
     }
 
