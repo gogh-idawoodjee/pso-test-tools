@@ -2,7 +2,7 @@
     <form wire:submit.prevent="submit">
         {{ $this->form }}
 
-        <x-filament::button type="submit" class="mt-4">
+        <x-filament::button type="submit" class="mt-6">
             {{ $dryRun ? 'Run Preview' : 'Process File' }}
         </x-filament::button>
     </form>

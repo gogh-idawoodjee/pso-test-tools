@@ -17,6 +17,7 @@ class ResourceActivityFilterService
 
     public function filter(): array
     {
+        Log::info('5 percent mark');
         $this->updateProgress(5); // after loading file
         Log::info('5 percent mark');
         $regionIds = collect($this->regionIds)->filter()->map(static fn($id) => trim($id))->toArray();
