@@ -89,8 +89,10 @@ class EnvironmentTools extends Page
                             ->dehydrated(false)
                             ->label('Input Mode')
                             ->required()
+                            ->live()
                             ->enum(InputMode::class)
                             ->options(InputMode::class)
+                            ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
 
                     ]),
                 Section::make('Environment Properties')
@@ -153,7 +155,10 @@ class EnvironmentTools extends Page
                                     // the update status thingy
                                     $this->initPSO($get);
 
-                                })->label('Push it real good'),
+                                })
+                                ->label(function () {
+                                    return $this->data['input_mode'] === InputMode::LOAD ? 'Load' : 'Update Rota';
+                                }),
 
                             ])
                         ])->columns()
