@@ -43,7 +43,7 @@ class GetTechniciansListJob extends BaseJob
     protected function filterTechnicians(array $data): array
     {
         $service = new TechnicianAvailabilityService($data, $this->jobId);
-        return $service->filter()['technicians'] ?? [];
+        return $service->getTechnicians()['technicians'] ?? [];
     }
 
 

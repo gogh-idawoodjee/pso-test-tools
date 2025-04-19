@@ -26,31 +26,63 @@ class TechnicianAvailabilityService
         $this->setStatus('found resource');
         Log::info("✅ about to start collecting shifts for technician {$this->technicianId}");
 
-        $shifts = collect($this->data['Shift'] ?? [])
-            ->filter(fn($shift) => $shift['resource_id'] === $this->technicianId)
-            ->sortBy('start_time')
-            ->take(30)
-            ->map(function ($shift) {
-                return [
-                    'id' => $shift['id'],
-                    'start' => $shift['start_datetime'],
-                    'end' => $shift['end_datetime'],
-                    'label' => 'Shift',
-                ];
-            })
-            ->values()
-            ->all();
-        Log:
-        info('Shifts:' . json_encode($shifts));
+        $shiftData = $this->data['Shift'] ?? [];
+        $availabilityData = $this->data['Availability'] ?? [];
+        $resourceRegionAvailData = $this->data['Resource_Region_Availability'] ?? [];
+
+        $availabilityById = collect($availabilityData)->keyBy('id');
+        $regionAvailability = collect($resourceRegionAvailData)
+            ->filter(fn($rra) => !empty($rra['availability_id']))
+            ->groupBy('resource_id');
+
+        $shifts = collect($shiftData)->map(function ($shift) use ($regionAvailability, $availabilityById) {
+            $shiftStart = Carbon::parse($shift['start']);
+            $shiftEnd = Carbon::parse($shift['end']);
+            $resourceId = $shift['resource_id'];
+
+            $overlappingAvailability = collect($regionAvailability->get($resourceId, []))
+                ->map(function ($rra) use ($availabilityById, $shiftStart, $shiftEnd) {
+                    $availability = $availabilityById->get($rra['availability_id'] ?? '');
+
+                    if (!$availability) {
+                        return null;
+                    }
+
+                    $availStart = Carbon::parse($availability['datetime_start']);
+                    $availEnd = Carbon::parse($availability['datetime_end']);
+
+                    // Check for overlap
+                    if ($availEnd->lte($shiftStart) || $availStart->gte($shiftEnd)) {
+                        return null;
+                    }
+
+                    // Normalize the clipped availability window for this shift
+                    return [
+                        'id' => $availability['id'],
+                        'start' => max($shiftStart, $availStart)->toIso8601String(),
+                        'end' => min($shiftEnd, $availEnd)->toIso8601String(),
+                        'full_coverage' => $availStart->lte($shiftStart) && $availEnd->gte($shiftEnd),
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->all();
+
+            $shift['region_availability'] = $overlappingAvailability;
+
+            return $shift;
+        });
+
+
         Log::info('Tech ID: ' . $this->technicianId);
         Log::info('Shifts Raw Count: ' . count($this->data['Shifts'] ?? []));
-        Log::info('First shift example: ' . json_encode(($this->data['Shift'] ?? [])[0] ?? 'none'));
+        Log::info('First shift example: ' . json_encode(($this->data['Shift'] ?? [])[0] ?? 'none', JSON_THROW_ON_ERROR));
         Log::info("🏁 Shifts Collected");
-        return $shifts;
+        return $shifts->toArray();
     }
 
 
-    public function filter(): array
+    public function getTechnicians(): array
     {
         $this->setStatus('filtering');
         Log::info('🧪 TechnicianAvailabilityService::filter() started');
