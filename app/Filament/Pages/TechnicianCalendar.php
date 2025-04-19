@@ -2,94 +2,96 @@
 
 namespace App\Filament\Pages;
 
-use App\Jobs\ProcessTechnicianAvailabilityJob;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Form;
+use App\Jobs\GetTechniciansListJob;
 use Filament\Pages\Page;
-
 use Filament\Forms;
-use Filament\Notifications\Notification;
-use Illuminate\Support\Carbon;
+use Filament\Forms\Form;
+use Filament\Forms\Concerns\InteractsWithForms;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Filament\Notifications\Notification;
 use Log;
-
 
 class TechnicianCalendar extends Page
 {
-
     use InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-calendar';
-    protected static ?string $activeNavigationIcon = 'heroicon-s-calendar';
-
     protected static string $view = 'filament.pages.technician-calendar';
-    protected static ?string $navigationGroup = 'Additional Tools';
 
+    public array $formData = [
+        'upload' => null,
+        'selectedTechnician' => null,
+    ];
 
-    public $upload;
-    public ?Carbon $jobCreatedAt = null;
-    public $jobId = null;
-    public $downloadUrl = null;
-    public $progress = 0;
-    public $preview = [];
+    public bool $processing = false;
+    public ?string $jobId = null;
+    public array $technicianOptions = [];
 
-    public function mount(): void
+    public function pollForCompletion(): void
     {
-        $this->form->fill([
-            'upload' => null,
-        ]);
+        for ($i = 0; $i < 30; $i++) {
+            sleep(1);
+
+            $status = Cache::get("resource-job:{$this->jobId}:status");
+
+            if ($status === 'complete') {
+                $technicians = Cache::get("resource-job:{$this->jobId}:technicians", []);
+                $this->technicianOptions = collect($technicians)->pluck('name', 'id')->toArray();
+                $this->formData['selectedTechnician'] = null;
+                $this->processing = false;
+                $this->jobId = null;
+
+                Log::info("✅ Job complete, dropdown loaded (sync poll).");
+                return;
+            }
+
+            if ($status === 'failed') {
+                Log::error("❌ Job failed during sync poll.");
+                $this->processing = false;
+                return;
+            }
+        }
+
+        Log::warning("⏱ Timeout waiting for job to complete.");
     }
 
     #[\Override] public function form(Form $form): Form
     {
         return $form
+            ->statePath('formData')
             ->schema([
-                Forms\Components\Section::make()
-                    ->schema([Forms\Components\FileUpload::make('upload')
-                        ->label('Upload JSON File')
-                        ->disk('local')
-                        ->directory('uploads')
-                        ->maxSize(102400) // ← 100MB in kilobytes
-                        ->acceptedFileTypes(['application/json'])
-                        ->required(),
-                    ]),
+                Forms\Components\FileUpload::make('upload')
+                    ->label('Upload JSON File')
+                    ->disk('local')
+                    ->directory('uploads')
+                    ->acceptedFileTypes(['application/json'])
+                    ->required()
+                    ->dehydrated(true) // just to be safe
+                    ->live(),
+
+                Forms\Components\Select::make('selectedTechnician')
+                    ->label('Select Technician')
+                    ->options($this->technicianOptions)
+                    ->placeholder('Choose a tech')
+                    ->disabled(fn() => empty($this->technicianOptions)),
             ]);
-
-
     }
 
     public function submit(): void
     {
-
-        if ($this->jobId) {
-            Cache::forget("resource-job:{$this->jobId}:status");
-            Cache::forget("resource-job:{$this->jobId}:progress");
-            Cache::forget("resource-job:{$this->jobId}:preview");
-            Cache::forget("resource-job:{$this->jobId}:download");
-            $this->downloadUrl = null;
-            $this->preview = [];
-            $this->progress = 0;
-        }
-
         $data = $this->form->getState();
-        $this->jobId = (string)Str::uuid();
-        Log::info("Job ID: {$this->jobId}, File: " . $data['upload']);
+        $this->jobId = (string) Str::uuid();
+        $this->processing = true;
 
-        Cache::put("resource-job:{$this->jobId}:status", 'pending');
-        Cache::put("resource-job:{$this->jobId}:progress", 0);
+        Log::info("📩 Dispatching job for: {$data['upload']}");
 
-        $this->jobCreatedAt = Carbon::now();
+        GetTechniciansListJob::dispatch($this->jobId, $data['upload']);
 
-        ProcessTechnicianAvailabilityJob::dispatch(
-            $this->jobId,
-            $data['upload']
-
-        );
+        // Start backend polling loop
+        $this->pollForCompletion();
 
         Notification::make()
             ->title('Processing started')
-            ->body('Filtering in progress...')
             ->success()
             ->send();
     }
@@ -97,42 +99,36 @@ class TechnicianCalendar extends Page
 
     public function checkStatus(): void
     {
+        Log::info("🧪 checkStatus() called for jobId: {$this->jobId}");
 
-        Log::info("Polling checkStatus for jobId: {$this->jobId}");
         if (!$this->jobId) {
+            Log::warning('🚫 checkStatus aborted — no jobId set.');
             return;
         }
 
-        $this->progress = Cache::get("resource-job:{$this->jobId}:progress", 0);
-        Log::info("Live progress: {$this->progress}");
         $status = Cache::get("resource-job:{$this->jobId}:status");
-
-        if ($status === 'pending' && now()->diffInSeconds($this->jobCreatedAt) > 60) {
-            $this->progress = 100;
-            Notification::make()->title('Job timed out.')->warning()->send();
-            return;
-        }
+        Log::info("📦 Job status from cache: " . $status);
 
         if ($status === 'complete') {
-            $this->downloadUrl = Cache::get("resource-job:{$this->jobId}:download");
-            $this->preview = Cache::get("resource-job:{$this->jobId}:preview", []);
+            $technicians = Cache::get("resource-job:{$this->jobId}:technicians", []);
+            Log::info("🎯 Technician list loaded: " . count($technicians));
 
+            $this->technicianOptions = collect($technicians)
+                ->pluck('name', 'id')
+                ->toArray();
 
-            Notification::make()
-                ->title('Done!')
-                ->body($this->downloadUrl ? 'File is ready to download.' : 'Preview complete.')
-                ->success()
-                ->send();
+            $this->formData['selectedTechnician'] = null;
+            $this->processing = false;
+            $this->jobId = null;
 
-            cache()->forget("resource-job:{$this->jobId}:status");
-            cache()->forget("resource-job:{$this->jobId}:progress");
-            cache()->forget("resource-job:{$this->jobId}:file");
+            Log::info("✅ Spinner OFF, dropdown populated.");
         }
 
         if ($status === 'failed') {
+            $this->processing = false;
+            Log::error("❌ checkStatus(): job failed");
             Notification::make()
                 ->title('Processing failed')
-                ->body('Something went wrong during processing.')
                 ->danger()
                 ->send();
         }

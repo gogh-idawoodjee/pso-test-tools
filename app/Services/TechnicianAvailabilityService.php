@@ -2,147 +2,98 @@
 
 namespace App\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
-use Log;
+use Illuminate\Support\Facades\Log;
 
 class TechnicianAvailabilityService
 {
     public function __construct(
         protected array   $data,
         protected ?string $jobId = null,
+        protected ?string $technicianId = null,
     )
     {
+
     }
+
+
+    public function getTechnicianShifts(): array
+    {
+        if (!$this->technicianId) {
+            return [];
+        }
+        $this->setStatus('found resource');
+        Log::info("✅ about to start collecting shifts for technician {$this->technicianId}");
+
+        $shifts = collect($this->data['Shift'] ?? [])
+            ->filter(fn($shift) => $shift['resource_id'] === $this->technicianId)
+            ->sortBy('start_time')
+            ->take(30)
+            ->map(function ($shift) {
+                return [
+                    'id' => $shift['id'],
+                    'start' => $shift['start_datetime'],
+                    'end' => $shift['end_datetime'],
+                    'label' => 'Shift',
+                ];
+            })
+            ->values()
+            ->all();
+        Log:
+        info('Shifts:' . json_encode($shifts));
+        Log::info('Tech ID: ' . $this->technicianId);
+        Log::info('Shifts Raw Count: ' . count($this->data['Shifts'] ?? []));
+        Log::info('First shift example: ' . json_encode(($this->data['Shift'] ?? [])[0] ?? 'none'));
+        Log::info("🏁 Shifts Collected");
+        return $shifts;
+    }
+
 
     public function filter(): array
     {
-        Log::info('5 percent mark');
-        $this->updateProgress(5); // after loading file
-        Log::info('5 percent mark');
-        $regionIds = collect($this->regionIds)->filter()->map(static fn($id) => trim($id))->toArray();
-        $this->updateProgress(10); // after first block
-
-        // — Step 1: Filter resource-related stuff
-        $validResourceIds = collect($this->data['Resource_Region'] ?? [])
-            ->filter(static fn($rr) => in_array($rr['region_id'], $regionIds))
-            ->pluck('resource_id')
-            ->unique()
-            ->toArray();
+        $this->setStatus('filtering');
+        Log::info('🧪 TechnicianAvailabilityService::filter() started');
+        $this->updateProgress(35);
 
         $resources = collect($this->data['Resources'] ?? []);
-        $filteredResources = $resources->whereIn('id', $validResourceIds)->values();
+        Log::info("📊 Found {$resources->count()} resources");
 
-        $shifts = collect($this->data['Shift'] ?? []);
-        $filteredShifts = $shifts->whereIn('resource_id', $validResourceIds)->values();
-
-        $validShiftIds = $filteredShifts->pluck('id')->toArray();
-
-        $shiftBreaks = collect($this->data['Shift_Break'] ?? []);
-        $filteredShiftBreaks = $shiftBreaks->whereIn('shift_id', $validShiftIds)->values();
-
-        $resourceSkills = collect($this->data['Resource_Skill'] ?? []);
-        $filteredResourceSkills = $resourceSkills->whereIn('resource_id', $validResourceIds)->values();
-
-        $resourceRegions = collect($this->data['Resource_Region'] ?? []);
-        $filteredResourceRegions = $resourceRegions->whereIn('resource_id', $validResourceIds)->values();
-
-        $this->updateProgress(25);
-        Log::info('25 percent mark');
-
-        // — Step 2: Filter activity-related stuff
-        $validLocationIds = collect($this->data['Location_Region'] ?? [])
-            ->filter(static fn($lr) => in_array($lr['region_id'], $regionIds))
-            ->pluck('location_id')
-            ->unique()
-            ->toArray();
+        $technicians = $resources->map(function ($r) {
+            $name = trim(($r['first_name'] ?? '') . ' ' . ($r['surname'] ?? ''));
+            return [
+                'id' => $r['id'],
+                'name' => $name !== '' ? $name : $r['id'],
+            ];
+        })->values()->all();
 
         $this->updateProgress(50);
-        Log::info('50 percent mark');
 
-        $allActivities = collect($this->data['Activity'] ?? []);
-        $skipped = $allActivities->filter(static fn($a) => !isset($a['location_id']))->count();
+        Log::info("✅ Built technician list: " . count($technicians) . " entries");
+        Log::info("🏁 TechnicianAvailabilityService::filter() complete");
 
-        $filteredActivities = $allActivities
-            ->filter(static fn($a) => isset($a['location_id']) && in_array($a['location_id'], $validLocationIds))
-            ->values();
+        $this->setStatus('filtered');
 
-        $validActivityIds = $filteredActivities->pluck('id')->toArray();
-
-        $activitySLAs = collect($this->data['Activity_SLA'] ?? []);
-        $filteredActivitySLAs = $activitySLAs->whereIn('activity_id', $validActivityIds)->values();
-
-        $activityStatuses = collect($this->data['Activity_Status'] ?? []);
-        $filteredActivityStatuses = $activityStatuses->whereIn('activity_id', $validActivityIds)->values();
-
-        $this->updateProgress(75);
-        Log::info('75 percent mark');
-
-
-        // — Step 3: Build filtered dataset
-        $filtered = $this->data;
-        $filtered['Resources'] = $filteredResources->all();
-        $filtered['Shift'] = $filteredShifts->all();
-        $filtered['Shift_Break'] = $filteredShiftBreaks->all();
-        $filtered['Resource_Skill'] = $filteredResourceSkills->all();
-        $filtered['Resource_Region'] = $filteredResourceRegions->all();
-        $filtered['Activity'] = $filteredActivities->all();
-        $filtered['Activity_SLA'] = $filteredActivitySLAs->all();
-        $filtered['Activity_Status'] = $filteredActivityStatuses->all();
-
-        $this->updateProgress(90);
-        Log::info('90 percent mark');
-
-        // — Step 4: Build summary
-        $summary = [
-            'resources' => [
-                'total' => $resources->count(),
-                'kept' => $filteredResources->count(),
-            ],
-            'shifts' => [
-                'total' => $shifts->count(),
-                'kept' => $filteredShifts->count(),
-            ],
-            'shift_breaks' => [
-                'total' => $shiftBreaks->count(),
-                'kept' => $filteredShiftBreaks->count(),
-            ],
-            'resource_skills' => [
-                'total' => $resourceSkills->count(),
-                'kept' => $filteredResourceSkills->count(),
-            ],
-            'resource_regions' => [
-                'total' => $resourceRegions->count(),
-                'kept' => $filteredResourceRegions->count(),
-            ],
-            'activities' => [
-                'total' => $allActivities->count(),
-                'kept' => $filteredActivities->count(),
-                'skipped' => $skipped,
-            ],
-            'activity_slas' => [
-                'total' => $activitySLAs->count(),
-                'kept' => $filteredActivitySLAs->count(),
-            ],
-            'activity_statuses' => [
-                'total' => $activityStatuses->count(),
-                'kept' => $filteredActivityStatuses->count(),
-            ],
+        return [
+            'filtered' => [],  // Placeholder for future filtered data
+            'summary' => [],  // Placeholder for future summary
+            'technicians' => $technicians,
         ];
-        $this->updateProgress(100);
-
-        return compact('filtered', 'summary');
-
     }
 
     protected function updateProgress(int $percent): void
     {
-
-//        Log::info("Progress updated to {$percent} for job {$this->jobId}");
-
         if ($this->jobId) {
-            Log::info('percent complete:' . $percent);
             Cache::put("resource-job:{$this->jobId}:progress", $percent);
-            usleep(500_000); // 0.5 sec
+            Log::info("📶 Progress: {$percent}% for job {$this->jobId}");
+            usleep(500_000); // Optional throttle
+        }
+    }
+
+    protected function setStatus(string $status): void
+    {
+        if ($this->jobId) {
+            Cache::put("resource-job:{$this->jobId}:status", $status);
         }
     }
 }
