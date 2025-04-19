@@ -52,10 +52,12 @@
     </div>
 
     {{-- Gantt Chart --}}
-    <x-technician-gantt :shifts="$technicianShifts"/>
-
-    {{-- Raw JSON (debug) --}}
-    <pre class="text-sm bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 p-2 rounded overflow-x-auto">
-    {{ json_encode($technicianShifts, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}
-    </pre>
+{{--    <x-technician-gantt :shifts="$technicianShifts"/>--}}
+    <pre class="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-2 rounded overflow-x-auto">
+    {{ json_encode($technicianShifts[0] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
+</pre>
+{{--    --}}{{-- Raw JSON (debug) --}}
+{{--    <pre class="text-sm bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 p-2 rounded overflow-x-auto">--}}
+{{--    {{ json_encode($technicianShifts, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}--}}
+{{--    </pre>--}}
 </x-filament-panels::page>

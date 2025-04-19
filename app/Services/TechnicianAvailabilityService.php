@@ -36,8 +36,8 @@ class TechnicianAvailabilityService
             ->groupBy('resource_id');
 
         $shifts = collect($shiftData)->map(function ($shift) use ($regionAvailability, $availabilityById) {
-            $shiftStart = Carbon::parse($shift['start']);
-            $shiftEnd = Carbon::parse($shift['end']);
+            $shiftStart = Carbon::parse($shift['start_datetime']);
+            $shiftEnd = Carbon::parse($shift['end_datetime']);
             $resourceId = $shift['resource_id'];
 
             $overlappingAvailability = collect($regionAvailability->get($resourceId, []))
@@ -76,7 +76,7 @@ class TechnicianAvailabilityService
 
         Log::info('Tech ID: ' . $this->technicianId);
         Log::info('Shifts Raw Count: ' . count($this->data['Shifts'] ?? []));
-        Log::info('First shift example: ' . json_encode(($this->data['Shift'] ?? [])[0] ?? 'none', JSON_THROW_ON_ERROR));
+//        Log::info('First shift example: ' . json_encode(($this->data['Shift'] ?? [])[0] ?? 'none', JSON_THROW_ON_ERROR));
         Log::info("🏁 Shifts Collected");
         return $shifts->toArray();
     }
