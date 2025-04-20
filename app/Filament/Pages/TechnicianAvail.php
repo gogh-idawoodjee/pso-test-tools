@@ -50,6 +50,59 @@ class TechnicianAvail extends Page
     public function mount(): void
     {
         $this->form->fill();
+        $this->technicianShifts = [
+            [
+                'id' => '101',
+                'resource_id' => '2001',
+                'start_datetime' => '2025-04-22T08:00:00+00:00',
+                'end_datetime' => '2025-04-22T17:00:00+00:00',
+                'label' => 'Shift',
+                'manual_scheduling_only' => false,
+                'region_availability' => [
+                    [
+                        'id' => 'R1',
+                        'start' => '2025-04-22T08:00:00+00:00',
+                        'end' => '2025-04-22T12:00:00+00:00',
+                        'full_coverage' => false,
+                        'region_description' => 'East Patch – Partial Override',
+                    ],
+                    [
+                        'id' => 'R2',
+                        'start' => '2025-04-22T13:00:00+00:00',
+                        'end' => '2025-04-22T17:00:00+00:00',
+                        'full_coverage' => false,
+                        'region_description' => 'Maintenance Region',
+                    ],
+                ],
+            ],
+            [
+                'id' => '102',
+                'resource_id' => '2001',
+                'start_datetime' => '2025-04-23T09:00:00+00:00',
+                'end_datetime' => '2025-04-23T18:00:00+00:00',
+                'label' => 'Shift',
+                'manual_scheduling_only' => true,
+                'region_availability' => [
+                    [
+                        'id' => 'R3',
+                        'start' => '2025-04-23T09:00:00+00:00',
+                        'end' => '2025-04-23T18:00:00+00:00',
+                        'full_coverage' => true,
+                        'region_description' => 'West Region – Full Day Coverage',
+                    ],
+                ],
+            ],
+            [
+                'id' => '103',
+                'resource_id' => '2001',
+                'start_datetime' => '2025-04-24T12:00:00+00:00',
+                'end_datetime' => '2025-04-24T20:00:00+00:00',
+                'label' => 'Shift',
+                'manual_scheduling_only' => false,
+                'region_availability' => [],
+            ],
+        ];
+
     }
 
     #[Override] public function form(Form $form): Form

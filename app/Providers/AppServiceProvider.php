@@ -34,5 +34,9 @@ class AppServiceProvider extends ServiceProvider
         if (app()->environment('production')) {
             URL::forceScheme('https');
         }
+
+        if (app()->runningInConsole() && app()->runningUnitTests() === false) {
+            ini_set('max_execution_time', 0);
+        }
     }
 }

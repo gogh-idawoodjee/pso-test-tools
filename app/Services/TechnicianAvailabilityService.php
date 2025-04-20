@@ -17,31 +17,55 @@ class TechnicianAvailabilityService
 
     }
 
-
-    public function getTechnicianShifts(): array
+    public function getTechnicianShifts(int $limit = 5, bool $onlyUpcoming = false): array
     {
         if (!$this->technicianId) {
             return [];
         }
+
         $this->setStatus('found resource');
         Log::info("✅ about to start collecting shifts for technician {$this->technicianId}");
 
-        $shiftData = $this->data['Shift'] ?? [];
+        // Get just the next X shifts
+        $shiftData = collect($this->data['Shift'] ?? [])
+            ->filter(function ($s) use ($onlyUpcoming) {
+                if (!isset($s['resource_id'], $s['start_datetime'])) {
+                    return false;
+                }
+
+                if ($s['resource_id'] !== $this->technicianId) {
+                    return false;
+                }
+
+                if ($onlyUpcoming && Carbon::parse($s['start_datetime'])->lt(now())) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->sortBy(fn($s) => Carbon::parse($s['start_datetime']))
+            ->take($limit)
+            ->values();
+
+        // Get related data
         $availabilityData = $this->data['Availability'] ?? [];
         $resourceRegionAvailData = $this->data['Resource_Region_Availability'] ?? [];
+        $regions = collect($this->data['Region'] ?? []);
 
         $availabilityById = collect($availabilityData)->keyBy('id');
+        $regionsById = $regions->keyBy('id');
+
         $regionAvailability = collect($resourceRegionAvailData)
             ->filter(fn($rra) => !empty($rra['availability_id']))
             ->groupBy('resource_id');
 
-        $shifts = collect($shiftData)->map(function ($shift) use ($regionAvailability, $availabilityById) {
+        $shifts = collect($shiftData)->map(function ($shift) use ($regionAvailability, $availabilityById, $regionsById) {
             $shiftStart = Carbon::parse($shift['start_datetime']);
             $shiftEnd = Carbon::parse($shift['end_datetime']);
             $resourceId = $shift['resource_id'];
 
             $overlappingAvailability = collect($regionAvailability->get($resourceId, []))
-                ->map(function ($rra) use ($availabilityById, $shiftStart, $shiftEnd) {
+                ->map(function ($rra) use ($availabilityById, $shiftStart, $shiftEnd, $regionsById) {
                     $availability = $availabilityById->get($rra['availability_id'] ?? '');
 
                     if (!$availability) {
@@ -51,17 +75,20 @@ class TechnicianAvailabilityService
                     $availStart = Carbon::parse($availability['datetime_start']);
                     $availEnd = Carbon::parse($availability['datetime_end']);
 
-                    // Check for overlap
+                    // Skip if no overlap
                     if ($availEnd->lte($shiftStart) || $availStart->gte($shiftEnd)) {
                         return null;
                     }
 
-                    // Normalize the clipped availability window for this shift
+                    $region = $regionsById->get($rra['region_id'] ?? '');
+                    $regionDescription = $region['description'] ?? null;
+
                     return [
                         'id' => $availability['id'],
                         'start' => max($shiftStart, $availStart)->toIso8601String(),
                         'end' => min($shiftEnd, $availEnd)->toIso8601String(),
                         'full_coverage' => $availStart->lte($shiftStart) && $availEnd->gte($shiftEnd),
+                        'region_description' => $regionDescription,
                     ];
                 })
                 ->filter()
@@ -73,11 +100,10 @@ class TechnicianAvailabilityService
             return $shift;
         });
 
-
         Log::info('Tech ID: ' . $this->technicianId);
         Log::info('Shifts Raw Count: ' . count($this->data['Shifts'] ?? []));
-//        Log::info('First shift example: ' . json_encode(($this->data['Shift'] ?? [])[0] ?? 'none', JSON_THROW_ON_ERROR));
         Log::info("🏁 Shifts Collected");
+
         return $shifts->toArray();
     }
 
