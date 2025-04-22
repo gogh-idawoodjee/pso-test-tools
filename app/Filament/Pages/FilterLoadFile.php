@@ -59,6 +59,11 @@ class FilterLoadFile extends Page
                         ->label('Region IDs to keep (comma-separated)')
                         ->helperText('e.g. REG1, NORTH, DISTRICT2. All regions except these will be removed.')
                         ->required(),
+                    Forms\Components\DateTimePicker::make('overrideDatetime')
+                        ->label('Override Input Reference Datetime')
+                        ->helperText('Optional. Will replace the datetime in the input_reference block.')
+                        ->nullable()
+                        ->native(false),
                     Forms\Components\Toggle::make('dryRun')
                         ->label('Preview Only (Dry Run)')
                         ->helperText('Get counts without creating a filtered file'),
