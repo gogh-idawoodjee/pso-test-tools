@@ -59,11 +59,12 @@ class FilterLoadFile extends Page
                     Forms\Components\TextInput::make('regionIds')
                         ->label('Region IDs to keep (comma-separated)')
                         ->helperText('e.g. REG1, NORTH, DISTRICT2. All regions except these will be removed.')
+                        ->disabled(static fn(callable $get) => !filled($get('upload')))
                         ->required(),
                     Forms\Components\DateTimePicker::make('overrideDatetime')
                         ->label('Override Input Reference Datetime')
                         ->prefixIcon('heroicon-o-calendar-days') // Adds a calendar icon to the input
-                        ->visible(fn(callable $get) => !$get('dryRun') && filled($get('upload')))
+                        ->visible(static fn(callable $get) => !$get('dryRun') && filled($get('upload')))
                         ->helperText('Optional. Replaces the datetime in the Input_Reference.')
                         ->native(false)
                         ->seconds(false)
