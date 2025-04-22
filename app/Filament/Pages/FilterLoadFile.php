@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -68,12 +69,14 @@ class FilterLoadFile extends Page
                             ->directory('uploads')
                             ->maxSize(102400) // ← 100MB in kilobytes
                             ->acceptedFileTypes(['application/json'])
-                            ->required(),
+                            ->required()->columnSpan(2),
+                        Fieldset::make('Filtering Options')->schema([
+                            $this->createRegionSelector(),
+                            $this->createResourceSelector(),
+                            $this->createActivitySelector(),
+                            $this->createDatetimeOverrideField(),
+                        ])->visible(fn() => $this->shouldShowDropdowns()),
 
-                        $this->createRegionSelector(),
-                        $this->createResourceSelector(),
-                        $this->createActivitySelector(),
-                        $this->createDatetimeOverrideField(),
 
                         Toggle::make('dryRun')
                             ->label('Get Data')
@@ -82,7 +85,7 @@ class FilterLoadFile extends Page
                             ->dehydrated(true)
                             ->default(true)
                             ->live(),
-                    ]),
+                    ])->columns(),
             ]
         );
 
@@ -94,10 +97,10 @@ class FilterLoadFile extends Page
             ->label('Regions to Keep')
             ->multiple()
             ->options(fn() => collect($this->availableRegionIds)->mapWithKeys(static fn($id) => [$id => $id]))
-            ->visible(fn() => $this->shouldShowDropdowns())
+//            ->visible(fn() => $this->shouldShowDropdowns())
             ->searchable()
             ->native(false)
-            ->helperText('Only these regions will be kept. Others will be removed.');
+            ->helperText('Only these regions will be kept. Others will be removed.')->columnSpan(1);
     }
 
     protected function createResourceSelector(): Select
@@ -106,7 +109,7 @@ class FilterLoadFile extends Page
             ->label('Filter to Specific Resources')
             ->multiple()
             ->options(fn() => $this->availableResourceIds)
-            ->visible(fn() => $this->shouldShowDropdowns())
+//            ->visible(fn() => $this->shouldShowDropdowns())
             ->searchable()
             ->native(false)
             ->helperText('Optional. Only these resources will be included if selected.');
@@ -118,7 +121,7 @@ class FilterLoadFile extends Page
             ->label('Filter to Specific Activities')
             ->multiple()
             ->options(fn() => $this->availableActivityIds)
-            ->visible(fn() => $this->shouldShowDropdowns())
+//            ->visible(fn() => $this->shouldShowDropdowns())
             ->searchable()
             ->native(false)
             ->helperText('Optional. Only these activities will be included if selected.');
@@ -129,7 +132,7 @@ class FilterLoadFile extends Page
         return DateTimePicker::make('overrideDatetime')
             ->label('Override Input Reference Datetime')
             ->prefixIcon('heroicon-o-calendar-days')
-            ->visible(fn() => $this->shouldShowDropdowns())
+//            ->visible(fn() => $this->shouldShowDropdowns())
             ->helperText('Optional. Replaces the datetime in the Input_Reference.')
             ->native(false)
             ->seconds(false)
@@ -235,6 +238,11 @@ class FilterLoadFile extends Page
         if ($this->status === 'failed') {
             $this->notifyDanger('Processing failed', 'Something went wrong during processing.');
         }
+
+        if ($this->shouldShowDropdowns()) {
+            // attempt to change state of toggle once IDs have been loaded
+            $this->form->fill(['dryRun' => false]);
+        }
     }
 
     private function loadAvailableIds(): void
@@ -248,6 +256,7 @@ class FilterLoadFile extends Page
         $this->availableRegionIds = $availableIds['regions'] ?? [];
         $this->availableResourceIds = $availableIds['resources'] ?? [];
         $this->availableActivityIds = $availableIds['activities'] ?? [];
+
 
         Log::info('Available regions: ' . count($this->availableRegionIds));
         Log::info('Available resources: ' . count($this->availableResourceIds));
