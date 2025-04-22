@@ -11,6 +11,7 @@ class ResourceActivityFilterService
         protected array   $data,
         protected array   $regionIds,
         protected ?string $jobId = null,
+        protected ?string $overrideDatetime = null,
     )
     {
     }
@@ -21,6 +22,10 @@ class ResourceActivityFilterService
         $this->updateProgress(5); // after loading file
         Log::info('5 percent mark');
         $regionIds = collect($this->regionIds)->filter()->map(static fn($id) => trim($id))->toArray();
+        $inputReference = $this->data['Input_Reference'] ?? [];
+        if ($this->overrideDatetime) {
+            $inputReference['datetime'] = now()->parse($this->overrideDatetime)->toIso8601String();
+        }
         $this->updateProgress(10); // after first block
 
         // — Step 1: Filter resource-related stuff
@@ -89,6 +94,8 @@ class ResourceActivityFilterService
         $filtered['Activity'] = $filteredActivities->all();
         $filtered['Activity_SLA'] = $filteredActivitySLAs->all();
         $filtered['Activity_Status'] = $filteredActivityStatuses->all();
+        $filtered['Input_Reference'] = $inputReference;
+        Log::info('⏱️ Input datetime overridden to: ' . ($inputReference['datetime'] ?? 'not set'));
 
         $this->updateProgress(90);
         Log::info('90 percent mark');

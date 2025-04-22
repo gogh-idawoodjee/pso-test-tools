@@ -20,10 +20,11 @@ class ProcessResourceFile implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public function __construct(
-        public string $jobId,
-        public string $path,
-        public string $regionIds,
-        public bool   $dryRun = false, // 👈 this is the missing one
+        public string  $jobId,
+        public string  $path,
+        public string  $regionIds,
+        public bool    $dryRun = false, // 👈 this is the missing one,
+        public ?string $overrideDatetime = null
     )
     {
     }
@@ -42,7 +43,7 @@ class ProcessResourceFile implements ShouldQueue
             $regionIds = collect(explode(',', $this->regionIds))->map(static fn($id) => trim($id))->toArray();
 
             // Filter and summarize
-            $service = new ResourceActivityFilterService($data, $regionIds, $this->jobId);
+            $service = new ResourceActivityFilterService($data, $regionIds, $this->jobId, $this->overrideDatetime);
             ['filtered' => $filteredData, 'summary' => $summary] = $service->filter();
 
             $formatted = DryRunSummaryFormatter::format($summary);

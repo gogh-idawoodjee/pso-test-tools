@@ -33,6 +33,7 @@ class FilterLoadFile extends Page
     public $downloadUrl = null;
     public $progress = 0;
     public $preview = [];
+    public $overrideDatetime = null;
 
     public function mount(): void
     {
@@ -99,7 +100,8 @@ class FilterLoadFile extends Page
             $this->jobId,
             $data['upload'],
             $data['regionIds'],
-            $data['dryRun'] ?? false
+            $data['dryRun'] ?? false,
+            $data['overrideDatetime'] ?? null
         );
 
         Notification::make()
