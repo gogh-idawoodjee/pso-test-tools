@@ -42,7 +42,7 @@
                 $color = $legendColorMap[$region['id']] ?? '#ccc';
                 $bgStyle = $region['active']
                     ? "background-color: {$color};"
-                    : "background-image: repeating-linear-gradient(45deg, {$color}, {$color} 4px, rgba(255,255,255,0.5) 4px, rgba(255,255,255,0.5) 8px); background-blend-mode: multiply;";
+                    : "background-color: {$color}; background-image: repeating-linear-gradient(45deg, {$color}, {$color} 4px, rgba(255,255,255,0.5) 4px, rgba(255,255,255,0.5) 8px); background-blend-mode: multiply;";
             @endphp
             <div class="flex items-center text-sm gap-2">
                 <div class="w-4 h-4 rounded-sm border border-gray-300 mr-2" style="{{ $bgStyle }}"></div>
