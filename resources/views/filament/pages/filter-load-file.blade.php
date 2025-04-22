@@ -3,7 +3,7 @@
         {{ $this->form }}
 
         <x-filament::button type="submit" class="mt-6">
-            {{ $dryRun ? 'Run Preview' : 'Process File' }}
+            {{ $dryRun ? 'Get Filterable Data' : 'Filter File' }}
         </x-filament::button>
     </form>
 

@@ -141,7 +141,7 @@ class ProcessResourceFile implements ShouldQueue
     protected function createOutputFile(array $filteredData): void
     {
         $filename = "filtered_{$this->jobId}.json";
-        $jsonOut = json_encode(['dsScheduleData' => $filteredData], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT);
+        $jsonOut = json_encode(['dsScheduleData' => $filteredData], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
         Storage::disk('public')->put($filename, $jsonOut);
 
         $finalFilename = $this->compressFileIfNeeded($filename);

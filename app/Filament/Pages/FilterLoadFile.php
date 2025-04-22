@@ -2,11 +2,16 @@
 
 namespace App\Filament\Pages;
 
+use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Pages\Page;
 use App\Jobs\ProcessResourceFile;
 use App\Traits\FilamentJobMonitoring;
-use Filament\Forms;
+use Filament\Forms\Form;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Override;
@@ -38,6 +43,8 @@ class FilterLoadFile extends Page
     public array $availableRegionIds = [];
     public $overrideDatetime = null;
 
+    public $formData;
+
     public function mount(): void
     {
         $this->form->fill([
@@ -50,36 +57,40 @@ class FilterLoadFile extends Page
     }
 
     #[Override]
-    protected function getFormSchema(): array
+    public function form(Form $form): Form
     {
-        return [
-            Forms\Components\Section::make()
-                ->schema([
-                    Forms\Components\FileUpload::make('upload')
-                        ->label('Upload JSON File')
-                        ->disk('local')
-                        ->directory('uploads')
-                        ->maxSize(102400) // ← 100MB in kilobytes
-                        ->acceptedFileTypes(['application/json'])
-                        ->required(),
+        return $form->schema([
+                Section::make()
+                    ->schema([
+                        FileUpload::make('upload')
+                            ->label('Upload JSON File')
+                            ->disk('local')
+                            ->directory('uploads')
+                            ->maxSize(102400) // ← 100MB in kilobytes
+                            ->acceptedFileTypes(['application/json'])
+                            ->required(),
 
-                    $this->createRegionSelector(),
-                    $this->createResourceSelector(),
-                    $this->createActivitySelector(),
-                    $this->createDatetimeOverrideField(),
+                        $this->createRegionSelector(),
+                        $this->createResourceSelector(),
+                        $this->createActivitySelector(),
+                        $this->createDatetimeOverrideField(),
 
-                    Forms\Components\Toggle::make('dryRun')
-                        ->label('Preview Only (Dry Run)')
-                        ->helperText('Get counts without creating a filtered file')
-                        ->default(true)
-                        ->live(),
-                ]),
-        ];
+                        Toggle::make('dryRun')
+                            ->label('Get Data')
+                            ->helperText('Required Prior to Filtering')
+                            ->disabled(fn() => !$this->shouldShowDropdowns())
+                            ->dehydrated(true)
+                            ->default(true)
+                            ->live(),
+                    ]),
+            ]
+        );
+
     }
 
-    protected function createRegionSelector(): Forms\Components\Select
+    protected function createRegionSelector(): Select
     {
-        return Forms\Components\Select::make('regionIds')
+        return Select::make('regionIds')
             ->label('Regions to Keep')
             ->multiple()
             ->options(fn() => collect($this->availableRegionIds)->mapWithKeys(static fn($id) => [$id => $id]))
@@ -89,9 +100,9 @@ class FilterLoadFile extends Page
             ->helperText('Only these regions will be kept. Others will be removed.');
     }
 
-    protected function createResourceSelector(): Forms\Components\Select
+    protected function createResourceSelector(): Select
     {
-        return Forms\Components\Select::make('resourceIds')
+        return Select::make('resourceIds')
             ->label('Filter to Specific Resources')
             ->multiple()
             ->options(fn() => $this->availableResourceIds)
@@ -101,9 +112,9 @@ class FilterLoadFile extends Page
             ->helperText('Optional. Only these resources will be included if selected.');
     }
 
-    protected function createActivitySelector(): Forms\Components\Select
+    protected function createActivitySelector(): Select
     {
-        return Forms\Components\Select::make('activityIds')
+        return Select::make('activityIds')
             ->label('Filter to Specific Activities')
             ->multiple()
             ->options(fn() => $this->availableActivityIds)
@@ -113,9 +124,9 @@ class FilterLoadFile extends Page
             ->helperText('Optional. Only these activities will be included if selected.');
     }
 
-    protected function createDatetimeOverrideField(): Forms\Components\DateTimePicker
+    protected function createDatetimeOverrideField(): DateTimePicker
     {
-        return Forms\Components\DateTimePicker::make('overrideDatetime')
+        return DateTimePicker::make('overrideDatetime')
             ->label('Override Input Reference Datetime')
             ->prefixIcon('heroicon-o-calendar-days')
             ->visible(fn() => $this->shouldShowDropdowns())
@@ -170,6 +181,7 @@ class FilterLoadFile extends Page
     private function prepareJobData(): array
     {
         $data = $this->form->getState();
+
         $data['regionIds'] = $data['regionIds'] ?? [];
         $data['resourceIds'] = $data['resourceIds'] ?? [];
         $data['activityIds'] = $data['activityIds'] ?? [];
