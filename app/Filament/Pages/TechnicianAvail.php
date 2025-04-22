@@ -155,6 +155,7 @@ class TechnicianAvail extends Page
                         ->label('Select Technician')
                         ->options($this->technicianOptions)
                         ->placeholder('Choose a tech')
+                        ->searchable()
                         ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
                         ->visible(fn() => !empty($this->technicianOptions))
                         ->live(),
