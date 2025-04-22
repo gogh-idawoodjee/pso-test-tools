@@ -62,12 +62,16 @@ class FilterLoadFile extends Page
                         ->required(),
                     Forms\Components\DateTimePicker::make('overrideDatetime')
                         ->label('Override Input Reference Datetime')
-                        ->helperText('Optional. Will replace the datetime in the input_reference block.')
-                        ->nullable()
-                        ->native(false),
+                        ->prefixIcon('heroicon-o-calendar-days') // Adds a calendar icon to the input
+                        ->visible(fn(callable $get) => !$get('dryRun') && filled($get('upload')))
+                        ->helperText('Optional. Replaces the datetime in the Input_Reference.')
+                        ->native(false)
+                        ->seconds(false)
+                        ->nullable(),
                     Forms\Components\Toggle::make('dryRun')
                         ->label('Preview Only (Dry Run)')
-                        ->helperText('Get counts without creating a filtered file'),
+                        ->helperText('Get counts without creating a filtered file')
+                        ->live(),
                 ]),
 
         ];
