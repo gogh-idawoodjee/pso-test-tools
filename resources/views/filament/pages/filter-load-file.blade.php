@@ -7,7 +7,7 @@
         </x-filament::button>
     </form>
 
-{{--    <p class="text-sm text-gray-500">Livewire Progress: {{ $progress }}</p>--}}
+    {{--    <p class="text-sm text-gray-500">Livewire Progress: {{ $progress }}</p>--}}
 
     {{-- Progress bar while job is running --}}
     @if ($jobId && $progress < 100)
@@ -19,7 +19,8 @@
             <div class="mt-6">
                 <p class="mb-2 font-semibold">Processing... {{ $progress }}%</p>
                 <div class="w-full h-4 bg-gray-200 rounded">
-                    <div class="h-4 bg-primary-500 rounded transition-all duration-500" style="width: {{ $progress }}%"></div>
+                    <div class="h-4 bg-primary-500 rounded transition-all duration-500"
+                         style="width: {{ $progress }}%"></div>
                 </div>
             </div>
         </div>
@@ -37,18 +38,34 @@
 
     {{-- Preview results for dry-run or full run --}}
     @if ($preview)
-        <div class="mt-6">
-            <x-filament::section>
-                <x-slot name="title">Filter Summary</x-slot>
-
-                <ul class="list-disc pl-6 space-y-1">
-                    @foreach ($preview as $key => $info)
-                        <li>
-                            <strong>{{ Str::headline($key) }}:</strong> {{ $info }}
-                        </li>
-                    @endforeach
-                </ul>
-            </x-filament::section>
+        <div class="mt-6 overflow-x-auto">
+            <table class="min-w-full text-sm text-left border border-gray-200 dark:border-gray-700">
+                <thead class="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                <tr>
+                    <th class="px-4 py-2 font-medium">Entity</th>
+                    <th class="px-4 py-2 font-medium">Total</th>
+                    <th class="px-4 py-2 font-medium">Kept</th>
+                    <th class="px-4 py-2 font-medium">Skipped</th>
+                </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                @foreach ($preview as $item)
+                    <tr>
+                        <td class="px-4 py-2 flex items-center gap-2">
+                            <x-icon :name="$item['icon']" class="w-5 h-5 text-primary-500"/>
+                            {{ $item['entity'] }}
+                        </td>
+                        <td class="px-4 py-2">{{ $item['total'] }}</td>
+                        <td class="px-4 py-2">{{ $item['kept'] }}</td>
+                        <td class="px-4 py-2">
+                            {{ $item['skipped'] ?? '—' }}
+                        </td>
+                    </tr>
+                @endforeach
+                </tbody>
+            </table>
         </div>
     @endif
+
+
 </x-filament::page>

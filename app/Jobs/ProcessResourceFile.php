@@ -2,8 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Services\DryRunSummaryFormatter;
 use App\Services\ResourceActivityFilterService;
+use App\Support\PreviewSummaryFormatter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -45,8 +45,10 @@ class ProcessResourceFile implements ShouldQueue
             // Filter and summarize
             $service = new ResourceActivityFilterService($data, $regionIds, $this->jobId, $this->overrideDatetime);
             ['filtered' => $filteredData, 'summary' => $summary] = $service->filter();
+            $formatted = PreviewSummaryFormatter::format($summary);
+            Cache::put("resource-job:{$this->jobId}:preview", $formatted);
 
-            $formatted = DryRunSummaryFormatter::format($summary);
+//            $formatted = DryRunSummaryFormatter::format($summary);
             Cache::put("resource-job:{$this->jobId}:progress", 75);
 
             // Dry run? No file output
