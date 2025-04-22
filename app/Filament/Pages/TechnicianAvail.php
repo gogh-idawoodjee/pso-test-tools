@@ -22,6 +22,7 @@ use Override;
 class TechnicianAvail extends Page
 {
 
+
     use InteractsWithForms;
 
     // 1. Constants/Static properties
@@ -52,57 +53,88 @@ class TechnicianAvail extends Page
         $this->form->fill();
         $this->technicianShifts = [
             [
-                'id' => '101',
-                'resource_id' => '2001',
-                'start_datetime' => '2025-04-22T08:00:00+00:00',
-                'end_datetime' => '2025-04-22T17:00:00+00:00',
-                'label' => 'Shift',
+                'id' => '372729',
+                'resource_id' => '155',
+                'start_datetime' => '2025-04-14T12:00:00+00:00',
+                'end_datetime' => '2025-04-14T21:00:00+00:00',
                 'manual_scheduling_only' => false,
-                'region_availability' => [
-                    [
-                        'id' => 'R1',
-                        'start' => '2025-04-22T08:00:00+00:00',
-                        'end' => '2025-04-22T12:00:00+00:00',
-                        'full_coverage' => false,
-                        'region_description' => 'East Patch – Partial Override',
-                    ],
-                    [
-                        'id' => 'R2',
-                        'start' => '2025-04-22T13:00:00+00:00',
-                        'end' => '2025-04-22T17:00:00+00:00',
-                        'full_coverage' => false,
-                        'region_description' => 'Maintenance Region',
-                    ],
-                ],
-            ],
-            [
-                'id' => '102',
-                'resource_id' => '2001',
-                'start_datetime' => '2025-04-23T09:00:00+00:00',
-                'end_datetime' => '2025-04-23T18:00:00+00:00',
                 'label' => 'Shift',
-                'manual_scheduling_only' => true,
                 'region_availability' => [
                     [
-                        'id' => 'R3',
-                        'start' => '2025-04-23T09:00:00+00:00',
-                        'end' => '2025-04-23T18:00:00+00:00',
+                        'id' => '155-MAINTENANCE',
+                        'region_id' => 'MAINTENANCE',
+                        'region_description' => 'Maintenance Zone',
+                        "region_active" => false,
+                        'start' => '2025-04-14T12:00:00+00:00',
+                        'end' => '2025-04-14T21:00:00+00:00',
                         'full_coverage' => true,
-                        'region_description' => 'West Region – Full Day Coverage',
                     ],
+                    [
+                        'id' => '155-MAINTENANCE_AC',
+                        'region_id' => 'MAINTENANCE_AC',
+                        'region_description' => 'Air Conditioning',
+                        "region_active" => true,
+                        'start' => '2025-04-14T14:00:00+00:00',
+                        'end' => '2025-04-14T16:00:00+00:00',
+                        'full_coverage' => false,
+                    ]
+                ],
+                'breaks' => [
+                    [
+                        'start' => '2025-04-15T16:00:00+00:00',
+                        'end' => '2025-04-15T17:00:00+00:00',
+                    ]
+                ]
+            ],
+            [
+                'id' => '372730',
+                'resource_id' => '155',
+                'start_datetime' => '2025-04-15T09:00:00+00:00',
+                'end_datetime' => '2025-04-15T18:00:00+00:00',
+                'manual_scheduling_only' => true,
+                'label' => 'Manual Shift',
+                'region_availability' => [
+                    [
+                        'id' => '155-WEST',
+                        'region_id' => 'WEST',
+                        'region_description' => 'Western Coverage',
+                        'start' => '2025-04-15T09:30:00+00:00',
+                        "region_active" => true,
+                        'end' => '2025-04-15T14:30:00+00:00',
+                        'full_coverage' => false,
+                    ],
+                    [
+                        'id' => '156-WEST',
+                        'region_id' => 'WEST',
+                        'region_description' => 'Western Coverage',
+                        'start' => '2025-04-15T14:30:00+00:00',
+                        "region_active" => false,
+                        'end' => '2025-04-15T16:30:00+00:00',
+                        'full_coverage' => false,
+                    ]
                 ],
             ],
             [
-                'id' => '103',
-                'resource_id' => '2001',
-                'start_datetime' => '2025-04-24T12:00:00+00:00',
-                'end_datetime' => '2025-04-24T20:00:00+00:00',
-                'label' => 'Shift',
+                'id' => '372731',
+                'resource_id' => '155',
+                'start_datetime' => '2025-04-16T07:30:00+00:00',
+                'end_datetime' => '2025-04-16T16:00:00+00:00',
                 'manual_scheduling_only' => false,
-                'region_availability' => [],
+                'label' => 'Shift',
+                'region_availability' => [
+                    [
+                        'id' => '155-NORTH',
+                        'region_id' => 'NORTH',
+                        'region_description' => 'Northern Sector',
+                        'start' => '2025-04-16T08:00:00+00:00',
+                        "region_active" => false,
+                        'end' => '2025-04-16T16:00:00+00:00',
+                        'full_coverage' => true,
+                    ]
+                ],
             ],
-        ];
 
+        ];
     }
 
     #[Override] public function form(Form $form): Form
