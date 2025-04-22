@@ -4,7 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Jobs\GetTechnicianShiftsJob;
 use App\Jobs\GetTechniciansListJob;
-
+use App\Traits\FilamentJobMonitoring;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -12,34 +12,26 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
-use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Override;
 
 class TechnicianAvail extends Page
 {
-
-
     use InteractsWithForms;
+    use FilamentJobMonitoring;
+
+    // Job types
+    private const string JOB_TYPE_RESOURCES = 'resource-job';
+    private const string JOB_TYPE_SHIFTS = 'Technician-Shift-Job';
 
     // 1. Constants/Static properties
     protected static ?string $navigationIcon = 'heroicon-o-calendar';
     protected static string $view = 'filament.pages.technician-avail';
-
+    protected static ?string $navigationGroup = 'Additional Tools';
     // 2. Public properties
-    public ?string $jobId = null;
-    public ?string $status = 'idle';
-    public ?string $data = null;
-    public bool $isPolling = false;
-    public int $progress = 0;
-    public int $countdown = 10;
     public array $technicianOptions = [];
     public array|null $technicianShifts = [];
-
-    public string|null $jobKey = null;
 
     // 3. Form-related properties
     public array $formData = [
@@ -47,10 +39,137 @@ class TechnicianAvail extends Page
         'selectedTechnician' => null,
     ];
 
-
     public function mount(): void
     {
         $this->form->fill();
+        // Load sample data for development/testing
+        $this->loadSampleData();
+    }
+
+    #[Override]
+    public function form(Form $form): Form
+    {
+        return $form->schema([
+            Section::make('Technician Availability')
+                ->schema([
+                    FileUpload::make('upload')
+                        ->label('Upload JSON File')
+                        ->disk('local')
+                        ->directory('uploads')
+                        ->acceptedFileTypes(['application/json'])
+                        ->required()
+                        ->dehydrated()
+                        ->live(),
+
+                    Select::make('selectedTechnician')
+                        ->label('Select Technician')
+                        ->options($this->technicianOptions)
+                        ->placeholder('Choose a tech')
+                        ->searchable()
+                        ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+                        ->visible(fn() => !empty($this->technicianOptions))
+                        ->live(),
+                ]),
+            Actions::make([
+                Action::make('get_resources')
+                    ->label('Load Resources')
+                    ->icon('heroicon-o-arrow-down-circle')
+                    ->disabled(fn() => !empty($this->formData['selectedTechnician']))
+                    ->action(function () {
+                        $this->getResources();
+                    }),
+                Action::make('get_schedule')
+                    ->label('Get Technician Schedule')
+                    ->icon('heroicon-o-arrow-down-circle')
+                    ->disabled(fn() => empty($this->formData['selectedTechnician']))
+                    ->action(function () {
+                        $this->getSchedule();
+                    })
+            ])
+        ])->statePath('formData');
+    }
+
+    public function getSchedule(): void
+    {
+        $this->startJob(self::JOB_TYPE_SHIFTS);
+
+        if ($data = $this->form->getState()) {
+            $path = $data['upload'];
+            $technicianId = $data['selectedTechnician'];
+
+            Log::info("Get Schedule Job ID: {$this->jobId}, File: {$path}, Technician: {$technicianId}");
+
+            GetTechnicianShiftsJob::dispatch($this->jobId, $path, $technicianId);
+        }
+    }
+
+    public function getResources(): void
+    {
+        $this->startJob(self::JOB_TYPE_RESOURCES);
+
+        if ($data = $this->form->getState()) {
+            $path = $data['upload'];
+
+            Log::info("Job ID: {$this->jobId}, File: {$path}");
+
+            GetTechniciansListJob::dispatch($this->jobId, $path);
+        }
+    }
+
+    public function checkStatus(): void
+    {
+        if (!$this->jobId || !$this->jobKey) {
+            return;
+        }
+
+        // Track polling count for debugging
+        $this->incrementPollingCount();
+
+        // Get job status data
+        $this->progress = $this->getJobProgress();
+        $this->status = $this->getJobStatus();
+        $this->data = $this->getJobData();
+
+        Log::info("Polling checkStatus for jobId: {$this->jobId}, Progress: {$this->progress}, Status: {$this->status}");
+
+        if ($this->status === 'complete') {
+            $this->handleJobCompletion();
+        }
+    }
+
+    protected function handleJobCompletion(): void
+    {
+        Log::info("Job complete: {$this->jobKey}");
+
+        // Handle different job types
+        if ($this->jobKey === self::JOB_TYPE_SHIFTS) {
+            $this->technicianShifts = $this->getFromJobCache('shifts', []);
+        } elseif ($this->jobKey === self::JOB_TYPE_RESOURCES) {
+            $technicians = $this->getFromJobCache('technicians', []);
+            $this->updateTechnicianOptions($technicians);
+        }
+
+        // Notify the user
+        $this->notifySuccess('Done!', 'Job completed successfully');
+
+        // Reset job state
+        $this->resetJobState();
+    }
+
+    protected function updateTechnicianOptions(array $technicians): void
+    {
+        if (count($technicians) > 0) {
+            $this->technicianOptions = collect($technicians)
+                ->pluck('name', 'id')
+                ->toArray();
+
+            Log::info('Technician dropdown updated with ' . count($this->technicianOptions) . ' options');
+        }
+    }
+
+    private function loadSampleData(): void
+    {
+        // Sample technician shifts data (for development/testing)
         $this->technicianShifts = [
             [
                 'id' => '372729',
@@ -133,179 +252,6 @@ class TechnicianAvail extends Page
                     ]
                 ],
             ],
-
         ];
     }
-
-    #[Override] public function form(Form $form): Form
-    {
-        return $form->schema([
-            Section::make('Technician Availability')
-                ->schema([
-                    FileUpload::make('upload')
-                        ->label('Upload JSON File')
-                        ->disk('local')
-                        ->directory('uploads')
-                        ->acceptedFileTypes(['application/json'])
-                        ->required()
-                        ->dehydrated() // just to be safe
-                        ->live(),
-
-                    Select::make('selectedTechnician')
-                        ->label('Select Technician')
-                        ->options($this->technicianOptions)
-                        ->placeholder('Choose a tech')
-                        ->searchable()
-                        ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
-                        ->visible(fn() => !empty($this->technicianOptions))
-                        ->live(),
-                ]),
-            Actions::make([
-                Actions\Action::make('get_resources')
-                    ->label('Load Resources')
-                    ->icon('heroicon-o-arrow-down-circle')
-                    ->disabled(fn() => !empty($this->formData['selectedTechnician']))
-                    ->action(function () {
-                        $this->getResources();
-                    }),
-                Actions\Action::make('get_schedule')
-                    ->label('Get Technician Schedule')
-                    ->icon('heroicon-o-arrow-down-circle')
-                    ->disabled(fn() => empty($this->formData['selectedTechnician']))
-                    ->action(function () {
-                        $this->getSchedule();
-                    })
-            ])
-        ])->statePath('formData');
-    }
-
-    public function getSchedule(): void
-    {
-        $this->jobKey = "Technician-Shift-Job";
-        if ($data = $this->form->getState()) {
-            Log::info('valid form');
-
-            // set the job ID
-            $this->jobId = (string)Str::uuid();
-
-            $this->status = 'starting up';
-            Cache::put("Technician-Shift-Job:{$this->jobId}:status", 'starting up');
-            $path = $data['upload'];
-            Log::info("Get Schedule Job ID: {$this->jobId}, File: " . $path);
-            Log::info("Using Technician ID: " . $data['selectedTechnician'] ?? 'none');
-            Log::info("📩 Dispatching schedule job for: {$path}");
-            // call the job
-            Log::info("Checking status for job", [
-                'jobId' => $this->jobId,
-                'status' => Cache::get("Technician-Shift-Job:{$this->jobId}:status")
-            ]);
-
-            GetTechnicianShiftsJob::dispatch($this->jobId, $path, $data['selectedTechnician']);
-            // polling starts when job ID is set so no need to manually start it
-//            $this->togglePolling(true);
-
-        }
-    }
-
-
-    public function getResources(): void
-    {
-        $this->jobKey = "resource-job";
-        if ($data = $this->form->getState()) {
-
-            Log::info('valid form');
-
-            // set the job ID
-            $this->jobId = (string)Str::uuid();
-
-            $this->status = 'starting up';
-            Cache::put("{$this->jobKey}:{$this->jobId}:status", 'starting up');
-            $path = $data['upload'];
-            Log::info("Job ID: {$this->jobId}, File: " . $path);
-            Log::info("📩 Dispatching job for: {$path}");
-            // call the job
-            Log::info("Checking status for job", [
-                'jobId' => $this->jobId,
-                'status' => Cache::get("{$this->jobKey}:{$this->jobId}:status")
-            ]);
-
-            GetTechniciansListJob::dispatch($this->jobId, $path);
-            // polling starts when job ID is set so no need to manually start it
-//            $this->togglePolling(true);
-
-        }
-
-//
-//        // stop the polling
-//        Log::info("🛑 stopping the polling");
-//        if ($this->status === 'complete') {
-//            $this->togglePolling();
-//        }
-    }
-
-    public function checkStatus(): void
-    {
-
-        // todo all this should only be if status is not complete
-        // then in the get tech schedules, we can clear the state
-        $pollingCount = Cache::get("{$this->jobKey}:{$this->jobId}:polling-count", 0);
-        Log::info("Polling count at get: {$pollingCount}");
-
-        $pollingCount++; // Increment first
-        Cache::put("{$this->jobKey}:{$this->jobId}:polling-count", $pollingCount); // Then store
-
-        Log::info("Polling count at put: {$pollingCount}");
-        Log::info("Polling checkStatus # {$pollingCount} for jobId: {$this->jobId}");
-
-
-        Log::info("Polling checkStatus # {$pollingCount} for jobId: {$this->jobId}");
-        $this->progress = Cache::get("{$this->jobKey}:{$this->jobId}:progress", 0);
-        Log::info("Live progress: {$this->progress}");
-        $this->status = Cache::get("{$this->jobKey}:{$this->jobId}:status");
-        Log::info("Live Status: {$this->status}");
-        $this->data = Cache::get("{$this->jobKey}:{$this->jobId}:data");
-
-        if ($this->status === 'complete') {
-
-            Log::info("Job complete: {$this->jobKey}.");
-            $this->technicianShifts = Cache::get("{$this->jobKey}:{$this->jobId}:shifts", []);
-
-            $technicians = Cache::get("{$this->jobKey}:{$this->jobId}:technicians", []);
-
-            $this->technicianOptions = collect($technicians)
-                ->pluck('name', 'id')
-                ->toArray();
-            Notification::make()
-                ->title('Done!')
-                ->body('finished')
-                ->success()
-                ->send();
-
-//            cache()->forget("{$this->jobKey}:{$this->jobId}:status");
-//            cache()->forget("{$this->jobKey}:{$this->jobId}:progress");
-
-            // ✅ Keep technician options before wiping the cache
-            $techs = Cache::get("{$this->jobKey}:{$this->jobId}:technicians", []);
-            // better idea, only populate if $techs exists
-            if (count($techs) > 0) {
-
-                $this->technicianOptions = collect($techs)->pluck('name', 'id')->toArray();
-//                Log::info('tech drop list updated: '. json_encode($this->technicianOptions[0]));
-            }
-
-            // reset some stuff
-            $this->jobId = null;
-            $this->status = 'idle';
-//            $this->progress = 0;
-        }
-
-    }
-
-    public function togglePolling($start = false): void
-    {
-        Log::info("togglePolling: " . $start ? 'start' : 'stop');
-        $this->isPolling = $start;
-
-    }
-
 }
