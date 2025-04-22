@@ -246,6 +246,8 @@ class TechnicianAvail extends Page
     public function checkStatus(): void
     {
 
+        // todo all this should only be if status is not complete
+        // then in the get tech schedules, we can clear the state
         $pollingCount = Cache::get("{$this->jobKey}:{$this->jobId}:polling-count", 0);
         Log::info("Polling count at get: {$pollingCount}");
 
@@ -279,8 +281,8 @@ class TechnicianAvail extends Page
                 ->success()
                 ->send();
 
-            cache()->forget("{$this->jobKey}:{$this->jobId}:status");
-            cache()->forget("{$this->jobKey}:{$this->jobId}:progress");
+//            cache()->forget("{$this->jobKey}:{$this->jobId}:status");
+//            cache()->forget("{$this->jobKey}:{$this->jobId}:progress");
 
             // ✅ Keep technician options before wiping the cache
             $techs = Cache::get("{$this->jobKey}:{$this->jobId}:technicians", []);
@@ -294,7 +296,7 @@ class TechnicianAvail extends Page
             // reset some stuff
             $this->jobId = null;
             $this->status = 'idle';
-            $this->progress = 0;
+//            $this->progress = 0;
         }
 
     }

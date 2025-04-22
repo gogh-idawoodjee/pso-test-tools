@@ -27,21 +27,12 @@
             <div class="w-full max-w-sm">
                 <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Progress</h2>
 
-                {{--                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded h-3 overflow-hidden">--}}
-                {{-- Use a safe color for guaranteed visibility --}}
-                {{--                    <div--}}
-                {{--                        class="h-full bg-green-500 !bg-green-500 transition-all duration-300 ease-out"--}}
-                {{--                        style="width: 50%;"--}}
-                {{--                    ></div>--}}
-                <div
-                    class="bg-green-500  round h-3 overflow-hidden"
-                    style="width: 50%;"
-                ></div>
-                {{--                </div>--}}
+                <div style="width: 100%; height: 12px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                    <div style="width: {{ $progress }}%; height: 100%; background-color: #10b981;"></div>
+                </div>
 
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $progress }}%</p>
             </div>
-
 
             <div>
                 <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Selected Technician</h2>
@@ -55,11 +46,11 @@
     <x-technician-gantt :shifts="$technicianShifts"/>
     <pre class="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-2 rounded overflow-x-auto">
     {{ json_encode($technicianShifts[0] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
-    {{ json_encode($technicianShifts[1] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
-    {{ json_encode($technicianShifts[2] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
+        {{ json_encode($technicianShifts[1] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
+        {{ json_encode($technicianShifts[2] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
 </pre>
-{{--    --}}{{-- Raw JSON (debug) --}}
-{{--    <pre class="text-sm bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 p-2 rounded overflow-x-auto">--}}
-{{--    {{ json_encode($technicianShifts, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}--}}
-{{--    </pre>--}}
+    {{--    --}}{{-- Raw JSON (debug) --}}
+    {{--    <pre class="text-sm bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 p-2 rounded overflow-x-auto">--}}
+    {{--    {{ json_encode($technicianShifts, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}--}}
+    {{--    </pre>--}}
 </x-filament-panels::page>
