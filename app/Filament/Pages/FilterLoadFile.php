@@ -42,9 +42,10 @@ class FilterLoadFile extends Page
     public array $availableActivityIds = [];
     public array $availableResourceIds = [];
     public array $availableRegionIds = [];
+    public array $activityTypeIds = [];
+    public array $availableActivityTypes = [];
     public $overrideDatetime = null;
 
-    public $formData;
 
     public function mount(): void
     {
@@ -73,7 +74,9 @@ class FilterLoadFile extends Page
                         Fieldset::make('Filtering Options')->schema([
                             $this->createRegionSelector(),
                             $this->createResourceSelector(),
+                            $this->createActivityTypeSelector(),
                             $this->createActivitySelector(),
+
                             $this->createDatetimeOverrideField(),
                         ])->visible(fn() => $this->shouldShowDropdowns()),
 
@@ -115,17 +118,46 @@ class FilterLoadFile extends Page
             ->helperText('Optional. Only these resources will be included if selected.');
     }
 
+    protected function createActivityTypeSelector(): Select
+    {
+        return Select::make('activityTypeIds')
+            ->label('Activity Types')
+            ->multiple()
+            ->options(fn() => $this->availableActivityTypes)
+            ->searchable()
+            ->native(false)
+            ->reactive()
+            ->live()
+            ->helperText('Optional. Choose one or more types to filter the activities list.');
+    }
+
+
     protected function createActivitySelector(): Select
     {
         return Select::make('activityIds')
             ->label('Filter to Specific Activities')
             ->multiple()
-            ->options(fn() => $this->availableActivityIds)
-//            ->visible(fn() => $this->shouldShowDropdowns())
+            ->options(function () {
+                if (empty($this->activityTypeIds)) {
+                    return $this->availableActivityIds;
+                }
+
+                // Only include activities matching selected types
+                return collect($this->availableActivityIds)
+                    ->filter(function ($label, $id) {
+                        foreach ($this->activityTypeIds as $typeId) {
+                            if (str_contains($label, $typeId)) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    })->all();
+            })
             ->searchable()
             ->native(false)
             ->helperText('Optional. Only these activities will be included if selected.');
     }
+
 
     protected function createDatetimeOverrideField(): DateTimePicker
     {
@@ -250,17 +282,19 @@ class FilterLoadFile extends Page
         $availableIds = $this->getFromJobCache('available_ids', [
             'regions' => [],
             'resources' => [],
-            'activities' => []
+            'activities' => [],
+            'activity_types' => [], // 👈 add this
         ]);
 
         $this->availableRegionIds = $availableIds['regions'] ?? [];
         $this->availableResourceIds = $availableIds['resources'] ?? [];
         $this->availableActivityIds = $availableIds['activities'] ?? [];
+        $this->availableActivityTypes = $availableIds['activity_types'] ?? [];
 
 
-        Log::info('Available regions: ' . count($this->availableRegionIds));
-        Log::info('Available resources: ' . count($this->availableResourceIds));
-        Log::info('Available activities: ' . count($this->availableActivityIds));
+//        Log::info('Available regions: ' . count($this->availableRegionIds));
+//        Log::info('Available resources: ' . count($this->availableResourceIds));
+//        Log::info('Available activities: ' . count($this->availableActivityIds));
     }
 
     private function handleJobCompletion(): void

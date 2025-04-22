@@ -110,6 +110,11 @@ class ProcessResourceFile implements ShouldQueue
                     : $region['id']
             ]);
 
+        $activityTypeList = collect($data['Activity_Type'] ?? [])
+            ->mapWithKeys(static fn($type) => [
+                $type['id'] => "{$type['id']} - {$type['description']}"
+            ]);
+
         $resourceList = collect($data['Resources'] ?? [])
             ->mapWithKeys(static fn($r) => [
                 $r['id'] => "{$r['id']} - " . trim(($r['first_name'] ?? '') . ' ' . ($r['surname'] ?? ''))
@@ -132,6 +137,7 @@ class ProcessResourceFile implements ShouldQueue
             'regions' => $regionList->all(),
             'resources' => $resourceList->all(),
             'activities' => $activityList->all(),
+            'activity_types' => $activityTypeList->all(), // 👈 include this
         ]);
     }
 
