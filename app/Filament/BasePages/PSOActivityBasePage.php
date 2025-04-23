@@ -4,13 +4,13 @@ namespace App\Filament\BasePages;
 
 use App\Models\Environment;
 use App\Traits\FormTrait;
-use App\Traits\PSOInteractionsTrait;
 use Filament\Forms\Concerns\InteractsWithForms;
+
 use Filament\Pages\Page;
 use Override;
 
 
-class PSOActivityBasePage extends Page
+abstract class PSOActivityBasePage extends Page
 {
     use InteractsWithForms, FormTrait;
 
@@ -25,7 +25,6 @@ class PSOActivityBasePage extends Page
     protected static ?string $navigationLabel = 'Activity Services';
     protected static ?string $title = 'Activity Services';
     protected static ?string $slug = 'activity-services';
-
 
     protected static string $view = 'filament.pages.pso-activity';
 

@@ -12,7 +12,7 @@ use Filament\Pages\Page;
 use Override;
 
 
-class PSOResourceBasePage extends Page
+abstract class PSOResourceBasePage extends Page
 {
     use InteractsWithForms, FormTrait;
 
