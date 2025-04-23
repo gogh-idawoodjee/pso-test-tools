@@ -7,7 +7,8 @@
         </x-filament::button>
     </form>
 
-    {{--    <p class="text-sm text-gray-500">Livewire Progress: {{ $progress }}</p>--}}
+    <p class="text-sm text-gray-500">Livewire Progress: {{ $progress }}</p>
+    <p class="text-sm text-gray-500">Livewire Status: {{ $status }}</p>
 
     {{-- Progress bar while job is running --}}
     @if ($jobId && $progress < 100)

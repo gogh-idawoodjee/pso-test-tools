@@ -3,28 +3,29 @@
 namespace App\Jobs;
 
 use App\Services\ResourceActivityFilterService;
+use App\Support\HasScopedCache;
 use App\Support\PreviewSummaryFormatter;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Cache;
+
 use Illuminate\Support\Facades\Storage;
 use JsonException;
 use Log;
 use Throwable;
 use ZipArchive;
 
-class ProcessResourceFile implements ShouldQueue
+class ProcessResourceFile extends HasScopedCache implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected const int|float LARGE_FILE_THRESHOLD = 8 * 1024 * 1024; // 8MB
-    protected const string CACHE_KEY_PREFIX = 'resource-job:';
+
 
     public function __construct(
-        public string  $jobId,
+        public ?string $jobId,
         public string  $path,
         public array   $regionIds,
         public bool    $dryRun = false,
@@ -40,7 +41,7 @@ class ProcessResourceFile implements ShouldQueue
         Log::info("🤖 Processing resource file with regionIds: ", $this->regionIds);
 
         try {
-            $this->updateJobStatus('processing', 0);
+            $this->updateStatus('processing');
 
             // Load and process data
             $data = $this->loadInputData();
@@ -50,11 +51,12 @@ class ProcessResourceFile implements ShouldQueue
             // Format and cache preview
             $formatted = PreviewSummaryFormatter::format($result['summary']);
             $this->updateCache('preview', $formatted);
-            $this->updateJobProgress(75);
+            $this->updateProgress(75);
 
             // Skip file creation for dry runs
             if ($this->dryRun) {
-                $this->updateJobStatus('complete', 100);
+                $this->updateStatus('complete');
+                $this->updateProgress(100);
                 return;
             }
 
@@ -69,7 +71,7 @@ class ProcessResourceFile implements ShouldQueue
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
-            $this->updateJobStatus('failed');
+            $this->updateStatus('failed');
         }
     }
 
@@ -160,7 +162,7 @@ class ProcessResourceFile implements ShouldQueue
         $downloadUrl = $this->generateDownloadUrl($finalFilename);
 
         $this->updateCache('download', $downloadUrl);
-        $this->updateJobStatus('complete', 100);
+        $this->updateStatus('complete');
     }
 
     protected function compressFileIfNeeded(string $filename): string
@@ -203,22 +205,4 @@ class ProcessResourceFile implements ShouldQueue
             ->delay(now()->addHour());
     }
 
-    protected function updateJobStatus(string $status, ?int $progress = null): void
-    {
-        $this->updateCache('status', $status);
-
-        if ($progress !== null) {
-            $this->updateJobProgress($progress);
-        }
-    }
-
-    protected function updateJobProgress(int $progress): void
-    {
-        $this->updateCache('progress', $progress);
-    }
-
-    protected function updateCache(string $key, $value): void
-    {
-        Cache::put(self::CACHE_KEY_PREFIX . "{$this->jobId}:{$key}", $value);
-    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Support\HasScopedCache;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -13,7 +14,7 @@ use Illuminate\Support\Facades\Log;
  * This service processes large datasets by applying region, resource, and activity filters,
  * while tracking progress for long-running operations.
  */
-class ResourceActivityFilterService
+class ResourceActivityFilterService extends HasScopedCache
 {
     /**
      * Cache of valid resource IDs after filtering
@@ -68,7 +69,7 @@ class ResourceActivityFilterService
     {
         // Initialize progress tracking at 0%
         if ($this->jobId) {
-            Cache::put("resource-job:{$this->jobId}:progress", 0);
+            Cache::put("resource-job:{$this->jobId}:progress", 5);
         }
     }
 
@@ -212,8 +213,8 @@ class ResourceActivityFilterService
 
         $filtered['Activity_Type_Counts'] = collect($filtered['Activity'] ?? [])
             ->groupBy('activity_type_id')
-            ->map(fn($group) => $group->count())
-            ->filter(fn($count) => $count > 0)
+            ->map(static fn($group) => $group->count())
+            ->filter(static fn($count) => $count > 0)
             ->toArray();
 
         return $filtered;
@@ -338,19 +339,7 @@ class ResourceActivityFilterService
             // Calculate percentage based on completed steps (capped at 95%)
             // The final 5% is added when completely done
             $percent = min(95, (int)(($this->progressStep / $this->totalSteps) * 100));
-
-            Cache::put("resource-job:{$this->jobId}:progress", $percent);
-        }
-    }
-
-    /**
-     * Updates progress with a specific percentage value
-     *
-     * @param int $percent The percentage value to set (0-100)
-     */
-    protected function updateProgress(int $percent): void
-    {
-        if ($this->jobId) {
+            Log::info('ℹ️Filtering Progresss: ' . $percent . '%');
             Cache::put("resource-job:{$this->jobId}:progress", $percent);
         }
     }

@@ -47,6 +47,8 @@ class FilterLoadFile extends Page
     public $overrideDatetime = null;
     public array $activityTypeCounts = [];
 
+    public int $progress =1;
+
 
     public function mount(): void
     {
@@ -86,7 +88,7 @@ class FilterLoadFile extends Page
                             ->label('Get Data')
                             ->helperText('Required Prior to Filtering')
                             ->disabled(fn() => !$this->shouldShowDropdowns())
-                            ->dehydrated(true)
+                            ->dehydrated()
                             ->default(true)
                             ->live(),
                     ])->columns(),
@@ -140,7 +142,6 @@ class FilterLoadFile extends Page
             ->live()
             ->helperText('Only shows types that have matching activities.');
     }
-
 
 
     protected function createActivitySelector(): Select
@@ -243,12 +244,11 @@ class FilterLoadFile extends Page
     }
 
 
-
     private function cleanupPreviousJob(): void
     {
         $this->downloadUrl = null;
         $this->preview = [];
-        $this->progress = 0;
+//        $this->progress = 0;
     }
 
     private function prepareJobData(): array

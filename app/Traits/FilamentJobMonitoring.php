@@ -15,11 +15,11 @@ trait FilamentJobMonitoring
     public ?string $status = 'idle';
     public ?string $data = null;
     public bool $isPolling = false;
-    public int $progress = 0;
-    public int $countdown = 10;
+    public int $progress = 1;
 
     // Job timeout in seconds
     protected const int JOB_TIMEOUT = 60;
+    protected string $cachePrefixType = 'resource-job';
 
     /**
      * Initialize a new background job
@@ -41,7 +41,7 @@ trait FilamentJobMonitoring
     {
         $this->jobId = null;
         $this->status = 'idle';
-        $this->progress = 0;
+//        $this->progress = 0;
     }
 
     /**
@@ -69,7 +69,16 @@ trait FilamentJobMonitoring
      */
     protected function getJobCacheKey(string $suffix = ''): string
     {
-        return "{$this->jobKey}:{$this->jobId}" . ($suffix ? ":{$suffix}" : '');
+
+        if (!$this->jobKey || !$this->jobId) {
+            Log::warning('⚠️ getJobCacheKey called with missing jobKey or jobId', [
+                'jobKey' => $this->jobKey,
+                'jobId' => $this->jobId,
+                'suffix' => $suffix,
+            ]);
+            return 'invalid:cache:key';
+        }
+        return "{$this->cachePrefixType}:{$this->jobId}" . ($suffix ? ":{$suffix}" : '');
     }
 
     /**
@@ -85,7 +94,8 @@ trait FilamentJobMonitoring
      */
     protected function getJobProgress(): int
     {
-        return (int)$this->getFromJobCache('progress', 0);
+
+        return (int)$this->getFromJobCache('progress');
     }
 
     /**
