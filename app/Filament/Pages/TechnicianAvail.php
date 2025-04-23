@@ -134,6 +134,7 @@ class TechnicianAvail extends Page
         Log::info("Polling checkStatus for jobId: {$this->jobId}, Progress: {$this->progress}, Status: {$this->status}");
 
         if ($this->status === 'complete') {
+            Log::info("Status Changed to Completed: TechAvail checkstatus method");
             $this->handleJobCompletion();
         }
     }

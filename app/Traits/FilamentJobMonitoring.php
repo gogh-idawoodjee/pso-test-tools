@@ -29,6 +29,9 @@ trait FilamentJobMonitoring
         $this->jobKey = $jobType;
         $this->jobId = (string)Str::uuid();
         $this->status = 'starting up';
+        $this->progress = 0;  // Reset progress when starting a new job
+
+
 
         Cache::put($this->getJobCacheKey('status'), 'starting up');
         Log::info("Starting {$jobType} job with ID: {$this->jobId}");

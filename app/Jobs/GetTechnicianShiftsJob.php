@@ -31,7 +31,7 @@ class GetTechnicianShiftsJob extends BaseJob
             Log::info('about to call get shifts');
             $shifts = $this->getShifts($data);
             Log::info('expected progress 75. shifts should be collected');
-//            Log::info('shifts: ' . json_encode($shifts));
+            Log::info('shifts: ' . json_encode($shifts));
             $this->updateProgress(75);
             Cache::put($this->cacheKey(self::SHIFTS_KEY), $shifts);
             $this->updateStatus('complete');
