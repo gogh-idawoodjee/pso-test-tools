@@ -1,4 +1,7 @@
 <x-filament::page>
+    @if ($this->shouldShowDropdowns())
+        {{$this->env_form}}
+    @endif
     <form wire:submit.prevent="submit">
         {{ $this->form }}
 
@@ -6,6 +9,7 @@
             {{ $dryRun ? 'Get Filterable Data' : 'Filter File' }}
         </x-filament::button>
     </form>
+
 
     <p class="text-sm text-gray-500">Livewire Progress: {{ $progress }}</p>
     <p class="text-sm text-gray-500">Livewire Status: {{ $status }}</p>

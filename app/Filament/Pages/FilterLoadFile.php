@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\Environment;
+use App\Traits\FormTrait;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\FileUpload;
@@ -19,8 +21,7 @@ use Override;
 
 class FilterLoadFile extends Page
 {
-    use InteractsWithForms;
-    use FilamentJobMonitoring;
+    use InteractsWithForms, FilamentJobMonitoring, FormTrait;
 
     // Job type identifier
     private const string JOB_TYPE = 'resource-job';
@@ -37,21 +38,23 @@ class FilterLoadFile extends Page
     public array $resourceIds = [];
     public array $activityIds = [];
     public bool $dryRun = true;
-    public $downloadUrl = null;
+    public $downloadUrl;
     public array $preview = [];
     public array $availableActivityIds = [];
     public array $availableResourceIds = [];
     public array $availableRegionIds = [];
     public array $activityTypeIds = [];
     public array $availableActivityTypes = [];
-    public $overrideDatetime = null;
+    public $overrideDatetime;
     public array $activityTypeCounts = [];
-
-    public int $progress =1;
-
 
     public function mount(): void
     {
+        $this->environments = Environment::with('datasets')->get();
+        $this->isAuthenticationRequired = true;
+
+        $this->env_form->fill();
+
         $this->form->fill([
             'upload' => null,
             'regionIds' => [],
@@ -60,6 +63,13 @@ class FilterLoadFile extends Page
             'activityIds' => [],
         ]);
     }
+
+
+    #[Override] protected function getForms(): array
+    {
+        return ['env_form', 'form'];
+    }
+
 
     #[Override]
     public function form(Form $form): Form
@@ -103,7 +113,6 @@ class FilterLoadFile extends Page
             ->label('Regions to Keep')
             ->multiple()
             ->options(fn() => collect($this->availableRegionIds)->mapWithKeys(static fn($id) => [$id => $id]))
-//            ->visible(fn() => $this->shouldShowDropdowns())
             ->searchable()
             ->native(false)
             ->helperText('Only these regions will be kept. Others will be removed.')->columnSpan(1);
@@ -115,7 +124,6 @@ class FilterLoadFile extends Page
             ->label('Filter to Specific Resources')
             ->multiple()
             ->options(fn() => $this->availableResourceIds)
-//            ->visible(fn() => $this->shouldShowDropdowns())
             ->searchable()
             ->native(false)
             ->helperText('Optional. Only these resources will be included if selected.');
@@ -140,7 +148,7 @@ class FilterLoadFile extends Page
             ->native(false)
             ->reactive()
             ->live()
-            ->helperText('Only shows types that have matching activities.');
+            ->helperText('Only shows types that have matching activities. Use this to filter by type.');
     }
 
 
@@ -156,13 +164,8 @@ class FilterLoadFile extends Page
 
                 // Only include activities matching selected types
                 return collect($this->availableActivityIds)
-                    ->filter(function ($label, $id) {
-                        foreach ($this->activityTypeIds as $typeId) {
-                            if (str_contains($label, $typeId)) {
-                                return true;
-                            }
-                        }
-                        return false;
+                    ->filter(function ($label) {
+                        return array_any($this->activityTypeIds, static fn($typeId) => str_contains($label, $typeId));
                     })->all();
             })
             ->searchable()
@@ -176,7 +179,6 @@ class FilterLoadFile extends Page
         return DateTimePicker::make('overrideDatetime')
             ->label('Override Input Reference Datetime')
             ->prefixIcon('heroicon-o-calendar-days')
-//            ->visible(fn() => $this->shouldShowDropdowns())
             ->helperText('Optional. Replaces the datetime in the Input_Reference.')
             ->native(false)
             ->seconds(false)
@@ -218,7 +220,7 @@ class FilterLoadFile extends Page
         );
     }
 
-    public function updatedUpload($value): void
+    public function updatedUpload(): void
     {
         $this->resetAvailableData();
     }
@@ -331,10 +333,6 @@ class FilterLoadFile extends Page
         $this->availableActivityTypes = $availableIds['activity_types'] ?? [];
         $this->activityTypeCounts = $availableIds['activity_type_counts'] ?? [];
 
-
-//        Log::info('Available regions: ' . count($this->availableRegionIds));
-//        Log::info('Available resources: ' . count($this->availableResourceIds));
-//        Log::info('Available activities: ' . count($this->availableActivityIds));
     }
 
     private function handleJobCompletion(): void
