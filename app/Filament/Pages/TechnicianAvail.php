@@ -185,7 +185,9 @@ class TechnicianAvail extends Page
                         'id' => '155-MAINTENANCE',
                         'region_id' => 'MAINTENANCE',
                         'region_description' => 'Maintenance Zone',
-                        "region_active" => false,
+                        'region_group_id' => 'SERVICE_ZONES',
+                        'region_group_description' => 'Service Zones',
+                        'region_active' => false,
                         'start' => '2025-04-14T12:00:00+00:00',
                         'end' => '2025-04-14T21:00:00+00:00',
                         'full_coverage' => true,
@@ -194,16 +196,29 @@ class TechnicianAvail extends Page
                         'id' => '155-MAINTENANCE_AC',
                         'region_id' => 'MAINTENANCE_AC',
                         'region_description' => 'Air Conditioning',
-                        "region_active" => true,
+                        'region_group_id' => 'SERVICE_ZONES',
+                        'region_group_description' => 'Service Zones',
+                        'region_active' => true,
                         'start' => '2025-04-14T14:00:00+00:00',
                         'end' => '2025-04-14T16:00:00+00:00',
+                        'full_coverage' => false,
+                    ],
+                    [
+                        'id' => '155-WEST',
+                        'region_id' => 'WEST',
+                        'region_description' => 'Western Coverage',
+                        'region_group_id' => 'TERRITORIES',
+                        'region_group_description' => 'Franchise Territories',
+                        'region_active' => false,
+                        'start' => '2025-04-14T12:00:00+00:00',
+                        'end' => '2025-04-14T14:00:00+00:00',
                         'full_coverage' => false,
                     ]
                 ],
                 'breaks' => [
                     [
-                        'start' => '2025-04-15T16:00:00+00:00',
-                        'end' => '2025-04-15T17:00:00+00:00',
+                        'start' => '2025-04-14T16:00:00+00:00',
+                        'end' => '2025-04-14T17:00:00+00:00',
                     ]
                 ]
             ],
@@ -219,8 +234,10 @@ class TechnicianAvail extends Page
                         'id' => '155-WEST',
                         'region_id' => 'WEST',
                         'region_description' => 'Western Coverage',
+                        'region_group_id' => 'TERRITORIES',
+                        'region_group_description' => 'Franchise Territories',
+                        'region_active' => true,
                         'start' => '2025-04-15T09:30:00+00:00',
-                        "region_active" => true,
                         'end' => '2025-04-15T14:30:00+00:00',
                         'full_coverage' => false,
                     ],
@@ -228,8 +245,10 @@ class TechnicianAvail extends Page
                         'id' => '156-WEST',
                         'region_id' => 'WEST',
                         'region_description' => 'Western Coverage',
+                        'region_group_id' => 'TERRITORIES',
+                        'region_group_description' => 'Franchise Territories',
+                        'region_active' => false,
                         'start' => '2025-04-15T14:30:00+00:00',
-                        "region_active" => false,
                         'end' => '2025-04-15T16:30:00+00:00',
                         'full_coverage' => false,
                     ]
@@ -247,8 +266,10 @@ class TechnicianAvail extends Page
                         'id' => '155-NORTH',
                         'region_id' => 'NORTH',
                         'region_description' => 'Northern Sector',
+                        'region_group_id' => 'TERRITORIES',
+                        'region_group_description' => 'Franchise Territories',
+                        'region_active' => false,
                         'start' => '2025-04-16T08:00:00+00:00',
-                        "region_active" => false,
                         'end' => '2025-04-16T16:00:00+00:00',
                         'full_coverage' => true,
                     ]
@@ -256,4 +277,5 @@ class TechnicianAvail extends Page
             ],
         ];
     }
+
 }
