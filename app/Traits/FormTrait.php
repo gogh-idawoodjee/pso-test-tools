@@ -3,12 +3,15 @@
 namespace App\Traits;
 
 use App\Models\Environment;
+
 use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
@@ -26,6 +29,7 @@ trait FormTrait
     public mixed $response = null;
     public bool $isDataSetHidden = false;
     public bool $isDataSetRequired = false;
+    public bool $isHeaderActionHidden = false;
 
     public bool $isAuthenticationRequired = false;
 
@@ -49,6 +53,12 @@ trait FormTrait
         return $form
             ->schema([
                 Section::make('Environment')
+                    ->headerActions([
+                        Action::make('refresh_environments')
+                            ->action(function () {
+                                $this->environmentHeaderAction();
+                            })->hidden($this->isHeaderActionHidden),
+                    ])
                     ->description($this->isAuthenticationRequired ? 'This function requires PSO Authentication. Send to PSO must be selected.' : null)
                     ->icon('heroicon-s-circle-stack')
                     ->schema([
@@ -136,6 +146,12 @@ trait FormTrait
         }
 
         return $payload; // will either return a payload or false
+
+    }
+
+    public function environmentHeaderAction(): void
+    {
+        // used for overriding in any child
 
     }
 
