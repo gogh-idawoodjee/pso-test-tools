@@ -11,7 +11,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
-use Filament\Notifications\Notification;
+
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
@@ -29,7 +29,7 @@ trait FormTrait
     public mixed $response = null;
     public bool $isDataSetHidden = false;
     public bool $isDataSetRequired = false;
-    public bool $isHeaderActionHidden = false;
+    public bool $isHeaderActionHidden = true;
 
     public bool $isAuthenticationRequired = false;
 
