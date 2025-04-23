@@ -4,15 +4,14 @@ namespace App\Filament\BasePages;
 
 use App\Models\Environment;
 use App\Traits\FormTrait;
-use App\Traits\PSOInteractionsTrait;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Pages\Page;
 use Override;
 
 
-class ModellingBasePage extends Page
+abstract class ModellingBasePage extends Page
 {
-    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
+    use InteractsWithForms, FormTrait;
 
     protected static ?string $navigationGroup = 'API Services';
     protected static ?string $navigationParentItem='Modelling Services';
