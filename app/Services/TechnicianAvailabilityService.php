@@ -41,6 +41,9 @@ class TechnicianAvailabilityService
         $availabilityData = $this->data['Availability'] ?? [];
         $resourceRegionAvailData = $this->data['Resource_Region_Availability'] ?? [];
         $regions = collect($this->data['Region'] ?? []);
+        $regionParents = $regions->mapWithKeys(fn($r) => [
+            $r['id'] => $r['region_id'] ?? null,
+        ]);
         $regionsById = $regions->keyBy('id');
         $availabilityById = collect($availabilityData)->keyBy('id');
         $shiftBreaks = collect($this->data['Shift_Break'] ?? []);
@@ -80,6 +83,7 @@ class TechnicianAvailabilityService
                         'end' => min($shiftEnd, $availEnd)->toIso8601String(),
                         'region_active' => !isset($rra['within_region_multiplier']) || (float)$rra['within_region_multiplier'] !== 0.0,
                         'full_coverage' => $availStart->lte($shiftStart) && $availEnd->gte($shiftEnd),
+                        'parent_region_id' => $regionParents[$rra['region_id']] ?? null,
                     ];
                 })
                 ->filter()
