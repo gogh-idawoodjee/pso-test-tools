@@ -45,6 +45,7 @@ class FilterLoadFile extends Page
     public array $activityTypeIds = [];
     public array $availableActivityTypes = [];
     public $overrideDatetime = null;
+    public array $activityTypeCounts = [];
 
 
     public function mount(): void
@@ -123,13 +124,23 @@ class FilterLoadFile extends Page
         return Select::make('activityTypeIds')
             ->label('Activity Types')
             ->multiple()
-            ->options(fn() => $this->availableActivityTypes)
+            ->options(function () {
+                return collect($this->availableActivityTypes)
+                    ->filter(function ($label, $id) {
+                        return ($this->activityTypeCounts[$id] ?? 0) > 0;
+                    })
+                    ->mapWithKeys(function ($label, $id) {
+                        $count = $this->activityTypeCounts[$id];
+                        return [$id => "{$label} ({$count})"];
+                    });
+            })
             ->searchable()
             ->native(false)
             ->reactive()
             ->live()
-            ->helperText('Optional. Choose one or more types to filter the activities list.');
+            ->helperText('Only shows types that have matching activities.');
     }
+
 
 
     protected function createActivitySelector(): Select
@@ -205,6 +216,33 @@ class FilterLoadFile extends Page
             $data['dryRun'] ? 'Previewing filtered counts...' : 'Filtering in progress...'
         );
     }
+
+    public function updatedUpload($value): void
+    {
+        $this->resetAvailableData();
+    }
+
+
+    protected function resetAvailableData(): void
+    {
+        $this->availableRegionIds = [];
+        $this->availableResourceIds = [];
+        $this->availableActivityIds = [];
+        $this->availableActivityTypes = [];
+        $this->activityTypeCounts = [];
+
+        // Also reset selected filters
+        $this->regionIds = [];
+        $this->resourceIds = [];
+        $this->activityIds = [];
+        $this->activityTypeIds = [];
+
+        // Reset preview + dryRun toggle
+        $this->preview = [];
+        $this->dryRun = true;
+    }
+
+
 
     private function cleanupPreviousJob(): void
     {
@@ -284,12 +322,14 @@ class FilterLoadFile extends Page
             'resources' => [],
             'activities' => [],
             'activity_types' => [], // 👈 add this
+            'activity_type_counts' => [], // 👈 add this to avoid issues
         ]);
 
         $this->availableRegionIds = $availableIds['regions'] ?? [];
         $this->availableResourceIds = $availableIds['resources'] ?? [];
         $this->availableActivityIds = $availableIds['activities'] ?? [];
         $this->availableActivityTypes = $availableIds['activity_types'] ?? [];
+        $this->activityTypeCounts = $availableIds['activity_type_counts'] ?? [];
 
 
 //        Log::info('Available regions: ' . count($this->availableRegionIds));

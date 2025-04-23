@@ -155,6 +155,9 @@ class ResourceActivityFilterService
             }
         }
 
+        if (!empty($data['Activity_Type_Counts'])) {
+            $summary['activity_type_counts'] = $data['Activity_Type_Counts'];
+        }
         return $summary;
     }
 
@@ -206,6 +209,12 @@ class ResourceActivityFilterService
         $filtered['Activity_SLA'] = $this->getFilteredData('Activity_SLA', 'activity_id', $this->validActivityIds);
         $filtered['Activity_Status'] = $this->getFilteredData('Activity_Status', 'activity_id', $this->validActivityIds);
         $filtered['Input_Reference'] = $inputReference;
+
+        $filtered['Activity_Type_Counts'] = collect($filtered['Activity'] ?? [])
+            ->groupBy('activity_type_id')
+            ->map(fn($group) => $group->count())
+            ->filter(fn($count) => $count > 0)
+            ->toArray();
 
         return $filtered;
     }

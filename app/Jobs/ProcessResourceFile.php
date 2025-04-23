@@ -133,11 +133,17 @@ class ProcessResourceFile implements ShouldQueue
             'activities' => count($data['Activity'] ?? []),
         ]);
 
+        $activityTypeCounts = collect($data['Activity'] ?? [])
+            ->groupBy('activity_type_id')
+            ->map(fn($items) => $items->count());
+
+
         $this->updateCache('available_ids', [
             'regions' => $regionList->all(),
             'resources' => $resourceList->all(),
             'activities' => $activityList->all(),
             'activity_types' => $activityTypeList->all(), // 👈 include this
+            'activity_type_counts' => $activityTypeCounts->toArray(),
         ]);
     }
 
