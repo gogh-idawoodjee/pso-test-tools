@@ -24,49 +24,72 @@ class TechnicianAvailabilityService
             return [];
         }
 
-
         Log::info("✅ Collecting shifts for technician {$this->technicianId}");
 
         $shiftData = collect($this->data['Shift'] ?? [])
             ->filter(function ($s) use ($onlyUpcoming) {
-                if (!isset($s['resource_id'], $s['start_datetime'])) return false;
-                if ($s['resource_id'] !== $this->technicianId) return false;
-                if ($onlyUpcoming && Carbon::parse($s['start_datetime'])->lt(now())) return false;
+                if (!isset($s['resource_id'], $s['start_datetime'])) {
+                    return false;
+                }
+                if ($s['resource_id'] !== $this->technicianId) {
+                    return false;
+                }
+                if ($onlyUpcoming && Carbon::parse($s['start_datetime'])->lt(now())) {
+                    return false;
+                }
                 return true;
             })
-            ->sortBy(fn($s) => Carbon::parse($s['start_datetime']))
+            ->sortBy(static fn($s) => Carbon::parse($s['start_datetime']))
             ->take($limit)
             ->values();
 
         $availabilityData = $this->data['Availability'] ?? [];
         $resourceRegionAvailData = $this->data['Resource_Region_Availability'] ?? [];
         $regions = collect($this->data['Region'] ?? []);
-        $regionParents = $regions->mapWithKeys(fn($r) => [
-            $r['id'] => $r['region_id'] ?? null,
-        ]);
         $regionsById = $regions->keyBy('id');
         $availabilityById = collect($availabilityData)->keyBy('id');
         $shiftBreaks = collect($this->data['Shift_Break'] ?? []);
 
+        // Recursively resolve top-most parent region ID
+        $getTopParentId = static function (string $regionId) use (&$regionsById, &$getTopParentId): string {
+            $region = $regionsById->get($regionId);
+            if (!$region || empty($region['region_id'])) {
+                return $regionId;
+            }
+            return $getTopParentId($region['region_id']);
+        };
+
+        $getTopParentDescription = static function (string $regionId) use ($getTopParentId, &$regionsById): string {
+            $topId = $getTopParentId($regionId);
+            return $regionsById[$topId]['description'] ?? 'Unknown';
+        };
+
         $regionAvailability = collect($resourceRegionAvailData)
-            ->filter(fn($rra) => !empty($rra['availability_id']))
+            ->filter(static fn($rra) => !empty($rra['availability_id']))
             ->groupBy('resource_id');
 
-        $shifts = collect($shiftData)->map(function ($shift) use ($regionAvailability, $availabilityById, $regionsById, $shiftBreaks) {
+        $shifts = collect($shiftData)->map(function ($shift) use ($regionAvailability, $availabilityById, $regionsById, $getTopParentId, $getTopParentDescription, $shiftBreaks) {
             $shiftId = $shift['id'];
             $shiftStart = Carbon::parse($shift['start_datetime']);
             $shiftEnd = Carbon::parse($shift['end_datetime']);
             $resourceId = $shift['resource_id'];
 
             $overlappingAvailability = collect($regionAvailability->get($resourceId, []))
-                ->map(function ($rra) use ($availabilityById, $shiftStart, $shiftEnd, $regionsById) {
+                ->map(function ($rra) use ($availabilityById, $shiftStart, $shiftEnd, $regionsById, $getTopParentId, $getTopParentDescription) {
+                    if (!isset($rra['availability_id'])) {
+                        return null;
+                    }
                     $availability = $availabilityById->get($rra['availability_id'] ?? '');
-                    if (!$availability) return null;
+                    if (!$availability) {
+                        return null;
+                    }
 
                     $availStart = Carbon::parse($availability['datetime_start']);
                     $availEnd = Carbon::parse($availability['datetime_end']);
 
-                    if ($availEnd->lte($shiftStart) || $availStart->gte($shiftEnd)) return null;
+                    if ($availEnd->lte($shiftStart) || $availStart->gte($shiftEnd)) {
+                        return null;
+                    }
 
                     $regionId = $rra['region_id'] ?? null;
                     $regionDescription = 'Unknown region';
@@ -75,15 +98,19 @@ class TechnicianAvailabilityService
                         $regionDescription = $regionsById[$regionId]['description'] ?? $regionId;
                     }
 
+                    $topParentRegionId = $regionId ? $getTopParentId($regionId) : null;
+                    $topParentRegionDescription = $regionId ? $getTopParentDescription($regionId) : 'Unknown';
+
                     return [
                         'id' => $availability['id'],
                         'region_id' => $regionId,
                         'region_description' => $regionDescription,
+                        'region_group_id' => $topParentRegionId,
+                        'region_group_description' => $topParentRegionDescription,
                         'start' => max($shiftStart, $availStart)->toIso8601String(),
                         'end' => min($shiftEnd, $availEnd)->toIso8601String(),
                         'region_active' => !isset($rra['within_region_multiplier']) || (float)$rra['within_region_multiplier'] !== 0.0,
                         'full_coverage' => $availStart->lte($shiftStart) && $availEnd->gte($shiftEnd),
-                        'parent_region_id' => $regionParents[$rra['region_id']] ?? null,
                     ];
                 })
                 ->filter()
@@ -102,7 +129,7 @@ class TechnicianAvailabilityService
                             'start' => $start->toIso8601String(),
                             'end' => $end->toIso8601String(),
                         ];
-                    } catch (Exception $e) {
+                    } catch (Exception) {
                         return null;
                     }
                 })
@@ -118,17 +145,14 @@ class TechnicianAvailabilityService
         return $shifts->toArray();
     }
 
-
     public function getTechnicians(): array
     {
-
         Log::info('🧪 TechnicianAvailabilityService::filter() started');
-
 
         $resources = collect($this->data['Resources'] ?? []);
         Log::info("📊 Found {$resources->count()} resources");
 
-        $technicians = $resources->map(function ($r) {
+        $technicians = $resources->map(static function ($r) {
             $name = trim(($r['first_name'] ?? '') . ' ' . ($r['surname'] ?? ''));
             return [
                 'id' => $r['id'],
@@ -136,16 +160,13 @@ class TechnicianAvailabilityService
             ];
         })->values()->all();
 
-
         Log::info("✅ Built technician list: " . count($technicians) . " entries");
         Log::info("🏁 TechnicianAvailabilityService::filter() complete");
 
-
         return [
-            'filtered' => [],  // Placeholder for future filtered data
-            'summary' => [],  // Placeholder for future summary
+            'filtered' => [],
+            'summary' => [],
             'technicians' => $technicians,
         ];
     }
-
 }
