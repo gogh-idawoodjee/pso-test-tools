@@ -23,10 +23,13 @@ class GetTechnicianShiftsJob implements ShouldQueue
         string         $jobId,
         public string  $path,
         public ?string $technicianId = null
+
     )
     {
-        $this->jobKey = 'technician-shift-job';
+        $this->jobKey = 'Technician-Shift-Job';          // ✅ Matches TechnicianAvail constant
+        $this->cachePrefixType = 'Technician-Shift-Job'; // ✅ Same here
         $this->jobId = $jobId;
+
 
         Cache::put($this->getJobCacheKey('status'), 'constructed');
         Log::info("📦 Technician Shift Job constructed for jobId={$this->jobId}");
@@ -35,12 +38,12 @@ class GetTechnicianShiftsJob implements ShouldQueue
 
     public function handle(): void
     {
-        $this->setStatus('processing');
-        $this->setProgress(5);
+        $this->updateStatus('processing');
+        $this->updateProgress(5);
 
         if ($this->technicianId === null) {
             Log::error("❌ Missing Technician");
-            $this->setStatus('failed');
+            $this->updateStatus('failed');
             return;
         }
 
@@ -48,22 +51,22 @@ class GetTechnicianShiftsJob implements ShouldQueue
             $data = $this->loadDataFromPath();
 
             Log::info('handle process in technician shift job');
-            $this->setProgress(30);
+            $this->updateProgress(30);
 
             Log::info('about to call get shifts');
             $shifts = $this->getShifts($data);
             Log::info('expected progress 75. shifts should be collected');
             Log::info('shifts: ' . json_encode($shifts, JSON_THROW_ON_ERROR));
-            $this->setProgress(75);
+            $this->updateProgress(75);
 
             Cache::put($this->getJobCacheKey('shifts'), $shifts);
-            $this->setStatus('complete');
-            $this->setProgress(100);
+            $this->updateStatus('complete');
+            $this->updateProgress(100);
 
             Log::info("✅ Technician Shift Job {$this->jobId} completed");
         } catch (Throwable $e) {
             Log::error("❌ Technician Shift Job {$this->jobId} failed: " . $e->getMessage());
-            $this->setStatus('failed');
+            $this->updateStatus('failed');
         }
     }
 
@@ -77,11 +80,11 @@ class GetTechnicianShiftsJob implements ShouldQueue
     protected function loadDataFromPath(): array
     {
         try {
-            $this->setProgress(10);
+            $this->updateProgress(10);
             Log::info("📖 Reading JSON file for jobId={$this->jobId}");
 
             $raw = Storage::disk('local')->get($this->path);
-            $this->setProgress(20);
+            $this->updateProgress(20);
             Log::info("🧠 Decoding JSON");
 
             $json = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
@@ -89,18 +92,9 @@ class GetTechnicianShiftsJob implements ShouldQueue
         } catch (JsonException $e) {
             Log::error("❌ JSON decode failed: " . $e->getMessage());
             $this->notifyDanger('JSON Error', 'Could not decode the input file.');
-            $this->setStatus('error');
+            $this->updateStatus('error');
             throw $e;
         }
     }
 
-    protected function setProgress(int $percent): void
-    {
-        Cache::put($this->getJobCacheKey('progress'), $percent);
-    }
-
-    protected function setStatus(string $status): void
-    {
-        Cache::put($this->getJobCacheKey('status'), $status);
-    }
 }

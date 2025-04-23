@@ -19,7 +19,7 @@ trait FilamentJobMonitoring
 
     // Job timeout in seconds
     protected const int JOB_TIMEOUT = 60;
-    protected string $cachePrefixType = 'resource-job';
+    public string $cachePrefixType = 'resource-job';
 
     /**
      * Initialize a new background job
@@ -164,4 +164,27 @@ trait FilamentJobMonitoring
             ->danger()
             ->send();
     }
+
+    /**
+     * Update the job progress
+     */
+    protected function updateProgress(int $percent): void
+    {
+        $this->progress = $percent;
+        if ($this->jobId && $this->jobKey) {
+            Cache::put($this->getJobCacheKey('progress'), $percent);
+        }
+    }
+
+    /**
+     * Update the job status
+     */
+    protected function updateStatus(string $status): void
+    {
+        $this->status = $status;
+        if ($this->jobId && $this->jobKey) {
+            Cache::put($this->getJobCacheKey('status'), $status);
+        }
+    }
+
 }

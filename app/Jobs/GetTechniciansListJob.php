@@ -3,20 +3,48 @@
 namespace App\Jobs;
 
 use App\Services\TechnicianAvailabilityService;
+use App\Traits\FilamentJobMonitoring;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Queue\InteractsWithQueue;
+use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use JsonException;
 use Override;
 use Throwable;
 
-class GetTechniciansListJob extends BaseJob
+class GetTechniciansListJob implements ShouldQueue
 {
+    use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+    use FilamentJobMonitoring;
 
+    public string $path;
+    public ?string $technicianId = null;
     public ?string $jobName = 'resource-job';
 
-    #[Override] public function handle(): void
-    {
 
-        parent::handle();
+    public function __construct(string $jobId, string $path, ?string $technicianId = null)
+    {
+        $this->path = $path;
+        $this->jobId = $jobId;
+        $this->technicianId = $technicianId;
+
+        // 🔧 FIX THESE TWO LINES
+        $this->jobKey = 'resource-job';
+        $this->cachePrefixType = 'resource-job';
+
+        Log::info("📦 resource-job Job constructed for jobId={$this->jobId}");
+    }
+
+
+
+    public function handle(): void
+    {
+        $this->updateStatus('processing');
+        $this->updateProgress(5);
 
         try {
             $data = $this->loadDataFromPath();
@@ -24,11 +52,13 @@ class GetTechniciansListJob extends BaseJob
             $this->updateProgress(30);
 
             $technicians = $this->filterTechnicians($data);
-            Cache::put($this->cacheKey(self::TECHNICIANS_KEY), $technicians);
+            $this->updateStatus('filtering');
+            $this->updateProgress(50);
+            Cache::put($this->getJobCacheKey('technicians'), $technicians);
 
             $this->updateProgress(75);
+            Cache::put($this->getJobCacheKey('data'), $data ? 'has data' : 'no data');
 
-            Cache::put($this->cacheKey(self::RAW_DATA_KEY), $data ? 'has data' : 'no data');
             $this->updateStatus('complete');
             $this->updateProgress(100);
 
@@ -39,6 +69,18 @@ class GetTechniciansListJob extends BaseJob
         }
     }
 
+    protected function loadDataFromPath(): array
+    {
+        $this->updateProgress(10);
+        Log::info("📖 Reading JSON file for jobId={$this->jobId}");
+
+        $raw = Storage::disk('local')->get($this->path);
+
+        $this->updateProgress(20);
+        Log::info("🧠 Decoding JSON");
+
+        return json_decode($raw, true, 512, JSON_THROW_ON_ERROR)['dsScheduleData'] ?? [];
+    }
 
     protected function filterTechnicians(array $data): array
     {

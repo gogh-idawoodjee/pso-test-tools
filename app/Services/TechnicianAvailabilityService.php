@@ -4,7 +4,7 @@ namespace App\Services;
 
 use Carbon\Carbon;
 use Carbon\CarbonInterval;
-use Illuminate\Support\Facades\Cache;
+use Exception;
 use Illuminate\Support\Facades\Log;
 
 class TechnicianAvailabilityService
@@ -24,7 +24,7 @@ class TechnicianAvailabilityService
             return [];
         }
 
-        $this->setStatus('found resource');
+
         Log::info("✅ Collecting shifts for technician {$this->technicianId}");
 
         $shiftData = collect($this->data['Shift'] ?? [])
@@ -98,7 +98,7 @@ class TechnicianAvailabilityService
                             'start' => $start->toIso8601String(),
                             'end' => $end->toIso8601String(),
                         ];
-                    } catch (\Exception $e) {
+                    } catch (Exception $e) {
                         return null;
                     }
                 })
@@ -115,12 +115,11 @@ class TechnicianAvailabilityService
     }
 
 
-
     public function getTechnicians(): array
     {
-        $this->setStatus('filtering');
+
         Log::info('🧪 TechnicianAvailabilityService::filter() started');
-        $this->updateProgress(35);
+
 
         $resources = collect($this->data['Resources'] ?? []);
         Log::info("📊 Found {$resources->count()} resources");
@@ -133,12 +132,10 @@ class TechnicianAvailabilityService
             ];
         })->values()->all();
 
-        $this->updateProgress(50);
 
         Log::info("✅ Built technician list: " . count($technicians) . " entries");
         Log::info("🏁 TechnicianAvailabilityService::filter() complete");
 
-        $this->setStatus('filtered');
 
         return [
             'filtered' => [],  // Placeholder for future filtered data
@@ -147,19 +144,4 @@ class TechnicianAvailabilityService
         ];
     }
 
-    protected function updateProgress(int $percent): void
-    {
-        if ($this->jobId) {
-            Cache::put("resource-job:{$this->jobId}:progress", $percent);
-            Log::info("📶 Progress: {$percent}% for job {$this->jobId}");
-            usleep(500_000); // Optional throttle
-        }
-    }
-
-    protected function setStatus(string $status): void
-    {
-        if ($this->jobId) {
-            Cache::put("resource-job:{$this->jobId}:status", $status);
-        }
-    }
 }
