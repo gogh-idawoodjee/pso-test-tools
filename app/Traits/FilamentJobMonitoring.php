@@ -95,7 +95,7 @@ trait FilamentJobMonitoring
     protected function getJobProgress(): int
     {
 
-        return (int)$this->getFromJobCache('progress');
+        return (int)$this->getFromJobCache('progress', 1);
     }
 
     /**
