@@ -47,6 +47,7 @@ class FilterLoadFile extends Page
     public array $availableActivityTypes = [];
     public $overrideDatetime;
     public array $activityTypeCounts = [];
+    public bool $hasRunFilterJob = false;
 
     public function mount(): void
     {
@@ -315,6 +316,13 @@ class FilterLoadFile extends Page
             // attempt to change state of toggle once IDs have been loaded
             $this->form->fill(['dryRun' => false]);
         }
+
+
+        if ($this->status === 'complete' && !$this->dryRun) {
+            // use this methdd to show the environment section and activate the push to PSO button
+            $this->hasRunFilterJob = true;
+        }
+
     }
 
     private function loadAvailableIds(): void

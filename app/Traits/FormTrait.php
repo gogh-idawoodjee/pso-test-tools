@@ -33,6 +33,8 @@ trait FormTrait
 
     public bool $isAuthenticationRequired = false;
 
+    public ?string $headerActionLabel = 'Header Action Label';
+
 
     public function validateForms(array $forms): void
     {
@@ -54,7 +56,7 @@ trait FormTrait
             ->schema([
                 Section::make('Environment')
                     ->headerActions([
-                        Action::make('refresh_environments')
+                        Action::make($this->headerActionLabel)
                             ->action(function () {
                                 $this->environmentHeaderAction();
                             })->hidden($this->isHeaderActionHidden),
