@@ -22,7 +22,7 @@ class TravelAnalyzer extends Page
     use InteractsWithForms, FormTrait, GeocCodeTrait, PSOInteractionsTrait;
 
     protected static ?string $navigationIcon = 'heroicon-o-map';
-    protected static ?string $navigationGroup = 'Additional Tools';
+    protected static ?string $navigationGroup = 'API Services';
 
     public ?array $data = [];
     protected static ?string $activeNavigationIcon = 'heroicon-s-map';

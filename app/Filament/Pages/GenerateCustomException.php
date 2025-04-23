@@ -30,7 +30,7 @@ class GenerateCustomException extends Page
     protected static ?string $activeNavigationIcon = 'heroicon-s-exclamation-triangle';
 
     protected static string $view = 'filament.pages.generate-custom-exception';
-    protected static ?string $navigationGroup = 'Additional Tools';
+    protected static ?string $navigationGroup = 'API Services';
 
 
     public ?array $exception_data = [];

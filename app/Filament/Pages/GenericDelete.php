@@ -29,7 +29,7 @@ class GenericDelete extends Page
     protected static ?string $activeNavigationIcon = 'heroicon-o-trash';
 
     protected static string $view = 'filament.pages.generic-delete';
-    protected static ?string $navigationGroup = 'Additional Tools';
+    protected static ?string $navigationGroup = 'API Services';
 
     public ?array $deletion_data = [];
     public ?array $PSOObjectTypes = [];
