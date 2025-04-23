@@ -30,6 +30,7 @@ trait FilamentJobMonitoring
         $this->jobId = (string)Str::uuid();
         $this->status = 'starting up';
         $this->progress = 0;  // Reset progress when starting a new job
+        $this->cachePrefixType = $jobType; // ✅ THIS LINE IS CRITICAL
 
 
 
@@ -171,8 +172,10 @@ trait FilamentJobMonitoring
     protected function updateProgress(int $percent): void
     {
         $this->progress = $percent;
-        if ($this->jobId && $this->jobKey) {
-            Cache::put($this->getJobCacheKey('progress'), $percent);
+        if ($this->jobId && $this->cachePrefixType) {
+            $key = $this->getJobCacheKey('progress');
+            Cache::put($key, $percent);
+            Log::info("📶 updateProgress({$percent}) to {$key}");
         }
     }
 
