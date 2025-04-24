@@ -412,11 +412,12 @@ $totalHeight = $shiftHeight
                                 if (isset($availability['region_active']) && !$availability['region_active']) {
                                     $style .= " background-image: repeating-linear-gradient(45deg, {$availColor}, {$availColor} 4px, rgba(255,255,255,0.5) 4px, rgba(255,255,255,0.5) 8px); background-blend-mode: multiply;";
                                 }
+                                $zIndex = 20 + ($availability['override_priority'] ?? 0);
                             @endphp
 
                             <div
-                                class="absolute h-1.5 rounded-sm opacity-90 z-20 cursor-pointer"
-                                style="{{ $style }}"
+                                class="absolute h-1.5 rounded-sm opacity-90 cursor-pointer"
+                                style="{{ $style }} z-index: {{ $zIndex }};"
                                 @mouseenter="showRegionTooltip($event, '{{ $regionDescription }}', '{{ $availStart->format('Y-m-d H:i') }}', '{{ $availEnd->format('Y-m-d H:i') }}', {{ $availability['region_active'] ? 'true' : 'false' }})"
                                 @mouseleave="hideTooltip()"
                             ></div>
