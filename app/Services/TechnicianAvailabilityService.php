@@ -81,50 +81,62 @@ class TechnicianAvailabilityService
             $resourceId = $shift['resource_id'];
 
             $overlappingAvailability = collect($regionAvailability->get($resourceId, []))
-                ->map(function ($rra) use ($availabilityById, $shiftStart, $shiftEnd, $regionsById, $getTopParentId, $getTopParentDescription) {
-                    if (!isset($rra['availability_id'])) {
-                        return null;
-                    }
-                    $availability = $availabilityById->get($rra['availability_id'] ?? '');
-                    if (!$availability) {
-                        return null;
-                    }
+    ->map(function ($rra) use (
+        $availabilityById, $shiftStart, $shiftEnd,
+        $regionsById, $getTopParentId, $getTopParentDescription
+    ) {
+        // ———— Case A: direct Availability_ID ————
+        if (isset($rra['availability_id'])) {
+            $availability = $availabilityById->get($rra['availability_id']);
+            if (!$availability) return null;
 
-                    $availStart = Carbon::parse($availability['datetime_start']);
-                    $availEnd = Carbon::parse($availability['datetime_end']);
+            $availStart = Carbon::parse($availability['datetime_start']);
+            $availEnd   = Carbon::parse($availability['datetime_end']);
+        }
+        // ———— Case B: pattern entry ————
+        elseif (isset($rra['availability_pattern_id'])) {
+            // pull start/end straight off the pattern object
+            $availStart = Carbon::parse($rra['start']);
+            $availEnd   = Carbon::parse($rra['end']);
+        }
+        else {
+            return null;
+        }
 
-                    if ($availEnd->lte($shiftStart) || $availStart->gte($shiftEnd)) {
-                        return null;
-                    }
+        // no overlap → skip
+        if ($availEnd->lte($shiftStart) || $availStart->gte($shiftEnd)) {
+            return null;
+        }
 
-                    $regionId = $rra['region_id'] ?? null;
-                    $regionDescription = 'Unknown region';
+        // common region lookup
+        $regionId   = $rra['region_id'] ?? null;
+        $description= $regionsById[$regionId]['description'] ?? 'Unknown';
+        $topId      = $regionId ? $getTopParentId($regionId) : null;
+        $topDesc    = $topId   ? $getTopParentDescription($regionId) : 'Unknown';
 
-                    if ($regionId && $regionsById->has($regionId)) {
-                        $regionDescription = $regionsById[$regionId]['description'] ?? $regionId;
-                    }
+        // build your payload
+        return [
+            // reuse the same id or generate one for pattern
+            'id'                        => $availability['id'] 
+                                           ?? "pattern:{$rra['availability_pattern_id']}:{$availStart->toDateString()}",
+            'region_id'                 => $regionId,
+            'region_description'        => $description,
+            'region_group_id'           => $topId,
+            'region_group_description'  => $topDesc,
+            'start'                     => max($shiftStart, $availStart)->toIso8601String(),
+            'end'                       => min($shiftEnd,   $availEnd)->toIso8601String(),
+            'region_active'             => (float)($rra['within_region_multiplier'] ?? 1) !== 0,
+            'full_coverage'             => $availStart->lte($shiftStart) 
+                                           && $availEnd->gte($shiftEnd),
+            'source'                    => $rra['source']    ?? 'availability',
+            'source_id'                 => $rra['source_id'] ?? $rra['id'],
+            'override_priority'         => (int)($rra['override_priority'] ?? 0),
+        ];
+    })
+    ->filter()
+    ->values()
+    ->all();
 
-                    $topParentRegionId = $regionId ? $getTopParentId($regionId) : null;
-                    $topParentRegionDescription = $regionId ? $getTopParentDescription($regionId) : 'Unknown';
-
-                    return [
-                        'id' => $availability['id'],
-                        'region_id' => $regionId,
-                        'region_description' => $regionDescription,
-                        'region_group_id' => $topParentRegionId,
-                        'region_group_description' => $topParentRegionDescription,
-                        'start' => max($shiftStart, $availStart)->toIso8601String(),
-                        'end' => min($shiftEnd, $availEnd)->toIso8601String(),
-                        'region_active' => !isset($rra['within_region_multiplier']) || (float)$rra['within_region_multiplier'] !== 0.0,
-                        'full_coverage' => $availStart->lte($shiftStart) && $availEnd->gte($shiftEnd),
-                        'source' => 'availability',
-                        'source_id' => $rra['id'] ?? null,
-                    ];
-
-                })
-                ->filter()
-                ->values()
-                ->all();
 
             $breaks = $shiftBreaks
                 ->where('shift_id', $shiftId)
