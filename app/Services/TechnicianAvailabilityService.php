@@ -125,7 +125,7 @@ class TechnicianAvailabilityService
             'region_group_description'  => $topDesc,
             'start'                     => max($shiftStart, $availStart)->toIso8601String(),
             'end'                       => min($shiftEnd,   $availEnd)->toIso8601String(),
-            'region_active'             => (float)($rra['within_region_multiplier'] ?? 1) !== 0,
+                    'region_active'     => ((float) ($rra['within_region_multiplier'] ?? 1)) !== 0.0,
             'full_coverage'             => $availStart->lte($shiftStart) 
                                            && $availEnd->gte($shiftEnd),
             'source'                    => $rra['source']    ?? 'availability',
