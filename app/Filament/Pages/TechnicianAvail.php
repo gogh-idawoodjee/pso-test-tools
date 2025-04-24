@@ -7,6 +7,7 @@ use App\Jobs\GetTechniciansListJob;
 use App\Traits\FilamentJobMonitoring;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -18,8 +19,7 @@ use Override;
 
 class TechnicianAvail extends Page
 {
-    use InteractsWithForms;
-    use FilamentJobMonitoring;
+    use InteractsWithForms, FilamentJobMonitoring;
 
     // Job types
     private const string JOB_TYPE_RESOURCES = 'resource-job';
@@ -38,6 +38,7 @@ class TechnicianAvail extends Page
     public array $formData = [
         'upload' => null,
         'selectedTechnician' => null,
+        'startDate' => null,
     ];
 
     public function mount(): void
@@ -60,7 +61,8 @@ class TechnicianAvail extends Page
                         ->acceptedFileTypes(['application/json'])
                         ->required()
                         ->dehydrated()
-                        ->live(),
+                        ->live()
+                        ->columnSpan(2),
 
                     Select::make('selectedTechnician')
                         ->label('Select Technician')
@@ -70,7 +72,13 @@ class TechnicianAvail extends Page
                         ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
                         ->visible(fn() => !empty($this->technicianOptions))
                         ->live(),
-                ]),
+                    DatePicker::make('startDate')
+                        ->label('Start Date')
+                        ->default(now()->toDateString())
+                        ->visible(fn() => !empty($this->technicianOptions))
+                        ->required()
+                        ->native(false),
+                ])->columns(2),
             Actions::make([
                 Action::make('get_resources')
                     ->label('Load Resources')
@@ -97,10 +105,11 @@ class TechnicianAvail extends Page
         if ($data = $this->form->getState()) {
             $path = $data['upload'];
             $technicianId = $data['selectedTechnician'];
-
+            $startDate = $data['startDate'];
+            Log::info("Dispatching shift job from {$startDate}");
             Log::info("Get Schedule Job ID: {$this->jobId}, File: {$path}, Technician: {$technicianId}");
 
-            GetTechnicianShiftsJob::dispatch($this->jobId, $path, $technicianId);
+            GetTechnicianShiftsJob::dispatch($this->jobId, $path, $technicianId, startDate);
         }
     }
 
