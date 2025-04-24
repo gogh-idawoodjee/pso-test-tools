@@ -250,17 +250,18 @@ private function expandPatternBasedAvailability(array $shiftData): Collection
                 $end = $loopDate->copy()->add($close);
 
                 $availabilities[] = [
-                    'id' => "pattern:{$pattern['id']}:{$loopDate->toDateString()}",
-                    'resource_id' => $resourceId,
-                    'region_id' => $regionId,
-                    'availability_pattern_id' => $pattern['id'],
-                    'start' => $start->copy()->tz('UTC')->toIso8601String(),
-                    'end' => $end->copy()->tz('UTC')->toIso8601String(),
-                    'region_active' => $active,
-                    'full_coverage' => false, // handled later
-                    'source' => 'pattern',
-                    'source_id' => $rra['id'] ?? null,
-                ];
+    'id'                        => "pattern:{$pattern['id']}:{$loopDate->toDateString()}",
+    'resource_id'               => $resourceId,
+    'region_id'                 => $regionId,
+    'availability_pattern_id'   => $pattern['id'],
+    'start'                     => $start->copy()->tz('UTC')->toIso8601String(),
+    'end'                       => $end->copy()->tz('UTC')->toIso8601String(),
+    'region_active'             => $active,
+    'full_coverage'             => false,
+    'source'                    => 'pattern',
+    'source_id'                 => $rra['id'] ?? null,
+    'override_priority'         => (int) ($rra['override_priority'] ?? 0),
+];
             }
 
             return $availabilities;
