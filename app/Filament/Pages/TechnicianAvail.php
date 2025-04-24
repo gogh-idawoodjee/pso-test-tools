@@ -78,7 +78,7 @@ class TechnicianAvail extends Page
                         ->visible(fn() => !empty($this->technicianOptions))
                         ->required()
                         ->native(false),
-                ])->columns(2),
+                ])->columns(),
             Actions::make([
                 Action::make('get_resources')
                     ->label('Load Resources')
@@ -109,7 +109,7 @@ class TechnicianAvail extends Page
             Log::info("Dispatching shift job from {$startDate}");
             Log::info("Get Schedule Job ID: {$this->jobId}, File: {$path}, Technician: {$technicianId}");
 
-            GetTechnicianShiftsJob::dispatch($this->jobId, $path, $technicianId, startDate);
+            GetTechnicianShiftsJob::dispatch($this->jobId, $path, $technicianId, $startDate);
         }
     }
 
