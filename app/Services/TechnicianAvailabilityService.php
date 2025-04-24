@@ -179,71 +179,81 @@ class TechnicianAvailabilityService
         ];
     }
 
-    private function expandPatternBasedAvailability(array $shiftData): Collection
-    {
-        Log::info('Collecting the availability pattern based availability');
-        $regionAvailability = collect($this->data['Resource_Region_Availability'] ?? []);
-        $patterns = collect($this->data['Availability_Pattern'] ?? [])->keyBy('id');
+private function expandPatternBasedAvailability(array $shiftData): Collection
+{
+    Log::info('Collecting the availability pattern based availability');
+    $regionAvailability = collect($this->data['Resource_Region_Availability'] ?? []);
+    $patterns = collect($this->data['Availability_Pattern'] ?? [])->keyBy('id');
 
-        // Get all shift days
-        $shiftDays = collect($shiftData)
-            ->filter(fn($s) => isset($s['start_datetime']))
-            ->map(fn($s) => Carbon::parse($s['start_datetime'])->tz(config('app.timezone'))->startOfDay()->toDateString())
-            ->unique();
+    // Determine the overall date range from the shifts
+    $shiftStartDates = collect($shiftData)->pluck('start_datetime')->map(fn($dt) => Carbon::parse($dt));
+    $shiftEndDates = collect($shiftData)->pluck('end_datetime')->map(fn($dt) => Carbon::parse($dt));
+    $overallStart = $shiftStartDates->min()->startOfDay();
+    $overallEnd = $shiftEndDates->max()->endOfDay();
 
-        return $regionAvailability
-            ->filter(fn($rra) => !empty($rra['availability_pattern_id']))
-            ->flatMap(function ($rra) use ($patterns, $shiftDays) {
-                $pattern = $patterns->get($rra['availability_pattern_id']);
+    // Generate all dates within the range
+    $dateRange = new \DatePeriod(
+        $overallStart,
+        new \DateInterval('P1D'),
+        $overallEnd->addDay() // Include the end date
+    );
 
-                if (!$pattern) {
-                    Log::warning("No pattern found for {$rra['availability_pattern_id']}");
-                    return [];
+    return $regionAvailability
+        ->filter(fn($rra) => !empty($rra['availability_pattern_id']))
+        ->flatMap(function ($rra) use ($patterns, $dateRange) {
+            $pattern = $patterns->get($rra['availability_pattern_id']);
+
+            if (!$pattern) {
+                Log::warning("No pattern found for {$rra['availability_pattern_id']}");
+                return [];
+            }
+
+            $timezone = $pattern['time_zone'] ?? config('app.timezone');
+            $patternStart = Carbon::parse($pattern['period_start_datetime'], $timezone);
+            $patternEnd = Carbon::parse($pattern['period_end_datetime'], $timezone);
+            $dayPattern = str_split($pattern['day_pattern']);
+            $open = CarbonInterval::make($pattern['open_time']);
+            $close = CarbonInterval::make($pattern['close_time']);
+
+            $regionId = $rra['region_id'] ?? 'unknown';
+            $resourceId = $rra['resource_id'] ?? null;
+            $multiplier = (float)($rra['within_region_multiplier'] ?? 1.0);
+            $active = $multiplier !== 0.0;
+
+            $availabilities = [];
+
+            foreach ($dateRange as $date) {
+                $loopDate = Carbon::parse($date, $timezone)->startOfDay();
+
+                if (!$loopDate->betweenIncluded($patternStart, $patternEnd)) {
+                    continue;
                 }
 
-                $timezone = $pattern['time_zone'] ?? config('app.timezone');
-                $patternStart = Carbon::parse($pattern['period_start_datetime'], $timezone);
-                $patternEnd = Carbon::parse($pattern['period_end_datetime'], $timezone);
-                $dayPattern = str_split($pattern['day_pattern']);
-                $open = CarbonInterval::make($pattern['open_time']);
-                $close = CarbonInterval::make($pattern['close_time']);
+                $dayIndex = $loopDate->dayOfWeekIso - 1; // Monday = 0
+                if (!isset($dayPattern[$dayIndex]) || $dayPattern[$dayIndex] !== 'Y') {
+                    continue;
+                }
 
-                $regionId = $rra['region_id'] ?? 'unknown';
-                $resourceId = $rra['resource_id'] ?? null;
-                $multiplier = (float)($rra['within_region_multiplier'] ?? 1.0);
-                $active = $multiplier !== 0.0;
+                $start = $loopDate->copy()->add($open);
+                $end = $loopDate->copy()->add($close);
 
-                return $shiftDays->flatMap(function ($dateString) use ($timezone, $patternStart, $patternEnd, $dayPattern, $open, $close, $pattern, $resourceId, $regionId, $active) {
-                    $loopDate = Carbon::parse($dateString, $timezone)->startOfDay();
+                $availabilities[] = [
+                    'id' => "pattern:{$pattern['id']}:{$loopDate->toDateString()}",
+                    'resource_id' => $resourceId,
+                    'region_id' => $regionId,
+                    'availability_pattern_id' => $pattern['id'],
+                    'start' => $start->copy()->tz('UTC')->toIso8601String(),
+                    'end' => $end->copy()->tz('UTC')->toIso8601String(),
+                    'region_active' => $active,
+                    'full_coverage' => false, // handled later
+                    'source' => 'pattern',
+                    'source_id' => $rra['id'] ?? null,
+                ];
+            }
 
-                    if (!$loopDate->betweenIncluded($patternStart, $patternEnd)) {
-                        return [];
-                    }
-
-                    $dayIndex = $loopDate->dayOfWeekIso - 1; // Monday = 0
-                    if (!isset($dayPattern[$dayIndex]) || $dayPattern[$dayIndex] !== 'Y') {
-                        return [];
-                    }
-
-                    $start = $loopDate->copy()->add($open);
-                    $end = $loopDate->copy()->add($close);
-
-                    return [[
-                        'id' => "pattern:{$pattern['id']}:{$loopDate->toDateString()}",
-                        'resource_id' => $resourceId,
-                        'region_id' => $regionId,
-                        'availability_pattern_id' => $pattern['id'],
-                        'start' => $start->copy()->tz('UTC')->toIso8601String(),
-                        'end' => $end->copy()->tz('UTC')->toIso8601String(),
-                        'region_active' => $active,
-                        'full_coverage' => false, // handled later
-                        'source' => 'pattern',
-                        'source_id' => $rra['id'] ?? null,
-                    ]];
-
-                });
-            })
-            ->values();
-    }
+            return $availabilities;
+        })
+        ->values();
+}
 
 }
