@@ -33,6 +33,7 @@ class TechnicianAvail extends Page
     // 2. Public properties
     public array $technicianOptions = [];
     public array|null $technicianShifts = [];
+    public bool $enableDebug = false;
 
     // 3. Form-related properties
     public array $formData = [
@@ -45,7 +46,10 @@ class TechnicianAvail extends Page
     {
         $this->form->fill();
         // Load sample data for development/testing
-        $this->loadSampleData();
+        if ($this->enableDebug) {
+            $this->loadSampleData();
+        }
+
     }
 
     #[Override]

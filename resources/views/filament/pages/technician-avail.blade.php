@@ -27,7 +27,8 @@
             <div class="w-full max-w-sm">
                 <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Progress</h2>
 
-                <div style="width: 100%; height: 12px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden;">
+                <div
+                    style="width: 100%; height: 12px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden;">
                     <div style="width: {{ $progress }}%; height: 100%; background-color: #10b981;"></div>
                 </div>
 
@@ -43,12 +44,21 @@
     </div>
 
     {{-- Gantt Chart --}}
-    <x-technician-gantt :shifts="$technicianShifts"/>
-    <pre class="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-2 rounded overflow-x-auto">
-    {{ json_encode($technicianShifts[0] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
-        {{ json_encode($technicianShifts[1] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
-        {{ json_encode($technicianShifts[2] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
-</pre>
+    @if($technicianShifts)
+        <x-filament::section heading="Technician Availability">
+
+            <x-technician-gantt :shifts="$technicianShifts"/>
+        </x-filament::section>
+    @endif
+    @if($enableDebug)
+        <pre class="text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 p-2 rounded overflow-x-auto">
+
+            {{ json_encode($technicianShifts[0] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
+            {{ json_encode($technicianShifts[1] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
+            {{ json_encode($technicianShifts[2] ?? 'none', JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) }}
+
+        </pre>
+    @endif
     {{--    --}}{{-- Raw JSON (debug) --}}
     {{--    <pre class="text-sm bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100 p-2 rounded overflow-x-auto">--}}
     {{--    {{ json_encode($technicianShifts, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}--}}
