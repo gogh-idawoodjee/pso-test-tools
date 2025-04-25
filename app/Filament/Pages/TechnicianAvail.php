@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Jobs\GetTechnicianShiftsJob;
 use App\Jobs\GetTechniciansListJob;
 use App\Traits\FilamentJobMonitoring;
+use Carbon\Carbon;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -65,7 +66,7 @@ class TechnicianAvail extends Page
                         ->disk('local')
                         ->directory('uploads')
                         ->acceptedFileTypes(['application/json'])
-                        ->required()
+                        ->required(fn() => empty($this->technicianShifts))
                         ->dehydrated()
                         ->live()
                         ->columnSpan(2),
@@ -99,9 +100,32 @@ class TechnicianAvail extends Page
                     ->disabled(fn() => empty($this->formData['selectedTechnician']))
                     ->action(function () {
                         $this->getSchedule();
-                    })
+                    }),
+                Action::make('load_next_batch')
+                    ->label('Load Next Batch')
+                    ->icon('heroicon-o-arrow-right')
+                    ->action('loadNextBatch')
+                    ->visible(fn() => !empty($this->technicianShifts) && !empty($this->formData['selectedTechnician'])),
             ])
         ])->statePath('formData');
+    }
+
+
+    public function loadNextBatch(): void
+    {
+        // 1) Determine the last shift date we just fetched:
+        $lastShift = collect($this->technicianShifts)
+            ->pluck('start_datetime')
+            ->map(static fn($dt) => Carbon::parse($dt))
+            ->max();
+
+        // 2) Bump it forward one day:
+        $nextStart = $lastShift->addDay()->toDateString();
+
+        // 3) Update formData and re-fetch:
+        $this->formData['startDate'] = $nextStart;
+
+        $this->getSchedule();
     }
 
     public function getSchedule(): void
@@ -171,6 +195,18 @@ class TechnicianAvail extends Page
 
         // Reset job state
         $this->resetJobState();
+    }
+
+
+    protected function resetJobState(): void
+    {
+        // Only clear the job‐monitoring fields:
+        $this->jobId = null;
+        $this->jobKey = null;
+        $this->status = null;
+        $this->progress = 0;
+
+        // NB: do NOT touch $this->formData or $this->technicianShifts here!
     }
 
     protected function updateTechnicianOptions(array $technicians): void
