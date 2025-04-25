@@ -15,7 +15,7 @@ trait FilamentJobMonitoring
     public ?string $status = 'idle';
     public ?string $data = null;
     public bool $isPolling = false;
-    public int $progress = 1;
+    public int $progress = 0;
 
     // Job timeout in seconds
     protected const int JOB_TIMEOUT = 60;
@@ -31,7 +31,6 @@ trait FilamentJobMonitoring
         $this->status = 'starting up';
         $this->progress = 0;  // Reset progress when starting a new job
         $this->cachePrefixType = $jobType; // ✅ THIS LINE IS CRITICAL
-
 
 
         Cache::put($this->getJobCacheKey('status'), 'starting up');
@@ -99,7 +98,7 @@ trait FilamentJobMonitoring
     protected function getJobProgress(): int
     {
 
-        return (int)$this->getFromJobCache('progress', 1);
+        return (int)$this->getFromJobCache('progress', 0);
     }
 
     /**

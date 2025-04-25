@@ -56,7 +56,7 @@ class TechnicianAvail extends Page
     public function form(Form $form): Form
     {
         return $form->schema([
-            Section::make('Technician Availability')
+            Section::make()
                 ->schema([
                     FileUpload::make('upload')
                         ->label('Upload JSON File')
