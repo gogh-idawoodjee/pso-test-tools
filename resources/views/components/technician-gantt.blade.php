@@ -76,7 +76,7 @@
             @endphp
             <div class="flex items-center text-sm gap-2">
                 <div class="w-4 h-4 rounded-sm border border-gray-300 mr-2" style="{{ $bgStyle }}"></div>
-                <span class="ml-2 text-gray-700 dark:text-gray-300">{{ $region['description'] }}</span>
+                <span class="ml-2 text-gray-900 dark:text-white">{{ $region['description'] }}</span>
             </div>
         @endforeach
     </div>
@@ -149,7 +149,7 @@
             );
 
             $maxRegionBars = $dayShifts->max(fn($s) => count($s['region_availability'] ?? []));
-            $regionBarHeight = 6; // 6px per bar
+            $regionBarHeight = 12; // 6px per bar
             $regionBarPadding = 4; // Extra room above/below
             $shiftHeight = 40; // h-8 = 2rem = 32px
 
@@ -221,7 +221,7 @@ $totalHeight = $shiftHeight
                             $widthPercent = (($endSeconds - $startSeconds) / 86400) * 100;
                             $isManual = $shift['manual_scheduling_only'] ?? false;
                             $barColor = $isManual ? '#facc15' : '#f5deb3';
-                            $textColor = $isManual ? '#000000' : '#ffffff';
+                            $textColor = $isManual ? '#000000' : '#333333';
                         @endphp
 
                         <div
@@ -418,7 +418,7 @@ $totalHeight = $shiftHeight
                             @endphp
 
                             <div
-                                class="absolute h-1.5 rounded-sm opacity-90 cursor-pointer"
+                                class="absolute h-3 rounded-sm opacity-90 cursor-pointer"
                                 style="{{ $style }} z-index: {{ $zIndex }};"
                                 @mouseenter="showRegionTooltip($event, '{{ $regionDescription }}', '{{ $availStart->format('Y-m-d H:i') }}', '{{ $availEnd->format('Y-m-d H:i') }}', {{ $availability['region_active'] ? 'true' : 'false' }})"
                                 @mouseleave="hideTooltip()"
@@ -435,7 +435,3 @@ $totalHeight = $shiftHeight
         </div>
     @endforeach
 </div>
-
-<script>
-    // Removed the ganttTooltips function since we're using inline Alpine.js data
-</script>
