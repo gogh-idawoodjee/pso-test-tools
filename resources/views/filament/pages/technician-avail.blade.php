@@ -16,10 +16,12 @@
         {{-- Status Panel --}}
         <div
             class="w-full lg:w-1/3 max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-4 space-y-4">
-            <div>
-                <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Job ID</h2>
-                <p class="text-gray-800 dark:text-gray-100 text-sm">{{ $jobId }}</p>
-            </div>
+            @if($enableDebug)
+                <div>
+                    <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Job ID</h2>
+                    <p class="text-gray-800 dark:text-gray-100 text-sm">{{ $jobId }}</p>
+                </div>
+            @endif
             <div>
                 <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Status</h2>
                 <x-filament::badge size="s" class="inline-flex w-fit px-3 py-1">
