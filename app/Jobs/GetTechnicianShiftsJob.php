@@ -46,22 +46,22 @@ class GetTechnicianShiftsJob implements ShouldQueue
             $this->updateStatus('failed');
             return;
         }
-
+        $this->updateProgress(30);
         try {
             $data = $this->loadDataFromPath();
 
             Log::info('handle process in technician shift job');
-            $this->updateProgress(30);
+            $this->updateProgress(75);
 
             Log::info('about to call get shifts');
             $shifts = $this->getShifts($data);
+            $this->updateProgress(90);
             Log::info('expected progress 75. shifts should be collected');
             Log::info('shifts: ' . json_encode($shifts, JSON_THROW_ON_ERROR));
-            $this->updateProgress(75);
-
+            $this->updateProgress(100);
             Cache::put($this->getJobCacheKey('shifts'), $shifts);
             $this->updateStatus('complete');
-            $this->updateProgress(100);
+
 
             Log::info("✅ Technician Shift Job {$this->jobId} completed");
         } catch (Throwable $e) {
