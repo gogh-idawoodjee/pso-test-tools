@@ -16,32 +16,41 @@ class TechnicianAvailabilityService
         protected array   $data,
         protected ?string $jobId = null,
         protected ?string $technicianId = null,
+        protected ?string $startDate = null,   // ← New: filter shifts from this date
     )
     {
     }
 
-    public function getTechnicianShifts(int $limit = 5, bool $onlyUpcoming = false): array
+    public function getTechnicianShifts(
+        int       $limit = 7,
+        bool|null $onlyUpcoming = null,
+    ): array
     {
+        $onlyUpcoming ??= false;
         if (!$this->technicianId) {
             return [];
         }
 
-        Log::info("✅ Collecting shifts for technician {$this->technicianId}");
+        $timezone = config('app.timezone');            // e.g. 'America/Toronto'
+        $cutoff = Carbon::parse($this->startDate, $timezone)
+            ->startOfDay();
+
+        Log::info("✅ Collecting shifts for technician {$this->technicianId} starting from {$this->startDate}");
 
         $shiftData = collect($this->data['Shift'] ?? [])
-            ->filter(function ($s) use ($onlyUpcoming) {
-                if (!isset($s['resource_id'], $s['start_datetime'])) {
-                    return false;
-                }
-                if ($s['resource_id'] !== $this->technicianId) {
-                    return false;
-                }
-                if ($onlyUpcoming && Carbon::parse($s['start_datetime'])->lt(now())) {
-                    return false;
-                }
-                return true;
-            })
-            ->sortBy(static fn($s) => Carbon::parse($s['start_datetime']))
+            ->filter(fn($s) => isset($s['resource_id'], $s['start_datetime'])
+                && $s['resource_id'] === $this->technicianId
+                && (!$onlyUpcoming || Carbon::parse($s['start_datetime'])
+                        ->tz($timezone)
+                        ->gte(now()->tz($timezone)))
+            )
+            ->when($this->startDate, fn($c) => $c->filter(fn($s) => Carbon::parse($s['start_datetime'])
+                ->tz($timezone)            // convert from UTC into your local zone
+                ->startOfDay()             // drop time portion
+                ->greaterThanOrEqualTo($cutoff)  // full “>=” date check
+            )
+            )
+            ->sortBy(fn($s) => Carbon::parse($s['start_datetime'])->tz($timezone))
             ->take($limit)
             ->values();
 
@@ -213,10 +222,10 @@ class TechnicianAvailabilityService
         // Determine the overall date range from the shifts
         $shiftStartDates = collect($shiftData)
             ->pluck('start_datetime')
-            ->map(fn($dt) => Carbon::parse($dt));
+            ->map(static fn($dt) => Carbon::parse($dt));
         $shiftEndDates = collect($shiftData)
             ->pluck('end_datetime')
-            ->map(fn($dt) => Carbon::parse($dt));
+            ->map(static fn($dt) => Carbon::parse($dt));
         $overallStart = $shiftStartDates->min()->startOfDay();
         $overallEnd = $shiftEndDates->max()->endOfDay();
 
@@ -228,7 +237,7 @@ class TechnicianAvailabilityService
         );
 
         return $regionAvailability
-            ->filter(fn($rra) => !empty($rra['availability_pattern_id']))
+            ->filter(static fn($rra) => !empty($rra['availability_pattern_id']))
             ->flatMap(function ($rra) use ($patterns, $dateRange) {
                 $pattern = $patterns->get($rra['availability_pattern_id']);
                 if (!$pattern) {

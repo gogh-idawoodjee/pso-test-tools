@@ -19,16 +19,20 @@ class GetTechnicianShiftsJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels, FilamentJobMonitoring;
 
+    public string $startDate;
+
     public function __construct(
         string         $jobId,
         public string  $path,
-        public ?string $technicianId = null
+        public ?string $technicianId = null,
+        string         $startDate
 
     )
     {
         $this->jobKey = 'Technician-Shift-Job';          // ✅ Matches TechnicianAvail constant
         $this->cachePrefixType = 'Technician-Shift-Job'; // ✅ Same here
         $this->jobId = $jobId;
+        $this->startDate = $startDate;
 
 
         Cache::put($this->getJobCacheKey('status'), 'constructed');
@@ -73,10 +77,13 @@ class GetTechnicianShiftsJob implements ShouldQueue
     protected function getShifts(array $data): array
     {
         Log::info('called get shifts with technician id: ' . $this->technicianId);
-        $service = new TechnicianAvailabilityService($data, $this->jobId, $this->technicianId);
+        $service = new TechnicianAvailabilityService($data, $this->jobId, $this->technicianId, $this->startDate);
         return $service->getTechnicianShifts() ?? [];
     }
 
+    /**
+     * @throws JsonException
+     */
     protected function loadDataFromPath(): array
     {
         try {
