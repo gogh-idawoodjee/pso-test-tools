@@ -82,22 +82,24 @@
     </div>
 </div>
 
-<div class="mb-4 space-y-2">
-    <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-300">Group Legend</h2>
-    <div class="flex flex-wrap gap-4 items-center">
-        @foreach ($uniqueRegionGroups as $group)
-            @php
-                $color = $groupColorMap[$group['id']] ?? '#f1f5f9';
-            @endphp
-            <div class="flex items-center text-sm gap-2">
-                <div class="w-4 h-4 rounded-sm border border-gray-300 mr-2"
-                     style="background-color: {{ $color }}; {{ !$showBackgrounds ? 'opacity: 0.5;' : '' }}">
+@if( $showBackgrounds)
+    <div class="mb-4 space-y-2">
+        <h2 class="text-sm font-semibold text-gray-600 dark:text-gray-300">Group Legend</h2>
+        <div class="flex flex-wrap gap-4 items-center">
+            @foreach ($uniqueRegionGroups as $group)
+                @php
+                    $color = $groupColorMap[$group['id']] ?? '#f1f5f9';
+                @endphp
+                <div class="flex items-center text-sm gap-2">
+                    <div class="w-4 h-4 rounded-sm border border-gray-300 mr-2"
+                         style="background-color: {{ $color }}; {{ !$showBackgrounds ? 'opacity: 0.5;' : '' }}">
+                    </div>
+                    <span class="ml-2 text-gray-700 dark:text-gray-300">{{ $group['description'] }}</span>
                 </div>
-                <span class="ml-2 text-gray-700 dark:text-gray-300">{{ $group['description'] }}</span>
-            </div>
-        @endforeach
+            @endforeach
+        </div>
     </div>
-</div>
+@endif
 
 <div x-data="{
     tooltipContent: null,
