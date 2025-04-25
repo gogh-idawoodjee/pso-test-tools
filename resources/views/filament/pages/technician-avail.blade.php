@@ -38,10 +38,13 @@
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $progress }}%</p>
             </div>
 
-            <div>
-                <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Selected Technician</h2>
-                <p class="text-gray-800 dark:text-gray-100 text-sm">{{ $formData['selectedTechnician'] ?? 'None' }}</p>
-            </div>
+            @if($enableDebug)
+                <div>
+                    <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Selected
+                        Technician</h2>
+                    <p class="text-gray-800 dark:text-gray-100 text-sm">{{ $formData['selectedTechnician'] ?? 'None' }}</p>
+                </div>
+            @endif
         </div>
 
     </div>

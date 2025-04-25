@@ -15,6 +15,7 @@ use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Log;
+use Livewire\Attributes\Url;
 use Override;
 
 class TechnicianAvail extends Page
@@ -33,6 +34,7 @@ class TechnicianAvail extends Page
     // 2. Public properties
     public array $technicianOptions = [];
     public array|null $technicianShifts = [];
+    #[Url]
     public bool $enableDebug = false;
 
     // 3. Form-related properties
