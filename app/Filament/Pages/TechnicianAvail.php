@@ -87,7 +87,7 @@ class TechnicianAvail extends Page
                 Action::make('get_resources')
                     ->label('Load Resources')
                     ->icon('heroicon-o-arrow-down-circle')
-                    ->disabled(fn() => !empty($this->formData['selectedTechnician']))
+                    ->disabled(fn() => !empty($this->formData['selectedTechnician']) || empty($this->formData['upload']))
                     ->action(function () {
                         $this->getResources();
                     }),

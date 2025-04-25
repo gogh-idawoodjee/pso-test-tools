@@ -22,7 +22,10 @@
             </div>
             <div>
                 <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Status</h2>
-                <p class="text-sm text-blue-600 dark:text-blue-400 font-medium">{{ $status }}</p>
+                <x-filament::badge size="s" class="inline-flex w-fit px-3 py-1">
+                    {{ $status }}
+                </x-filament::badge>
+                <p class="text-sm text-blue-600 dark:text-blue-400 font-medium"></p>
             </div>
             <div class="w-full max-w-sm">
                 <h2 class="text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase">Progress</h2>
