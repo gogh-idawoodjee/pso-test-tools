@@ -22,10 +22,7 @@ class RegionResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
-            ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->required(),
-            ]);
+            ->schema();
     }
 
     public static function table(Table $table): Table

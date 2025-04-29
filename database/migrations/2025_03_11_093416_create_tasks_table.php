@@ -10,7 +10,6 @@ return new class extends Migration {
     {
         Schema::create('tasks', function (Blueprint $table) {
             $table->string('id', 36)->primary(); // Use a 36-character string for UUID
-            $table->string('customer_id', 36);   // Customer ID as string
             $table->string('name');
             $table->string('type');
             $table->string('status');

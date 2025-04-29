@@ -22,24 +22,7 @@ class TaskResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
-            ->schema([
-                Forms\Components\Select::make('customer_id')
-                    ->relationship('customer', 'name')
-                    ->required(),
-                Forms\Components\TextInput::make('name')
-                    ->required(),
-                Forms\Components\TextInput::make('type')
-                    ->required(),
-                Forms\Components\TextInput::make('status')
-                    ->required(),
-                Forms\Components\TextInput::make('duration')
-                    ->required()
-                    ->numeric(),
-                Forms\Components\DateTimePicker::make('appt_window_start')
-                    ->required(),
-                Forms\Components\DateTimePicker::make('appt_window_finish')
-                    ->required(),
-            ]);
+            ->schema();
     }
 
     public static function table(Table $table): Table

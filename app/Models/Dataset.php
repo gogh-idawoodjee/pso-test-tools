@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Log;
+use Filament\Forms;
 
 class Dataset extends Model
 {
@@ -17,9 +17,8 @@ class Dataset extends Model
      *
      * @var array
      */
-    protected $casts = [
-        'environment_id' => 'integer',
-    ];
+
+    protected $guarded = [];
 
     protected $with = ['environment'];
 
@@ -28,8 +27,18 @@ class Dataset extends Model
         return $this->belongsTo(Environment::class);
     }
 
-    public function psoload()
+    public static function getForm(): array
     {
-     Log::info('this method works');
+        return [
+            Forms\Components\TextInput::make('name')
+                ->required(),
+            Forms\Components\TextInput::make('rota')
+                ->required(),
+            Forms\Components\Select::make('environment_id')
+                ->relationship('environment', 'name')
+                ->required(),
+        ];
     }
+
+
 }

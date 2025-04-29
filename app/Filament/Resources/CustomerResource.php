@@ -2,11 +2,12 @@
 
 namespace App\Filament\Resources;
 
+
 use App\Filament\Resources\CustomerResource\Pages;
 use Filament\Resources\RelationManagers;
 use App\Models\Customer;
 use App\Traits\GeocCodeTrait;
-use Filament\Forms;
+
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -24,26 +25,9 @@ class CustomerResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
-            ->schema([
-                Forms\Components\TextInput::make('address')
-                    ->required(),
-                Forms\Components\TextInput::make('city')
-                    ->required(),
-                Forms\Components\TextInput::make('country')
-                    ->required(),
-                Forms\Components\TextInput::make('lat')
-                    ->numeric(),
-                Forms\Components\TextInput::make('long')
-                    ->numeric(),
-                Forms\Components\TextInput::make('name')
-                    ->required(),
-                Forms\Components\TextInput::make('postcode')
-                    ->required(),
-                Forms\Components\Select::make('region_id')
-                    ->relationship('region', 'name'),
-                Forms\Components\TextInput::make('status')
-                    ->required(),
-            ]);
+            ->schema(
+                Customer::getForm()
+            );
     }
 
     public static function table(Table $table): Table

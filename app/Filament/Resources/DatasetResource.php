@@ -23,21 +23,12 @@ class DatasetResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
-            ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->required(),
-                Forms\Components\TextInput::make('rota')
-                    ->required(),
-                Forms\Components\Select::make('environment_id')
-                    ->relationship('environment', 'name')
-                    ->required(),
-            ]);
+            ->schema(Dataset::getForm());
     }
 
     public static function table(Table $table): Table
     {
         return $table
-
             ->columns([
                 Tables\Columns\TextColumn::make('id')
                     ->label('ID')
