@@ -3,8 +3,12 @@
 namespace App\Filament\Resources;
 
 
+use App\Enums\Status;
 use App\Filament\Resources\CustomerResource\Pages;
-use Filament\Resources\RelationManagers;
+use App\Filament\Resources\CustomerResource\RelationManagers\TasksRelationManager;
+use Filament\Infolists\Components\Section;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Infolist;
 use App\Models\Customer;
 use App\Traits\GeocCodeTrait;
 
@@ -42,6 +46,7 @@ class CustomerResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('id')
                     ->label('ID')
+                    ->hidden()
                     ->searchable(),
                 Tables\Columns\TextColumn::make('lat')
                     ->numeric()
@@ -70,7 +75,8 @@ class CustomerResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+//                Tables\Actions\EditAction::make(),
+                Tables\Actions\ViewAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -82,8 +88,28 @@ class CustomerResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            TasksRelationManager::class
         ];
+    }
+
+    public static function infolist(Infolist $infolist): Infolist
+    {
+        return $infolist
+            ->schema([
+                Section::make('Customer Information')->schema([
+                    TextEntry::make('name'),
+                    TextEntry::make('status')
+                        ->badge()
+                        ->color(static function ($state) {
+                            if ($state === Status::ACTIVE) {
+                                return 'success';
+                            }
+
+                            return 'danger';
+
+                        }),
+                ])->columns(),
+            ]);
     }
 
     public static function getPages(): array
@@ -91,7 +117,8 @@ class CustomerResource extends Resource
         return [
             'index' => Pages\ListCustomers::route('/'),
             'create' => Pages\CreateCustomer::route('/create'),
-            'edit' => Pages\EditCustomer::route('/{record}/edit'),
+//            'edit' => Pages\EditCustomer::route('/{record}/edit'),
+            'view' => Pages\ViewCustomer::route('/{record}'),
         ];
     }
 }

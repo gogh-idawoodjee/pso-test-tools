@@ -18,11 +18,12 @@ class TaskResource extends Resource
     protected static ?string $model = Task::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Form $form): Form
     {
         return $form
-            ->schema();
+            ->schema(Task::getForm());
     }
 
     public static function table(Table $table): Table

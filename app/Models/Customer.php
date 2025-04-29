@@ -41,28 +41,40 @@ class Customer extends Model
     {
 
         return [
-            Forms\Components\TextInput::make('address')
-                ->required(),
-            Forms\Components\TextInput::make('city')
-                ->required(),
-            Forms\Components\TextInput::make('country')
-                ->required(),
-            Forms\Components\TextInput::make('lat')
-                ->numeric(),
-            Forms\Components\TextInput::make('long')
-                ->numeric(),
-            Forms\Components\TextInput::make('name')
-                ->required(),
-            Forms\Components\TextInput::make('postcode')
-                ->required(),
-            Forms\Components\Select::make('region_id')
-                ->relationship('region', 'name')
-                ->createOptionForm(Region::getForm())
-                ->editOptionForm(Region::getForm()),
-            Forms\Components\Select::make('status')
-                ->enum(Status::class)
-                ->options(Status::class)
-                ->required(),];
+            Forms\Components\Section::make('Customer Customer')
+                ->schema([
+                    Forms\Components\TextInput::make('name')
+                        ->required(),
+                    Forms\Components\Select::make('status')
+                        ->enum(Status::class)
+                        ->options(Status::class)
+                        ->required(),
+                ])->columns(),
+            Forms\Components\Section::make('Location')
+                ->schema([
+                    Forms\Components\TextInput::make('address')
+                        ->required()
+                        ->columnSpan(2),
+                    Forms\Components\TextInput::make('city')
+                        ->required(),
+                    Forms\Components\TextInput::make('country')
+                        ->required(),
+                    Forms\Components\TextInput::make('lat')
+                        ->label('Latitude')
+                        ->numeric(),
+                    Forms\Components\TextInput::make('long')
+                        ->label('Longitude')
+                        ->numeric(),
+
+                    Forms\Components\TextInput::make('postcode')
+                        ->required(),
+                    Forms\Components\Select::make('region_id')
+                        ->relationship('region', 'name')
+                        ->createOptionForm(Region::getForm())
+                        ->editOptionForm(Region::getForm()),
+
+                ])->columns(),
+        ];
 
     }
 }

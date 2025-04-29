@@ -32,9 +32,6 @@ class Task extends Model
     public static function getForm(): array
     {
         return [
-            Forms\Components\Select::make('customer_id')
-                ->relationship('customer', 'name')
-                ->required(),
             Forms\Components\TextInput::make('name')
                 ->required(),
             Forms\Components\TextInput::make('type')
