@@ -20,7 +20,7 @@ return new class extends Migration
             $table->decimal('long')->nullable();
             $table->string('name');
             $table->string('postcode');
-            $table->foreignUuid('region_id');
+            $table->foreignUuid('region_id')->nullable();
             $table->string('status');
             $table->timestamps();
         });

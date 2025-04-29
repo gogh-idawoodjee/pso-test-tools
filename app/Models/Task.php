@@ -19,7 +19,6 @@ class Task extends Model
     protected $casts = [
         'appt_window_finish' => 'datetime',
         'appt_window_start' => 'datetime',
-        'customer_id' => 'integer',
     ];
 
     public function customer(): BelongsTo

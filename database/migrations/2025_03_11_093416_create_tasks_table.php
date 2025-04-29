@@ -6,26 +6,23 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('tasks', function (Blueprint $table) {
-            $table->dateTime('appt_window_finish');
-            $table->dateTime('appt_window_start');
-            $table->integer('duration');
-            $table->uuid('id');
-            $table->string('status');
+            $table->string('id', 36)->primary(); // Use a 36-character string for UUID
+            $table->string('customer_id', 36);   // Customer ID as string
+            $table->string('name');
             $table->string('type');
-            $table->foreignUuid('customer_id');
+            $table->string('status');
+            $table->integer('duration');
+            $table->dateTime('appt_window_start');
+            $table->dateTime('appt_window_finish');
             $table->timestamps();
+
+            $table->foreign('customer_id')->references('id')->on('customers')->cascadeOnDelete();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('tasks');
