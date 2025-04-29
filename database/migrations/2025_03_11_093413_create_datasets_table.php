@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Environment;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -17,7 +18,7 @@ return new class extends Migration
             $table->string('id')->primary(); // Use string for UUID storage in SQLite
             $table->string('name');
             $table->string('rota');
-            $table->string('environment_id'); // Use string for foreign key UUID
+            $table->foreignIdFor(Environment::class); // Use string for foreign key UUID
             $table->timestamps();
 
             // Foreign key constraint for environment_id, use 'string' for SQLite compatibility
