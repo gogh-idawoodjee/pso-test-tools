@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\Region;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -13,15 +12,26 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('customers', function (Blueprint $table) {
+            // Use UUID as primary key
+            $table->uuid('id')->primary();
+
             $table->string('address');
             $table->string('city');
             $table->string('country');
-            $table->string('id');
+
+            // Latitude and longitude (default precision 8, scale 2)
             $table->decimal('lat')->nullable();
             $table->decimal('long')->nullable();
+
             $table->string('name');
             $table->string('postcode');
-            $table->foreignIdFor(Region::class)->nullable();
+
+            // Foreign key to regions.id (UUID)
+            $table->foreignUuid('region_id')
+                ->nullable()
+                ->constrained('regions')
+                ->nullOnDelete();
+
             $table->string('status');
             $table->timestamps();
         });

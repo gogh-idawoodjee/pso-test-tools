@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\Environment;
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -13,10 +13,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('datasets', function (Blueprint $table) {
-            $table->string('id');
+            // Use UUID as primary key
+            $table->uuid('id')->primary();
+
             $table->string('name');
             $table->string('rota');
-            $table->foreignIdFor(Environment::class); // Use string for foreign key UUID
+
+            // Foreign key to environments.id (UUID)
+            $table->foreignUuid('environment_id')
+                ->constrained('environments')
+                ->cascadeOnDelete();
+
             $table->timestamps();
         });
     }

@@ -13,14 +13,21 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('environments', function (Blueprint $table) {
+            // Use UUID as primary key
+            $table->uuid('id')->primary();
+
             $table->string('account_id');
             $table->string('base_url');
             $table->string('description')->nullable();
-            $table->string('id');
             $table->string('name');
             $table->longText('password');
             $table->string('username');
-            $table->foreignIdFor(User::class)->constrained()->onDelete('cascade');
+
+            // Foreign key to users.id (integer)
+            $table->foreignIdFor(User::class)
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->timestamps();
         });
     }
