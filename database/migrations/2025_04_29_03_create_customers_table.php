@@ -19,9 +19,9 @@ return new class extends Migration
             $table->string('city');
             $table->string('country');
 
-            // Latitude and longitude (default precision 8, scale 2)
-            $table->decimal('lat')->nullable();
-            $table->decimal('long')->nullable();
+            // Latitude and longitude with higher precision
+            $table->decimal('lat', 10, 7)->nullable();
+            $table->decimal('long', 10, 7)->nullable();
 
             $table->string('name');
             $table->string('postcode');
