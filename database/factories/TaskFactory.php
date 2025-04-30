@@ -3,9 +3,8 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
-use App\Models\Customer;
+use App\Models\CustomerTaskType;
 use App\Models\Task;
 
 class TaskFactory extends Factory
@@ -22,14 +21,13 @@ class TaskFactory extends Factory
      */
     public function definition(): array
     {
-        $appt_start = fake()->dateTime();
         return [
-            'appt_window_finish' => Carbon::parse($appt_start)->addHours(4),
-            'appt_window_start' => $appt_start,
+            'appt_window_finish' => fake()->dateTime(),
+            'appt_window_start' => fake()->dateTime(),
             'duration' => fake()->numberBetween(-10000, 10000),
             'status' => fake()->word(),
             'type' => fake()->word(),
-            'customer_id' => Customer::factory(),
+            'customer_task_type_id' => CustomerTaskType::factory(),
         ];
     }
 }

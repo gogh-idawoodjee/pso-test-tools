@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Models;
+namespace App\Models_old;
 
 use App\Models\Scopes\UserOwnedModel;
 use App\Rules\NoProdURL;
@@ -11,15 +11,16 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-
+use Illuminate\Hashing\BcryptHasher;
 use Illuminate\Support\Facades\Crypt;
-
+use Illuminate\Support\Facades\Hash;
 use Override;
 
 
 class Environment extends Model
 {
     use HasFactory, HasUuids;
+
 
 
     #[Override] protected static function booted(): void

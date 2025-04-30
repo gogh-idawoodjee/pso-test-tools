@@ -1,7 +1,6 @@
 <?php
 
-namespace App\Models;
-
+namespace App\Models_old;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -47,11 +46,5 @@ class Task extends Model
             Forms\Components\DateTimePicker::make('appt_window_finish')
                 ->required(),
         ];
-    }
-
-
-    public function TaskType(): BelongsTo
-    {
-        return $this->belongsTo(TaskType::class);
     }
 }

@@ -4,16 +4,16 @@ namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
-use App\Models\Environment;
+use App\Models\TaskType;
 
-class EnvironmentFactory extends Factory
+class TaskTypeFactory extends Factory
 {
     /**
      * The name of the factory's corresponding model.
      *
      * @var string
      */
-    protected $model = Environment::class;
+    protected $model = TaskType::class;
 
     /**
      * Define the model's default state.
@@ -21,12 +21,7 @@ class EnvironmentFactory extends Factory
     public function definition(): array
     {
         return [
-            'account_id' => fake()->word(),
-            'base_url' => fake()->word(),
-            'description' => fake()->text(),
             'name' => fake()->name(),
-            'password' => fake()->password(),
-            'username' => fake()->userName(),
         ];
     }
 }

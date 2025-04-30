@@ -3,16 +3,16 @@ models:
     address: string
     city: string
     country: string
-    id: uuid
+    id: string
     lat: decimal nullable
     long: decimal nullable
     name: string
     postcode: string
     region_id: unsignedInteger
-    relationships: { belongsTo: Region, User, hasMany: Task }
+    relationships: { belongsTo: Region,  hasMany: Task }
     status: string
   Dataset:
-    id: uuid
+    id: string
     name: string
     relationships: { belongsTo: Environment }
     rota: string
@@ -20,20 +20,28 @@ models:
     account_id: string
     base_url: url
     description: string nullable
-    id: uuid
+    id: string
     name: string
     password: string
-    relationships: { belongsTo: User, hasMany: Dataset }
+    relationships: {  hasMany: Dataset }
     username: string
   Region:
-    id: uuid
+    id: string
     name: string
-    relationships: { hasMany: Customer, belongsTo: User }
+    relationships: { hasMany: Customer }
   Task:
     appt_window_finish: datetime
     appt_window_start: datetime
     duration: integer
-    id: uuid
-    relationships: { belongsTo: Customer }
+    id: string
+    relationships: { belongsTo: Customer TaskType }
     status: int
     type: string
+  TaskType:
+    id: string
+    name: string
+    relationships: { hasMany: Task Skill }
+  Skill:
+    id: string
+    name: string
+    relationships: { belongsTo: TaskType }
