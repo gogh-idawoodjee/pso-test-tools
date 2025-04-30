@@ -18,6 +18,12 @@ class TaskTypeResource extends Resource
     protected static ?string $model = TaskType::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationGroup = 'Base Data';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
 
     public static function form(Form $form): Form
     {
@@ -32,9 +38,7 @@ class TaskTypeResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('id')
-                    ->label('ID')
-                    ->searchable(),
+
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('created_at')
@@ -50,7 +54,7 @@ class TaskTypeResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->slideOver(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -71,7 +75,7 @@ class TaskTypeResource extends Resource
         return [
             'index' => Pages\ListTaskTypes::route('/'),
             'create' => Pages\CreateTaskType::route('/create'),
-            'edit' => Pages\EditTaskType::route('/{record}/edit'),
+//            'edit' => Pages\EditTaskType::route('/{record}/edit'),
         ];
     }
 }

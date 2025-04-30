@@ -17,7 +17,13 @@ class SkillResource extends Resource
 {
     protected static ?string $model = Skill::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-academic-cap';
+    protected static ?string $navigationGroup = 'Base Data';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
 
     public static function form(Form $form): Form
     {
@@ -53,7 +59,7 @@ class SkillResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->slideOver(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -74,7 +80,7 @@ class SkillResource extends Resource
         return [
             'index' => Pages\ListSkills::route('/'),
             'create' => Pages\CreateSkill::route('/create'),
-            'edit' => Pages\EditSkill::route('/{record}/edit'),
+//            'edit' => Pages\EditSkill::route('/{record}/edit'),
         ];
     }
 }
