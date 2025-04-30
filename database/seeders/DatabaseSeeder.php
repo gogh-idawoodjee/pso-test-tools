@@ -16,6 +16,8 @@ class DatabaseSeeder extends Seeder
             BaseSeeder::class,
             RegionSeeder::class,
             CustomerSeeder::class,
+            TaskTypeSeeder::class,
+            TaskSeeder::class,
         ]);
 
 //        User::factory()->create([
