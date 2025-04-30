@@ -20,8 +20,7 @@ class Customer extends Model
      * @var array
      */
     protected $casts = [
-        'lat' => 'decimal',
-        'long' => 'decimal',
+
         'status' => Status::class,
     ];
 

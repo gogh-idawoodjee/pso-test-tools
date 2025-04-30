@@ -44,16 +44,12 @@ class CustomerResource extends Resource
                     ->searchable(),
                 Tables\Columns\TextColumn::make('country')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('id')
-                    ->label('ID')
-                    ->hidden()
-                    ->searchable(),
                 Tables\Columns\TextColumn::make('lat')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Latitude'),
+
                 Tables\Columns\TextColumn::make('long')
-                    ->numeric()
-                    ->sortable(),
+                    ->label('Longitude'),
+
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('postcode')
@@ -61,7 +57,14 @@ class CustomerResource extends Resource
                 Tables\Columns\TextColumn::make('region.name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('status')
-                    ->searchable(),
+                    ->label('Status')
+                    ->badge()
+                    ->color(fn($state) => ($state instanceof \App\Enums\Status ? $state : \App\Enums\Status::tryFrom($state)) === \App\Enums\Status::ACTIVE
+                        ? 'success'
+                        : 'danger'
+                    )
+                    ->formatStateUsing(fn($state) => ($state instanceof \App\Enums\Status ? $state : \App\Enums\Status::tryFrom($state))?->getLabel() ?? $state
+                    ),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()

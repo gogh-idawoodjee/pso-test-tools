@@ -33,19 +33,13 @@ class Task extends Model
     public static function getForm(): array
     {
         return [
-            Forms\Components\TextInput::make('name')
+            Forms\Components\TextInput::make('id')
                 ->required(),
-            Forms\Components\TextInput::make('type')
-                ->required(),
-            Forms\Components\TextInput::make('status')
+            Forms\Components\TextInput::make('task_type_id')
                 ->required(),
             Forms\Components\TextInput::make('duration')
                 ->required()
                 ->numeric(),
-            Forms\Components\DateTimePicker::make('appt_window_start')
-                ->required(),
-            Forms\Components\DateTimePicker::make('appt_window_finish')
-                ->required(),
         ];
     }
 

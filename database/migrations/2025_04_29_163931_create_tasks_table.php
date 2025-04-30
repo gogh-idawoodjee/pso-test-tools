@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TaskStatus;
 use App\Models\TaskType;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -13,13 +14,13 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('tasks', function (Blueprint $table) {
-            $table->dateTime('appt_window_finish');
-            $table->dateTime('appt_window_start');
+            $table->dateTime('appt_window_finish')->nullable();
+            $table->dateTime('appt_window_start')->nullable();
             $table->integer('duration');
             $table->string('id');
-            $table->string('status');
+            $table->string('status')->default(TaskStatus::IGNORE->value);
             $table->foreignIdFor(Customer::class);
-            $table->foreignIdFor(TaskType::class);;
+            $table->foreignIdFor(TaskType::class);
             $table->timestamps();
         });
     }
