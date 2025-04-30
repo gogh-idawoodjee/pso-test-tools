@@ -113,11 +113,24 @@ class FilterLoadFile extends Page
         return Select::make('regionIds')
             ->label('Regions to Keep')
             ->multiple()
-            ->options(fn() => collect($this->availableRegionIds)->mapWithKeys(static fn($id) => [$id => $id]))
+            ->options(function () {
+                return collect($this->availableRegionIds)
+                    ->mapWithKeys(function ($entry) {
+                        // If the entry is like "SVBARR - Service Barrie"
+                        if (str_contains($entry, ' - ')) {
+                            [$id, $desc] = explode(' - ', $entry, 2);
+                            return [$id => "$id - $desc"]; // 🟢 Key = ID, Value = "ID - Description"
+                        }
+
+                        return [$entry => $entry]; // fallback for malformed items
+                    });
+            })
             ->searchable()
             ->native(false)
-            ->helperText('Only these regions will be kept. Others will be removed.')->columnSpan(1);
+            ->helperText('Only these regions will be kept. Others will be removed.')
+            ->columnSpan(1);
     }
+
 
     protected function createResourceSelector(): Select
     {

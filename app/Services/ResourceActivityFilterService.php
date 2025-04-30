@@ -88,6 +88,12 @@ class ResourceActivityFilterService extends HasScopedCache
             return $this->handleDryRun();
         }
 
+        Log::info('🧪 Region filter activated?', ['regionIds' => $this->regionIds]);
+        Log::info('📦 Activity count BEFORE filter:', ['count' => count($this->data['Activity'] ?? [])]);
+        Log::info('📦 Sample Activity:', $this->data['Activity'][0] ?? []);
+        Log::info('📦 Sample Location:', $this->data['Location'][0] ?? []);
+        Log::info('📦 Sample Location_Region:', $this->data['Location_Region'][0] ?? []);
+
         // Bail early if no regions are specified
         // actually not bailing
 //        if (empty($this->regionIds)) {
@@ -145,22 +151,22 @@ class ResourceActivityFilterService extends HasScopedCache
         ];
 
         $summary = [];
+
         foreach ($sections as $key => $section) {
             $total = count($this->data[$section] ?? []);
             $kept = count($data[$section] ?? []);
-            $summary[$key] = compact('total', 'kept');
+            $skipped = $total - $kept;
 
-            // Add skipped count only for activities
-            if ($key === 'activities') {
-                $summary[$key]['skipped'] = $total - $kept;
-            }
+            $summary[$key] = compact('total', 'kept', 'skipped');
         }
 
         if (!empty($data['Activity_Type_Counts'])) {
             $summary['activity_type_counts'] = $data['Activity_Type_Counts'];
         }
+
         return $summary;
     }
+
 
     /**
      * Main filtering method that orchestrates the entire filtering process
@@ -276,14 +282,23 @@ class ResourceActivityFilterService extends HasScopedCache
      */
     protected function filterLocationsByRegion(): void
     {
-        // Find all locations that are in any of the target regions
-        $this->validLocationIds = collect($this->data['Location_Region'] ?? [])
+        // First: collect IDs from Location that appear in Location_Region
+        $regionLocationIds = collect($this->data['Location_Region'] ?? [])
             ->filter(fn($lr) => in_array($lr['region_id'], $this->regionIds))
             ->pluck('location_id')
             ->unique()
             ->values()
             ->toArray();
+
+        // Second: find Locations whose *own* ID matches that ID
+        $this->validLocationIds = collect($this->data['Location'] ?? [])
+            ->filter(fn($loc) => in_array($loc['id'], $regionLocationIds))
+            ->pluck('id')
+            ->toArray();
+
+        Log::info('🧩 Matched Location IDs via Location_Region + Location:', $this->validLocationIds);
     }
+
 
     /**
      * Filters activities based on valid locations and optional activity IDs
@@ -292,6 +307,13 @@ class ResourceActivityFilterService extends HasScopedCache
      */
     protected function filterActivitiesAndRelatedData(): void
     {
+        Log::info('⚠️ Skipping filtering to sanity-check activity retention');
+
+        Log::info('🔎 Activity location match check:', [
+            'location_id' => data_get($this->data['Activity'][0] ?? [], 'location_id'),
+            'is_valid' => in_array(data_get($this->data['Activity'][0] ?? [], 'location_id'), $this->validLocationIds),
+        ]);
+
         $activities = collect($this->data['Activity'] ?? []);
 
         // Apply region-based filtering if applicable
