@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('environments', function (Blueprint $table) {
             // Use UUID as primary key
             $table->uuid('id')->primary();
-
+            $table->string('slug')->unique()->after('name');
             $table->string('account_id');
             $table->string('base_url');
             $table->string('description')->nullable();

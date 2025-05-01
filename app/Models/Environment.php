@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 use Illuminate\Support\Facades\Crypt;
 
+use Illuminate\Support\Str;
 use Override;
 
 
@@ -21,11 +22,9 @@ class Environment extends Model
 {
     use HasFactory, HasUuids;
 
+    public $incrementing = false;
+    protected $keyType = 'string';
 
-    #[Override] protected static function booted(): void
-    {
-        static::addGlobalScope(new UserOwnedModel());
-    }
 
 //    /**
 //     * The attributes that should be hidden for serialization.
@@ -44,6 +43,44 @@ class Environment extends Model
     protected $casts = [
         'user_id' => 'integer',
     ];
+
+    protected $fillable = [
+        'id',
+        'name',
+        'slug',
+        'account_id',
+        'base_url',
+        'description',
+        'username',
+        'password',
+        'user_id',
+    ];
+
+    /**
+     * Route-model binding will use slug instead of id
+     */
+    #[Override] public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    #[Override] protected static function booted(): void
+    {
+
+        static::addGlobalScope(new UserOwnedModel());
+        static::creating(static function (self $env) {
+            if (empty($env->slug)) {
+                $base = Str::slug($env->name);
+                $slug = $base;
+                $i = 1;
+                while (static::where('slug', $slug)->exists()) {
+                    $slug = "{$base}-{$i}";
+                    $i++;
+                }
+                $env->slug = $slug;
+            }
+        });
+    }
 
     public static function getForm(): array
     {
