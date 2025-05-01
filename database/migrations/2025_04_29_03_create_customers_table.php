@@ -11,9 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('customers', function (Blueprint $table) {
+        Schema::create('customers', static function (Blueprint $table) {
             // Use UUID as primary key
             $table->uuid('id')->primary();
+
+            $table->string('name');
+            // new slug column, unique and right after name
+            $table->string('slug')->unique()->after('name');
 
             $table->string('address');
             $table->string('city');
@@ -23,7 +27,6 @@ return new class extends Migration
             $table->decimal('lat', 10, 7)->nullable();
             $table->decimal('long', 10, 7)->nullable();
 
-            $table->string('name');
             $table->string('postcode');
 
             // Foreign key to regions.id (UUID)
@@ -36,6 +39,7 @@ return new class extends Migration
             $table->timestamps();
         });
     }
+
 
     /**
      * Reverse the migrations.

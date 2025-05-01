@@ -10,27 +10,46 @@ class TaskTypeSeeder extends Seeder
 {
     public function run(): void
     {
-        // Generate 5 random TaskTypes
-        foreach (range(1, 5) as $ignored) {
-            // Priority 1–3
-            $priority = random_int(1, 3);
+        $types = [
+            [
+                'name' => 'Repair - High',
+                'priority' => 1,
+                'base_duration' => 60,
+                'base_value' => 5000,
+            ],
+            [
+                'name' => 'Repair - Low',
+                'priority' => 2,
+                'base_duration' => 60,
+                'base_value' => 4000,
+            ],
+            [
+                'name' => 'Maintenance',
+                'priority' => 2,
+                'base_duration' => 45,
+                'base_value' => 4000,
+            ],
+            [
+                'name' => 'Install - Short',
+                'priority' => 2,
+                'base_duration' => 120,
+                'base_value' => 4000,
+            ],
+            [
+                'name' => 'Install - Long',
+                'priority' => 2,
+                'base_duration' => 180,
+                'base_value' => 4000,
+            ],
+        ];
 
-            // Base value based on priority
-            $baseValue = match ($priority) {
-                1 => 5000,
-                2 => 4000,
-                3 => 3000,
-            };
-
+        foreach ($types as $type) {
             TaskType::create([
-                // UUID for ID
-                'id'            => Str::uuid()->toString(),
-                // Random 8-char string, title-cased
-                'name'          => Str::of(Str::random(8))->title(),
-                'priority'      => $priority,
-                // Duration between 45 and 180 minutes
-                'base_duration' => random_int(45, 180),
-                'base_value'    => $baseValue,
+                'id' => Str::uuid()->toString(),
+                'name' => $type['name'],
+                'priority' => $type['priority'],
+                'base_duration' => $type['base_duration'],
+                'base_value' => $type['base_value'],
             ]);
         }
     }

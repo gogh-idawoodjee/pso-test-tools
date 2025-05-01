@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\AppointmentTemplate;
 use App\Models\Environment;
 use App\Models\User;
 
@@ -9,6 +10,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Ramsey\Uuid\Uuid;
 
 class BaseSeeder extends Seeder
@@ -46,6 +48,19 @@ class BaseSeeder extends Seeder
             'password' => Crypt::encrypt('fakepassword'),
             'user_id' => '1'
         ]);
+
+        $templates = [
+            'Repair',
+            'Install',
+            'Maintenance',
+        ];
+
+        foreach ($templates as $name) {
+            AppointmentTemplate::create([
+                'id' => Str::uuid()->toString(),
+                'name' => $name,
+            ]);
+        }
 
 //        User::factory()->create([
 //            'name' => 'Test User',
