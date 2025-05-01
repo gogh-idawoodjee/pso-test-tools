@@ -5,8 +5,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -15,7 +14,8 @@ return new class extends Migration
         Schema::create('tasks', function (Blueprint $table) {
             // UUID primary key
             $table->uuid('id')->primary();
-
+            $table->string('friendly_id')->unique();
+            $table->string('base_value');
             // Appointment windows
             $table->dateTime('appt_window_start')->nullable();
             $table->dateTime('appt_window_finish')->nullable();
