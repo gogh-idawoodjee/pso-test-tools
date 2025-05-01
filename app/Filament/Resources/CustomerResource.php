@@ -130,7 +130,7 @@ class CustomerResource extends Resource
                             ->viewData([
                                 'label' => 'Tasks in the Last 30 Days',
                                 'value' => fn($record) => $record->tasks()
-                                    ->where('appointment_window_finish', '>=', now()->subDays(30))
+                                    ->where('appt_window_finish', '>=', now()->subDays(30))
                                     ->count(),
                                 'icon' => 'heroicon-o-calendar',
                             ]),
@@ -140,7 +140,7 @@ class CustomerResource extends Resource
                             ->viewData([
                                 'label' => 'Upcoming Tasks',
                                 'value' => fn($record) => $record->tasks()
-                                    ->where('appointment_window_finish', '>', now())
+                                    ->where('appt_window_finish', '>', now())
                                     ->count(),
                                 'icon' => 'heroicon-o-arrow-up',
                             ]),
