@@ -22,7 +22,7 @@ trait FormTrait
 
     use PSOInteractionsTrait;
 
-    public ?Collection $environments;
+    public ?Collection $environments = null;
     public ?array $environment_data = [];
     public ?array $json_form_data = [];
     public ?Environment $selectedEnvironment;
@@ -53,48 +53,53 @@ trait FormTrait
     public function env_form(Form $form): Form
     {
         return $form
-            ->schema([
-                Section::make('Environment')
-                    ->headerActions([
-                        Action::make($this->headerActionLabel)
-                            ->action(function () {
-                                $this->environmentHeaderAction();
-                            })->hidden($this->isHeaderActionHidden),
-                    ])
-                    ->description($this->isAuthenticationRequired ? 'This function requires PSO Authentication. Send to PSO must be selected.' : null)
-                    ->icon('heroicon-s-circle-stack')
-                    ->schema([
-                        Toggle::make('send_to_pso')
-                            ->label('Send to PSO')
-                            ->inline(false)
-                            ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
-                            ->live()
-                            ->default($this->isAuthenticationRequired ? 'checked' : null)
-                            ->disabled($this->isAuthenticationRequired),
-                        Select::make('environment_id')
-                            ->label('Environment')
-                            ->prefixIcon('heroicon-o-globe-alt')
-                            ->options($this->environments->pluck('name', 'id'))
-                            ->required()
-                            ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
-                                $livewire->validateOnly($component->getStatePath());
-                                $this->setCurrentEnvironment($state);
-                            })
-                            ->live()->columnSpan($this->isDataSetHidden ? 2 : 1),
-                        Select::make('dataset_id')
-                            ->label('Dataset')
-                            ->prefixIcon('heroicon-o-cube-transparent')
-                            ->required(!$this->isDataSetRequired)
-                            ->hidden($this->isDataSetHidden)
-                            ->afterStateUpdated(static function ($livewire, $component) {
-                                $livewire->validateOnly($component->getStatePath());
-                            })
-                            ->options(fn(Get $get) => $this->getDatasetOptions($get))->live()
-                    ])->columns(3),
-
-            ])->statePath('environment_data');
+            ->schema($this->getEnvFormSchema())->statePath('environment_data');
 
     }
+
+    public function getEnvFormSchema(): array
+    {
+        return [
+            Section::make('Environment')
+                ->headerActions([
+                    Action::make($this->headerActionLabel)
+                        ->action(fn() => $this->environmentHeaderAction())
+                        ->hidden($this->isHeaderActionHidden),
+                ])
+                ->description($this->isAuthenticationRequired ? 'This function requires PSO Authentication. Send to PSO must be selected.' : null)
+                ->icon('heroicon-s-circle-stack')
+                ->schema([
+                    Toggle::make('send_to_pso')
+                        ->label('Send to PSO')
+                        ->inline(false)
+                        ->live()
+                        ->default($this->isAuthenticationRequired ? 'checked' : null)
+                        ->disabled($this->isAuthenticationRequired),
+                    Select::make('environment_id')
+                        ->label('Environment')
+                        ->prefixIcon('heroicon-o-globe-alt')
+                        ->options($this->environments?->pluck('name', 'id') ?? [])
+                        ->required()
+                        ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
+                            $livewire->validateOnly($component->getStatePath());
+                            $this->setCurrentEnvironment($state);
+                        })
+                        ->live(),
+                    Select::make('dataset_id')
+                        ->label('Dataset')
+                        ->prefixIcon('heroicon-o-cube-transparent')
+                        ->required(!$this->isDataSetRequired)
+                        ->hidden($this->isDataSetHidden)
+                        ->afterStateUpdated(static function ($livewire, $component) {
+                            $livewire->validateOnly($component->getStatePath());
+                        })
+                        ->options(fn(Get $get) => $this->getDatasetOptions($get))
+                        ->live(),
+                ])
+                ->columns(3)
+        ];
+    }
+
 
     private function getDatasetOptions(Get $get): array
     {

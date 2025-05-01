@@ -47,6 +47,11 @@ enum TaskStatus: int implements HasLabel
 
     }
 
+    public static function endStateStatuses(): array
+    {
+        return array_filter(self::cases(), static fn (self $status) => $status->value >= 65);
+    }
+
     public function ishServicesValue(): string|null
     {
 
