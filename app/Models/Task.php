@@ -19,6 +19,7 @@ class Task extends Model
         'appt_window_start' => 'datetime',
     ];
 
+    protected $touches = ['customer'];
     protected $guarded = [];
 
     #[Override] protected static function booted(): void
