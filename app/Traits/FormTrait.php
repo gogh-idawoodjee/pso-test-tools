@@ -2,11 +2,14 @@
 
 namespace App\Traits;
 
+use App\Models\Dataset;
 use App\Models\Environment;
 
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
@@ -73,28 +76,52 @@ trait FormTrait
                         ->label('Send to PSO')
                         ->inline(false)
                         ->live()
-                        ->default($this->isAuthenticationRequired ? 'checked' : null)
+                        ->default($this->isAuthenticationRequired)
                         ->disabled($this->isAuthenticationRequired),
                     Select::make('environment_id')
                         ->label('Environment')
                         ->prefixIcon('heroicon-o-globe-alt')
-                        ->options($this->environments?->pluck('name', 'id') ?? [])
+                        ->options($this->environments?->pluck('name', 'id')->toArray() ?? [])
                         ->required()
                         ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
                             $livewire->validateOnly($component->getStatePath());
                             $this->setCurrentEnvironment($state);
+                            $set('dataset_id', null); // Clear old dataset
                         })
                         ->live(),
                     Select::make('dataset_id')
                         ->label('Dataset')
                         ->prefixIcon('heroicon-o-cube-transparent')
+                        ->options(fn(Get $get) => $this->getDatasetOptions($get))
                         ->required(!$this->isDataSetRequired)
                         ->hidden($this->isDataSetHidden)
-                        ->afterStateUpdated(static function ($livewire, $component) {
-                            $livewire->validateOnly($component->getStatePath());
+                        ->disabled(static fn(Get $get) => blank($get('environment_id')))
+                        ->live()
+                        ->searchable()
+                        ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+                        ->hint(static fn(Get $get) => blank($get('environment_id')) ? 'Please select an environment first.' : null)
+
+                        // 1) Build the “new dataset” modal
+                        ->createOptionForm([
+                            Hidden::make('environment_id')
+                                ->default(static fn(Get $get) => $get('environment_id')),
+
+                            TextInput::make('name')
+                                ->label('New Dataset Name')
+                                ->required(),
+                        ])
+                        ->createOptionModalHeading('Create Dataset')
+
+                        // 2) Persist it and return the new ID
+                        ->createOptionUsing(function (Get $get, array $data): string {
+                            $dataset = Dataset::create([
+                                'environment_id' => $get('environment_id'),
+                                'name' => $data['name'],
+                                'rota' => $data['name'],
+                            ]);
+
+                            return $dataset->id;
                         })
-                        ->options(fn(Get $get) => $this->getDatasetOptions($get))
-                        ->live(),
                 ])
                 ->columns(3)
         ];
@@ -120,13 +147,12 @@ trait FormTrait
     {
 
         return [
-
-            'dataset_id' => $this->environment_data['dataset_id'],
-            'base_url' => $this->selectedEnvironment->getAttribute('base_url'),
-            'send_to_pso' => $this->environment_data['send_to_pso'],
-            'account_id' => $this->selectedEnvironment->getAttribute('account_id')
-
+            'dataset_id' => data_get($this->environment_data, 'dataset_id'),
+            'base_url' => $this->selectedEnvironment?->getAttribute('base_url'),
+            'send_to_pso' => data_get($this->environment_data, 'send_to_pso'),
+            'account_id' => $this->selectedEnvironment?->getAttribute('account_id'),
         ];
+
     }
 
     public function prepareTokenizedPayload($send_to_pso, $payload)

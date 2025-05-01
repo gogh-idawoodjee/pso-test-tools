@@ -28,5 +28,6 @@ class AppointmentTemplate extends Model
             Forms\Components\TextInput::make('name')
                 ->required(),
         ];
+        
     }
 }
