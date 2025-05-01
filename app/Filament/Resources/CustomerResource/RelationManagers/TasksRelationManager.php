@@ -5,6 +5,8 @@ namespace App\Filament\Resources\CustomerResource\RelationManagers;
 use App\Enums\TaskStatus;
 use App\Models\Environment;
 use App\Models\Task;
+use App\Models\AppointmentTemplate;
+use App\Models\SlotUsageRule;
 
 use App\Traits\FormTrait;
 
@@ -126,13 +128,18 @@ class TasksRelationManager extends RelationManager
                                     ->schema([
                                         Select::make('appointmentTemplateId')
                                             ->label('Appointment Template')
-                                            ->options([]) // TODO
+                                            ->options(static fn() => AppointmentTemplate::pluck('name', 'id')->toArray())
+                                            ->searchable()
+                                            ->createOptionForm(AppointmentTemplate::getForm())
                                             ->required(),
 
                                         Select::make('slotUsageRuleId')
                                             ->label('Slot Usage Rule')
-                                            ->options([]) // TODO
+                                            ->options(static fn() => SlotUsageRule::pluck('name', 'id')->toArray())
+                                            ->createOptionForm(SlotUsageRule::getForm())
+                                            ->searchable()
                                             ->required(),
+
 
                                         TextInput::make('baseValue')
                                             ->label('Base Value')
@@ -178,7 +185,7 @@ class TasksRelationManager extends RelationManager
 
                                         Hidden::make('appointmentBaseDate')
                                             ->default(now()->startOfDay()->toIso8601String()),
-                                        
+
                                         Actions::make([
                                             Action::make('getAppointments')
                                                 ->label('Get Appointments')

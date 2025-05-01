@@ -9,10 +9,35 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
+use Override;
 
 class Customer extends Model
 {
     use HasFactory, HasUuids;
+
+
+    public $incrementing = false;
+    protected $keyType = 'string';
+
+    protected $fillable = [
+        'id',
+        'name',
+        'slug',
+        'address',
+        'city',
+        'country',
+        'postcode',
+        'lat',
+        'long',
+        'region_id',
+        'status',
+    ];
+
+    #[Override] public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
 
     /**
      * The attributes that should be cast to native types.
@@ -75,5 +100,21 @@ class Customer extends Model
                 ])->columns(),
         ];
 
+    }
+
+    #[Override] protected static function booted(): void
+    {
+        static::creating(static function ($customer) {
+            if (empty($customer->slug)) {
+                $base = Str::slug($customer->name);
+                $slug = $base;
+                $i = 1;
+                while (static::where('slug', $slug)->exists()) {
+                    $slug = "{$base}-{$i}";
+                    $i++;
+                }
+                $customer->slug = $slug;
+            }
+        });
     }
 }
