@@ -5,19 +5,23 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\SlotUsageRuleResource\Pages;
 use App\Filament\Resources\SlotUsageRuleResource\RelationManagers;
 use App\Models\SlotUsageRule;
-use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+
 
 class SlotUsageRuleResource extends Resource
 {
     protected static ?string $model = SlotUsageRule::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-adjustments-horizontal';
+    protected static ?string $navigationGroup = 'Base Data';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
 
     public static function form(Form $form): Form
     {
@@ -58,12 +62,7 @@ class SlotUsageRuleResource extends Resource
             ]);
     }
 
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
-    }
+
 
     public static function getPages(): array
     {

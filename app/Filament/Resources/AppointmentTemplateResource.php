@@ -5,19 +5,22 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\AppointmentTemplateResource\Pages;
 use App\Filament\Resources\AppointmentTemplateResource\RelationManagers;
 use App\Models\AppointmentTemplate;
-use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class AppointmentTemplateResource extends Resource
 {
     protected static ?string $model = AppointmentTemplate::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-calendar';
+    protected static ?string $navigationGroup = 'Base Data';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return static::getModel()::count();
+    }
 
     public static function form(Form $form): Form
     {
@@ -55,13 +58,7 @@ class AppointmentTemplateResource extends Resource
                 ]),
             ]);
     }
-
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
-    }
+    
 
     public static function getPages(): array
     {
