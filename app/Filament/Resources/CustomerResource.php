@@ -70,6 +70,11 @@ class CustomerResource extends Resource
                     )
                     ->formatStateUsing(fn($state) => ($state instanceof \App\Enums\Status ? $state : \App\Enums\Status::tryFrom($state))?->getLabel() ?? $state
                     ),
+                Tables\Columns\TextColumn::make('tasks_count')
+                    ->label('Tasks')
+                    ->counts('tasks')
+                    ->sortable(),
+
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
