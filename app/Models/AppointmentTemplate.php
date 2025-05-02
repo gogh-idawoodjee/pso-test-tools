@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Filament\Forms;
 
 /**
@@ -13,7 +12,7 @@ use Filament\Forms;
  */
 class AppointmentTemplate extends Model
 {
-    use HasUuids;
+
 
     // Disable auto-incrementing (we're using UUIDs)
     public $incrementing = false;
@@ -30,6 +29,9 @@ class AppointmentTemplate extends Model
     public static function getForm(): array
     {
         return [
+            Forms\Components\TextInput::make('id')
+                ->label('Template ID')
+                ->required(),
             Forms\Components\TextInput::make('name')
                 ->required(),
         ];

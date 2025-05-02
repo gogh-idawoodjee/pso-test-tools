@@ -53,7 +53,7 @@ class SlotUsageRuleResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->slideOver(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -68,8 +68,8 @@ class SlotUsageRuleResource extends Resource
     {
         return [
             'index' => Pages\ListSlotUsageRules::route('/'),
-            'create' => Pages\CreateSlotUsageRule::route('/create'),
-            'edit' => Pages\EditSlotUsageRule::route('/{record}/edit'),
+//            'create' => Pages\CreateSlotUsageRule::route('/create'),
+//            'edit' => Pages\EditSlotUsageRule::route('/{record}/edit'),
         ];
     }
 }

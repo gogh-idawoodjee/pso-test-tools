@@ -65,7 +65,7 @@ class CustomerResource extends Resource
                         : 'danger'
                     )
                     ->formatStateUsing(fn($state) => ($state instanceof Status ? $state : Status::tryFrom($state))?->getLabel() ?? $state
-                    ),
+                    )->sortable(),
                 Tables\Columns\TextColumn::make('tasks_count')
                     ->label('Tasks')
                     ->counts('tasks')
@@ -85,7 +85,7 @@ class CustomerResource extends Resource
             ])
             ->actions([
 //                Tables\Actions\EditAction::make(),
-                Tables\Actions\ViewAction::make(),
+                Tables\Actions\ViewAction::make()->hidden(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([

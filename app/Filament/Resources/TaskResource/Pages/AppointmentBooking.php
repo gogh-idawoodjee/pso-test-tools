@@ -10,16 +10,13 @@ use App\Models\SlotUsageRule;
 use App\Traits\FormTrait;
 use App\Traits\PSOInteractionsTrait;
 use Carbon\Carbon;
-
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\Group;
 use Filament\Infolists\Components\TextEntry;
@@ -27,6 +24,7 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Support\Enums\VerticalAlignment;
+
 use Override;
 
 
@@ -44,11 +42,11 @@ class AppointmentBooking extends Page
     /**
      * Format a time window between two dates
      *
-     * @param Carbon|string|null $startDate
-     * @param Carbon|string|null $endDate
+     * @param string|Carbon|null $startDate
+     * @param string|Carbon|null $endDate
      * @return string
      */
-    protected function formatAppointmentWindow($startDate, $endDate): string
+    protected function formatAppointmentWindow(Carbon|string|null $startDate, Carbon|string|null $endDate): string
     {
         // Parse dates if they're not already Carbon instances
         $start = $startDate instanceof Carbon ? $startDate : Carbon::parse($startDate);
@@ -120,9 +118,9 @@ class AppointmentBooking extends Page
             ->record($this->record)
             ->columns(1) // Single column for the main container
             ->schema([
-                \Filament\Infolists\Components\Section::make('Task ' . $this->record->friendly_id . ' - ' . $this->record->taskType->name)
+                \Filament\Infolists\Components\Section::make('Task ' . data_get($this->record, 'friendly_id') . ' - ' . data_get($this->record, 'taskType.name'))
                     ->icon('heroicon-o-clipboard-document-list')
-                    ->collapsible()
+
                     ->schema([
                         // Activity ID and Status row
                         Grid::make()
@@ -229,10 +227,8 @@ class AppointmentBooking extends Page
         // Initialize task_data
         $this->task_data = $this->record->toArray();
 
-
         // Call form fill to populate the forms
         $this->fillForms($this->getForms());
-
 
         $this->setTaskData();
 
@@ -243,16 +239,8 @@ class AppointmentBooking extends Page
     {
         // maybe we can do this after in the payload instead of adding it to record
         // some of them we should just display though.
-//        $this->record->lat = $this->record->customer->lat;
-//        $this->record->long = $this->record->customer->long;
-//        $this->record->activityId = $this->record->friendly_id;
-//        $this->record->activityTypeId = $this->record->taskType?->name;
-//        $this->record->priority = $this->record->taskType?->priority;
-//        $this->record->slaTypeId = 'Appointment';
-//        $this->record->appointmentTemplateDuration = 21;
-        $this->record->sla_start = now()->toIso8601String();
-//        $this->record->appointmentBaseDate = now()->startOfDay()->toIso8601String();
-//        $this->task_data['sla_start'] = now();
+        $this->task_data['sla_start'] = now()->format('Y-m-d\TH:i');
+
     }
 
     #[Override] protected function getForms(): array
@@ -270,7 +258,7 @@ class AppointmentBooking extends Page
                             ->label('Appointment Template')
                             ->options(fn() => AppointmentTemplate::query()
                                 ->orderBy('name')
-                                ->pluck('name', 'name')
+                                ->pluck('name', 'id')
                                 ->toArray()
                             )
                             ->searchable()
@@ -281,7 +269,7 @@ class AppointmentBooking extends Page
                             ->createOptionModalHeading('Create Template')
                             ->required(),
 
-                        Select::make('slot_usage_rule_id')
+                        Select::make('slotUsageRuleSetId')
                             ->label('Slot Usage Rule')
                             ->options(fn() => SlotUsageRule::query()
                                 ->orderBy('name')
@@ -296,21 +284,19 @@ class AppointmentBooking extends Page
                             ->createOptionModalHeading('Create new Slot Usage Rule'),
 
                         DateTimePicker::make('sla_start')
-                            ->label('SLA Start')
-                            ->formatStateUsing(static function ($state) {
-                                return Carbon::now()->toiso8601String();
-                            })
+                            ->label('Search for Appointments from:')
                             ->closeOnDateSelection()
                             ->seconds(false)
-                            ->native(false)
+                            ->suffixAction(
+                                Actions\Action::make('set_sla_start')
+                                    ->icon('heroicon-m-clock')
+                                    ->action(function (Get $get, Set $set) {
+                                        $this->setSlaStart($set);
+
+                                    }))
+                            ->hint('Reset to current date/time')
                             ->required()
-                            ->live(),
-
-
-                        Hidden::make('slaEnd')
-                            ->dehydrated()
-                            ->afterStateHydrated(fn(callable $set, $state) => $set('slaEnd', Carbon::parse($state)->addDays(21)->toIso8601String()))
-                            ->visible(false),
+                            ->live()->columnSpan(2),
 
 
                         Actions::make([Actions\Action::make('get_appointments')
@@ -329,7 +315,42 @@ class AppointmentBooking extends Page
 
     private function getAppointments()
     {
-        dd($this->task_data);
+
+        $this->validateForms($this->getForms());
+        $data = $this->setDataPayload();
+
+        $environment = $this->environnment_payload_data();
+        dd($environment, $data);
+
+    }
+
+    private function setSlaStart(Set $set)
+    {
+        $set('sla_start', now()->format('Y-m-d\TH:i'));
+
+    }
+
+    private function setDataPayload(): array
+    {
+        return [
+            'data' =>
+                [
+                    'appointmentTemplateId' => data_get($this->task_data, 'appointmentTemplateId'),
+                    'slotUsageRuleId' => data_get($this->task_data, 'slotUsageRuleSetId'),
+                    'baseValue' => data_get($this->record, 'base_value'),
+                    'priority' => data_get($this->record, 'taskType.priority'),
+                    'slaStart' => data_get($this->task_data, 'sla_start'),
+                    'slaEnd' => Carbon::parse(data_get($this->task_data, 'sla_start'))->addDays(21)->toIso8601String(),
+                    'duration' => data_get($this->record, 'duration'),
+                    'activityId' => data_get($this->record, 'friendly_id'),
+                    'taskTypeId' => data_get($this->record, 'taskType.name'),
+                    'lat' => data_get($this->record, 'customer.lat'),
+                    'long' => data_get($this->record, 'customer.long'),
+                    'slaTypeId' => 'Appointment', // todo parameterize this
+                    'appointmentTemplateDuration' => 21,
+                    'appointmentBaseDate' => now()->startOfDay()->toIso8601String(),
+                ]
+        ];
     }
 
 

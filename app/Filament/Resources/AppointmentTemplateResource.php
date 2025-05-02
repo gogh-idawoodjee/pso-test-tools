@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\AppointmentTemplateResource\Pages;
-use App\Filament\Resources\AppointmentTemplateResource\RelationManagers;
 use App\Models\AppointmentTemplate;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -50,7 +49,7 @@ class AppointmentTemplateResource extends Resource
                 //
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
+                Tables\Actions\EditAction::make()->slideOver(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -58,14 +57,14 @@ class AppointmentTemplateResource extends Resource
                 ]),
             ]);
     }
-    
+
 
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListAppointmentTemplates::route('/'),
-            'create' => Pages\CreateAppointmentTemplate::route('/create'),
-            'edit' => Pages\EditAppointmentTemplate::route('/{record}/edit'),
+//            'create' => Pages\CreateAppointmentTemplate::route('/create'),
+//            'edit' => Pages\EditAppointmentTemplate::route('/{record}/edit'),
         ];
     }
 }

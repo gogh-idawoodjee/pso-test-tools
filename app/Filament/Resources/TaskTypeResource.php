@@ -3,15 +3,13 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\TaskTypeResource\Pages;
-use App\Filament\Resources\TaskTypeResource\RelationManagers;
+
+
 use App\Models\TaskType;
-use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class TaskTypeResource extends Resource
 {
@@ -28,10 +26,7 @@ class TaskTypeResource extends Resource
     public static function form(Form $form): Form
     {
         return $form
-            ->schema([
-                Forms\Components\TextInput::make('name')
-                    ->required(),
-            ]);
+            ->schema(TaskType::getForm());
     }
 
     public static function table(Table $table): Table
@@ -41,6 +36,9 @@ class TaskTypeResource extends Resource
 
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('priority'),
+                Tables\Columns\TextColumn::make('base_duration'),
+                Tables\Columns\TextColumn::make('base_value'),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
@@ -63,18 +61,11 @@ class TaskTypeResource extends Resource
             ]);
     }
 
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
-    }
-
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListTaskTypes::route('/'),
-            'create' => Pages\CreateTaskType::route('/create'),
+//            'create' => Pages\CreateTaskType::route('/create'),
 //            'edit' => Pages\EditTaskType::route('/{record}/edit'),
         ];
     }
