@@ -29,6 +29,7 @@ trait FormTrait
     public ?array $environment_data = [];
     public ?array $json_form_data = [];
     public ?Environment $selectedEnvironment;
+    public ?string $selectedDataset = null;
     public mixed $response = null;
     public bool $isDataSetHidden = false;
     public bool $isDataSetRequired = false;
@@ -98,7 +99,10 @@ trait FormTrait
                         ->disabled(static fn(Get $get) => blank($get('environment_id')))
                         ->live()
                         ->searchable()
-                        ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+                        ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
+                            $livewire->validateOnly($component->getStatePath());
+                            $this->setCurrentDataset($state);
+                        })
                         ->hint(static fn(Get $get) => blank($get('environment_id')) ? 'Please select an environment first.' : null)
 
                         // 1) Build the “new dataset” modal
@@ -143,11 +147,17 @@ trait FormTrait
 
     }
 
+    private function setCurrentDataset($id): void
+    {
+        $this->selectedDataset = $id;
+
+    }
+
     public function environnment_payload_data(): array
     {
 
         return [
-            'dataset_id' => data_get($this->environment_data, 'dataset_id'),
+            'dataset_id' => $this->selectedDataset,
             'base_url' => $this->selectedEnvironment?->getAttribute('base_url'),
             'send_to_pso' => data_get($this->environment_data, 'send_to_pso'),
             'account_id' => $this->selectedEnvironment?->getAttribute('account_id'),
