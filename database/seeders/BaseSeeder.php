@@ -57,7 +57,7 @@ class BaseSeeder extends Seeder
 
         foreach ($templates as $name) {
             AppointmentTemplate::create([
-                'id' => Str::uuid()->toString(),
+                'id' => Str::upper($name),
                 'name' => $name,
             ]);
         }

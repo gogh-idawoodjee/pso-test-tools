@@ -13,7 +13,7 @@ class CreateAppointmentTemplatesTable extends Migration
     {
         Schema::create('appointment_templates', static function (Blueprint $table) {
             // UUID primary key
-            $table->uuid('id')->primary();
+            $table->string('id')->primary();
 
             // Name column
             $table->string('name');

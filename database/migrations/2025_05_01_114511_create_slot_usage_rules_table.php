@@ -13,7 +13,7 @@ class CreateSlotUsageRulesTable extends Migration
     {
         Schema::create('slot_usage_rules', static function (Blueprint $table) {
             // UUID primary key
-            $table->uuid('id')->primary();
+            $table->string('id')->primary();
 
             // Name of the rule
             $table->string('name');

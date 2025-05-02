@@ -17,13 +17,18 @@ class TaskSeeder extends Seeder
         $taskTypes  = TaskType::all();
         $startRange = Carbon::now()->subWeek();    // one week ago
         $endRange   = Carbon::now()->addMonth();   // one month from now
+        $now = Carbon::now();
 
-        // Seed 5 tasks per customer
-        Customer::all()->each(function (Customer $customer) use ($startRange, $endRange, $taskTypes) {
-            foreach (range(1, 5) as $ignored) {
+        // Seed random number of tasks (1-15) per customer
+        Customer::all()->each(function (Customer $customer) use ($startRange, $endRange, $taskTypes, $now) {
+            // Generate a random number between 1 and 15
+            $numberOfTasks = random_int(1, 15);
+
+            foreach (range(1, $numberOfTasks) as $ignored) {
                 // random timestamp between startRange and endRange
                 $timestamp = random_int($startRange->timestamp, $endRange->timestamp);
-                $date      = Carbon::createFromTimestamp($timestamp, 'America/Toronto')->format('Y-m-d');
+                $taskDate = Carbon::createFromTimestamp($timestamp, 'America/Toronto');
+                $date = $taskDate->format('Y-m-d');
 
                 // pick morning or afternoon
                 if (random_int(0, 1) === 1) {
@@ -38,6 +43,15 @@ class TaskSeeder extends Seeder
                 $prefix     = strtoupper(substr($taskType->name ?? 'X', 0, 1));
                 $friendlyId = 'T-' . $prefix . '-' . str_pad((string) random_int(0, 99_999), 5, '0', STR_PAD_LEFT);
 
+                // Determine status based on date
+                if ($start->lt($now)) {
+                    // Past tasks should have end state statuses
+                    $status = collect(TaskStatus::endStateStatuses())->random()->value;
+                } else {
+                    // Future tasks can have any status
+                    $status = collect(TaskStatus::cases())->random()->value;
+                }
+
                 Task::create([
                     'id'                  => Str::uuid()->toString(),
                     'friendly_id'         => $friendlyId,
@@ -45,7 +59,7 @@ class TaskSeeder extends Seeder
                     'task_type_id'        => $taskType->id,
                     'appt_window_start'   => $start,
                     'appt_window_finish'  => $finish,
-                    'status'              => collect(TaskStatus::cases())->random()->value,
+                    'status'              => $status,
                 ]);
             }
         });
