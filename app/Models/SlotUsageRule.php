@@ -2,10 +2,17 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Filament\Forms;
 
+
+
+/**
+ * @method static SlotUsageRule create(array $attributes = [])
+ * @mixin Builder
+ */
 class SlotUsageRule extends Model
 {
     use HasUuids;
