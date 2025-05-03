@@ -4,8 +4,8 @@ namespace App\Filament\Pages;
 
 
 use App\Models\Environment;
+use App\Support\GeocodeHelper;
 use App\Traits\FormTrait;
-use App\Traits\GeocCodeTrait;
 use App\Traits\PSOInteractionsTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
@@ -19,7 +19,7 @@ use JsonException;
 class TravelAnalyzer extends Page
 {
 
-    use InteractsWithForms, FormTrait, GeocCodeTrait, PSOInteractionsTrait;
+    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
 
     protected static ?string $navigationIcon = 'heroicon-o-map';
     protected static ?string $navigationGroup = 'API Services';
@@ -80,8 +80,8 @@ class TravelAnalyzer extends Page
                                     ->suffixAction(
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
-                                            ->action(function (Forms\Get $get, Forms\Set $set) {
-                                                $this->geocodeFormAddress($get, $set, 'lat_from', 'long_from', 'address_from');
+                                            ->action(static function (Forms\Get $get, Forms\Set $set) {
+                                                GeocodeHelper::geocodeFormAddress($get, $set, 'lat_from', 'long_from', 'address_from');
 
                                             }))
                                     ->hint('click the map icon to geocode this!'),
@@ -112,8 +112,9 @@ class TravelAnalyzer extends Page
                                     ->suffixAction(
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
-                                            ->action(function (Forms\Get $get, Forms\Set $set) {
-                                                $this->geocodeFormAddress($get, $set, 'lat_to', 'long_to', 'address_to');
+                                            ->action(static function (Forms\Get $get, Forms\Set $set) {
+                                                GeocodeHelper::geocodeFormAddress($get, $set, 'lat_to', 'long_to', 'address_to');
+
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),

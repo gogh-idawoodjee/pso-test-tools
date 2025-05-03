@@ -7,13 +7,11 @@ use App\Enums\Status;
 use App\Enums\TaskStatus;
 use App\Filament\Resources\CustomerResource\Pages;
 use App\Filament\Resources\CustomerResource\RelationManagers\TasksRelationManager;
-use Carbon\Carbon;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Infolists\Infolist;
 use App\Models\Customer;
-use App\Traits\GeocCodeTrait;
 
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -32,7 +30,7 @@ class CustomerResource extends Resource
         return static::getModel()::count();
     }
 
-    use GeocCodeTrait;
+
 
     public static function form(Form $form): Form
     {
@@ -41,6 +39,9 @@ class CustomerResource extends Resource
                 Customer::getForm()
             );
     }
+
+
+
 
     public static function table(Table $table): Table
     {
@@ -118,13 +119,13 @@ class CustomerResource extends Resource
                         TextEntry::make('created_at')
                             ->label('Created At')
                             ->icon('heroicon-o-calendar')
-                            ->formatStateUsing(fn($state) => $state?->toFormattedDateString() ?? '—'),
+                            ->formatStateUsing(static fn($state) => $state?->toFormattedDateString() ?? '—'),
 
                         TextEntry::make('updated_at')
                             ->label('Last Updated')
                             ->icon('heroicon-o-clock')
-                            ->tooltip(fn($state) => $state?->toDayDateTimeString())
-                            ->formatStateUsing(fn($state) => $state?->diffForHumans() ?? '—'),
+                            ->tooltip(static fn($state) => $state?->toDayDateTimeString())
+                            ->formatStateUsing(static fn($state) => $state?->diffForHumans() ?? '—'),
                         ViewEntry::make('summary_last_30')
                             ->view('filament.components.customer-summary-tile')
                             ->viewData([

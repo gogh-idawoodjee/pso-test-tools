@@ -4,7 +4,7 @@ namespace App\Filament\Pages\Resource;
 
 use App\Enums\EventType;
 use App\Filament\BasePages\PSOResourceBasePage;
-use App\Traits\GeocCodeTrait;
+use App\Support\GeocodeHelper;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
 
@@ -21,7 +21,7 @@ use JsonException;
 class ResourceEvent extends PSOResourceBasePage
 {
 
-    use GeocCodeTrait;
+
 
     // Navigation
 
@@ -93,7 +93,8 @@ class ResourceEvent extends PSOResourceBasePage
                                         Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(function (Get $get, Set $set) {
-                                                $this->geocodeFormAddress($get, $set);
+                                                GeocodeHelper::geocodeFormAddress($get, $set);
+
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ]),

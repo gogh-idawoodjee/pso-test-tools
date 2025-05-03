@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Status;
+use App\Support\GeocodeHelper;
 use Filament\Forms;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -65,12 +66,13 @@ class Customer extends Model
     {
 
         return [
-            Forms\Components\Section::make('Customer Customer')
+            Forms\Components\Section::make('Customer Details')
                 ->schema([
                     Forms\Components\TextInput::make('name')
                         ->required(),
                     Forms\Components\Select::make('status')
                         ->enum(Status::class)
+                        ->default(Status::ACTIVE)
                         ->options(Status::class)
                         ->required(),
                 ])->columns(),
@@ -78,29 +80,41 @@ class Customer extends Model
                 ->schema([
                     Forms\Components\TextInput::make('address')
                         ->required()
-                        ->columnSpan(2),
+                        ->columnSpan(2)->suffixAction(
+                            Forms\Components\Actions\Action::make('geocode_address')
+                                ->icon('heroicon-m-map-pin')
+                                ->action(static function (Forms\Get $get, Forms\Set $set) {
+                                    $addressToGeocode = GeocodeHelper::makeAddressFromParts($get);
+                                    GeocodeHelper::geocodeFormAddress($get, $set, 'lat', 'long', $addressToGeocode, true);
+                                }))
+                        ->hint('click the map icon to geocode this!'),
                     Forms\Components\TextInput::make('city')
                         ->required(),
                     Forms\Components\TextInput::make('country')
                         ->required(),
-                    Forms\Components\TextInput::make('lat')
-                        ->label('Latitude')
-                        ->numeric(),
-                    Forms\Components\TextInput::make('long')
-                        ->label('Longitude')
-                        ->numeric(),
-
                     Forms\Components\TextInput::make('postcode')
                         ->required(),
                     Forms\Components\Select::make('region_id')
                         ->relationship('region', 'name')
                         ->createOptionForm(Region::getForm())
                         ->editOptionForm(Region::getForm()),
+                    Forms\Components\Group::make()
+                        ->schema([
+                            Forms\Components\TextInput::make('lat')
+                                ->label('Latitude')
+                                ->numeric(),
+                            Forms\Components\TextInput::make('long')
+                                ->label('Longitude')
+                                ->numeric(),
+
+                        ])->columns(3)->columnSpan(2),
+
 
                 ])->columns(),
         ];
 
     }
+
 
     #[Override] protected static function booted(): void
     {

@@ -2,10 +2,9 @@
 
 namespace App\Filament\Pages\Activity;
 
-use App\Enums\HttpMethod;
 use App\Filament\BasePages\PSOActivityBasePage;
 
-use App\Traits\GeocCodeTrait;
+use App\Support\GeocodeHelper;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
@@ -15,7 +14,6 @@ use JsonException;
 
 class GenerateActivities extends PSOActivityBasePage
 {
-    use GeocCodeTrait;
 
 // View
     protected static string $view = 'filament.pages.activity-generate-activities';
@@ -141,7 +139,8 @@ class GenerateActivities extends PSOActivityBasePage
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(function (Forms\Get $get, Forms\Set $set) {
-                                                $this->geocodeFormAddress($get, $set);
+                                                GeocodeHelper::geocodeFormAddress($get, $set);
+
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ]),
