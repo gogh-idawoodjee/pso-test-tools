@@ -26,8 +26,7 @@
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-markdown": "^2.7",
         "spatie/shiki-php": "^2.3",
-        "tempest/highlight": "^2.11",
-        "torchlight/torchlight-laravel": "^0.6.1"
+        "tempest/highlight": "^2.11"
     },
     "require-dev": {
         "roave/security-advisories": "dev-latest",
