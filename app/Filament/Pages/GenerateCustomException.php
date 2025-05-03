@@ -68,6 +68,8 @@ class GenerateCustomException extends Page
                         TextInput::make('schedule_exception_type_id')
                             ->label('Schedule Exception Type ID')
                             ->helperText('Please Ensure this exists in PSO')
+                            ->numeric()
+                            ->integer()
                             ->required(),
 
                         // Resource ID field visible when 'object_type_id' is 'Resource'
