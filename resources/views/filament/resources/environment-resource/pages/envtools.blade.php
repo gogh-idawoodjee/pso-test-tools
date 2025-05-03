@@ -1,16 +1,18 @@
+@php use Spatie\ShikiPhp\Shiki; @endphp
 <x-filament-panels::page>
 
 
     {{ $this->psoload }}
 
     <x-filament::modal id="show-json" slide-over width="5xl">
-        <pre>
-<x-torchlight-code language='json'>
-    {!! $this->response !!}
 
 
-    </x-torchlight-code>
-    </pre>
+        <x-code-block
+            language="json"
+            :code="$this->response"
+            :highlightLines="[1, '4-6']"
+        />
+
     </x-filament::modal>
 
 
