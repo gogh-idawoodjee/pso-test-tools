@@ -88,9 +88,17 @@ trait PSOInteractionsTrait
     public function sendToPSO(#[SensitiveParameter] $api_segment, $payload, $method = HttpMethod::POST)
     {
 
+        $version = config('psott.pso-services-api-version') ? 'v2/' : '';
+        $url = 'https://' . config('psott.pso-services-api') . '/api/' . $version . $api_segment;
+
+
         $response = Http::contentType('application/json')
             ->accept('application/json')
-            ->{$method->value}('https://' . config('psott.pso-services-api') . '/api/' . $api_segment, $payload);
+            ->{$method->value}($url, $payload);
+
+        if (config('psott.pso-services-api-version') === '2') {
+            return $response->collect();
+        }
 
         $pass = $response->successful();
 

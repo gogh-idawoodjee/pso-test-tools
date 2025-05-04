@@ -157,6 +157,13 @@ trait FormTrait
     {
 
         return [
+            'datasetId' => $this->selectedDataset,
+            'baseUrl' => $this->selectedEnvironment?->getAttribute('base_url'),
+            'sendToPso' => data_get($this->environment_data, 'send_to_pso'),
+            'accountId' => $this->selectedEnvironment?->getAttribute('account_id'),
+        ];
+
+        return [
             'dataset_id' => $this->selectedDataset,
             'base_url' => $this->selectedEnvironment?->getAttribute('base_url'),
             'send_to_pso' => data_get($this->environment_data, 'send_to_pso'),
@@ -184,7 +191,7 @@ trait FormTrait
 
         if ($token) {
 
-            $payload = Arr::add($payload, 'token', $token);
+            $payload = Arr::add($payload, 'environment.token', $token);
 
         }
 

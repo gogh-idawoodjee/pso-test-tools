@@ -2,13 +2,15 @@
 
 namespace App\Filament\Resources\TaskResource\Pages;
 
+use Filament\Tables\Contracts\HasTable;
+
 use App\Enums\TaskStatus;
 use App\Filament\Resources\TaskResource;
 use App\Models\AppointmentTemplate;
 use App\Models\Environment;
 use App\Models\SlotUsageRule;
 use App\Traits\FormTrait;
-use App\Traits\PSOInteractionsTrait;
+
 use Carbon\Carbon;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
@@ -24,13 +26,16 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Support\Enums\VerticalAlignment;
+use Filament\Tables\Concerns\InteractsWithTable;
+
+use Illuminate\Support\Arr;
 
 use Override;
 
 
 class AppointmentBooking extends Page
 {
-    use InteractsWithRecord, FormTrait, PSOInteractionsTrait;
+    use InteractsWithRecord, FormTrait;
 
     protected static string $resource = TaskResource::class;
 
@@ -120,7 +125,6 @@ class AppointmentBooking extends Page
             ->schema([
                 \Filament\Infolists\Components\Section::make('Task ' . data_get($this->record, 'friendly_id') . ' - ' . data_get($this->record, 'taskType.name'))
                     ->icon('heroicon-o-clipboard-document-list')
-
                     ->schema([
                         // Activity ID and Status row
                         Grid::make()
@@ -316,13 +320,30 @@ class AppointmentBooking extends Page
     private function getAppointments()
     {
 
+
         $this->validateForms($this->getForms());
+        $this->response = null;
         $data = $this->setDataPayload();
 
-        $environment = $this->environnment_payload_data();
-        dd($environment, $data);
+
+        // todo eventually do this on the formtrait since all payloads are now env => env_data
+        $environment = ['environment' => $this->environnment_payload_data()];
+
+        $payload = array_merge($data, $environment);
+
+
+        if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
+
+            $this->response = $this->sendToPSO('appointment', $tokenized_payload);
+            $this->json_form_data['json_response_pretty'] = $this->response;
+
+
+
+//            $this->dispatch('open-modal', id: 'show-json');
+        }
 
     }
+
 
     private function setSlaStart(Set $set)
     {
@@ -332,18 +353,18 @@ class AppointmentBooking extends Page
 
     private function setDataPayload(): array
     {
-        return [
+
+        $data = [
             'data' =>
                 [
                     'appointmentTemplateId' => data_get($this->task_data, 'appointmentTemplateId'),
-                    'slotUsageRuleId' => data_get($this->task_data, 'slotUsageRuleSetId'),
                     'baseValue' => data_get($this->record, 'base_value'),
                     'priority' => data_get($this->record, 'taskType.priority'),
-                    'slaStart' => data_get($this->task_data, 'sla_start'),
-                    'slaEnd' => Carbon::parse(data_get($this->task_data, 'sla_start'))->addDays(21)->toIso8601String(),
+                    'slaStart' => Carbon::parse(data_get($this->task_data, 'sla_start'))->format('Y-m-d\TH:i:s'),
+                    'slaEnd' => Carbon::parse(data_get($this->task_data, 'sla_start'))->addDays(21)->format('Y-m-d\TH:i:s'),
                     'duration' => data_get($this->record, 'duration'),
                     'activityId' => data_get($this->record, 'friendly_id'),
-                    'taskTypeId' => data_get($this->record, 'taskType.name'),
+                    'activityTypeId' => data_get($this->record, 'taskType.name'),
                     'lat' => data_get($this->record, 'customer.lat'),
                     'long' => data_get($this->record, 'customer.long'),
                     'slaTypeId' => 'Appointment', // todo parameterize this
@@ -351,6 +372,12 @@ class AppointmentBooking extends Page
                     'appointmentBaseDate' => now()->startOfDay()->toIso8601String(),
                 ]
         ];
+
+        if (data_get($this->task_data, 'slotUsageRuleSetId')) {
+            Arr::add($data, 'data.slotUsageRuleId', data_get($this->task_data, 'slotUsageRuleSetId'));
+        }
+
+        return $data;
     }
 
 
