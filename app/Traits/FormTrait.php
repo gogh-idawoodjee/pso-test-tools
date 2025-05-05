@@ -15,7 +15,6 @@ use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Illuminate\Support\Collection;
-use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
 
 trait FormTrait
 {
@@ -24,7 +23,7 @@ trait FormTrait
 
     public ?Collection $environments = null;
     public ?array $environment_data = [];
-    public ?array $json_form_data = [];
+
     public ?Environment $selectedEnvironment;
     public ?string $selectedDataset = null;
     public mixed $response = null;
@@ -201,17 +200,5 @@ trait FormTrait
 
     }
 
-    protected function json_form(Form $form): Form
-    {
-        return $form
-            ->schema([
-                PrettyJsonField::make('json_response_pretty')
-                    ->label('Response from Services')
-                    ->copyable()
-                    ->copyMessage('Your JSON is copied to the clipboard')
-                    ->copyMessageDuration(1500),
-
-            ])->statePath('json_form_data');
-    }
 
 }

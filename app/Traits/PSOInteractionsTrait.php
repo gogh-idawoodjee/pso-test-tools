@@ -4,6 +4,7 @@ namespace App\Traits;
 
 use App\Enums\HttpMethod;
 use Exception;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -12,12 +13,14 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use JsonException;
+use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
 use SensitiveParameter;
 
 
 trait PSOInteractionsTrait
 {
     protected ?int $error_value = null;
+    public ?array $json_form_data = [];
 
     public function authenticatePSO(
         string $base_url,
@@ -164,6 +167,19 @@ trait PSOInteractionsTrait
 
         return $payload; // will either return a payload or false
 
+    }
+
+    protected function json_form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                PrettyJsonField::make('json_response_pretty')
+                    ->label('Response from Services')
+                    ->copyable()
+                    ->copyMessage('Your JSON is copied to the clipboard')
+                    ->copyMessageDuration(1500),
+
+            ])->statePath('json_form_data');
     }
 
     public function notifyPayloadSent($title, $body, $pass): void
