@@ -176,6 +176,13 @@ trait FormTrait
 
     protected function buildPayload(array $required, array $optional = [], array $extra = []): array
     {
+
+        // this merges the extra data with the required and optional data for most sendToPso calls
+        // formatted in this format:
+        //        [
+        //            'env' => [],
+        //            'data' => []
+        //         ]
         return array_merge(
             $this->environnment_payload_data(),
             $extra,
