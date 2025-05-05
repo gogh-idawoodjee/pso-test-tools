@@ -27,8 +27,6 @@
         "shuvroroy/filament-spatie-laravel-health": "^2.3",
         "spatie/geocoder": "^3.16",
         "spatie/laravel-activitylog": "^4.10",
-        "spatie/laravel-markdown": "^2.7",
-        "spatie/shiki-php": "^2.3",
         "tempest/highlight": "^2.11",
         "vinkla/hashids": "^13.0",
         "z3d0x/filament-logger": "^0.8.0"
