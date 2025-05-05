@@ -14,10 +14,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
-
-use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Crypt;
 use Novadaemon\FilamentPrettyJson\Form\PrettyJsonField;
 
 trait FormTrait
@@ -196,32 +193,7 @@ trait FormTrait
     }
 
 
-    public function prepareTokenizedPayload($send_to_pso, $payload)
-    {
 
-        $token = $send_to_pso ? $this->authenticatePSO(
-            $this->selectedEnvironment->getAttribute('base_url'),
-            $this->selectedEnvironment->getAttribute('account_id'),
-            $this->selectedEnvironment->getAttribute('username'),
-            Crypt::decryptString($this->selectedEnvironment->getAttribute('password'))
-        ) : null;
-
-
-        if ($send_to_pso && !$token) {
-
-            $this->notifyPayloadSent('Send to PSO Failed', 'Please see the event log (when it is actually completed)', false);
-            return false;
-        }
-
-        if ($token) {
-
-            $payload = Arr::add($payload, 'environment.token', $token);
-
-        }
-
-        return $payload; // will either return a payload or false
-
-    }
 
     public function environmentHeaderAction(): void
     {

@@ -7,6 +7,8 @@ use Exception;
 use Filament\Notifications\Notification;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use JsonException;
@@ -134,6 +136,33 @@ trait PSOInteractionsTrait
 
         return json_encode($response->body(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 //        return $response->collect()->toJson(JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+    }
+
+    public function prepareTokenizedPayload($send_to_pso, $payload)
+    {
+
+        $token = $send_to_pso ? $this->authenticatePSO(
+            $this->selectedEnvironment->getAttribute('base_url'),
+            $this->selectedEnvironment->getAttribute('account_id'),
+            $this->selectedEnvironment->getAttribute('username'),
+            Crypt::decryptString($this->selectedEnvironment->getAttribute('password'))
+        ) : null;
+
+
+        if ($send_to_pso && !$token) {
+
+            $this->notifyPayloadSent('Send to PSO Failed', 'Please see the event log (when it is actually completed)', false);
+            return false;
+        }
+
+        if ($token) {
+
+            $payload = Arr::add($payload, 'environment.token', $token);
+
+        }
+
+        return $payload; // will either return a payload or false
 
     }
 
