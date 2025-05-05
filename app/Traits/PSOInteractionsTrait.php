@@ -169,19 +169,6 @@ trait PSOInteractionsTrait
 
     }
 
-    protected function json_form(Form $form): Form
-    {
-        return $form
-            ->schema([
-                PrettyJsonField::make('json_response_pretty')
-                    ->label('Response from Services')
-                    ->copyable()
-                    ->copyMessage('Your JSON is copied to the clipboard')
-                    ->copyMessageDuration(1500),
-
-            ])->statePath('json_form_data');
-    }
-
     public function notifyPayloadSent($title, $body, $pass): void
     {
         Notification::make()
@@ -195,4 +182,16 @@ trait PSOInteractionsTrait
             ->send();
     }
 
+    protected function json_form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                PrettyJsonField::make('json_response_pretty')
+                    ->label('Response from Services')
+                    ->copyable()
+                    ->copyMessage('Your JSON is copied to the clipboard')
+                    ->copyMessageDuration(1500),
+
+            ])->statePath('json_form_data');
+    }
 }
