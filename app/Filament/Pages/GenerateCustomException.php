@@ -40,7 +40,7 @@ class GenerateCustomException extends Page
     #[Override]
     protected function getForms(): array
     {
-        return ['exception_form', 'env_form'];
+        return ['exception_form', 'env_form','json_form'];
     }
 
     public function mount(): void
@@ -131,6 +131,7 @@ class GenerateCustomException extends Page
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
             $this->response = $this->sendToPSO('exception', $tokenized_payload);
+            $this->json_form_data['json_response_pretty'] = $this->response;
 
             $this->dispatch('open-modal', id: 'show-json');
         }

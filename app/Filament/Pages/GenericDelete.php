@@ -16,6 +16,7 @@ use Filament\Forms\Form;
 use Filament\Forms;
 use Filament\Forms\Get;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JsonException;
 
@@ -151,8 +152,8 @@ class GenericDelete extends Page
                 $i = $index + 1;
 
                 return [
-                    'object_pk_name' . $i => $attribute['name'],
-                    'object_pk' . $i => $this->getPkValueAsString($i),
+                    'objectPkName' . $i => $attribute['name'],
+                    'objectPk' . $i => $this->getPkValueAsString($i),
                 ];
             })
             ->toArray();
@@ -161,11 +162,14 @@ class GenericDelete extends Page
             required: array_merge(
                 $objectAttributes,
                 [
-                    'object_type' => $this->selectedPSOObject['entity'],
+                    'objectType' => $this->selectedPSOObject['entity'],
                 ]
             )
         );
 
+        Log::info(json_encode($payload, JSON_PRETTY_PRINT));
+
+//        dd($payload);
 
 //        $payload = array_merge(collect($this->selectedPSOObject['attributes'])->mapWithKeys(function ($attribute, $index) {
 //            return [

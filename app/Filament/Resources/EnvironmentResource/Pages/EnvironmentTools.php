@@ -20,7 +20,6 @@ use Filament\Forms\Components\Toggle;
 use Filament\Forms\Form;
 use Illuminate\Support\Arr;
 use Filament\Forms;
-use Illuminate\Support\Facades\Crypt;
 use JsonException;
 use Override;
 
@@ -53,7 +52,7 @@ class EnvironmentTools extends Page
 
     #[Override] protected function getForms(): array
     {
-        return ['psoload', 'form'];
+        return ['psoload', 'form', 'json_form'];
     }
 
     public function mount(int|string $record): void
@@ -179,41 +178,56 @@ class EnvironmentTools extends Page
     /**
      * @throws JsonException
      */
-    public function initPSO($data)
+    public function initPSO($data): void
     {
-
         $this->response = null;
 
         foreach ($this->getForms() as $form) {
             $this->{$form}->getState();
         }
-        $segment = $this->data['input_mode'] === InputMode::LOAD ? 'load' : 'rotatodse';
-        $method = $this->data['input_mode'] === InputMode::LOAD ? HttpMethod::POST : HttpMethod::PATCH;
 
+        $inputMode = data_get($this->data, 'input_mode');
+        $segment = $inputMode === InputMode::LOAD ? 'load' : 'rotatodse';
+        $method = $inputMode === InputMode::LOAD ? HttpMethod::POST : HttpMethod::PATCH;
 
-        $token = $this->data['send_to_pso'] ? $this->authenticatePSO(
-            $this->data['base_url'],
-            $this->data['account_id'],
-            $this->data['username'],
-            Crypt::decryptString($this->data['password'])
-        ) : null;
-
-
-        if ($this->data['send_to_pso'] && !$token) {
-
-            $this->notifyPayloadSent('Send to PSO Failed', 'Please see the event log (when it is actually completed)', false);
-            return false;
-        }
+        $sendToPso = data_get($this->data, 'send_to_pso');
 
         $payload = $this->buildPayLoad($data);
-        if ($token) {
-            $payload = Arr::add($payload, 'token', $token);
+
+
+        if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload)) {
+
+            $this->response = $this->sendToPSO($segment, $tokenized_payload, $method);
+            $this->json_form_data['json_response_pretty'] = $this->response;
+            $this->dispatch('open-modal', id: 'show-json');
         }
 
-        $this->response = $this->sendToPSO($segment, $payload, $method);
-        $this->dispatch('open-modal', id: 'show-json');
 
+        // old process
+//        $token = $sendToPso
+//            ? $this->authenticatePSO(
+//                data_get($this->data, 'base_url'),
+//                data_get($this->data, 'account_id'),
+//                data_get($this->data, 'username'),
+//                Crypt::decryptString(data_get($this->data, 'password'))
+//            )
+//            : null;
+//
+//        if ($sendToPso && !$token) {
+//            $this->notifyPayloadSent('Send to PSO Failed', 'Please see the event log (when it is actually completed)', false);
+//            return false;
+//        }
+//
+//        $payload = $this->buildPayLoad($data);
+//
+//        if ($token) {
+//            $payload = Arr::add($payload, 'token', $token);
+//        }
+//
+//        $this->response = $this->sendToPSO($segment, $payload, $method);
+//        $this->dispatch('open-modal', id: 'show-json');
     }
+
 
     private function buildPayLoad($data): array
     {
@@ -237,32 +251,30 @@ class EnvironmentTools extends Page
 
     public function initialize_payload($data): array
     {
-        $payload =
-            [
-                'base_url' => $data['base_url'],
-                'datetime' => Carbon::parse($data['datetime'])->toAtomString() ?: Carbon::now()->toAtomString(),
-                'description' => $data['description'],
-                'organisation_id' => '2',
-                'dataset_id' => $data['dataset_id'],
-                'send_to_pso' => $data['send_to_pso'],
+        $payload = [
+            'environment' => [
+                'baseUrl' => data_get($data, 'base_url'),
+                'datetime' => filled(data_get($data, 'datetime'))
+                    ? Carbon::parse(data_get($data, 'datetime'))->toAtomString()
+                    : Carbon::now()->toAtomString(),
+                'description' => data_get($data, 'description'),
+                'datasetId' => data_get($data, 'dataset_id'),
+                'sendToPso' => data_get($data, 'send_to_pso'),
+            ],
+        ];
 
-            ];
-
-        if ($data['input_mode'] === InputMode::LOAD) {
-
-            $payload = Arr::add($payload, 'dse_duration', $data['dse_duration']);
-            $payload = Arr::add($payload, 'keep_pso_data', $data['keep_pso_data']);
-            $payload = Arr::add($payload, 'process_type', $data['process_type']);
-            $payload = Arr::add($payload, 'appointment_window', $data['appointment_window']);
-
+        if (data_get($data, 'input_mode') === InputMode::LOAD) {
+            $payload = Arr::add($payload, 'data.dseDuration', data_get($data, 'dse_duration'));
+            $payload = Arr::add($payload, 'data.keepPsoData', data_get($data, 'keep_pso_data'));
+            $payload = Arr::add($payload, 'data.processType', data_get($data, 'process_type'));
+            $payload = Arr::add($payload, 'data.appointmentWindow', data_get($data, 'appointment_window'));
         }
 
-        if ($data['send_to_pso']) {
-
-            $payload = Arr::add($payload, 'account_id', $data['account_id']);
-
+        if (data_get($data, 'send_to_pso')) {
+            $payload = Arr::add($payload, 'environment.accountId', data_get($data, 'account_id'));
         }
 
         return $payload;
     }
+
 }
