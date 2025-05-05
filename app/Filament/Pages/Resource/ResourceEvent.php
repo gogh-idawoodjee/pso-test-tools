@@ -22,7 +22,6 @@ class ResourceEvent extends PSOResourceBasePage
 {
 
 
-
     // Navigation
 
     protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
@@ -120,17 +119,16 @@ class ResourceEvent extends PSOResourceBasePage
         $this->validateForms($this->getForms());
 
 
-        $payload = array_merge(
-            $this->environnment_payload_data(),
-            [
+        $payload = $this->buildPayload(
+            required: [
                 'resource_id' => $this->resource_data['resource_id'],
                 'event_type' => $this->resource_data['event_type'],
             ],
-            array_filter([
+            optional: [
                 'event_date_time' => $this->resource_data['event_date_time'] ?? null,
                 'lat' => $this->resource_data['latitude'] ?? null,
-                'long' => $this->resource_data['longitude'] ?? null
-            ])
+                'long' => $this->resource_data['longitude'] ?? null,
+            ]
         );
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {

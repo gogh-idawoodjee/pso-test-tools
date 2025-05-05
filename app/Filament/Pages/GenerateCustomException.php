@@ -118,13 +118,13 @@ class GenerateCustomException extends Page
         $object_value = $this->exception_data['object_type_id'] === 'activity' ? $this->exception_data['activity_id'] : $this->exception_data['resource_id'];
 
 
-        $payload = array_merge([
-            $object_id . '_id' => $object_value,
-            'label' => $this->exception_data['label'],
-            'value' => $this->exception_data['value'],
-            'schedule_exception_type_id' => $this->exception_data['schedule_exception_type_id'],
-        ],
-            $this->environnment_payload_data()
+        $payload = $this->buildPayload(
+            required: [
+                $object_id . '_id' => $object_value,
+                'label' => $this->exception_data['label'],
+                'value' => $this->exception_data['value'],
+                'schedule_exception_type_id' => $this->exception_data['schedule_exception_type_id'],
+            ],
         );
 
 

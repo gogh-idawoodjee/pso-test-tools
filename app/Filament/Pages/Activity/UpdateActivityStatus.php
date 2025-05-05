@@ -105,16 +105,18 @@ class UpdateActivityStatus extends PSOActivityBasePage
     private function TaskStatusPayload(): array
     {
 
-        $payload = array_merge($this->environnment_payload_data(),
-            [
+        $payload = $this->buildPayload(
+            required: [
                 'resource_id' => $this->activity_data['resource_id'],
                 'activity_id' => $this->activity_data['activity_id'],
-            ]);
+            ],
+            optional: [
+                'date_time_fixed' => filled($this->activity_data['datetimefixed'])
+                    ? Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i')
+                    : null,
+            ]
+        );
 
-
-        if ($this->activity_data['datetimefixed']) {
-            $payload['date_time_fixed'] = Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i');
-        }
         return $payload;
     }
 }

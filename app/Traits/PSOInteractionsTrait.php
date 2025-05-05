@@ -88,6 +88,8 @@ trait PSOInteractionsTrait
     public function sendToPSO(#[SensitiveParameter] $api_segment, $payload, $method = HttpMethod::POST)
     {
 
+        // todo have to do some magic if this is appointment booking
+
         $version = config('psott.pso-services-api-version') ? 'v2/' : '';
         $url = 'https://' . config('psott.pso-services-api') . '/api/' . $version . $api_segment;
 
@@ -95,29 +97,42 @@ trait PSOInteractionsTrait
         $response = Http::contentType('application/json')
             ->accept('application/json')
             ->{$method->value}($url, $payload);
-
-        if (config('psott.pso-services-api-version') === '2') {
-            return $response->collect();
-        }
+//
+//        if (config('psott.pso-services-api-version') === '2') {
+//            return $response->collect();
+//        }
 
         $pass = $response->successful();
+
+//        if ($response->unauthorized()) {
+//            $body = 'invalid credentials';
+//        } elseif ($response->failed()) {
+//            $body = 'see the response below';
+//        } else {
+//            $body = json_decode($response->body(), false, 512, JSON_THROW_ON_ERROR)->description;
+//        }
+
+        $body = 'sent to services API';
 
         if ($response->unauthorized()) {
             $body = 'invalid credentials';
         } elseif ($response->failed()) {
             $body = 'see the response below';
-        } else {
-            $body = json_decode($response->body(), false, 512, JSON_THROW_ON_ERROR)->description;
         }
-
         $this->notifyPayloadSent($pass ? 'Success' : 'Error', $body, $pass);
 
         if ($pass) {
 
-            return json_encode(['input_payload' => json_decode($response->body(), false, 512, JSON_THROW_ON_ERROR)->original_payload], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            $decoded = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR); // decode as array
+
+            $payload = data_get($decoded, 'data.payloadToPso');
+
+            return json_encode(['input_payload' => $payload], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
         }
 
-        return $response->collect();
+
+        return json_encode($response->body(), JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 //        return $response->collect()->toJson(JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
     }

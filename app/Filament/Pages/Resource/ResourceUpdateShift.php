@@ -80,19 +80,19 @@ class ResourceUpdateShift extends PSOResourceBasePage
         $this->validateForms($this->getForms());
 
 
-        $payload = array_merge(
-            $this->environnment_payload_data(),
-            [
+        $payload = $this->buildPayload(
+            required: [
                 'resource_id' => $this->resource_data['resource_id'],
                 'shift_id' => $this->resource_data['shift_id'],
             ],
-            array_filter([
+            optional: [
                 'shift_type' => $this->resource_data['shift_type'] ?? null,
                 'start_datetime' => $this->resource_data['start_datetime'] ?? null,
                 'end_datetime' => $this->resource_data['end_datetime'] ?? null,
                 'turn_manual_scheduling_on' => $this->resource_data['turn_manual_scheduling_on'] ?? null,
-            ])
+            ]
         );
+
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/shift', $tokenized_payload, HttpMethod::PATCH);

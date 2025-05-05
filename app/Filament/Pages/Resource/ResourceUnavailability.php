@@ -85,19 +85,19 @@ class ResourceUnavailability extends PSOResourceBasePage
         $this->validateForms($this->getForms());
 
 
-        $payload = array_merge(
-            $this->environnment_payload_data(),
-            [
+        $payload = $this->buildPayload(
+            required: [
                 'resource_id' => $this->resource_data['resource_id'],
                 'duration' => $this->resource_data['duration'],
                 'category_id' => $this->resource_data['category_id'],
                 'base_time' => $this->resource_data['base_time'],
             ],
-            array_filter([
+            optional: [
                 'time_zone' => $this->resource_data['time_zone'] ?? null,
                 'description' => $this->resource_data['description'] ?? null,
-            ])
+            ]
         );
+
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/unavailability', $tokenized_payload);

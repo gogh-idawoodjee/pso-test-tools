@@ -2,15 +2,12 @@
 
 namespace App\Filament\Resources\TaskResource\Pages;
 
-use Filament\Tables\Contracts\HasTable;
-
 use App\Enums\TaskStatus;
 use App\Filament\Resources\TaskResource;
 use App\Models\AppointmentTemplate;
 use App\Models\Environment;
 use App\Models\SlotUsageRule;
 use App\Traits\FormTrait;
-
 use Carbon\Carbon;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
@@ -26,10 +23,7 @@ use Filament\Infolists\Infolist;
 use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Support\Enums\VerticalAlignment;
-use Filament\Tables\Concerns\InteractsWithTable;
-
 use Illuminate\Support\Arr;
-
 use Override;
 
 
@@ -40,6 +34,9 @@ class AppointmentBooking extends Page
     protected static string $resource = TaskResource::class;
 
     protected static string $view = 'filament.resources.tasks.pages.appointment-booking';
+
+    public ?string $countdownExpiresAt = null;
+    public bool $countdownExpired = false;
 
     public ?array $task_data = [];
 
@@ -320,14 +317,12 @@ class AppointmentBooking extends Page
     private function getAppointments()
     {
 
-
         $this->validateForms($this->getForms());
         $this->response = null;
         $data = $this->setDataPayload();
 
-
-        // todo eventually do this on the formtrait since all payloads are now env => env_data
-        $environment = ['environment' => $this->environnment_payload_data()];
+        // done eventually do this on the formtrait since all payloads are now env => env_d
+        $environment = $this->environnment_payload_data();
 
         $payload = array_merge($data, $environment);
 
@@ -335,11 +330,11 @@ class AppointmentBooking extends Page
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
             $this->response = $this->sendToPSO('appointment', $tokenized_payload);
-            $this->json_form_data['json_response_pretty'] = $this->response;
 
+            if (!empty($this->response['data']['appointment_offers']['valid_offers'] ?? [])) {
+                $this->countdownExpiresAt = now()->addMinutes(3)->toIso8601String(); // DO NOT USE ->format(), do not force UTC
+            }
 
-
-//            $this->dispatch('open-modal', id: 'show-json');
         }
 
     }

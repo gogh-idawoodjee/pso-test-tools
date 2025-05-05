@@ -9,7 +9,6 @@ use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
-use Illuminate\Support\Arr;
 use JsonException;
 
 
@@ -26,16 +25,7 @@ class DeleteActivities extends PSOActivityBasePage
 // View
     protected static string $view = 'filament.pages.activity-delete-activities';
 
-    /**
-     * @param array $activity_list
-     * @return array
-     */
-    public function getPayload(array $activity_list): array
-    {
 
-        return Arr::add($this->environnment_payload_data(), 'activities', $activity_list);
-
-    }
 
     public function activity_form(Form $form): Form
     {
@@ -76,13 +66,20 @@ class DeleteActivities extends PSOActivityBasePage
         $this->response = null;
         $this->validateForms($this->getForms());
         // Create the payload
-        $payload = $this->getPayload(
-            collect($this->activity_data['activities'])->pluck('activity_id')->all()
+
+        $payload = $this->buildPayload(
+            required: [
+                'activities' => collect($this->activity_data['activities'])->pluck('activity_id')->all(),
+            ]
         );
 
+
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
+
             $this->response = $this->sendToPSO('activity', $tokenized_payload, HttpMethod::DELETE);
+
             $this->dispatch('open-modal', id: 'show-json');
+
         }
 
 

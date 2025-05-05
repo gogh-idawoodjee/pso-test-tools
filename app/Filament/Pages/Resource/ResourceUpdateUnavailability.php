@@ -84,16 +84,28 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
         $this->validateForms($this->getForms());
 
 
-        $payload = array_merge(
-            $this->environnment_payload_data(),
-            array_filter([
-                'time_zone' => $this->resource_data['time_zone'] ?? null,
-                'description' => $this->resource_data['description'] ?? null,
-                'duration' => $this->resource_data['duration'] ?? null,
-                'category_id' => $this->resource_data['category_id'] ?? null,
-                'base_time' => $this->resource_data['base_time'] ?? null,
-            ])
-        );
+        $payload =
+
+            $this->buildPayload(
+                required: [], // todo see where the unavail ID is, I don't see it
+                optional: ['time_zone' => $this->resource_data['time_zone'] ?? null,
+                    'description' => $this->resource_data['description'] ?? null,
+                    'duration' => $this->resource_data['duration'] ?? null,
+                    'category_id' => $this->resource_data['category_id'] ?? null,
+                    'base_time' => $this->resource_data['base_time'] ?? null,],
+            );
+
+//
+//        $payload = array_merge(
+//            $this->environnment_payload_data(),
+//            array_filter([
+//                'time_zone' => $this->resource_data['time_zone'] ?? null,
+//                'description' => $this->resource_data['description'] ?? null,
+//                'duration' => $this->resource_data['duration'] ?? null,
+//                'category_id' => $this->resource_data['category_id'] ?? null,
+//                'base_time' => $this->resource_data['base_time'] ?? null,
+//            ])
+//        );
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['resource_id'] . '/unavailability', $tokenized_payload);

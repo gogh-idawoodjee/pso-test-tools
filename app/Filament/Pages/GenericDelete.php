@@ -146,26 +146,44 @@ class GenericDelete extends Page
         $this->response = null;
         $this->validateForms($this->getForms());
 
+        $objectAttributes = collect($this->selectedPSOObject['attributes'])
+            ->mapWithKeys(function ($attribute, $index) {
+                $i = $index + 1;
 
-        $payload = array_merge(collect($this->selectedPSOObject['attributes'])->mapWithKeys(function ($attribute, $index) {
-            return [
-                'object_pk_name' . ($index + 1) => $attribute['name'],
-                'object_pk' . ($index + 1) => $this->getPkValueAsString($index + 1)
-            ];
-        })->toArray(),
-            $this->environnment_payload_data(), ['object_type' => $this->selectedPSOObject['entity']]
+                return [
+                    'object_pk_name' . $i => $attribute['name'],
+                    'object_pk' . $i => $this->getPkValueAsString($i),
+                ];
+            })
+            ->toArray();
+
+        $payload = $this->buildPayload(
+            required: array_merge(
+                $objectAttributes,
+                [
+                    'object_type' => $this->selectedPSOObject['entity'],
+                ]
+            )
         );
+
+
+//        $payload = array_merge(collect($this->selectedPSOObject['attributes'])->mapWithKeys(function ($attribute, $index) {
+//            return [
+//                'object_pk_name' . ($index + 1) => $attribute['name'],
+//                'object_pk' . ($index + 1) => $this->getPkValueAsString($index + 1)
+//            ];
+//        })->toArray(),
+//            $this->environnment_payload_data(), ['object_type' => $this->selectedPSOObject['entity']]
+//        );
 
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
             $this->response = $this->sendToPSO('delete', $tokenized_payload, HttpMethod::DELETE);
             $this->json_form_data['json_response_pretty'] = $this->response;
-
             $this->dispatch('open-modal', id: 'show-json');
         }
 
     }
-
 
 }
