@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Services\ResourceActivityFilterService;
 use App\Support\HasScopedCache;
 use App\Support\PreviewSummaryFormatter;
+use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -32,6 +33,8 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
         public ?string $overrideDatetime = null,
         public array   $resourceIds = [],
         public array   $activityIds = [],
+        public ?Carbon $startDate = null,
+        public ?Carbon $endDate = null,
     )
     {
     }
@@ -94,8 +97,11 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             $this->overrideDatetime,
             $this->resourceIds,
             $this->activityIds,
-            $this->dryRun
+            $this->dryRun,
+            $this->startDate,
+            $this->endDate
         );
+
 
         return $service->filter();
     }

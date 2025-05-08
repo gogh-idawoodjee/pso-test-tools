@@ -32,20 +32,23 @@ class FilterLoadFile extends Page
     protected static ?string $navigationGroup = 'Additional Tools';
 
     // File upload and processing properties
-    public $upload;
+    public ?array $upload = null;
+    public ?string $startDate = null;
+    public ?string $endDate = null;
     public ?Carbon $jobCreatedAt = null;
+    public ?Carbon $overrideDatetime = null;
     public array $regionIds = [];
     public array $resourceIds = [];
     public array $activityIds = [];
     public bool $dryRun = true;
-    public $downloadUrl;
+    public ?string $downloadUrl = null;
     public array $preview = [];
     public array $availableActivityIds = [];
     public array $availableResourceIds = [];
     public array $availableRegionIds = [];
     public array $activityTypeIds = [];
     public array $availableActivityTypes = [];
-    public $overrideDatetime;
+
     public array $activityTypeCounts = [];
     public bool $hasRunFilterJob = false;
 
@@ -63,6 +66,9 @@ class FilterLoadFile extends Page
             'resourceIds' => [],
             'activityIds' => [],
         ]);
+
+        $this->startDate = $this->startDate ? Carbon::parse($this->startDate) : null;
+        $this->endDate = $this->endDate ? Carbon::parse($this->endDate) : null;
     }
 
 
@@ -90,6 +96,22 @@ class FilterLoadFile extends Page
                             $this->createResourceSelector(),
                             $this->createActivityTypeSelector(),
                             $this->createActivitySelector(),
+                            DateTimePicker::make('startDate')
+                                ->label('Start Date')
+                                ->helperText('Optional. Filters data starting from this date.')
+                                ->native(false)
+                                ->seconds(false)
+                                ->nullable()
+                                ->reactive(),
+
+                            DateTimePicker::make('endDate')
+                                ->label('End Date')
+                                ->helperText('Optional. Filters data up to this date.')
+                                ->native(false)
+                                ->seconds(false)
+                                ->nullable()
+                                ->after('startDate')
+                                ->reactive(),
 
                             $this->createDatetimeOverrideField(),
                         ])->visible(fn() => $this->shouldShowDropdowns()),
@@ -207,6 +229,12 @@ class FilterLoadFile extends Page
     public function submit(): void
     {
         // Validate form state
+
+        if (!$this->dryRun && (($this->startDate && !$this->endDate) || (!$this->startDate && $this->endDate))) {
+            $this->notifyWarning('Date range incomplete', 'Both start and end dates must be filled or left blank.');
+            return;
+        }
+
         if (!$this->dryRun && empty($this->availableRegionIds)) {
             $this->notifyWarning('Please preview first', 'Run a dry run to load region, resource, and activity IDs.');
             return;
@@ -271,24 +299,35 @@ class FilterLoadFile extends Page
     {
         $data = $this->form->getState();
 
-        $data['regionIds'] = $data['regionIds'] ?? [];
-        $data['resourceIds'] = $data['resourceIds'] ?? [];
-        $data['activityIds'] = $data['activityIds'] ?? [];
-        return $data;
+        return [
+            'upload' => data_get($data, 'upload'),
+            'regionIds' => data_get($data, 'regionIds', []),
+            'resourceIds' => data_get($data, 'resourceIds', []),
+            'activityIds' => data_get($data, 'activityIds', []),
+            'dryRun' => data_get($data, 'dryRun', false),
+            'overrideDatetime' => data_get($data, 'overrideDatetime'),
+            'startDate' => data_get($data, 'startDate'),
+            'endDate' => data_get($data, 'endDate'),
+        ];
     }
 
     private function dispatchResourceJob(array $data): void
     {
+
+
         ProcessResourceFile::dispatch(
             $this->jobId,
-            $data['upload'],
-            $data['regionIds'],
-            $data['dryRun'] ?? false,
-            $data['overrideDatetime'] ?? null,
-            $data['resourceIds'] ?? [],
-            $data['activityIds'] ?? [],
+            data_get($data, 'upload'),
+            data_get($data, 'regionIds', []),
+            data_get($data, 'dryRun', false),
+            data_get($data, 'overrideDatetime'),
+            data_get($data, 'resourceIds', []),
+            data_get($data, 'activityIds', []),
+            $this->startDate ? Carbon::parse($this->startDate) : null,
+            $this->endDate ? Carbon::parse($this->endDate) : null,
         );
     }
+
 
     public function checkStatus(): void
     {
