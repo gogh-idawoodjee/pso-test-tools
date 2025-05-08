@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Support\HasScopedCache;
-use Illuminate\Support\Facades\Cache;
+
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -38,15 +38,31 @@ class ResourceActivityFilterService extends HasScopedCache
      */
     protected array $validActivityIds = [];
 
-    /**
-     * Tracks the current progress step for percentage calculations
-     */
-    protected int $progressStep = 0;
 
     /**
-     * Total number of major processing steps for progress calculation
+     * Tracks the current progress percentage within our allowed range
      */
-    protected int $totalSteps = 5;
+    protected int $currentProgress = 0;
+
+    /**
+     * Tracks total items to process for weighted progress calculation
+     */
+    protected array $itemCounts = [];
+
+    /**
+     * Tracks processed items for weighted progress calculation
+     */
+    protected array $processedItems = [];
+
+    /**
+     * Start of progress range (percentage)
+     */
+    protected int $progressStart = 0;
+
+    /**
+     * End of progress range (percentage)
+     */
+    protected int $progressEnd = 100;
 
     /**
      * Constructor for the filter service
@@ -69,12 +85,35 @@ class ResourceActivityFilterService extends HasScopedCache
         protected bool    $isDryRun = false,
         protected ?Carbon $startDate = null,
         protected ?Carbon $endDate = null,
+        int               $progressStart = 0,
+        int               $progressEnd = 100
     )
     {
-        // Initialize progress tracking at 0%
-        if ($this->jobId) {
-            Cache::put("resource-job:{$this->jobId}:progress", 5);
-        }
+        $this->progressStart = $progressStart;
+        $this->progressEnd = $progressEnd;
+        $this->currentProgress = $progressStart;
+
+        // Initialize progress tracking at starting value
+        $this->updateProgress($this->progressStart);
+
+        // Pre-count items for weighted progress calculation
+        $this->itemCounts = [
+            'resources' => count($this->data['Resources'] ?? []),
+            'shifts' => count($this->data['Shift'] ?? []),
+            'activities' => count($this->data['Activity'] ?? []),
+            'locations' => count($this->data['Location'] ?? [])
+        ];
+
+        $this->processedItems = [
+            'resources' => 0,
+            'shifts' => 0,
+            'activities' => 0,
+            'locations' => 0
+        ];
+
+        Log::info('🔢 Filter service initialized with progress range ' .
+            "{$this->progressStart}%-{$this->progressEnd}%, item counts:",
+            $this->itemCounts);
     }
 
     /**
@@ -130,7 +169,7 @@ class ResourceActivityFilterService extends HasScopedCache
 
         // Apply all filters and generate the resulting dataset
         $filtered = $this->applyFilters($inputReference);
-        $this->updateProgress(100); // Mark as fully complete
+
 
         // Log summary of filtering results
         Log::info('📊 Filter results summary:', [
@@ -217,46 +256,62 @@ class ResourceActivityFilterService extends HasScopedCache
     {
         $filtered = $this->data;
 
-        // Step 1 and 4 only apply if regionIds were provided
+        // Log the filtering process start
+        Log::info('🔄 Starting filter application process');
+
         if (!empty($this->regionIds)) {
+            Log::info('🌎 Applying region filters');
+
             // Step 1: Filter resources by region
             $this->filterResourcesByRegion();
-            $this->updateProgressStep();
+            Log::info('👥 Resources filtered by region:', ['validResourceCount' => count($this->validResourceIds)]);
 
             // Step 4: Filter locations by region
             $this->filterLocationsByRegion();
-            $this->updateProgressStep();
+            Log::info('📍 Locations filtered by region:', ['validLocationCount' => count($this->validLocationIds)]);
         } else {
+            Log::info('🌎 No region IDs provided - skipping region filtering');
             // No region filtering – use all available IDs
             $this->validResourceIds = collect($this->data['Resources'] ?? [])->pluck('id')->toArray();
             $this->validLocationIds = collect($this->data['Location'] ?? [])->pluck('id')->toArray();
+
+            // Still mark these as processed for progress tracking
+            $this->updateProcessedItems('resources', count($this->data['Resources'] ?? []));
+            $this->updateProcessedItems('locations', count($this->data['Location'] ?? []));
         }
 
         // Step 2: Filter resources by specific resource IDs (optional)
         if (!empty($this->resourceIds)) {
+            Log::info('👤 Filtering by specific resource IDs');
             $this->filterResourcesByIds();
         }
 
         // Step 3: Filter shifts and related data for valid resources
         $this->filterShiftsAndRelatedData();
-        $this->filterResourcesByShiftDate(); // ⏰ at this point, validResourceIds is finalized
 
-        Log::info('🔗 Filtering Resource_* using final validResourceIds count: ' . count($this->validResourceIds));
+        // Date filtering for resources and shifts
+        if ($this->startDate && $this->endDate) {
+            Log::info('📅 Applying date filters to shifts');
+            $this->filterResourcesByShiftDate();
+        }
 
         $this->filterResourceRelations();     // 👈 only now should this be called
         $this->filterAvailability();         // 👈 filters avails based on updated Resource_Region_Avail
-        $this->updateProgressStep();
 
         // Step 5: Filter activities and related data for valid locations
         $this->filterActivitiesAndRelatedData();
-        $this->updateProgressStep();
+
+        // Assemble final dataset
+        Log::info('🔄 Assembling final filtered dataset');
+
 
         // Assemble final dataset
         $filtered['Resources'] = $this->getFilteredData('Resources', 'id', $this->validResourceIds);
         $filtered['Shift'] = $this->getFilteredData('Shift', 'id', $this->validShiftIds);
 
         // ✅ Already filtered inside filterResourcesByShiftDate()
-        $filtered['Shift_Break'] = $this->data['Shift_Break'] ?? [];
+//        $filtered['Shift_Break'] = $this->data['Shift_Break'] ?? [];
+        $filtered['Shift_Break'] = $this->getFilteredData('Shift_Break', 'shift_id', $this->validShiftIds);
         $filtered['Resource_Region'] = $this->getFilteredData('Resource_Region', 'resource_id', $this->validResourceIds);
         $filtered['Resource_Skill'] = $this->getFilteredData('Resource_Skill', 'resource_id', $this->validResourceIds);
         $filtered['Resource_Region_Availability'] = $this->getFilteredData('Resource_Region_Availability', 'resource_id', $this->validResourceIds);
@@ -285,18 +340,34 @@ class ResourceActivityFilterService extends HasScopedCache
 
     /**
      * Filters resources based on region constraints
-     *
-     * Identifies resources that are assigned to any of the specified regions
      */
     protected function filterResourcesByRegion(): void
     {
+        $totalResources = count($this->data['Resource_Region'] ?? []);
+        $processed = 0;
+        $chunkSize = max(1, (int)($totalResources / 10)); // Update progress ~10 times during this operation
+
         // Find all resources that are associated with any of the target regions
-        $this->validResourceIds = collect($this->data['Resource_Region'] ?? [])
-            ->filter(fn($rr) => in_array($rr['region_id'], $this->regionIds))
+        $validResourceIds = collect($this->data['Resource_Region'] ?? [])
+            ->filter(function ($rr) use (&$processed, $chunkSize, $totalResources) {
+                $processed++;
+
+                // Update progress periodically
+                if ($processed % $chunkSize === 0 || $processed === $totalResources) {
+                    $this->updateProcessedItems('resources', $processed);
+                }
+
+                return in_array($rr['region_id'], $this->regionIds);
+            })
             ->pluck('resource_id')
             ->unique()
             ->values()
             ->toArray();
+
+        $this->validResourceIds = $validResourceIds;
+
+        // Mark resources as fully processed
+        $this->updateProcessedItems('resources', $totalResources);
     }
 
     protected function filterResourcesByShiftDate(): void
@@ -369,7 +440,7 @@ class ResourceActivityFilterService extends HasScopedCache
         $this->filteredAvailabilityIds = $availabilityIds;
 
         $this->data['Availability'] = collect($this->data['Availability'] ?? [])
-            ->filter(fn($item) => in_array(data_get($item, 'id'), $availabilityIds))
+            ->filter(static fn($item) => in_array(data_get($item, 'id'), $availabilityIds))
             ->values()
             ->toArray();
     }
@@ -399,12 +470,30 @@ class ResourceActivityFilterService extends HasScopedCache
      */
     protected function filterShiftsAndRelatedData(): void
     {
+        $totalShifts = count($this->data['Shift'] ?? []);
+        $processed = 0;
+        $chunkSize = max(1, (int)($totalShifts / 10)); // Update progress ~10 times
+
         // Get all shifts belonging to the valid resources
-        $this->validShiftIds = collect($this->data['Shift'] ?? [])
-            ->filter(fn($shift) => in_array($shift['resource_id'], $this->validResourceIds))
+        $validShiftIds = collect($this->data['Shift'] ?? [])
+            ->filter(function ($shift) use (&$processed, $chunkSize, $totalShifts) {
+                $processed++;
+
+                // Update progress periodically
+                if ($processed % $chunkSize === 0 || $processed === $totalShifts) {
+                    $this->updateProcessedItems('shifts', $processed);
+                }
+
+                return in_array($shift['resource_id'], $this->validResourceIds);
+            })
             ->pluck('id')
             ->values()
             ->toArray();
+
+        $this->validShiftIds = $validShiftIds;
+
+        // Mark shifts as fully processed
+        $this->updateProcessedItems('shifts', $totalShifts);
     }
 
     /**
@@ -414,9 +503,22 @@ class ResourceActivityFilterService extends HasScopedCache
      */
     protected function filterLocationsByRegion(): void
     {
+        $totalLocations = count($this->data['Location_Region'] ?? []);
+        $processed = 0;
+        $chunkSize = max(1, (int)($totalLocations / 10));
+
         // First: collect IDs from Location that appear in Location_Region
         $regionLocationIds = collect($this->data['Location_Region'] ?? [])
-            ->filter(fn($lr) => in_array($lr['region_id'], $this->regionIds))
+            ->filter(function ($lr) use (&$processed, $chunkSize, $totalLocations) {
+                $processed++;
+
+                // Update progress periodically
+                if ($processed % $chunkSize === 0 || $processed === $totalLocations) {
+                    $this->updateProcessedItems('locations', (int)($processed * 0.5)); // 50% of location filtering
+                }
+
+                return in_array($lr['region_id'], $this->regionIds);
+            })
             ->pluck('location_id')
             ->unique()
             ->values()
@@ -428,9 +530,11 @@ class ResourceActivityFilterService extends HasScopedCache
             ->pluck('id')
             ->toArray();
 
+        // Mark locations as fully processed
+        $this->updateProcessedItems('locations', $totalLocations);
+
         Log::info('🧩 Matched Location IDs via Location_Region + Location:', $this->validLocationIds);
     }
-
 
     /**
      * Filters activities based on valid locations and optional activity IDs
@@ -439,32 +543,65 @@ class ResourceActivityFilterService extends HasScopedCache
      */
     protected function filterActivitiesAndRelatedData(): void
     {
+        $totalActivities = count($this->data['Activity'] ?? []);
+        $processed = 0;
+        $chunkSize = max(1, (int)($totalActivities / 20)); // More updates for activities as they're a large part
+
         $activities = collect($this->data['Activity'] ?? []);
 
-        // 🔍 Region filter
+        // Apply filters with progress tracking
         if (!empty($this->regionIds)) {
-            $activities = $activities->filter(fn($a) => isset($a['location_id']) && in_array($a['location_id'], $this->validLocationIds)
-            );
+            $activities = $activities->filter(function ($a) use (&$processed, $chunkSize, $totalActivities) {
+                $processed++;
+
+                // Update progress periodically
+                if ($processed % $chunkSize === 0 || $processed === $totalActivities) {
+                    $this->updateProcessedItems('activities', (int)($processed * 0.33)); // 1/3 of activity filtering
+                }
+
+                return isset($a['location_id']) && in_array($a['location_id'], $this->validLocationIds);
+            });
         }
 
         // 🔍 Activity ID filter
+        $processed = 0;
         if (!empty($this->activityIds)) {
-            $activities = $activities->filter(fn($a) => in_array($a['id'], $this->activityIds)
-            );
+            $activities = $activities->filter(function ($a) use (&$processed, $chunkSize, $totalActivities) {
+                $processed++;
+
+                // Update progress periodically
+                if ($processed % $chunkSize === 0) {
+                    $this->updateProcessedItems('activities', (int)($totalActivities * 0.33 + $processed * 0.33)); // 2/3 of activity filtering
+                }
+
+                return in_array($a['id'], $this->activityIds);
+            });
         }
 
         // 📅 SLA date filter
+        $processed = 0;
         if ($this->startDate && $this->endDate) {
             $matchedActivityIds = $this->getActivityIdsWithinDateRange();
 
-            Log::info('📌 Matched activity IDs from SLA filter:', $matchedActivityIds);
 
-            $activities = $activities->filter(static fn($a) => in_array(data_get($a, 'id'), $matchedActivityIds)
-            );
+            $activities = $activities->filter(function ($a) use (&$processed, $chunkSize, $totalActivities, $matchedActivityIds) {
+                $processed++;
+
+                // Update progress periodically
+                if ($processed % $chunkSize === 0) {
+                    // Cap at 100% of total activities
+                    $progress = min($totalActivities, (int)($totalActivities * 0.67 + $processed * 0.33));
+                    $this->updateProcessedItems('activities', $progress);
+                }
+                return in_array(data_get($a, 'id'), $matchedActivityIds);
+            });
         }
 
-        // ✅ Set final list AFTER all filters
+        // ✅ Always set final valid activity IDs after all filters
         $this->validActivityIds = $activities->pluck('id')->values()->toArray();
+
+        // Mark activities as fully processed
+        $this->updateProcessedItems('activities', $totalActivities);
 
         Log::info('🎯 Final valid activity IDs:', $this->validActivityIds);
     }
@@ -485,13 +622,13 @@ class ResourceActivityFilterService extends HasScopedCache
         }
 
         Log::info('📆 SLA Filter Date Window', [
-            'startDate' => $this->startDate?->toIso8601String(),
-            'endDate' => $this->endDate?->toIso8601String(),
+            'startDate' => $this->startDate->toIso8601String(),
+            'endDate' => $this->endDate->toIso8601String(),
         ]);
 
         Log::info('🎯 Start/End window', [
-            'start' => $this->startDate?->toIso8601String(),
-            'end' => $this->endDate?->toIso8601String(),
+            'start' => $this->startDate->toIso8601String(),
+            'end' => $this->endDate->toIso8601String(),
         ]);
 
 
@@ -537,23 +674,23 @@ class ResourceActivityFilterService extends HasScopedCache
     }
 
 
-    /**
-     * Updates progress based on completed steps
-     *
-     * Increments the progress step counter and calculates percentage
-     */
-    protected function updateProgressStep(): void
-    {
-        if ($this->jobId) {
-            $this->progressStep++;
-
-            // Calculate percentage based on completed steps (capped at 95%)
-            // The final 5% is added when completely done
-            $percent = min(95, (int)(($this->progressStep / $this->totalSteps) * 100));
-            Log::info('ℹ️Filtering Progresss: ' . $percent . '%');
-            Cache::put("resource-job:{$this->jobId}:progress", $percent);
-        }
-    }
+//    /**
+//     * Updates progress based on completed steps
+//     *
+//     * Increments the progress step counter and calculates percentage
+//     */
+//    protected function updateProgressStep(): void
+//    {
+//        if ($this->jobId) {
+//            $this->progressStep++;
+//
+//            // Calculate percentage based on completed steps (capped at 95%)
+//            // The final 5% is added when completely done
+//            $percent = min(95, (int)(($this->progressStep / $this->totalSteps) * 100));
+//            Log::info('ℹ️Filtering Progresss: ' . $percent . '%');
+//            Cache::put("resource-job:{$this->jobId}:progress", $percent);
+//        }
+//    }
 
     protected function getInputReference(): array
     {
@@ -563,4 +700,62 @@ class ResourceActivityFilterService extends HasScopedCache
         }
         return $ref;
     }
+
+    /**
+     * Calculates weighted progress based on processed items
+     *
+     * @return int The calculated progress percentage (0-100)
+     */
+    protected function calculateProgress(): int
+    {
+        // If there are no items to process, return current progress
+        $totalItems = array_sum($this->itemCounts);
+        if ($totalItems === 0) {
+            return $this->progressStart;
+        }
+
+        // Calculate weights for each category
+        $weights = [
+            'resources' => 0.2,  // 20% of progress weight
+            'shifts' => 0.3,  // 30% of progress weight
+            'activities' => 0.4, // 40% of progress weight
+            'locations' => 0.1  // 10% of progress weight
+        ];
+
+        // Calculate weighted progress (0-1 scale)
+        $progressRatio = 0;
+        foreach ($weights as $key => $weight) {
+            if ($this->itemCounts[$key] > 0) {
+                $progressRatio += ($this->processedItems[$key] / $this->itemCounts[$key]) * $weight;
+            }
+        }
+
+        // Map to the specified range
+        $progressRange = $this->progressEnd - $this->progressStart;
+        $progress = $this->progressStart + ($progressRatio * $progressRange);
+
+        // Ensure progress stays within the specified range
+        return min($this->progressEnd, max($this->progressStart, (int)$progress));
+    }
+
+    /**
+     * Updates processed items count and recalculates progress
+     *
+     * @param string $type The type of items being processed (resources, shifts, activities, locations)
+     * @param int $processed The number of items processed
+     */
+    protected function updateProcessedItems(string $type, int $processed): void
+    {
+        if (isset($this->processedItems[$type])) {
+            $this->processedItems[$type] = $processed;
+            $newProgress = $this->calculateProgress();
+
+            // Only update if progress has increased
+            if ($newProgress > $this->currentProgress) {
+                $this->currentProgress = $newProgress;
+                $this->updateProgress($newProgress);
+            }
+        }
+    }
+
 }

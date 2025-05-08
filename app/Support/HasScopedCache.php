@@ -29,9 +29,13 @@ abstract class HasScopedCache
     protected function updateProgress(int $percent): void
     {
         $this->updateCache('progress', $percent);
-        Log::info('Progress at ' . $percent . '% - via HasScopedCache');
-    }
+        Log::info('Progress at ' . $percent . '% - via ResourceActivityFilterService');
 
+        // Add a tiny delay for visual smoothness on fast operations
+        if ($this->jobId && !app()->environment('testing')) {
+            usleep(50000); // 50ms delay
+        }
+    }
     protected function updateStatus(string $status): void
     {
         $this->updateCache('status', $status);

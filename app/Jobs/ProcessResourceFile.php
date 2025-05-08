@@ -45,16 +45,24 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
 
         try {
             $this->updateStatus('processing');
+            // Initial progress - 5%
+            $this->updateProgress(5);
 
-            // Load and process data
+            // Load and process data - 10%
             $data = $this->loadInputData();
-            $result = $this->processData($data);
-            $this->cacheAvailableIds($data);
+            $this->updateProgress(10);
 
-            // Format and cache preview
+            // Process data with filtering service (10% to 80%)
+            $result = $this->processData($data);
+
+            // Cache available IDs - 85%
+            $this->cacheAvailableIds($data);
+            $this->updateProgress(85);
+
+            // Format and cache preview - 90%
             $formatted = PreviewSummaryFormatter::format($result['summary']);
             $this->updateCache('preview', $formatted);
-            $this->updateProgress(75);
+            $this->updateProgress(90);
 
             // Skip file creation for dry runs
             if ($this->dryRun) {
@@ -63,11 +71,14 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
                 return;
             }
 
-            // Create and store output file
+            // Create output file - 95%
             $this->createOutputFile($result['filtered']);
+            $this->updateProgress(95);
 
-            // Schedule cleanup
+            // Schedule cleanup and complete - 100%
             $this->scheduleCleanup();
+            $this->updateStatus('complete');
+            $this->updateProgress(100);
 
         } catch (Throwable $e) {
             Log::error("Job [{$this->jobId}] failed: " . $e->getMessage(), [
@@ -99,7 +110,9 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             $this->activityIds,
             $this->dryRun,
             $this->startDate,
-            $this->endDate
+            $this->endDate,
+            10,
+            80
         );
 
 

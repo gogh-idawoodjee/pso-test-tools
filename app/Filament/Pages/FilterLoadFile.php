@@ -52,6 +52,14 @@ class FilterLoadFile extends Page
     public array $activityTypeCounts = [];
     public bool $hasRunFilterJob = false;
 
+    protected int $pollingCount = 0;
+
+    protected function incrementPollingCount(): void
+    {
+        $this->pollingCount++;
+        Log::info("Polling count: {$this->pollingCount} for jobId: {$this->jobId}");
+    }
+
     public function mount(): void
     {
         $this->environments = Environment::with('datasets')->get();
@@ -69,6 +77,12 @@ class FilterLoadFile extends Page
 
         $this->startDate = $this->startDate ? Carbon::parse($this->startDate) : null;
         $this->endDate = $this->endDate ? Carbon::parse($this->endDate) : null;
+
+        // Restore progress if job is in progress
+        if ($this->jobId) {
+            $this->progress = $this->getJobProgress();
+            $this->status = $this->getJobStatus();
+        }
     }
 
 
@@ -240,10 +254,12 @@ class FilterLoadFile extends Page
             return;
         }
 
-        Log::info("Submit clicked. Dry run: " . ($this->dryRun ? 'yes' : 'no'));
+        // Emit event for immediate UI feedback
+        $this->dispatch('processingStarted');
 
         // Start a new job
         $this->startJob(self::JOB_TYPE);
+        $this->progress = 5; // Set initial progress immediately
 
         // Save job creation time for timeout tracking
         $this->jobCreatedAt = Carbon::now();
@@ -292,7 +308,7 @@ class FilterLoadFile extends Page
     {
         $this->downloadUrl = null;
         $this->preview = [];
-//        $this->progress = 0;
+        $this->progress = 0;
     }
 
     private function prepareJobData(): array
@@ -347,8 +363,12 @@ class FilterLoadFile extends Page
         $this->progress = $this->getJobProgress();
         $this->status = $this->getJobStatus();
 
+        // Force progress to 100% if status is complete
+        if ($this->status === 'complete' && $this->progress < 100) {
+            $this->progress = 100;
+        }
 
-        // Check for job timeout
+        // Handle job timeout
         if ($this->isJobTimedOut()) {
             $this->handleJobTimeout();
             return;
@@ -369,12 +389,49 @@ class FilterLoadFile extends Page
             $this->form->fill(['dryRun' => false]);
         }
 
-
         if ($this->status === 'complete' && !$this->dryRun) {
-            // use this methdd to show the environment section and activate the push to PSO button
+            // use this method to show the environment section and activate the push to PSO button
             $this->hasRunFilterJob = true;
         }
+    }
 
+    public function resetFilterJob(): void
+    {
+        // Reset job-related properties
+        $this->jobId = null;
+        $this->progress = 0;
+        $this->status = null;
+        $this->downloadUrl = null;
+        $this->preview = [];
+
+        // Keep the form data if you want to allow easy reuse,
+        // or reset it if you want a completely fresh start
+        $this->form->fill([
+            'upload' => $this->upload, // Keep the uploaded file
+            'regionIds' => [],
+            'resourceIds' => [],
+            'activityIds' => [],
+            'dryRun' => true,
+        ]);
+
+        $this->hasRunFilterJob = false;
+
+        $this->notifySuccess('Reset complete', 'Ready to run another filter job.');
+    }
+
+    public function cancelJob(): void
+    {
+        if (!$this->jobId) {
+            return;
+        }
+
+        // Cancel the job and clean up
+        $this->updateCache('status', 'cancelled');
+        $this->progress = 0;
+        $this->status = 'cancelled';
+        $this->jobId = null;
+
+        $this->notifyWarning('Processing cancelled', 'The job has been cancelled.');
     }
 
     private function loadAvailableIds(): void
@@ -422,5 +479,18 @@ class FilterLoadFile extends Page
             'overrideDatetime' => $this->overrideDatetime,
             'dryRun' => $this->dryRun,
         ]);
+    }
+
+    protected function getElapsedTime(): string
+    {
+        if (!$this->jobCreatedAt) {
+            return '0:00';
+        }
+
+        $seconds = now()->diffInSeconds($this->jobCreatedAt);
+        $minutes = floor($seconds / 60);
+        $remainingSeconds = $seconds % 60;
+
+        return $minutes . ':' . str_pad($remainingSeconds, 2, '0', STR_PAD_LEFT);
     }
 }
