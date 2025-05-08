@@ -187,7 +187,7 @@ class EnvironmentTools extends Page
         }
 
         $inputMode = data_get($this->data, 'input_mode');
-        $segment = $inputMode === InputMode::LOAD ? 'load' : 'rotatodse';
+        $segment = $inputMode === InputMode::LOAD ? InputMode::LOAD->getSegment() : InputMode::CHANGE->getSegment();
         $method = $inputMode === InputMode::LOAD ? HttpMethod::POST : HttpMethod::PATCH;
 
         $sendToPso = data_get($this->data, 'send_to_pso');

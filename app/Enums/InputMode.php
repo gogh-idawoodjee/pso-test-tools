@@ -19,4 +19,12 @@ enum InputMode: string implements HasLabel
 
     }
 
+    public function getSegment(): string|null
+    {
+        return match ($this) {
+            self::LOAD => 'load',
+            self::CHANGE => 'rota',
+        };
+    }
+
 }

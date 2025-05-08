@@ -15,7 +15,7 @@ abstract class PSOActivityBasePage extends Page
     use InteractsWithForms, FormTrait;
 
     protected static ?string $navigationGroup = 'API Services';
-    protected static ?string $navigationParentItem='Activity Services';
+    protected static ?string $navigationParentItem = 'Activity Services';
 
     public ?array $activity_data = [];
 
@@ -31,7 +31,7 @@ abstract class PSOActivityBasePage extends Page
 
     #[Override] protected function getForms(): array
     {
-        return ['env_form', 'activity_form'];
+        return ['env_form', 'activity_form', 'json_form'];
     }
 
 

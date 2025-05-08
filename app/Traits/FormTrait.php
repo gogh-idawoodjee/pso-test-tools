@@ -81,6 +81,8 @@ trait FormTrait
                         ->prefixIcon('heroicon-o-globe-alt')
                         ->options($this->environments?->pluck('name', 'id')->toArray() ?? [])
                         ->required()
+                        ->preload()
+                        ->native(false)
                         ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
                             $livewire->validateOnly($component->getStatePath());
                             $this->setCurrentEnvironment($state);
@@ -89,12 +91,14 @@ trait FormTrait
                         ->live(),
                     Select::make('dataset_id')
                         ->label('Dataset')
+                        ->preload()
                         ->prefixIcon('heroicon-o-cube-transparent')
                         ->options(fn(Get $get) => $this->getDatasetOptions($get))
                         ->required(!$this->isDataSetRequired)
                         ->hidden($this->isDataSetHidden)
                         ->disabled(static fn(Get $get) => blank($get('environment_id')))
                         ->live()
+                        ->native(false)
                         ->searchable()
                         ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
                             $livewire->validateOnly($component->getStatePath());
@@ -193,14 +197,11 @@ trait FormTrait
     }
 
 
-
-
     public function environmentHeaderAction(): void
     {
         // used for overriding in any child
 
     }
-
 
 
 }

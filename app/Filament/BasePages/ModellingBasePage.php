@@ -14,7 +14,7 @@ abstract class ModellingBasePage extends Page
     use InteractsWithForms, FormTrait;
 
     protected static ?string $navigationGroup = 'API Services';
-    protected static ?string $navigationParentItem='Modelling Services';
+    protected static ?string $navigationParentItem = 'Modelling Services';
 
     public ?array $modelling_data = [];
 
@@ -31,7 +31,7 @@ abstract class ModellingBasePage extends Page
 
     #[Override] protected function getForms(): array
     {
-        return ['env_form', 'modelling_form'];
+        return ['env_form', 'modelling_form', 'json_form'];
     }
 
 

@@ -115,11 +115,11 @@ class FilterLoadFile extends Page
             ->multiple()
             ->options(function () {
                 return collect($this->availableRegionIds)
-                    ->mapWithKeys(function ($entry) {
+                    ->mapWithKeys(static function ($entry) {
                         // If the entry is like "SVBARR - Service Barrie"
                         if (str_contains($entry, ' - ')) {
                             [$id, $desc] = explode(' - ', $entry, 2);
-                            return [$id => "$id - $desc"]; // 🟢 Key = ID, Value = "ID - Description"
+                            return [$id => "{$id} - {$desc}"]; // 🟢 Key = ID, Value = "ID - Description"
                         }
 
                         return [$entry => $entry]; // fallback for malformed items
