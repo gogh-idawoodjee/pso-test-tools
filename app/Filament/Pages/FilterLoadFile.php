@@ -100,7 +100,7 @@ class FilterLoadFile extends Page
                     ->schema([
                         FileUpload::make('upload')
                             ->label('Upload JSON File')
-                            ->disk('local')
+                            ->disk('r2')
                             ->directory('uploads')
                             ->maxSize(102400) // ← 100MB in kilobytes
                             ->acceptedFileTypes(['application/json'])

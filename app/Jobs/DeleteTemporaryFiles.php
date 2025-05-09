@@ -23,8 +23,8 @@ class DeleteTemporaryFiles implements ShouldQueue
 
     public function handle(): void
     {
-        if (Storage::disk('local')->exists($this->uploadedPath)) {
-            Storage::disk('local')->delete($this->uploadedPath);
+        if (Storage::disk('r2')->exists($this->uploadedPath)) {
+            Storage::disk('r2')->delete($this->uploadedPath);
             Log::info("🗑️ Deleted uploaded file: {$this->uploadedPath}");
         }
 

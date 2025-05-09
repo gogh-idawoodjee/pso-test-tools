@@ -94,7 +94,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
      */
     protected function loadInputData(): array
     {
-        $raw = Storage::disk('local')->get($this->path);
+        $raw = Storage::disk('r2')->get($this->path);
         $json = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         return $json['dsScheduleData'] ?? [];
     }
