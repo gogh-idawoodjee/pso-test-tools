@@ -74,7 +74,7 @@ class GetTechniciansListJob implements ShouldQueue
         $this->updateProgress(10);
         Log::info("📖 Reading JSON file for jobId={$this->jobId}");
 
-        $raw = Storage::disk('local')->get($this->path);
+        $raw = Storage::disk('r2')->get($this->path);
 
         $this->updateProgress(20);
         Log::info("🧠 Decoding JSON");

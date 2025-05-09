@@ -63,7 +63,7 @@ class TechnicianAvail extends Page
                 ->schema([
                     FileUpload::make('upload')
                         ->label('Upload JSON File')
-                        ->disk('local')
+                        ->disk('r2')
                         ->directory('uploads')
                         ->acceptedFileTypes(['application/json'])
                         ->required(fn() => empty($this->technicianShifts))
