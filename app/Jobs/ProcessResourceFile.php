@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+namespace App\Jobs;
+
 use App\Services\ResourceActivityFilterService;
 use App\Support\HasScopedCache;
 use App\Support\PreviewSummaryFormatter;
@@ -13,8 +15,10 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+
+// ← ensure you’re importing Log
 use JsonException;
-use Log;
 use Throwable;
 use ZipArchive;
 
@@ -23,7 +27,6 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected const int|float LARGE_FILE_THRESHOLD = 8 * 1024 * 1024; // 8MB
-
 
     public function __construct(
         public ?string $jobId,
@@ -41,66 +44,90 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
 
     public function handle(): void
     {
-        Log::info("🤖 Processing resource file with regionIds: ", $this->regionIds);
+        Log::info("[ProcessResourceFile][{$this->jobId}] 🚀 Job started", [
+            'path' => $this->path,
+            'regions' => $this->regionIds,
+            'dryRun' => $this->dryRun,
+            'startDate' => $this->startDate?->toDateString(),
+            'endDate' => $this->endDate?->toDateString(),
+        ]); // ← logging
 
         try {
             $this->updateStatus('processing');
-            // Initial progress - 5%
             $this->updateProgress(5);
 
-            // Load and process data - 10%
+            // --- LOAD INPUT ---
             $data = $this->loadInputData();
+            Log::info("[ProcessResourceFile][{$this->jobId}] 📂 Input loaded", [
+                'Region' => count($data['Region'] ?? []),
+                'Activity' => count($data['Activity'] ?? []),
+                'Resources' => count($data['Resources'] ?? []),
+                'Shifts' => count($data['Shifts'] ?? []),
+                'Shift_Breaks' => count($data['Shift_Breaks'] ?? []),
+            ]); // ← logging
             $this->updateProgress(10);
 
-            // Process data with filtering service (10% to 80%)
+            // --- PROCESS (FILTER) ---
             $result = $this->processData($data);
+            Log::info("[ProcessResourceFile][{$this->jobId}] 🔍 Filtering done", [
+                'resources_kept' => $result['summary']['resources']['kept'] ?? null,
+                'resources_skipped' => $result['summary']['resources']['skipped'] ?? null,
+                'shifts_kept' => $result['summary']['shifts']['kept'] ?? null,
+                'shifts_skipped' => $result['summary']['shifts']['skipped'] ?? null,
+            ]); // ← logging
 
-            // Cache available IDs - 85%
+            // --- CACHE IDS ---
             $this->cacheAvailableIds($data);
             $this->updateProgress(85);
 
-            // Format and cache preview - 90%
+            // --- PREVIEW ---
             $formatted = PreviewSummaryFormatter::format($result['summary']);
+            Log::debug("[ProcessResourceFile][{$this->jobId}] 👀 Preview summary", $formatted); // ← logging
             $this->updateCache('preview', $formatted);
             $this->updateProgress(90);
 
-            // Skip file creation for dry runs
             if ($this->dryRun) {
+                Log::info("[ProcessResourceFile][{$this->jobId}] 🛑 Dry run – skipping output"); // ← logging
                 $this->updateStatus('complete');
                 $this->updateProgress(100);
                 return;
             }
 
-            // Create output file - 95%
+            // --- OUTPUT FILE ---
             $this->createOutputFile($result['filtered']);
+            Log::info("[ProcessResourceFile][{$this->jobId}] 📤 Output created"); // ← logging
             $this->updateProgress(95);
 
-            // Schedule cleanup and complete - 100%
+            // --- CLEANUP ---
             $this->scheduleCleanup();
             $this->updateStatus('complete');
             $this->updateProgress(100);
 
+            Log::info("[ProcessResourceFile][{$this->jobId}] 🎉 Job finished"); // ← logging
+
         } catch (Throwable $e) {
-            Log::error("Job [{$this->jobId}] failed: " . $e->getMessage(), [
-                'exception' => $e,
-                'trace' => $e->getTraceAsString()
-            ]);
+            Log::error("[ProcessResourceFile][{$this->jobId}] ❌ Failed", [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]); // ← logging
             $this->updateStatus('failed');
         }
     }
 
-    /**
-     * @throws JsonException
-     */
+    /** @throws JsonException */
     protected function loadInputData(): array
     {
+        Log::debug("[ProcessResourceFile][{$this->jobId}] ⏳ Reading file from storage"); // ← logging
         $raw = Storage::disk('local')->get($this->path);
+        Log::debug("[ProcessResourceFile][{$this->jobId}] 🔢 Read bytes", ['bytes' => strlen($raw)]); // ← logging
+
         $json = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         return $json['dsScheduleData'] ?? [];
     }
 
     protected function processData(array $data): array
     {
+        Log::info("[ProcessResourceFile][{$this->jobId}] ⚙️ Invoking filter service"); // ← logging
         $service = new ResourceActivityFilterService(
             $data,
             $this->regionIds,
@@ -115,8 +142,10 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             80
         );
 
+        $result = $service->filter();
+        Log::info("[ProcessResourceFile][{$this->jobId}] ✅ Filter service returned"); // ← logging
 
-        return $service->filter();
+        return $result;
     }
 
     protected function cacheAvailableIds(array $data): void
