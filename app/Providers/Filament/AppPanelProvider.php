@@ -44,6 +44,7 @@ class AppPanelProvider extends PanelProvider
                 'primary' => Color::Violet,
                 'gray' => Color::Slate,
             ])
+            ->theme(asset('css/filament/app/theme.css'))
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([

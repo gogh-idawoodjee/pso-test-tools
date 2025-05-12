@@ -688,7 +688,7 @@ class ResourceActivityFilterService extends HasScopedCache
         ));
     }
 
-    
+
     protected function getInputReference(): array
     {
         $ref = $this->data['Input_Reference'] ?? [];
