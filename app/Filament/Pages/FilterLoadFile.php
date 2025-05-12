@@ -254,6 +254,13 @@ class FilterLoadFile extends Page
             return;
         }
 
+        Log::info('[FilterLoadFile] ▶️ submit() called', [
+            'dryRun'       => $this->dryRun,
+            'regionIds'    => $this->regionIds,
+            'startDate'    => $this->startDate,
+            'endDate'      => $this->endDate,
+        ]);
+
         // Emit event for immediate UI feedback
         $this->dispatch('processingStarted');
 
@@ -269,7 +276,9 @@ class FilterLoadFile extends Page
 
         // Get form data and dispatch job
         $data = $this->prepareJobData();
+        Log::debug('[FilterLoadFile] 📝 prepareJobData()', $data);
         $this->dispatchResourceJob($data);
+        Log::info('[FilterLoadFile] 🚀 dispatchResourceJob() done');
 
         // Notify the user
         $this->notifySuccess(
@@ -280,6 +289,7 @@ class FilterLoadFile extends Page
 
     public function updatedUpload(): void
     {
+        Log::debug('[FilterLoadFile] 📤 updatedUpload()', ['upload' => $this->upload]);
         $this->resetAvailableData();
     }
 
@@ -330,6 +340,7 @@ class FilterLoadFile extends Page
     private function dispatchResourceJob(array $data): void
     {
 
+        Log::info('[FilterLoadFile] 📮 dispatching ProcessResourceFile', $data);
 
         ProcessResourceFile::dispatch(
             $this->jobId,
@@ -362,6 +373,12 @@ class FilterLoadFile extends Page
         // Get job status data
         $this->progress = $this->getJobProgress();
         $this->status = $this->getJobStatus();
+
+        Log::info('[FilterLoadFile] 🔄 checkStatus()', [
+            'poll'     => $this->pollingCount,
+            'status'   => $this->status,
+            'progress' => $this->progress,
+        ]);
 
         // Force progress to 100% if status is complete
         if ($this->status === 'complete' && $this->progress < 100) {
@@ -426,7 +443,7 @@ class FilterLoadFile extends Page
         }
 
         // Cancel the job and clean up
-        $this->updateCache('status', 'cancelled');
+//        $this->updateCache('status', 'cancelled');
         $this->progress = 0;
         $this->status = 'cancelled';
         $this->jobId = null;
