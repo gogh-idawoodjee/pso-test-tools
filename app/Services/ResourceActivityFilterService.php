@@ -287,7 +287,9 @@ class ResourceActivityFilterService extends HasScopedCache
         }
 
         // Step 3: Filter shifts and related data for valid resources
-        $this->filterShiftsAndRelatedData();
+        if (!$this->startDate || !$this->endDate) {
+            $this->filterShiftsAndRelatedData();
+        }
 
         // Date filtering for resources and shifts
         if ($this->startDate && $this->endDate) {
@@ -378,10 +380,11 @@ class ResourceActivityFilterService extends HasScopedCache
 
         $this->filterShiftsInDateRange();
         $this->filterResourcesWithValidShifts();
-        $this->filterShiftBreaks();
-//        $this->filterResourceRelations();
-        $this->filterAvailability();
+        $this->reFilterShiftsByValidResources(); // 👈 cleanup shifts now that resource set shrank again
+        $this->filterShiftBreaks();              // 👈 must re-filter breaks using updated shift IDs
+        $this->filterAvailability();             // still valid here
     }
+
 
     protected function filterShiftsInDateRange(): void
     {
@@ -397,6 +400,18 @@ class ResourceActivityFilterService extends HasScopedCache
             ->values()
             ->toArray();
     }
+
+
+    protected function reFilterShiftsByValidResources(): void
+    {
+        $this->validShiftIds = collect($this->data['Shift'] ?? [])
+            ->filter(fn($shift) => in_array(data_get($shift, 'resource_id'), $this->validResourceIds))
+            ->pluck('id')
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
 
     protected function filterResourcesWithValidShifts(): void
     {
@@ -673,25 +688,7 @@ class ResourceActivityFilterService extends HasScopedCache
         ));
     }
 
-
-//    /**
-//     * Updates progress based on completed steps
-//     *
-//     * Increments the progress step counter and calculates percentage
-//     */
-//    protected function updateProgressStep(): void
-//    {
-//        if ($this->jobId) {
-//            $this->progressStep++;
-//
-//            // Calculate percentage based on completed steps (capped at 95%)
-//            // The final 5% is added when completely done
-//            $percent = min(95, (int)(($this->progressStep / $this->totalSteps) * 100));
-//            Log::info('ℹ️Filtering Progresss: ' . $percent . '%');
-//            Cache::put("resource-job:{$this->jobId}:progress", $percent);
-//        }
-//    }
-
+    
     protected function getInputReference(): array
     {
         $ref = $this->data['Input_Reference'] ?? [];
