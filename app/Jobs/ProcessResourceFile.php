@@ -112,7 +112,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
     protected function loadInputData(): array
     {
         Log::debug("[ProcessResourceFile][{$this->jobId}] ⏳ Reading file from storage"); // ← logging
-        $raw = Storage::disk('local')->get($this->path);
+        $raw = Storage::disk('r2')->get($this->path);
         Log::debug("[ProcessResourceFile][{$this->jobId}] 🔢 Read bytes", ['bytes' => strlen($raw)]); // ← logging
 
         $json = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
