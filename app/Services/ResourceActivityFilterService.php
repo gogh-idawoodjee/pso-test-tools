@@ -111,6 +111,7 @@ class ResourceActivityFilterService extends HasScopedCache
             'locations' => 0
         ];
 
+        activity()->event('Filter Service')->log('Filter service initialized');
         Log::info('🔢 Filter service initialized with progress range ' .
             "{$this->progressStart}%-{$this->progressEnd}%, item counts:",
             $this->itemCounts);
@@ -127,6 +128,15 @@ class ResourceActivityFilterService extends HasScopedCache
     public function filter(): array
     {
         // Log initial filter parameters
+        activity()->event('Filter Service')->log('Filter method called with parameters:' . json_encode([
+                'regionIds' => $this->regionIds,
+                'resourceIds' => $this->resourceIds,
+                'activityIds' => $this->activityIds,
+                'startDate' => $this->startDate ? $this->startDate->toIso8601String() : 'null',
+                'endDate' => $this->endDate ? $this->endDate->toIso8601String() : 'null',
+                'isDryRun' => $this->isDryRun,
+                'jobId' => $this->jobId
+            ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
         Log::info('🔍 Filter method called with parameters:', [
             'regionIds' => $this->regionIds,
             'resourceIds' => $this->resourceIds,
@@ -159,6 +169,8 @@ class ResourceActivityFilterService extends HasScopedCache
         }
 
         Log::info('🧪 Region filter activated?', ['regionIds' => $this->regionIds]);
+        activity()->event('Filter Service')->log('🧪 Region filter activated?' . json_encode(['regionIds' => $this->regionIds], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+        activity()->event('Filter Service')->log('🧪 Activity count BEFORE filter' . json_encode(['count' => count($this->data['Activity'] ?? [])], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
         Log::info('📦 Activity count BEFORE filter:', ['count' => count($this->data['Activity'] ?? [])]);
         Log::info('📦 Sample Activity:', $this->data['Activity'][0] ?? []);
         Log::info('📦 Sample Location:', $this->data['Location'][0] ?? []);
@@ -548,7 +560,7 @@ class ResourceActivityFilterService extends HasScopedCache
         // Mark locations as fully processed
         $this->updateProcessedItems('locations', $totalLocations);
 
-        Log::info('🧩 Matched Location IDs via Location_Region + Location:', $this->validLocationIds);
+        Log::info('🧩 Matched this many Location IDs via Location_Region + Location:', count($this->validLocationIds));
     }
 
     /**
@@ -618,7 +630,7 @@ class ResourceActivityFilterService extends HasScopedCache
         // Mark activities as fully processed
         $this->updateProcessedItems('activities', $totalActivities);
 
-        Log::info('🎯 Final valid activity IDs:', $this->validActivityIds);
+        Log::info('🎯 Final valid activity ID count:', count($this->validActivityIds));
     }
 
 

@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Forms;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
  * @method static SlotUsageRule create(array $attributes = [])
@@ -12,7 +14,7 @@ use Filament\Forms;
  */
 class AppointmentTemplate extends Model
 {
-
+    use LogsActivity;
 
     // Disable auto-incrementing (we're using UUIDs)
     public $incrementing = false;
@@ -36,5 +38,11 @@ class AppointmentTemplate extends Model
                 ->required(),
         ];
 
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+
+        return LogOptions::defaults();
     }
 }

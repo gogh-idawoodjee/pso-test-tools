@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Forms;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 
 /**
@@ -13,6 +15,8 @@ use Filament\Forms;
  */
 class SlotUsageRule extends Model
 {
+
+    use LogsActivity;
 
     // Tell Eloquent we're not using auto-incrementing IDs
     public $incrementing = false;
@@ -37,5 +41,11 @@ class SlotUsageRule extends Model
                 ->required(),
         ];
 
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+
+        return LogOptions::defaults();
     }
 }

@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Filament\Forms;
 use Override;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Task extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, LogsActivity;
 
     protected $casts = [
         'appt_window_finish' => 'datetime',
@@ -71,5 +73,11 @@ class Task extends Model
                 ->options(TaskStatus::class),
             Forms\Components\TextInput::make('duration')->required()->numeric(),
         ];
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+
+        return LogOptions::defaults();
     }
 }

@@ -12,10 +12,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 use Override;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 class Customer extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, LogsActivity;
 
 
     public $incrementing = false;
@@ -130,5 +132,11 @@ class Customer extends Model
                 $customer->slug = $slug;
             }
         });
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+
+        return LogOptions::defaults();
     }
 }

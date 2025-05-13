@@ -16,11 +16,13 @@ use Illuminate\Support\Facades\Crypt;
 
 use Illuminate\Support\Str;
 use Override;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 
 class Environment extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, LogsActivity;
 
     public $incrementing = false;
     protected $keyType = 'string';
@@ -136,5 +138,11 @@ class Environment extends Model
     public function datasets(): HasMany
     {
         return $this->hasMany(Dataset::class)->chaperone();
+    }
+
+    public function getActivitylogOptions(): LogOptions
+    {
+
+        return LogOptions::defaults();
     }
 }

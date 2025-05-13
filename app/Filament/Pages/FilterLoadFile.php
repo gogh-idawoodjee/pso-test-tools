@@ -240,6 +240,9 @@ class FilterLoadFile extends Page
         return filled($this->upload) && !empty($this->availableRegionIds);
     }
 
+    /**
+     * @throws \JsonException
+     */
     public function submit(): void
     {
         // Validate form state
@@ -254,11 +257,18 @@ class FilterLoadFile extends Page
             return;
         }
 
+        activity()->event('FilterLoadFile.submit')->log(json_encode([
+            'dryRun' => $this->dryRun,
+            'regionIds' => $this->regionIds,
+            'startDate' => $this->startDate,
+            'endDate' => $this->endDate,
+        ], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+
         Log::info('[FilterLoadFile] ▶️ submit() called', [
-            'dryRun'       => $this->dryRun,
-            'regionIds'    => $this->regionIds,
-            'startDate'    => $this->startDate,
-            'endDate'      => $this->endDate,
+            'dryRun' => $this->dryRun,
+            'regionIds' => $this->regionIds,
+            'startDate' => $this->startDate,
+            'endDate' => $this->endDate,
         ]);
 
         // Emit event for immediate UI feedback
@@ -342,6 +352,8 @@ class FilterLoadFile extends Page
 
         Log::info('[FilterLoadFile] 📮 dispatching ProcessResourceFile', $data);
 
+        activity()->event('FilterLoadFile.dispatch')->log('[FilterLoadFile] 📮 dispatching ProcessResourceFile' . json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+
         ProcessResourceFile::dispatch(
             $this->jobId,
             data_get($data, 'upload'),
@@ -375,8 +387,8 @@ class FilterLoadFile extends Page
         $this->status = $this->getJobStatus();
 
         Log::info('[FilterLoadFile] 🔄 checkStatus()', [
-            'poll'     => $this->pollingCount,
-            'status'   => $this->status,
+            'poll' => $this->pollingCount,
+            'status' => $this->status,
             'progress' => $this->progress,
         ]);
 
