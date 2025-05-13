@@ -6,6 +6,7 @@ use App\Support\HasScopedCache;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use JsonException;
 
 
 /**
@@ -124,6 +125,7 @@ class ResourceActivityFilterService extends HasScopedCache
      * and returns the filtered data with summary statistics
      *
      * @return array Contains 'filtered' data and 'summary' statistics
+     * @throws JsonException
      */
     public function filter(): array
     {
@@ -560,7 +562,7 @@ class ResourceActivityFilterService extends HasScopedCache
         // Mark locations as fully processed
         $this->updateProcessedItems('locations', $totalLocations);
 
-        Log::info('🧩 Matched this many Location IDs via Location_Region + Location:', count($this->validLocationIds));
+        Log::info('🧩 Matched this many Location IDs via Location_Region + Location:', [count($this->validLocationIds)]);
     }
 
     /**
@@ -630,7 +632,7 @@ class ResourceActivityFilterService extends HasScopedCache
         // Mark activities as fully processed
         $this->updateProcessedItems('activities', $totalActivities);
 
-        Log::info('🎯 Final valid activity ID count:', count($this->validActivityIds));
+        Log::info('🎯 Final valid activity ID count:', [count($this->validActivityIds)]);
     }
 
 
