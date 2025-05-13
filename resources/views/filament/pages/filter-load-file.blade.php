@@ -59,47 +59,35 @@
             </div>
         </div>
     </form>
-{{--        <div class="mt-8 space-y-6 border-s-2 border-gray-200 dark:border-gray-700 ps-6">--}}
-{{--            <div class="flex items-start gap-3">--}}
-{{--                <div class="w-4 h-4 mt-1 rounded-full bg-success-500 flex items-center justify-center">--}}
-{{--                    <x-heroicon-s-check class="w-3 h-3 text-white"/>--}}
-{{--                </div>--}}
-{{--                <div>--}}
-{{--                    <h4 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">Filtering Resources</h4>--}}
-{{--                    <p class="text-xs text-gray-600 dark:text-gray-400">Complete</p>--}}
-{{--                </div>--}}
-{{--            </div>--}}
+        @if ($jobId && !$dryRun && count($this->getProgressSteps()))
+        <div class="mt-8 space-y-6 border-s-2 border-gray-200 dark:border-gray-700 ps-6">
+            @foreach ($this->getProgressSteps() as $step)
+                <div class="flex items-start gap-3">
+                    @if ($step['status'] === 'complete')
+                        <div class="w-4 h-4 mt-1 rounded-full bg-success-500 flex items-center justify-center">
+                            <x-heroicon-s-check class="w-3 h-3 text-white"/>
+                        </div>
+                    @elseif ($step['status'] === 'in_progress')
+                        <div
+                            class="w-4 h-4 mt-1 rounded-full bg-warning-400 animate-pulse ring-2 ring-warning-300"></div>
+                    @else
+                        <div class="w-4 h-4 mt-1 rounded-full bg-neutral-500"></div>
+                    @endif
 
-{{--            <div class="flex items-start gap-3">--}}
-{{--                <div class="w-4 h-4 mt-1 rounded-full bg-success-500 flex items-center justify-center">--}}
-{{--                    <x-heroicon-s-check class="w-3 h-3 text-white"/>--}}
-{{--                </div>--}}
-{{--                <div>--}}
-{{--                    <h4 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">Filtering Shifts</h4>--}}
-{{--                    <p class="text-xs text-gray-600 dark:text-gray-400">Complete</p>--}}
-{{--                </div>--}}
-{{--            </div>--}}
-
-{{--            <div class="flex items-start gap-3">--}}
-{{--                <div class="w-4 h-4 mt-1 rounded-full bg-warning-400 animate-pulse ring-2 ring-warning-300"></div>--}}
-{{--                <div>--}}
-{{--                    <h4 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">Filtering Activities</h4>--}}
-{{--                    <p class="text-xs text-warning-600 dark:text-warning-400">In progress...</p>--}}
-{{--                </div>--}}
-{{--            </div>--}}
-
-{{--            <div class="flex items-start gap-3">--}}
-{{--                <div class="w-4 h-4 mt-1 rounded-full bg-neutral-500"></div>--}}
-{{--                <div>--}}
-{{--                    <h4 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">Filtering SLAs</h4>--}}
-{{--                    <p class="text-xs text-gray-600 dark:text-gray-400">Waiting</p>--}}
-{{--                </div>--}}
-{{--            </div>--}}
-{{--        </div>--}}
+                    <div>
+                        <h4 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">{{ $step['label'] }}</h4>
+                        <p class="text-xs
+                    {{ $step['status'] === 'in_progress' ? 'text-warning-600 dark:text-warning-400' : 'text-gray-600 dark:text-gray-400' }}">
+                            {{ $step['status'] === 'complete' ? 'Complete' : ($step['status'] === 'in_progress' ? 'In progress...' : 'Waiting') }}
+                        </p>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
 
 
-
-        {{--    <div class="flex items-center gap-2 mt-2">--}}
+    {{--    <div class="flex items-center gap-2 mt-2">--}}
     {{--        <p class="text-sm text-gray-500">Status: <span class="font-medium">{{ $status ?: 'Waiting' }}</span></p>--}}
     {{--        @if($progress > 0)--}}
     {{--            <span class="text-gray-300">|</span>--}}

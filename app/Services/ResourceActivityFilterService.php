@@ -127,6 +127,14 @@ class ResourceActivityFilterService extends HasScopedCache
      */
     public function filter(): array
     {
+
+
+        if ($this->jobId) {
+            cache()->forget("job:{$this->jobId}:steps");
+        }
+
+        $this->logStep('🚀 Started filtering process');
+
         // Log initial filter parameters
         activity()->event('Filter Service')->log('Filter method called with parameters:' . json_encode([
                 'regionIds' => $this->regionIds,
@@ -275,6 +283,7 @@ class ResourceActivityFilterService extends HasScopedCache
             Log::info('🌎 Applying region filters');
 
             // Step 1: Filter resources by region
+            $this->logStep('📍 Filtering regions');
             $this->filterResourcesByRegion();
             Log::info('👥 Resources filtered by region:', ['validResourceCount' => count($this->validResourceIds)]);
 
@@ -294,10 +303,13 @@ class ResourceActivityFilterService extends HasScopedCache
 
         // Step 2: Filter resources by specific resource IDs (optional)
         if (!empty($this->resourceIds)) {
+            $this->logStep('📍 Filtering resources');
             Log::info('👤 Filtering by specific resource IDs');
             $this->filterResourcesByIds();
         }
 
+
+        $this->logStep('📍 Filtering shifts');
         // Step 3: Filter shifts and related data for valid resources
         if (!$this->startDate || !$this->endDate) {
             $this->filterShiftsAndRelatedData();
@@ -313,6 +325,7 @@ class ResourceActivityFilterService extends HasScopedCache
         $this->filterAvailability();         // 👈 filters avails based on updated Resource_Region_Avail
 
         // Step 5: Filter activities and related data for valid locations
+        $this->logStep('📍 Filtering activities');
         $this->filterActivitiesAndRelatedData();
 
         // Assemble final dataset
@@ -347,7 +360,7 @@ class ResourceActivityFilterService extends HasScopedCache
             ->map(static fn($group) => $group->count())
             ->filter(static fn($count) => $count > 0)
             ->toArray();
-
+        $this->logStep('📦 Filter complete, returning summary + data');
         return $filtered;
     }
 
@@ -560,7 +573,7 @@ class ResourceActivityFilterService extends HasScopedCache
         // Mark locations as fully processed
         $this->updateProcessedItems('locations', $totalLocations);
 
-        Log::info('🧩 Matched this many Location IDs via Location_Region + Location:', count($this->validLocationIds));
+        Log::info('🧩 Matched this many Location IDs via Location_Region + Location:'. count($this->validLocationIds));
     }
 
     /**
@@ -630,7 +643,7 @@ class ResourceActivityFilterService extends HasScopedCache
         // Mark activities as fully processed
         $this->updateProcessedItems('activities', $totalActivities);
 
-        Log::info('🎯 Final valid activity ID count:', count($this->validActivityIds));
+        Log::info('🎯 Final valid activity ID count:'. count($this->validActivityIds));
     }
 
 
@@ -766,5 +779,21 @@ class ResourceActivityFilterService extends HasScopedCache
             }
         }
     }
+
+    protected function logStep(string $message): void
+    {
+        if (!$this->jobId) {
+            return;
+        }
+
+        $cacheKey = "job:{$this->jobId}:steps";
+        $steps = cache()->get($cacheKey, []);
+        $steps[] = [
+            'message' => $message,
+            'timestamp' => now()->toDateTimeString(),
+        ];
+        cache()->put($cacheKey, $steps, now()->addHours());
+    }
+
 
 }

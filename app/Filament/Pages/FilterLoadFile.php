@@ -16,6 +16,7 @@ use App\Jobs\ProcessResourceFile;
 use App\Traits\FilamentJobMonitoring;
 use Filament\Forms\Form;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Override;
 
@@ -522,4 +523,44 @@ class FilterLoadFile extends Page
 
         return $minutes . ':' . str_pad($remainingSeconds, 2, '0', STR_PAD_LEFT);
     }
+
+    public function getProgressSteps(): array
+    {
+        $stepDefinitions = [
+            'Filtering Regions'    => '📍 Filtering regions',
+            'Filtering Resources'  => '📍 Filtering resources',
+            'Filtering Shifts'     => '📍 Filtering shifts',
+            'Filtering Activities' => '📍 Filtering activities',
+            'Filtering SLAs'       => '📍 Filtering SLA rules',
+        ];
+
+        $logs = Cache::get("job:{$this->jobId}:steps", []);
+
+        $seenMessages = collect($logs)->pluck('message')->toArray();
+
+        $currentIndex = 0;
+        foreach (array_values($stepDefinitions) as $index => $needle) {
+            if (in_array($needle, $seenMessages)) {
+                $currentIndex = $index + 1;
+            } else {
+                break;
+            }
+        }
+
+        $result = [];
+        foreach ($stepDefinitions as $label => $needle) {
+            if (in_array($needle, $seenMessages)) {
+                $status = 'complete';
+            } elseif (array_values($stepDefinitions)[$currentIndex] === $needle) {
+                $status = 'in_progress';
+            } else {
+                $status = 'waiting';
+            }
+
+            $result[] = compact('label', 'status');
+        }
+
+        return $result;
+    }
+
 }
