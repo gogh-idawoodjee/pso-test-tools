@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
 
-    public $connection = 'shared_tokens';
+//    public $connection = 'shared_tokens';
 
     /**
      * Run the migrations.
