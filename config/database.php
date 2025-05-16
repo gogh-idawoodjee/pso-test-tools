@@ -62,6 +62,21 @@ return [
             ]) : [],
         ],
 
+        'shared_tokens' => [
+            'driver' => env('SHARED_DB_DRIVER', 'mysql'), // 👈 use env here
+            'host' => env('SHARED_DB_HOST', '127.0.0.1'),
+            'port' => env('SHARED_DB_PORT', '3306'),
+            'database' => env('SHARED_DB_DATABASE', 'your_api_db'),
+            'username' => env('SHARED_DB_USERNAME', 'your_api_user'),
+            'password' => env('SHARED_DB_PASSWORD', ''),
+            'charset' => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+            'prefix' => '',
+            'strict' => true,
+            'engine' => null,
+        ],
+
+
         'mariadb' => [
             'driver' => 'mariadb',
             'url' => env('DB_URL'),

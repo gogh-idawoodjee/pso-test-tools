@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\ExternalSanctumToken;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 use Spatie\Health\Checks\Checks\DebugModeCheck;
 use Spatie\Health\Checks\Checks\EnvironmentCheck;
 use Spatie\Health\Checks\Checks\OptimizedAppCheck;
@@ -35,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
     {
         //
         Model::unguard();
+        Sanctum::usePersonalAccessTokenModel(ExternalSanctumToken::class);
 
         if (app()->environment('production')) {
             URL::forceScheme('https');
