@@ -26,7 +26,7 @@ use Override;
 class EnvironmentTools extends Page
 {
 
-    use InteractsWithRecord, PSOInteractionsTrait;
+    use InteractsWithRecord, PSOInteractionsTrait, Forms\Concerns\InteractsWithForms;
 
     protected static string $resource = EnvironmentResource::class;
 
@@ -60,6 +60,8 @@ class EnvironmentTools extends Page
         $this->record = $this->resolveRecord($record);
         $this->setDefaults();
         $this->psoload->fill($this->record->toArray());
+        $this->json_form->fill();
+
 
     }
 
@@ -198,6 +200,7 @@ class EnvironmentTools extends Page
         if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload)) {
 
             $this->response = $this->sendToPSO($segment, $tokenized_payload, $method);
+
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('open-modal', id: 'show-json');
         }
@@ -241,7 +244,7 @@ class EnvironmentTools extends Page
             'keep_pso_data' => $data('keep_pso_data'),
             'account_id' => $data('account_id'),
             'appointment_window' => $data('appointment_window'),
-            'process_type' => $data('process_type'),
+            'process_type' => ProcessType::from($data('process_type')?->value ?? ProcessType::APPOINTMENT->value)->value,
             'datetime' => $data('datetime'),
             'input_mode' => $data('input_mode'),
         ];
