@@ -19,10 +19,10 @@ class TaskSeeder extends Seeder
         $endRange   = Carbon::now()->addMonth();   // one month from now
         $now = Carbon::now();
 
-        // Seed random number of tasks (1-15) per customer
+        // Seed random number of tasks (1-10) per customer
         Customer::all()->each(function (Customer $customer) use ($startRange, $endRange, $taskTypes, $now) {
-            // Generate a random number between 1 and 15
-            $numberOfTasks = random_int(1, 15);
+            // Generate a random number between 1 and 10
+            $numberOfTasks = random_int(1, 10);
 
             foreach (range(1, $numberOfTasks) as $ignored) {
                 // random timestamp between startRange and endRange
