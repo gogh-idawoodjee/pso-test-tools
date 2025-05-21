@@ -48,8 +48,7 @@ class GenerateCustomException extends Page
         $this->environments = Environment::with('datasets')->get();
         $this->PSOObjectTypes = PSOObjectRegistry::findByEntities(PSOEntities::eventEntities());
 
-        $this->exception_form->fill();
-        $this->env_form->fill();
+        $this->fillForms($this->getForms());
     }
 
 
@@ -63,6 +62,7 @@ class GenerateCustomException extends Page
                             ->label('Exception Generated For:')
                             ->options($this->PSOObjectTypes)
                             ->required()
+                            ->native(false)
                             ->reactive(), // Use reactive for live updates
 
                         TextInput::make('schedule_exception_type_id')
