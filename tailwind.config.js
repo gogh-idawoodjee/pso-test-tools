@@ -16,6 +16,7 @@ export default {
                 yellow: colors.yellow,
                 neutral: colors.neutral,
                 gray: colors.gray, // needed if using gray-600 etc.
+                purple: colors.purple,
             },
             fontFamily: {
                 sans: defaultTheme.fontFamily.sans,
@@ -29,5 +30,6 @@ export default {
         'text-yellow-600',
         'text-gray-600',
         'ring-yellow-300',
+
     ],
 }

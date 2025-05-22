@@ -26,7 +26,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use pxlrbt\FilamentEnvironmentIndicator\EnvironmentIndicatorPlugin;
 use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
 use ShuvroRoy\FilamentSpatieLaravelHealth\FilamentSpatieLaravelHealthPlugin;
-
+use Illuminate\Support\Facades\Vite;
 class AppPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
@@ -44,7 +44,7 @@ class AppPanelProvider extends PanelProvider
                 'primary' => Color::Violet,
                 'gray' => Color::Slate,
             ])
-            ->theme(asset('css/filament/app/theme.css'))
+            ->theme(Vite::asset('resources/css/filament/app/theme.css'))
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
