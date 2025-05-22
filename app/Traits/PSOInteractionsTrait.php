@@ -88,6 +88,107 @@ trait PSOInteractionsTrait
 
 
     /**
+     * Send a request to PSO API
+     *
+     * @param string $api_segment The API segment to call
+     * @param null $payload The payload for POST/PUT/PATCH requests
+     * @param array $headers Optional headers for the request
+     * @param HttpMethod|null $method The HTTP method to use (defaults to POST if payload provided, GET otherwise)
+     * @return string JSON encoded response
+     * @throws JsonException
+     *
+     *
+     *
+     * // GET request with headers (like the old sendToPSOGet)
+     * $result = $this->sendToPSO('some/endpoint', null, $headers, HttpMethod::GET);
+     * // Or more simply (since GET is default when no payload)
+     * $result = $this->sendToPSO('some/endpoint', null, $headers);
+     *
+     * // POST request with payload (like the old sendToPSO)
+     * $result = $this->sendToPSO('some/endpoint', $payload);
+     *
+     * // PUT request with payload
+     * $result = $this->sendToPSO('some/endpoint', $payload, [], HttpMethod::PUT);
+     *
+     *
+     *
+     */
+    public function sendToPSONew(
+        #[SensitiveParameter] $api_segment,
+                              $payload = null,
+        array                 $headers = [],
+        HttpMethod|null       $method = null,
+        null|bool             $isNonStandardResponse = false
+    )
+    {
+
+        $responseKey = 'data.payloadToPso';
+        $returnKey = 'input_payload';
+
+        if ($isNonStandardResponse) {
+            $responseKey = 'data';
+            $returnKey = 'data';
+        }
+
+        // Default method based on whether payload is provided
+        if ($method === null) {
+            $method = $payload === null ? HttpMethod::GET : HttpMethod::POST;
+        }
+
+        // Build the URL
+        $version = config('psott.pso-services-api-version') ? 'v2/' : '';
+        $url = 'https://' . config('psott.pso-services-api') . '/api/' . $version . $api_segment;
+
+        // Create HTTP request
+        $request = Http::contentType('application/json')
+            ->accept('application/json');
+
+        // Add headers if provided
+        if (!empty($headers)) {
+
+            // convert environment details to header format
+            $updatedHeaders = Arr::except(data_get($headers, 'environment'), ['sendToPso']);
+
+            $request = $request->withHeaders($updatedHeaders);
+        }
+
+        // Make the request with or without payload
+        if ($payload === null) {
+            $response = $request->{$method->value}($url);
+        } else {
+            $response = $request->{$method->value}($url, $payload);
+        }
+
+
+        // Handle response
+        $pass = $response->successful();
+
+        $body = 'sent to services API';
+        if ($response->unauthorized()) {
+            $body = 'invalid credentials';
+        } elseif ($response->failed()) {
+            $body = 'see the response below';
+        }
+
+        $this->notifyPayloadSent($pass ? 'Success' : 'Error', $body, $pass);
+
+        if ($pass) {
+            $decoded = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);
+            $payload = data_get($decoded, $responseKey);;
+
+            return json_encode(
+                [$returnKey => $payload],
+                JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+            );
+        }
+
+        return json_encode(
+            $response->body(),
+            JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+        );
+    }
+
+    /**
      * @throws JsonException
      */
     public function sendToPSO(#[SensitiveParameter] $api_segment, $payload, $method = HttpMethod::POST)
@@ -144,6 +245,7 @@ trait PSOInteractionsTrait
 
     public function prepareTokenizedPayload($send_to_pso, $payload)
     {
+
 
         $token = $send_to_pso ? $this->authenticatePSO(
             $this->selectedEnvironment->getAttribute('base_url'),
