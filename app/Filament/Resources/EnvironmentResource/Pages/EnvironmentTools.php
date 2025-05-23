@@ -84,11 +84,13 @@ class EnvironmentTools extends Page
                         Select::make('dataset_id')
                             ->label('Dataset')
                             ->required()
+                            ->native(false)
                             ->placeholder('Select Dataset')
                             ->options($this->record->datasets()->get()->pluck('name', 'name')->toArray()),
                         Select::make('input_mode')
                             ->dehydrated(false)
                             ->label('Input Mode')
+                            ->native(false)
                             ->required()
                             ->live()
                             ->enum(InputMode::class)
@@ -132,6 +134,7 @@ class EnvironmentTools extends Page
                                 ->label('DSE Duration')
                                 ->integer()
                                 ->minValue(3)
+                                ->visible(fn(Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->placeholder(3)
                                 ->prefixIcon('heroicon-o-cube-transparent'),
                             TextInput::make('appointment_window')
@@ -140,11 +143,15 @@ class EnvironmentTools extends Page
                                 ->integer()
                                 ->minValue(7)
                                 ->placeholder(7)
+                                ->visible(fn(Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->prefixIcon('heroicon-o-calendar-date-range'),
                             Select::make('process_type')
                                 ->enum(ProcessType::class)
-                                ->dehydrated(false)
+                                ->visible(fn(Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->options(ProcessType::class)
+                                ->live()
+                                ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+
                                 ->prefixIcon('heroicon-o-adjustments-horizontal'),
                             DateTimePicker::make('datetime')
                                 ->dehydrated(false)
@@ -161,7 +168,7 @@ class EnvironmentTools extends Page
                                     return $this->data['input_mode'] === InputMode::LOAD ? 'Load' : 'Update Rota';
                                 }),
 
-                            ])
+                            ])->columnSpan(2)
                         ])->columns()
                         ->icon('heroicon-o-arrow-up-on-square')
                         ->label('Initial Load and Rota'),
