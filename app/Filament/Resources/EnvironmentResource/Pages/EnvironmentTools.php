@@ -22,6 +22,7 @@ use Illuminate\Support\Arr;
 use Filament\Forms;
 use JsonException;
 use Override;
+use Filament\Forms\Components\Actions\Action as formAction;
 
 class EnvironmentTools extends Page
 {
@@ -72,6 +73,7 @@ class EnvironmentTools extends Page
         $this->record->appointment_window = 7;
         $this->record->process_type = ProcessType::APPOINTMENT;
         $this->record->datetime = Carbon::now();
+        $this->record->commit_url = 'https://' . config('psott.pso-services-api') . '/api/v2/commit/' . $this->record->id;
     }
 
     public function psoload(Form $form): Form
@@ -151,7 +153,6 @@ class EnvironmentTools extends Page
                                 ->options(ProcessType::class)
                                 ->live()
                                 ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
-
                                 ->prefixIcon('heroicon-o-adjustments-horizontal'),
                             DateTimePicker::make('datetime')
                                 ->dehydrated(false)
@@ -177,6 +178,49 @@ class EnvironmentTools extends Page
                         ->schema([])
                         ->icon('heroicon-o-cog')
                         ->label('System Usage'),
+                    Forms\Components\Tabs\Tab::make('services_tab')
+                        ->schema([
+                            TextInput::make('commit_url')
+                                ->label('Commit URL')
+                                ->disabled()
+                                ->suffixAction(
+                                    formAction::make('copy')
+                                        ->icon('heroicon-o-clipboard')
+                                        ->action(function ($livewire, $state) {
+                                            $livewire->dispatch('copy-to-clipboard', text: $state);
+                                        })
+                                )
+                                ->extraAttributes([
+                                    'x-data' => '{
+            copyToClipboard(text) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        $tooltip("Copied to clipboard", { timeout: 1500 });
+                    }).catch(() => {
+                        $tooltip("Failed to copy", { timeout: 1500 });
+                    });
+                } else {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+                    textArea.style.position = "fixed";
+                    textArea.style.opacity = "0";
+                    document.body.appendChild(textArea);
+                    textArea.select();
+                    try {
+                        document.execCommand("copy");
+                        $tooltip("Copied to clipboard", { timeout: 1500 });
+                    } catch (err) {
+                        $tooltip("Failed to copy", { timeout: 1500 });
+                    }
+                    document.body.removeChild(textArea);
+                }
+            }
+        }',
+                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
+                                ]),
+                        ])
+                        ->icon('heroicon-o-cog')
+                        ->label('Services'),
 
                 ])
 
