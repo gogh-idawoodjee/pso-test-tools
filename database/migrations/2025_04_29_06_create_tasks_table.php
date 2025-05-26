@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\TaskStatus;
+use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -27,6 +28,11 @@ return new class extends Migration {
             // Foreign keys (UUIDs)
             $table->foreignUuid('customer_id')
                 ->constrained('customers')
+                ->cascadeOnDelete();
+
+            // Foreign key to users.id (integer)
+            $table->foreignIdFor(User::class)
+                ->constrained()
                 ->cascadeOnDelete();
 
             $table->foreignUuid('task_type_id')

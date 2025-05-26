@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -14,9 +15,16 @@ return new class extends Migration {
             // Use UUID as primary key
             $table->uuid('id')->primary();
             $table->integer('priority');
+
             $table->integer('base_value');
             $table->integer('base_duration');
             $table->string('name');
+
+            // Foreign key to users.id (integer)
+            $table->foreignIdFor(User::class)
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->timestamps();
         });
     }

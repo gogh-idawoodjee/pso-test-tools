@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +15,11 @@ class CreateSlotUsageRulesTable extends Migration
         Schema::create('slot_usage_rules', static function (Blueprint $table) {
             // UUID primary key
             $table->string('id')->primary();
+
+            // Foreign key to users.id (integer)
+            $table->foreignIdFor(User::class)
+                ->constrained()
+                ->cascadeOnDelete();
 
             // Name of the rule
             $table->string('name');

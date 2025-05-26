@@ -27,6 +27,18 @@ class BaseSeeder extends Seeder
             'password' => Hash::make(env('MAIN_PASSWORD')),
         ]);
 
+        User::create([
+            'name' => 'kmoney',
+            'email' => 'kmoney@thetechnodro.me',
+            'password' => Hash::make(env('USER_PASSWORD')),
+        ]);
+
+        User::create([
+            'name' => 'jbernardo',
+            'email' => 'jbernardo@goghsolutions.com',
+            'password' => Hash::make(env('USER_PASSWORD')),
+        ]);
+
         Environment::create([
             'name' => 'The Drome',
             'id' => Uuid::uuid4()->toString(),
