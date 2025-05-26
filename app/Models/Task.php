@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TaskStatus;
+use App\Models\Scopes\UserOwnedModel;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,8 @@ class Task extends Model
 
     #[Override] protected static function booted(): void
     {
+
+        static::addGlobalScope(new UserOwnedModel());
         static::creating(static function (self $task) {
 
             if ($task->taskType) {
@@ -80,4 +83,10 @@ class Task extends Model
 
         return LogOptions::defaults();
     }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
 }

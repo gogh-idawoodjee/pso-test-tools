@@ -57,6 +57,15 @@ class User extends Authenticatable implements FilamentUser
 
     public function canAccessPanel(Panel $panel): bool
     {
-        return str_ends_with($this->email, '@mac.com'); //&& $this->hasVerifiedEmail();
+        $allowed = str_ends_with($this->email, '@mac.com')
+            || str_ends_with($this->email, '@goghsolutions.com')
+            || str_ends_with($this->email, '@thetechnodro.me');
+
+        if (!$allowed) {
+            logger()->warning('Blocked Filament login attempt', ['email' => $this->email]);
+        }
+
+        return $allowed; //&& $this->hasVerifiedEmail();
+
     }
 }

@@ -6,6 +6,7 @@ use App\Enums\Status;
 use App\Models\Customer;
 use App\Models\Region;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class CustomerSeeder extends Seeder
@@ -259,21 +260,30 @@ class CustomerSeeder extends Seeder
             ]
         ];
 
-        $regionIds = Region::pluck('id')->toArray();
+//        $regionIds = Region::pluck('id')->toArray();
 
-        foreach ($customers as $data) {
-            Customer::create([
-                'id' => Str::uuid()->toString(),
-                'name' => $data['name'],
-                'address' => $data['address'],
-                'city' => $data['city'],
-                'country' => 'Canada',
-                'postcode' => $data['postcode'],
-                'lat' => $data['lat'],
-                'long' => $data['long'],
-                'region_id' => null, // no region or optional random
-                'status' => collect(Status::cases())->random()->value,
-            ]);
+        // Define the user IDs you want to assign customers to
+        $userIds = [1, 2, 3];
+
+        foreach ($userIds as $userId) {
+            // Pick 5 random customers for this user
+            $selectedCustomers = Arr::random($customers, 5);
+
+            foreach ($selectedCustomers as $data) {
+                Customer::create([
+                    'id' => Str::uuid()->toString(),
+                    'user_id' => $userId,
+                    'name' => $data['name'],
+                    'address' => $data['address'],
+                    'city' => $data['city'],
+                    'country' => 'Canada',
+                    'postcode' => $data['postcode'],
+                    'lat' => $data['lat'],
+                    'long' => $data['long'],
+                    'region_id' => null, // no region or optional random
+                    'status' => Status::ACTIVE,
+                ]);
+            }
         }
     }
 }

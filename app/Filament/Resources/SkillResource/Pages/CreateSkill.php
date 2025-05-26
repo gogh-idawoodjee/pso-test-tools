@@ -2,11 +2,10 @@
 
 namespace App\Filament\Resources\SkillResource\Pages;
 
+use App\Filament\Resources\CreateUserOwnedResource;
 use App\Filament\Resources\SkillResource;
-use Filament\Actions;
-use Filament\Resources\Pages\CreateRecord;
 
-class CreateSkill extends CreateRecord
+class CreateSkill extends CreateUserOwnedResource
 {
     protected static string $resource = SkillResource::class;
 }

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Status;
+use App\Models\Scopes\UserOwnedModel;
 use App\Support\GeocodeHelper;
 use Filament\Forms;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -120,11 +121,13 @@ class Customer extends Model
 
     #[Override] protected static function booted(): void
     {
+        static::addGlobalScope(new UserOwnedModel());
         static::creating(static function ($customer) {
             if (empty($customer->slug)) {
                 $base = Str::slug($customer->name);
                 $slug = $base;
                 $i = 1;
+
                 while (static::where('slug', $slug)->exists()) {
                     $slug = "{$base}-{$i}";
                     $i++;
@@ -138,5 +141,10 @@ class Customer extends Model
     {
 
         return LogOptions::defaults();
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

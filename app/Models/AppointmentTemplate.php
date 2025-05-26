@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\UserOwnedModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Forms;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -27,6 +30,17 @@ class AppointmentTemplate extends Model
         'id',
         'name',
     ];
+
+    #[Override] protected static function booted(): void
+    {
+
+        static::addGlobalScope(new UserOwnedModel());
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public static function getForm(): array
     {

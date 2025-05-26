@@ -43,6 +43,8 @@ return new class extends Migration
 
             $table->string('status');
             $table->timestamps();
+            $table->index('region_id');
+            $table->index('user_id');
         });
     }
 

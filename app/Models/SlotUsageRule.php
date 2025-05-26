@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Scopes\UserOwnedModel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Filament\Forms;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
@@ -48,4 +51,17 @@ class SlotUsageRule extends Model
 
         return LogOptions::defaults();
     }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+
+    #[Override] protected static function booted(): void
+    {
+        static::addGlobalScope(new UserOwnedModel());
+    }
+
+
 }

@@ -2,11 +2,10 @@
 
 namespace App\Filament\Resources\TaskResource\Pages;
 
+use App\Filament\Resources\CreateUserOwnedResource;
 use App\Filament\Resources\TaskResource;
-use Filament\Actions;
-use Filament\Resources\Pages\CreateRecord;
 
-class CreateTask extends CreateRecord
+class CreateTask extends CreateUserOwnedResource
 {
     protected static string $resource = TaskResource::class;
 }

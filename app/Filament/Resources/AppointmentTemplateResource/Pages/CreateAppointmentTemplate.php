@@ -3,10 +3,9 @@
 namespace App\Filament\Resources\AppointmentTemplateResource\Pages;
 
 use App\Filament\Resources\AppointmentTemplateResource;
-use Filament\Actions;
-use Filament\Resources\Pages\CreateRecord;
+use App\Filament\Resources\CreateUserOwnedResource;
 
-class CreateAppointmentTemplate extends CreateRecord
+class CreateAppointmentTemplate extends CreateUserOwnedResource
 {
     protected static string $resource = AppointmentTemplateResource::class;
 }

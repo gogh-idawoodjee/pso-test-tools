@@ -2,11 +2,10 @@
 
 namespace App\Filament\Resources\RegionResource\Pages;
 
+use App\Filament\Resources\CreateUserOwnedResource;
 use App\Filament\Resources\RegionResource;
-use Filament\Actions;
-use Filament\Resources\Pages\CreateRecord;
 
-class CreateRegion extends CreateRecord
+class CreateRegion extends CreateUserOwnedResource
 {
     protected static string $resource = RegionResource::class;
 }

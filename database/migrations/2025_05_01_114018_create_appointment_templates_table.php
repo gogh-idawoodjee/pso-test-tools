@@ -13,17 +13,18 @@ class CreateAppointmentTemplatesTable extends Migration
     public function up(): void
     {
         Schema::create('appointment_templates', static function (Blueprint $table) {
-            // UUID primary key
-            $table->string('id')->primary();
+            $table->uuid('id')->primary(); // Clean UUID primary key
+            $table->string('template_id'); // Logical ID like 'INSTALL', 'REPAIR'
 
-            // Foreign key to users.id (integer)
             $table->foreignIdFor(User::class)
                 ->constrained()
                 ->cascadeOnDelete();
 
-            // Name column
             $table->string('name');
             $table->timestamps();
+
+// Prevent duplicate template IDs per user
+            $table->unique(['template_id', 'user_id']);
         });
     }
 

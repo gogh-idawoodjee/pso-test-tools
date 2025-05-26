@@ -42,15 +42,19 @@ class TaskTypeSeeder extends Seeder
                 'base_value' => 4000,
             ],
         ];
+        $userIds = [1, 2, 3]; // Your user IDs
 
-        foreach ($types as $type) {
-            TaskType::create([
-                'id' => Str::uuid()->toString(),
-                'name' => $type['name'],
-                'priority' => $type['priority'],
-                'base_duration' => $type['base_duration'],
-                'base_value' => $type['base_value'],
-            ]);
+        foreach ($userIds as $userId) {
+            foreach ($types as $type) {
+                TaskType::create([
+                    'id' => Str::uuid()->toString(),
+                    'name' => $type['name'],
+                    'priority' => $type['priority'],
+                    'base_duration' => $type['base_duration'],
+                    'base_value' => $type['base_value'],
+                    'user_id' => $userId,
+                ]);
+            }
         }
     }
 }

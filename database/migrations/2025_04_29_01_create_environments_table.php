@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('base_url');
             $table->string('description')->nullable();
             $table->string('name');
-            $table->string('slug')->unique();
+            $table->string('slug');
 
             $table->longText('password');
             $table->string('username');

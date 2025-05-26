@@ -18,11 +18,16 @@ class RegionSeeder extends Seeder
             'Capital Region',
         ];
 
-        foreach ($regions as $name) {
-            Region::create([
-                'id'   => Str::uuid()->toString(),
-                'name' => $name,
-            ]);
+        $userIds = [1, 2, 3]; // Your user IDs
+
+        foreach ($userIds as $userId) {
+            foreach ($regions as $name) {
+                Region::create([
+                    'id'      => Str::uuid()->toString(),
+                    'name'    => $name,
+                    'user_id' => $userId,
+                ]);
+            }
         }
     }
 }

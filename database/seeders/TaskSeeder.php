@@ -19,12 +19,9 @@ class TaskSeeder extends Seeder
         $endRange   = Carbon::now()->addMonth();   // one month from now
         $now = Carbon::now();
 
-        // Seed random number of tasks (1-10) per customer
         Customer::all()->each(function (Customer $customer) use ($startRange, $endRange, $taskTypes, $now) {
-            // Generate a random number between 1 and 10
-            $numberOfTasks = random_int(1, 10);
-
-            foreach (range(1, $numberOfTasks) as $ignored) {
+            // Just 2 tasks per customer
+            foreach (range(1, 2) as $ignored) {
                 // random timestamp between startRange and endRange
                 $timestamp = random_int($startRange->timestamp, $endRange->timestamp);
                 $taskDate = Carbon::createFromTimestamp($timestamp, 'America/Toronto');
@@ -45,10 +42,8 @@ class TaskSeeder extends Seeder
 
                 // Determine status based on date
                 if ($start->lt($now)) {
-                    // Past tasks should have end state statuses
                     $status = collect(TaskStatus::endStateStatuses())->random()->value;
                 } else {
-                    // Future tasks can have any status
                     $status = collect(TaskStatus::cases())->random()->value;
                 }
 
@@ -56,6 +51,7 @@ class TaskSeeder extends Seeder
                     'id'                  => Str::uuid()->toString(),
                     'friendly_id'         => $friendlyId,
                     'customer_id'         => $customer->id,
+                    'user_id'             => $customer->user_id,  // <-- added user_id here
                     'task_type_id'        => $taskType->id,
                     'appt_window_start'   => $start,
                     'appt_window_finish'  => $finish,
@@ -64,4 +60,5 @@ class TaskSeeder extends Seeder
             }
         });
     }
+
 }
