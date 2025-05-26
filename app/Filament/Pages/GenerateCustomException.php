@@ -73,7 +73,7 @@ class GenerateCustomException extends Page
                             ->required(),
 
                         // Resource ID field visible when 'object_type_id' is 'Resource'
-                        TextInput::make('resource_id')
+                        TextInput::make('resourceId')
                             ->label('Resource ID')
                             ->visible(fn(callable $get) => $get('object_type_id') === 'resource')
                             ->required(fn(callable $get) => $get('object_type_id') === 'resource')
@@ -120,10 +120,10 @@ class GenerateCustomException extends Page
 
         $payload = $this->buildPayload(
             required: [
-                $object_id . '_id' => $object_value,
+                $object_id . 'Id' => $object_value,
                 'label' => $this->exception_data['label'],
                 'value' => $this->exception_data['value'],
-                'schedule_exception_type_id' => $this->exception_data['schedule_exception_type_id'],
+                'exceptionTypeId' => $this->exception_data['schedule_exception_type_id'],
             ],
         );
 
