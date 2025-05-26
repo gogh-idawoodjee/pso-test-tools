@@ -18,7 +18,7 @@ return new class extends Migration
 
             $table->string('name');
             // new slug column, unique and right after name
-            $table->string('slug')->unique();
+            $table->string('slug');
 
             $table->string('address');
             $table->string('city');
