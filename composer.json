@@ -31,7 +31,8 @@
         "spatie/laravel-activitylog": "^4.10",
         "tempest/highlight": "^2.11",
         "vinkla/hashids": "^13.0",
-        "z3d0x/filament-logger": "^0.8.0"
+        "z3d0x/filament-logger": "^0.8.0",
+        "ext-openssl": "*"
     },
     "require-dev": {
         "roave/security-advisories": "dev-latest",
