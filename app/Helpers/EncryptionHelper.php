@@ -44,7 +44,7 @@ class EncryptionHelper
 
     private static function getKey(): string
     {
-        $secret = config('encryption.custom_key', 'fallback-default-key');
+        $secret = config('psott.custom_key', 'fallback-default-key');
         return hash('sha256', $secret, true); // 32-byte key
     }
 }
