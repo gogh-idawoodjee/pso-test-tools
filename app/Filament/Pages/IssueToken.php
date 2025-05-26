@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Traits\AdminViewable;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Filament\Forms;
@@ -11,6 +12,9 @@ use App\Models\User;
 
 class IssueToken extends Page
 {
+
+    use AdminViewable;
+
     protected static ?string $navigationIcon = 'heroicon-o-key';
     protected static string $view = 'filament.pages.issue-token';
 

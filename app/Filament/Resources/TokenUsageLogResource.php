@@ -6,6 +6,7 @@ use App\Filament\Resources\TokenUsageLogResource\Pages;
 
 use App\Models\TokenUsageLog;
 
+use App\Traits\AdminViewable;
 use Exception;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -15,6 +16,8 @@ use Filament\Tables\Table;
 
 class TokenUsageLogResource extends Resource
 {
+
+    use AdminViewable;
     protected static ?string $model = TokenUsageLog::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';

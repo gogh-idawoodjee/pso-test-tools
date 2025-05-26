@@ -291,7 +291,7 @@ trait PSOInteractionsTrait
                 PrettyJsonField::make('json_response_pretty')
                     ->label('Response from Services')
                     ->copyable()
-                    ->copyMessage('Your JSON is copied to the clipboard')
+                    ->copyMessage('JSON copied to the clipboard')
                     ->copyMessageDuration(1500),
 
             ])->statePath('json_form_data');
