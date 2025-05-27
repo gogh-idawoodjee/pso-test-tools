@@ -121,18 +121,20 @@ class ResourceEvent extends PSOResourceBasePage
 
         $payload = $this->buildPayload(
             required: [
-                'resource_id' => $this->resource_data['resource_id'],
-                'event_type' => $this->resource_data['event_type'],
+                'resourceId' => $this->resource_data['resource_id'],
+                'eventType' => $this->resource_data['event_type'],
             ],
             optional: [
-                'event_date_time' => $this->resource_data['event_date_time'] ?? null,
+                'eventDateTime' => $this->resource_data['event_date_time'] ?? null,
                 'lat' => $this->resource_data['latitude'] ?? null,
                 'long' => $this->resource_data['longitude'] ?? null,
             ]
         );
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
+
             $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/event', $tokenized_payload);
+            $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('open-modal', id: 'show-json');
         }
 
