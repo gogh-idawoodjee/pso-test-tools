@@ -35,8 +35,7 @@ abstract class PSOResourceBasePage extends Page
     {
 
         $this->environments = Environment::with('datasets')->get();
-        $this->env_form->fill();
-        $this->resource_form->fill();
+        $this->fillForms($this->getForms());
 
     }
 

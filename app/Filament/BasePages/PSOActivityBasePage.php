@@ -39,8 +39,7 @@ abstract class PSOActivityBasePage extends Page
     {
         $this->environments = Environment::with('datasets')->get();
 
-        $this->env_form->fill();
-        $this->activity_form->fill();
+       $this->fillForms($this->getForms());
     }
 
 
