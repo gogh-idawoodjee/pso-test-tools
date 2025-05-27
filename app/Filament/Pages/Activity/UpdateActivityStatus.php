@@ -6,6 +6,7 @@ use App\Enums\HttpMethod;
 use App\Enums\TaskStatus;
 use App\Filament\BasePages\PSOActivityBasePage;
 
+use App\Traits\FormTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -18,6 +19,7 @@ use JsonException;
 
 class UpdateActivityStatus extends PSOActivityBasePage
 {
+
 
 
 // View
@@ -91,11 +93,12 @@ class UpdateActivityStatus extends PSOActivityBasePage
         // validate
         $this->validateForms($this->getForms());
 
-        $status = TaskStatus::from($this->activity_data['status'])->ishServicesValue();
-
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->TaskStatusPayload())) {
-            $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/' . $status, $tokenized_payload, HttpMethod::PATCH);
+
+            $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/status', $tokenized_payload, HttpMethod::PATCH);
+            $this->json_form_data['json_response_pretty'] = $this->response;
+
             $this->dispatch('open-modal', id: 'show-json');
         }
 
@@ -107,11 +110,12 @@ class UpdateActivityStatus extends PSOActivityBasePage
 
         $payload = $this->buildPayload(
             required: [
-                'resource_id' => $this->activity_data['resource_id'],
-                'activity_id' => $this->activity_data['activity_id'],
+                'resourceId' => $this->activity_data['resource_id'],
+                'activityId' => $this->activity_data['activity_id'],
+                'status' => $this->activity_data['status'],
             ],
             optional: [
-                'date_time_fixed' => filled($this->activity_data['datetimefixed'])
+                'dateTimeFixed' => filled($this->activity_data['datetimefixed'])
                     ? Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i')
                     : null,
             ]
