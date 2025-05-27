@@ -39,8 +39,7 @@ abstract class ModellingBasePage extends Page
     {
         $this->environments = Environment::with('datasets')->get();
 
-        $this->env_form->fill();
-        $this->modelling_form->fill();
+        $this->fillForms($this->getForms());
     }
 
 
