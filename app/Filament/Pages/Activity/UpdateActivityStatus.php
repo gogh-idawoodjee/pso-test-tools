@@ -5,8 +5,6 @@ namespace App\Filament\Pages\Activity;
 use App\Enums\HttpMethod;
 use App\Enums\TaskStatus;
 use App\Filament\BasePages\PSOActivityBasePage;
-
-use App\Traits\FormTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -19,9 +17,7 @@ use JsonException;
 
 class UpdateActivityStatus extends PSOActivityBasePage
 {
-
-
-
+    // todo add duration property as optional
 // View
     protected static string $view = 'filament.pages.activity-update-status';
 
@@ -71,7 +67,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
 //                                return $get('status') < 29;
 //                            }),
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('update_status')
-                            ->action(function (Forms\Get $get, Forms\Set $set) {
+                            ->action(function () {
                                 $this->updateTaskStatus();
 
                             })
@@ -89,26 +85,20 @@ class UpdateActivityStatus extends PSOActivityBasePage
     public function updateTaskStatus(): void
     {
         $this->response = null;
-
-        // validate
         $this->validateForms($this->getForms());
 
-
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->TaskStatusPayload())) {
-
             $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/status', $tokenized_payload, HttpMethod::PATCH);
             $this->json_form_data['json_response_pretty'] = $this->response;
-
             $this->dispatch('open-modal', id: 'show-json');
         }
 
     }
 
-
     private function TaskStatusPayload(): array
     {
 
-        $payload = $this->buildPayload(
+        return $this->buildPayload(
             required: [
                 'resourceId' => $this->activity_data['resource_id'],
                 'activityId' => $this->activity_data['activity_id'],
@@ -120,7 +110,5 @@ class UpdateActivityStatus extends PSOActivityBasePage
                     : null,
             ]
         );
-
-        return $payload;
     }
 }
