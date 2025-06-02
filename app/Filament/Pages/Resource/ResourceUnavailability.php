@@ -87,20 +87,21 @@ class ResourceUnavailability extends PSOResourceBasePage
 
         $payload = $this->buildPayload(
             required: [
-                'resource_id' => $this->resource_data['resource_id'],
+                'resourceId' => $this->resource_data['resource_id'],
                 'duration' => $this->resource_data['duration'],
-                'category_id' => $this->resource_data['category_id'],
-                'base_time' => $this->resource_data['base_time'],
+                'categoryId' => $this->resource_data['category_id'],
+                'baseDateTime' => $this->resource_data['base_time'],
             ],
             optional: [
-                'time_zone' => $this->resource_data['time_zone'] ?? null,
+                'timeZone' => $this->resource_data['time_zone'] ?? null,
                 'description' => $this->resource_data['description'] ?? null,
             ]
         );
 
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
-            $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/unavailability', $tokenized_payload);
+            $this->response = $this->sendToPSO('resource/unavailability', $tokenized_payload);
+            $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('open-modal', id: 'show-json');
         }
 

@@ -63,8 +63,8 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                             )->addActionLabel('Add another unavailability')
                             ->reorderable(false),
 
-                        Actions::make([Actions\Action::make('generate_event')
-                            ->label('Generate Event')
+                        Actions::make([Actions\Action::make('update_unavailability')
+                            ->label('Update Unavailabilities')
                             ->action(function () {
                                 $this->updateUnavailability();
                             })
@@ -87,7 +87,7 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
         $payload =
 
             $this->buildPayload(
-                required: [], // todo see where the unavail ID is, I don't see it
+                required: ['unavailability' => $this->resource_data['unavailability_id']], // todo see where the unavail ID is, I don't see it
                 optional: ['time_zone' => $this->resource_data['time_zone'] ?? null,
                     'description' => $this->resource_data['description'] ?? null,
                     'duration' => $this->resource_data['duration'] ?? null,
