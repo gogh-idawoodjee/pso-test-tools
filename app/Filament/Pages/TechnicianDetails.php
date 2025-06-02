@@ -3,30 +3,32 @@
 namespace App\Filament\Pages;
 
 use App\Enums\HttpMethod;
-use App\Models\Environment;
-use App\Traits\FormTrait;
-
+use App\Filament\BasePages\PSOResourceBasePage;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Forms\Set;
-use Filament\Pages\Page;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
 use JsonException;
 use Override;
 
-class TechnicianDetails extends Page
+class TechnicianDetails extends PSOResourceBasePage
 {
 
-    use InteractsWithForms, FormTrait;
 
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
+    // Page Information
+    protected static ?string $title = 'Technician Details';
+    protected static ?string $slug = 'resource-details';
+
+
     protected static string $view = 'filament.pages.technician-details';
-    protected static ?string $navigationGroup = 'Additional Tools';
+
+    public bool $isAuthenticationRequired = true;
+
     public ?array $technician_list_data = [];
     public ?array $technician_list = [];
     public ?array $technician_details = [];
@@ -38,12 +40,6 @@ class TechnicianDetails extends Page
         return ['env_form', 'json_form', 'technicianListForm'];
     }
 
-    public function mount(): void
-    {
-        $this->environments = Environment::with('datasets')->get();
-        $this->isAuthenticationRequired = true;
-        $this->fillForms($this->getForms());
-    }
 
     public function technicianListForm(Form $form): Form
     {
