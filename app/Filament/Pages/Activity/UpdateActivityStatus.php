@@ -66,12 +66,17 @@ class UpdateActivityStatus extends PSOActivityBasePage
 //                            ->hidden(static function (Get $get) {
 //                                return $get('status') < 29;
 //                            }),
+                        TextInput::make('duration')
+                            ->label('Duration (minutes)')
+                            ->prefixIcon('heroicon-o-clock')
+                            ->numeric()
+                            ->minValue(0),
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('update_status')
                             ->action(function () {
                                 $this->updateTaskStatus();
 
                             })
-                        ]),
+                        ])->columnSpan(2),
 
                     ])
                     ->columns(),
@@ -86,6 +91,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
     {
         $this->response = null;
         $this->validateForms($this->getForms());
+
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->TaskStatusPayload())) {
             $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/status', $tokenized_payload, HttpMethod::PATCH);
@@ -108,6 +114,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
                 'dateTimeFixed' => filled($this->activity_data['datetimefixed'])
                     ? Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i')
                     : null,
+                'duration' => $this->activity_data['duration'],
             ]
         );
     }
