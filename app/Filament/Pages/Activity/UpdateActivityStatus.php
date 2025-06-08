@@ -96,6 +96,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->TaskStatusPayload())) {
             $this->response = $this->sendToPSO('activity/' . $this->activity_data['activity_id'] . '/status', $tokenized_payload, HttpMethod::PATCH);
             $this->json_form_data['json_response_pretty'] = $this->response;
+            $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');
         }
 

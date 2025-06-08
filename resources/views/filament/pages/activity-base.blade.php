@@ -8,6 +8,7 @@
             $prettyJson = $this->json_form_data['json_response_pretty'];
             $jsonElementId = 'jsonContent-' . uniqid('', true);
         @endphp
+
         <div
             x-data="{ copied: false }"
             class="group relative rounded-lg ring-1 ring-gray-300 dark:ring-gray-700 overflow-hidden"
@@ -48,13 +49,8 @@
 
             {{-- JSON Output --}}
             <pre
-                class="overflow-x-auto p-4 pr-24 m-0
-                    bg-gray-50 text-gray-900
-                    dark:bg-gray-900 dark:text-gray-100
-                    font-mono text-sm rounded-lg
-                    border border-gray-200 dark:border-gray-700"
-            ><code id="{{ $jsonElementId }}" class="language-json">{{ $prettyJson }}</code>
-            </pre>
+                class="overflow-x-auto p-4 pr-24 m-0 font-mono text-sm rounded-lg"
+            ><code id="{{ $jsonElementId }}" class="language-json">{{ $prettyJson }}</code></pre>
         </div>
     </x-filament::modal>
 
