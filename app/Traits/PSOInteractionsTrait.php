@@ -122,6 +122,7 @@ trait PSOInteractionsTrait
     )
     {
 
+        // TODO refactor all sendToPso calls to use this method instead
         $responseKey = 'data.payloadToPso';
         $returnKey = 'input_payload';
 
@@ -174,7 +175,7 @@ trait PSOInteractionsTrait
 
         if ($pass) {
             $decoded = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);
-            $payload = data_get($decoded, $responseKey);;
+            $payload = data_get($decoded, $responseKey);
 
             return json_encode(
                 [$returnKey => $payload],
@@ -233,7 +234,8 @@ trait PSOInteractionsTrait
 
             $payload = data_get($decoded, 'data.payloadToPso');
 
-            return json_encode(['input_payload' => $payload], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+//            return json_encode(['input_payload' => $payload], JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            return json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 
         }
 
@@ -284,8 +286,13 @@ trait PSOInteractionsTrait
             ->send();
     }
 
+    /**
+     * @deprecated since version 2.1.0, use newMethod() instead
+     */
     protected function json_form(Form $form): Form
     {
+
+        trigger_error('Method ' . __METHOD__ . ' is deprecated. Use newMethod() instead.', E_USER_DEPRECATED);
         return $form
             ->schema([
                 PrettyJsonField::make('json_response_pretty')
