@@ -37,27 +37,28 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                             ->live()
                             ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         DateTimePicker::make('base_time')
+                            ->prefixIcon('heroicon-o-calendar-days') // Calendar for datetime
                             ->label('Base Date/Time'),
                         TextInput::make('duration')
-                            ->prefixIcon('heroicon-s-arrows-up-down')
+                            ->prefixIcon('heroicon-o-clock') // Time duration
                             ->minValue(1)
                             ->maxValue(24)
                             ->numeric()
                             ->live(),
                         TextInput::make('time_zone')
                             ->label('Time Zone Offset')
-                            ->prefixIcon('heroicon-s-arrows-up-down')
+                            ->prefixIcon('heroicon-o-globe-alt') // Globe for timezone
                             ->minValue(-24)
                             ->maxValue(24)
                             ->numeric()
                             ->live(),
                         TextInput::make('description')
-                            ->prefixIcon('heroicon-s-map'),
+                            ->prefixIcon('heroicon-s-document-text'),
                         Repeater::make('unavailabiltiies')
                             ->simple(
                                 TextInput::make('unavailability_id')
                                     ->label('Unavailability ID')
-                                    ->prefixIcon('heroicon-s-arrows-up-down')
+                                    ->prefixIcon('heroicon-o-no-symbol') // Unavailability/blocked
                                     ->required(),
 
                             )->addActionLabel('Add another unavailability')
@@ -65,6 +66,7 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
 
                         Actions::make([Actions\Action::make('update_unavailability')
                             ->label('Update Unavailabilities')
+                            ->icon('heroicon-o-arrow-path') // Update/refresh
                             ->action(function () {
                                 $this->updateUnavailability();
                             })

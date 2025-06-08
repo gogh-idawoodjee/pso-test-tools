@@ -43,7 +43,7 @@ class ResourceEvent extends PSOResourceBasePage
                 Section::make('Resource Event')
                     ->schema([
                         TextInput::make('resource_id')
-                            ->prefixIcon('heroicon-o-clipboard')
+                            ->prefixIcon('heroicon-o-user')
                             ->label('Resource ID')
                             ->required()
                             ->live()

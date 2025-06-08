@@ -40,13 +40,14 @@ class GenerateActivities extends PSOActivityBasePage
                             ->label('Details')
                             ->schema([
                                 TextInput::make('activity_type_id')
-                                    ->prefixIcon('heroicon-o-pencil-square')
+                                    ->prefixIcon('heroicon-o-tag') // Better for type/category
                                     ->label('Activity Type ID')
                                     ->required()
                                     ->live()
                                     ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                                 TextInput::make('sla_type_id')
                                     ->label('SLA Type ID')
+                                    ->prefixIcon('heroicon-o-shield-check') // SLA = service level agreement
                                     ->required()
                                     ->validationMessages(['required' => "SLA Type ID is required"])
                                     ->live()
@@ -54,6 +55,7 @@ class GenerateActivities extends PSOActivityBasePage
                                 TextInput::make('base_value')
                                     ->label('Base Value')
                                     ->required()
+                                    ->prefixIcon('heroicon-o-calculator') // Numeric value/calculation
                                     ->minValue(1000)
                                     ->default(3000)
                                     ->step(1)
@@ -61,6 +63,7 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->live(),
                                 TextInput::make('duration')
                                     ->label('Duration')
+                                    ->prefixIcon('heroicon-o-clock') // Time duration
                                     ->required()
                                     ->helperText('in minutes')
                                     ->minValue(10)
@@ -71,6 +74,7 @@ class GenerateActivities extends PSOActivityBasePage
                                 TextInput::make('priority')
                                     ->label('Priority')
                                     ->minValue(1)
+                                    ->prefixIcon('heroicon-o-exclamation-triangle') // Priority/importance
                                     ->required()
                                     ->default(1)
                                     ->step(1)
@@ -78,6 +82,7 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->live(),
                                 TextInput::make('time_zone')
                                     ->label('Time Zone Offset from UTC')
+                                    ->prefixIcon('heroicon-o-globe-alt') // Globe for timezone
                                     ->minValue(-24)
                                     ->maxValue(24)
                                     ->step(1)
@@ -98,12 +103,14 @@ class GenerateActivities extends PSOActivityBasePage
                             ->schema([
                                 TextInput::make('relative_day')
                                     ->label('Relative Day Start')
+                                    ->prefixIcon('heroicon-o-calendar-days') // Calendar for day
                                     ->minValue(0)
                                     ->step(1)
                                     ->numeric()
                                     ->live(),
                                 TextInput::make('relative_day_end')
                                     ->label('Relative Day End')
+                                    ->prefixIcon('heroicon-o-calendar-days') // Calendar for day
                                     ->minValue(0)
                                     ->step(1)
                                     ->numeric()
@@ -111,6 +118,7 @@ class GenerateActivities extends PSOActivityBasePage
 
                                 Forms\Components\Select::make('window_size')
                                     ->label('Appointment Window Size')
+                                    ->prefixIcon('heroicon-o-window') // Window/time slot
                                     ->options([0 => 'All Day', 3 => '3 Hour', 4 => '4 Hour'])
                                     ->live(),
                             ])->columns(3),
@@ -148,13 +156,16 @@ class GenerateActivities extends PSOActivityBasePage
                             ->label('Optional')
                             ->schema([
                                 TextInput::make('activity_id')
+                                    ->prefixIcon('heroicon-o-hashtag') // ID field
                                     ->helperText('will be a UUID if not included'),
                                 Forms\Components\Repeater::make('skills')
                                     ->simple(
                                         TextInput::make('skills')
+                                            ->prefixIcon('heroicon-o-cog-6-tooth') // Skills/capabilities
                                     )->addActionLabel('Add Skill')->defaultItems(0),
                                 Forms\Components\Repeater::make('regions')
-                                    ->simple(TextInput::make('region'))->addActionLabel('Add Region')->defaultItems(0),
+                                    ->simple(TextInput::make('region')->prefixIcon('heroicon-o-map') // Geographic regions
+                                    )->addActionLabel('Add Region')->defaultItems(0),
 
                             ])->columns(3),
 

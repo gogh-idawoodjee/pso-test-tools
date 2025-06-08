@@ -36,7 +36,7 @@ class DeleteActivities extends PSOActivityBasePage
                         Forms\Components\Repeater::make('activities')
                             ->simple(
                                 TextInput::make('activity_id')
-                                    ->prefixIcon('heroicon-o-clipboard')
+                                    ->prefixIcon('heroicon-o-hashtag') // Good for ID/reference numbers
                                     ->label('Activity ID')
                                     ->required()
                                     ->live()

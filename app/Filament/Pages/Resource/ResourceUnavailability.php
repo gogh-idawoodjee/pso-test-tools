@@ -29,7 +29,7 @@ class ResourceUnavailability extends PSOResourceBasePage
                 Section::make('Resource Unavailability')
                     ->schema([
                         TextInput::make('resource_id')
-                            ->prefixIcon('heroicon-o-clipboard')
+                            ->prefixIcon('heroicon-o-user')
                             ->label('Resource ID')
                             ->required()
                             ->live()
@@ -60,7 +60,7 @@ class ResourceUnavailability extends PSOResourceBasePage
                             ->numeric()
                             ->live(),
                         TextInput::make('description')
-                            ->prefixIcon('heroicon-s-map'),
+                            ->prefixIcon('heroicon-s-document-text'),
 
 
                         Actions::make([Actions\Action::make('generate_event')

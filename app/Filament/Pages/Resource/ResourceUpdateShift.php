@@ -32,26 +32,30 @@ class ResourceUpdateShift extends PSOResourceBasePage
                 Section::make('Shift Details')
                     ->schema([
                         TextInput::make('resource_id')
-                            ->prefixIcon('heroicon-o-clipboard')
+                            ->prefixIcon('heroicon-o-user')
                             ->label('Resource ID')
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         TextInput::make('shift_id')
-                            ->prefixIcon('heroicon-o-clipboard')
+                            ->prefixIcon('heroicon-o-hashtag') // Good for ID/reference numbers
                             ->label('Shift ID')
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         TextInput::make('shift_type')
-                            ->prefixIcon('heroicon-o-clipboard')
+                            ->prefixIcon('heroicon-o-tag') // Better than clipboard for "type"
                             ->label('Shift Type')
                             ->live()
                             ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         DateTimePicker::make('start_datetime')
-                            ->label('Start Date/Time'),
+                            ->label('Start Date/Time')
+                            ->prefixIcon('heroicon-o-play') // Start/begin
+                        ,
                         DateTimePicker::make('end_datetime')
-                            ->label('End Date/Time'),
+                            ->label('End Date/Time')
+                            ->prefixIcon('heroicon-o-stop') // End/finish
+                        ,
                         Toggle::make('turn_manual_scheduling_on')
                             ->label('Manual Scheduling Only')
                             ->inline(false)
@@ -60,6 +64,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
 
                         Actions::make([Actions\Action::make('update_shift')
                             ->label('Update Shift')
+                            ->icon('heroicon-o-arrow-path') // Refresh/update icon
                             ->action(function () {
                                 $this->updateShift();
 
