@@ -6,3 +6,29 @@
 
 
 @config 'tailwind.config.js';
+
+/* Force Highlight.js styles */
+.hljs {
+    background: #0d1117 !important;
+    color: #e6edf3 !important;
+}
+
+.hljs-string {
+    color: #a5d6ff !important;
+}
+
+.hljs-number {
+    color: #79c0ff !important;
+}
+
+.hljs-literal {
+    color: #79c0ff !important;
+}
+
+.hljs-attr {
+    color: #7ee787 !important;
+}
+
+.hljs-punctuation {
+    color: #e6edf3 !important;
+}

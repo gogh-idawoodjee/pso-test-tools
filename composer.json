@@ -10,6 +10,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.4",
+        "ext-openssl": "*",
         "ext-zip": "*",
         "cheesegrits/filament-google-maps": "^3.0",
         "filament/filament": "^3.3",
@@ -29,10 +30,8 @@
         "shuvroroy/filament-spatie-laravel-health": "^2.3",
         "spatie/geocoder": "^3.16",
         "spatie/laravel-activitylog": "^4.10",
-        "tempest/highlight": "^2.11",
         "vinkla/hashids": "^13.0",
-        "z3d0x/filament-logger": "^0.8.0",
-        "ext-openssl": "*"
+        "z3d0x/filament-logger": "^0.8.0"
     },
     "require-dev": {
         "roave/security-advisories": "dev-latest",
