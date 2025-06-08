@@ -185,6 +185,7 @@ class GenericDelete extends Page
 
             $this->response = $this->sendToPSO('delete', $tokenized_payload, HttpMethod::DELETE);
             $this->json_form_data['json_response_pretty'] = $this->response;
+            $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');
         }
 

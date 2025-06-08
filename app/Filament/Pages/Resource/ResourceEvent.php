@@ -135,6 +135,7 @@ class ResourceEvent extends PSOResourceBasePage
 
             $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/event', $tokenized_payload);
             $this->json_form_data['json_response_pretty'] = $this->response;
+            $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');
         }
 

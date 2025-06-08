@@ -109,6 +109,8 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSO('unavailability/' . $this->resource_data['resource_id'] . '/unavailability', $tokenized_payload);
+            $this->dispatch('json-updated'); // Add this line
+            // todo this method is not complete
             $this->dispatch('open-modal', id: 'show-json');
         }
 
