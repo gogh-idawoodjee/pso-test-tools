@@ -101,20 +101,36 @@ class EnvironmentTools extends Page
 
                     ]),
                 Section::make('Environment Properties')
+                    ->description('These properties are for use with these tools when sending to PSO. Please click Return to environment above to update properties.')
                     ->icon('heroicon-o-circle-stack')
                     ->collapsible()
                     ->collapsed()
                     ->columns()
                     ->schema([
                         TextInput::make('base_url')
-                            ->label('Base URL'),
+                            ->label('Base URL')
+                            ->prefixIcon('heroicon-o-globe-alt')
+                            ->disabled(static function (Get $get) {
+                                return !$get('send_to_pso');
+                            }),
                         TextInput::make('account_id')
-                            ->label('Account ID'),
+                            ->label('Account ID')
+                            ->prefixIcon('heroicon-o-identification') // ID card icon
+                            ->disabled(static function (Get $get) {
+                                return !$get('send_to_pso');
+                            }),
                         TextInput::make('username')
-                            ->label('Username'),
+                            ->label('Username')
+                            ->prefixIcon('heroicon-o-user') // User icon
+                            ->disabled(static function (Get $get) {
+                                return !$get('send_to_pso');
+                            }),
                         TextInput::make('password')
                             ->label('Password')
-                            ->password(),
+                            ->prefixIcon('heroicon-o-lock-closed') // Lock icon
+                            ->password()->disabled(static function (Get $get) {
+                                return !$get('send_to_pso');
+                            }),
                     ]),
                 Forms\Components\Tabs::make('activity_tabs')->tabs([
                     Forms\Components\Tabs\Tab::make('load_rota_tab')
@@ -128,6 +144,7 @@ class EnvironmentTools extends Page
                                 ->dehydrated(false)
                                 ->label('Keep PSO Data')
                                 ->requiredIf('send_to_pso', true)
+                                ->visible(fn(Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->disabled(static function (Get $get) {
                                     return !$get('send_to_pso');
                                 }),
@@ -181,7 +198,8 @@ class EnvironmentTools extends Page
                     Forms\Components\Tabs\Tab::make('services_tab')
                         ->schema([
                             TextInput::make('commit_url')
-                                ->label('Commit URL')
+                                ->label('Commit Broadcast URL (SDS)')
+                                ->hint('Ask for  more details')
                                 ->disabled()
                                 ->suffixAction(
                                     formAction::make('copy')

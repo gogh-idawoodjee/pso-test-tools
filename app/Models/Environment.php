@@ -108,15 +108,19 @@ class Environment extends Model
                         ->required(),
                     Forms\Components\TextInput::make('account_id')
                         ->label('Account ID')
+                        ->prefixIcon('heroicon-o-identification') // ID card icon
                         ->helperText('Typically Default for On Prem')
                         ->required(),
                     Forms\Components\Fieldset::make('Credentials')
                         ->label('Credentials')
                         ->columns()
                         ->schema([Forms\Components\TextInput::make('username')
-                            ->required()->autocomplete(false),
+                            ->required()
+                            ->prefixIcon('heroicon-o-user') // User icon
+                            ->autocomplete(false),
                             Forms\Components\TextInput::make('password')
                                 ->password()
+                                ->prefixIcon('heroicon-o-lock-closed') // Lock icon
                                 ->dehydrateStateUsing(fn(string $state): string => Crypt::encryptString($state))
                                 ->dehydrated(static fn(?string $state): bool => filled($state))
                                 ->autocomplete(false)
