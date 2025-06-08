@@ -39,7 +39,7 @@ class ResourceEvent extends PSOResourceBasePage
 
         return $form
             ->schema([
-                // todo update API to make this a multi
+
                 Section::make('Resource Event')
                     ->schema([
                         TextInput::make('resource_id')

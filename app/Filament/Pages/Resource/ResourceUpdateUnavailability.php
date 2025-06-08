@@ -87,7 +87,7 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
         $payload =
 
             $this->buildPayload(
-                required: ['unavailability' => $this->resource_data['unavailability_id']], // todo see where the unavail ID is, I don't see it
+                required: ['unavailability' => $this->resource_data['unavailability_id']],
                 optional: ['time_zone' => $this->resource_data['time_zone'] ?? null,
                     'description' => $this->resource_data['description'] ?? null,
                     'duration' => $this->resource_data['duration'] ?? null,
