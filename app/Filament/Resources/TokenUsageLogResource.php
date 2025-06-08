@@ -18,11 +18,13 @@ class TokenUsageLogResource extends Resource
 {
 
     use AdminViewable;
+
     protected static ?string $model = TokenUsageLog::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-
+    protected static ?string $navigationGroup = 'Core';
+    
 
     public static function form(Form $form): Form
     {

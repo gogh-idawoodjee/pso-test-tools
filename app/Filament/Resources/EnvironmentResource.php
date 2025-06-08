@@ -18,6 +18,9 @@ class EnvironmentResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-circle-stack';
     protected static ?string $activeNavigationIcon = 'heroicon-s-circle-stack';
+    protected static ?string $navigationGroup = 'Base Data';
+    protected static ?int $navigationSort = 1;
+
 
     protected static ?string $navigationBadgeTooltip = 'The number of configured environments';
 
