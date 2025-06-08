@@ -122,7 +122,6 @@ trait PSOInteractionsTrait
     )
     {
 
-        // TODO refactor all sendToPso calls to use this method instead
         $responseKey = 'data.payloadToPso';
         $returnKey = 'input_payload';
 
