@@ -114,11 +114,11 @@ trait PSOInteractionsTrait
      *
      */
     public function sendToPSONew(
-        #[SensitiveParameter] $api_segment,
-                              $payload = null,
-        array                 $headers = [],
-        HttpMethod|null       $method = null,
-        null|bool             $isNonStandardResponse = false
+        #[SensitiveParameter] string $api_segment,
+                                     $payload = null,
+        array                        $headers = [],
+        HttpMethod|null              $method = null,
+        null|bool                    $isNonStandardResponse = false
     )
     {
 
@@ -189,11 +189,16 @@ trait PSOInteractionsTrait
         );
     }
 
+
     /**
      * @throws JsonException
+     * @deprecated use sendToPSONew instead
+     *
      */
-    public function sendToPSO(#[SensitiveParameter] $api_segment, $payload, $method = HttpMethod::POST)
+    public function sendToPSO(#[SensitiveParameter] $api_segment, $payload, $method = HttpMethod::POST): false|string
     {
+
+        trigger_error('Method ' . __METHOD__ . ' is deprecated. Use sendToPSONew instead', E_USER_DEPRECATED);
 
         // todo have to do some magic if this is appointment booking
 
@@ -287,12 +292,12 @@ trait PSOInteractionsTrait
     }
 
     /**
-     * @deprecated since version 2.1.0, use newMethod() instead
+     * @deprecated no alternative required
      */
     protected function json_form(Form $form): Form
     {
 
-        trigger_error('Method ' . __METHOD__ . ' is deprecated. Use newMethod() instead.', E_USER_DEPRECATED);
+        trigger_error('Method ' . __METHOD__ . ' is deprecated.', E_USER_DEPRECATED);
         return $form
             ->schema([
                 PrettyJsonField::make('json_response_pretty')
