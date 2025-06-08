@@ -13,4 +13,5 @@ class ARPResource extends ModellingBasePage
     protected static ?string $navigationLabel = 'Generate Resources';
     protected static ?string $title = 'Generate Resources';
     protected static ?string $slug = 'arp-resources';
+    // todo complete this resource
 }
