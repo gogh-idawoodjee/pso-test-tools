@@ -180,7 +180,7 @@ class GenerateActivities extends PSOActivityBasePage
 
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->generateActivitiesPayload())) {
-            $this->response = $this->sendToPSO('activity', $tokenized_payload);
+            $this->response = $this->sendToPSONew('activity', $tokenized_payload);
             // todo this method is not complete
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');

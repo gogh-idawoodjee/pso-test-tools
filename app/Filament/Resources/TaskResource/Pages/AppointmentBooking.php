@@ -329,7 +329,7 @@ class AppointmentBooking extends Page
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
-            $this->response = $this->sendToPSO('appointment', $tokenized_payload);
+            $this->response = $this->sendToPSONew('appointment', $tokenized_payload);
 
             if (!empty($this->response['data']['appointment_offers']['valid_offers'] ?? [])) {
                 $this->countdownExpiresAt = now()->addMinutes(3)->toIso8601String(); // DO NOT USE ->format(), do not force UTC

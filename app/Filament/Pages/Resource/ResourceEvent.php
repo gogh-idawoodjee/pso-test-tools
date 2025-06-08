@@ -91,7 +91,7 @@ class ResourceEvent extends PSOResourceBasePage
                                     ->suffixAction(
                                         Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
-                                            ->action(function (Get $get, Set $set) {
+                                            ->action(static function (Get $get, Set $set) {
                                                 GeocodeHelper::geocodeFormAddress($get, $set);
 
                                             }))
@@ -133,7 +133,7 @@ class ResourceEvent extends PSOResourceBasePage
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
-            $this->response = $this->sendToPSO('resource/' . $this->resource_data['resource_id'] . '/event', $tokenized_payload);
+            $this->response = $this->sendToPSONew('resource/' . $this->resource_data['resource_id'] . '/event', $tokenized_payload);
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');

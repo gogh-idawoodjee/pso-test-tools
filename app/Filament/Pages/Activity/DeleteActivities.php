@@ -26,7 +26,6 @@ class DeleteActivities extends PSOActivityBasePage
     protected static string $view = 'filament.pages.activity-delete-activities';
 
 
-
     public function activity_form(Form $form): Form
     {
         return $form
@@ -76,7 +75,7 @@ class DeleteActivities extends PSOActivityBasePage
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
-            $this->response = $this->sendToPSO('activity', $tokenized_payload, HttpMethod::DELETE);
+            $this->response = $this->sendToPSONew('activity', $tokenized_payload, [], HttpMethod::DELETE);
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');

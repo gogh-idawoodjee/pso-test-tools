@@ -130,7 +130,7 @@ class GenerateCustomException extends Page
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
-            $this->response = $this->sendToPSO('exception', $tokenized_payload);
+            $this->response = $this->sendToPSONew('exception', $tokenized_payload,[]);
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');

@@ -268,7 +268,7 @@ class EnvironmentTools extends Page
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload)) {
 
-            $this->response = $this->sendToPSO($segment, $tokenized_payload, $method);
+            $this->response = $this->sendToPSONew($segment, $tokenized_payload, [], $method);
 
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated'); // Add this line
