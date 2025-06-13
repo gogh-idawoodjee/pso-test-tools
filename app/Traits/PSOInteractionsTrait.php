@@ -249,16 +249,28 @@ trait PSOInteractionsTrait
 
     }
 
-    public function prepareTokenizedPayload($send_to_pso, $payload)
+    public function prepareTokenizedPayload($send_to_pso, $payload, $environmentProperties = [])
     {
 
 
-        $token = $send_to_pso ? $this->authenticatePSO(
-            $this->selectedEnvironment->getAttribute('base_url'),
-            $this->selectedEnvironment->getAttribute('account_id'),
-            $this->selectedEnvironment->getAttribute('username'),
-            Crypt::decryptString($this->selectedEnvironment->getAttribute('password'))
-        ) : null;
+        if ($send_to_pso) {
+
+            $props = $environmentProperties ?: [
+                'base_url'  => $this->selectedEnvironment->getAttribute('base_url'),
+                'account_id'=> $this->selectedEnvironment->getAttribute('account_id'),
+                'username'  => $this->selectedEnvironment->getAttribute('username'),
+                'password'  => $this->selectedEnvironment->getAttribute('password'),
+            ];
+
+            $token = $this->authenticatePSO(
+                data_get($props, 'base_url'),
+                data_get($props, 'account_id'),
+                data_get($props, 'username'),
+                Crypt::decryptString(data_get($props, 'password'))
+            );
+        } else {
+            $token = null;
+        }
 
 
         if ($send_to_pso && !$token) {
