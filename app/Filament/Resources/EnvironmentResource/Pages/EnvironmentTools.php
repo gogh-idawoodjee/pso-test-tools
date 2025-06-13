@@ -46,7 +46,7 @@ class EnvironmentTools extends Page
 
             Action::make('Return to Environment')
                 ->icon('heroicon-o-arrow-uturn-left')
-                ->url('/environments/' . $this->record->getKey() . '/edit')
+                ->url('/environments/' . $this->record->getRouteKey() . '/edit')
 
         ];
     }
@@ -266,9 +266,17 @@ class EnvironmentTools extends Page
         $payload = $this->buildPayLoad($data);
 
 
-        if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload)) {
+        $environmentProperties = [
+            'base_url' => $data('base_url'),
+            'account_id' => $data('account_id'),
+            'username' => $data('username'),
+            'password' => $data('password'),
+        ];
 
-            $this->response = $this->sendToPSONew($segment, $tokenized_payload, [], $method);
+
+        if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload, $environmentProperties)) {
+
+            $this->response = $this->sendToPSONew($segment, $tokenized_payload, [], $method, true);
 
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated'); // Add this line
@@ -276,29 +284,6 @@ class EnvironmentTools extends Page
         }
 
 
-        // old process
-//        $token = $sendToPso
-//            ? $this->authenticatePSO(
-//                data_get($this->data, 'base_url'),
-//                data_get($this->data, 'account_id'),
-//                data_get($this->data, 'username'),
-//                Crypt::decryptString(data_get($this->data, 'password'))
-//            )
-//            : null;
-//
-//        if ($sendToPso && !$token) {
-//            $this->notifyPayloadSent('Send to PSO Failed', 'Please see the event log (when it is actually completed)', false);
-//            return false;
-//        }
-//
-//        $payload = $this->buildPayLoad($data);
-//
-//        if ($token) {
-//            $payload = Arr::add($payload, 'token', $token);
-//        }
-//
-//        $this->response = $this->sendToPSO($segment, $payload, $method);
-//        $this->dispatch('open-modal', id: 'show-json');
     }
 
 
