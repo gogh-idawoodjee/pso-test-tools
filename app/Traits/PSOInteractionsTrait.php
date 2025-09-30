@@ -262,6 +262,7 @@ trait PSOInteractionsTrait
                 'password'  => $this->selectedEnvironment->getAttribute('password'),
             ];
 
+
             $token = $this->authenticatePSO(
                 data_get($props, 'base_url'),
                 data_get($props, 'account_id'),
@@ -284,6 +285,7 @@ trait PSOInteractionsTrait
             $payload = Arr::add($payload, 'environment.token', $token);
 
         }
+
 
         return $payload; // will either return a payload or false
 

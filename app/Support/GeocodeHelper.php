@@ -23,11 +23,14 @@ class GeocodeHelper
     public static function geocodeFormAddress(
         Get $get,
         Set $set,
-        string $latPath = 'latitude',
-        string $longPath = 'longitude',
-        string $addressPath = 'address',
+        string|null $latPath = null,
+        string|null $longPath = null,
+        string|null $addressPath = null,
         bool $usesFullAddressAsPath = false
     ): void {
+        $addressPath ??= 'address';
+        $longPath ??= 'longitude';
+        $latPath ??= 'latitude';
         $address = $usesFullAddressAsPath ? $addressPath : $get($addressPath);
 
         if (!$address) {
