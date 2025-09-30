@@ -143,17 +143,24 @@ class GenericDelete extends Page
      */
     public function delete_object(): void
     {
-
         $this->response = null;
         $this->validateForms($this->getForms());
 
         $objectAttributes = collect($this->selectedPSOObject['attributes'])
             ->mapWithKeys(function ($attribute, $index) {
                 $i = $index + 1;
+                $value = $this->deletion_data["object_pk{$i}"] ?? null;
+
+                // Handle different types
+                $processedValue = match($attribute['type']) {
+                    'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+                    'int', 'integer' => (int)$value,
+                    default => empty($value) ? 'false' : (string)$value,
+                };
 
                 return [
                     'objectPkName' . $i => $attribute['name'],
-                    'objectPk' . $i => $this->getPkValueAsString($i),
+                    'objectPk' . $i => $processedValue,
                 ];
             })
             ->toArray();
@@ -169,26 +176,12 @@ class GenericDelete extends Page
 
         Log::info(json_encode($payload, JSON_PRETTY_PRINT));
 
-//        dd($payload);
-
-//        $payload = array_merge(collect($this->selectedPSOObject['attributes'])->mapWithKeys(function ($attribute, $index) {
-//            return [
-//                'object_pk_name' . ($index + 1) => $attribute['name'],
-//                'object_pk' . ($index + 1) => $this->getPkValueAsString($index + 1)
-//            ];
-//        })->toArray(),
-//            $this->environnment_payload_data(), ['object_type' => $this->selectedPSOObject['entity']]
-//        );
-
-
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
-
             $this->response = $this->sendToPSONew('delete', $tokenized_payload, [], HttpMethod::DELETE);
             $this->json_form_data['json_response_pretty'] = $this->response;
-            $this->dispatch('json-updated'); // Add this line
+            $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
         }
-
     }
 
 }
