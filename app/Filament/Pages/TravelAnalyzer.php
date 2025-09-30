@@ -6,7 +6,6 @@ namespace App\Filament\Pages;
 use App\Models\Environment;
 use App\Support\GeocodeHelper;
 use App\Traits\FormTrait;
-use App\Traits\PSOInteractionsTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
@@ -19,7 +18,7 @@ use JsonException;
 class TravelAnalyzer extends Page
 {
 
-    use InteractsWithForms, FormTrait, PSOInteractionsTrait;
+    use InteractsWithForms, FormTrait;
 
     protected static ?string $navigationIcon = 'heroicon-o-map';
     protected static ?string $navigationGroup = 'API Services';
@@ -34,10 +33,8 @@ class TravelAnalyzer extends Page
 
     public function mount(): void
     {
-
         $this->environments = Environment::with('datasets')->get();
         $this->env_form->fill();
-
     }
 
 
@@ -81,9 +78,15 @@ class TravelAnalyzer extends Page
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(static function (Forms\Get $get, Forms\Set $set) {
-                                                GeocodeHelper::geocodeFormAddress($get, $set, 'lat_from', 'long_from', 'address_from');
-
-                                            }))
+                                                GeocodeHelper::geocodeFormAddress(
+                                                    $get,
+                                                    $set,
+                                                    'lat_from',
+                                                    'long_from',
+                                                    'address_from'
+                                                );
+                                            })
+                                    )
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),
                         Forms\Components\Fieldset::make('to_details')
@@ -113,9 +116,15 @@ class TravelAnalyzer extends Page
                                         Forms\Components\Actions\Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(static function (Forms\Get $get, Forms\Set $set) {
-                                                GeocodeHelper::geocodeFormAddress($get, $set, 'lat_to', 'long_to', 'address_to');
-
-                                            }))
+                                                GeocodeHelper::geocodeFormAddress(
+                                                    $get,
+                                                    $set,
+                                                    'lat_to',
+                                                    'long_to',
+                                                    'address_to'
+                                                );
+                                            })
+                                    )
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),
 
@@ -135,26 +144,29 @@ class TravelAnalyzer extends Page
      */
     public function dotheThing($get): void
     {
-
         $this->response = null;
         $this->validateForms($this->getForms());
 
-        $payload = array_merge($this->environnment_payload_data(),
+        $payload = array_merge(
+            $this->environnment_payload_data(),
             [
-                'lat_to' => $get('lat_to'),
-                'lat_from' => $get('lat_from'),
-                'long_from' => $get('long_from'),
-                'long_to' => $get('long_to'),
-                'send_to_pso' => $this->environment_data['send_to_pso'],
-                'google_api_key' => config('psott.google_api_key'),
-            ]);
+                'data' => [
+                    'latTo' => $get('lat_to'),
+                    'latFrom' => $get('lat_from'),
+                    'longFrom' => $get('long_from'),
+                    'longTo' => $get('long_to'),
+                    'sendToPso' => $this->environment_data['send_to_pso'],
+                    'googleApiKey' => config('psott.google_api_key'),
+                ]
+            ]
+        );
 
 
-        if ($this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
-            $this->response = $this->sendToPSONew('travelanalyzer', $payload);
+        if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
+            $this->response = $this->sendToPSONew('travelanalyzer', $tokenized_payload);
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');
+            // todo this isn't very helpful because we have asynchronous calls
         }
-
     }
 }
