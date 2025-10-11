@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-
 use App\Models\Environment;
 use App\Support\GeocodeHelper;
 use App\Traits\FormTrait;
@@ -12,24 +11,27 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
+use Illuminate\Support\Facades\Http;
 use JsonException;
-
 
 class TravelAnalyzer extends Page
 {
-
     use InteractsWithForms, FormTrait;
 
     protected static ?string $navigationIcon = 'heroicon-o-map';
     protected static ?string $navigationGroup = 'API Services';
 
     public ?array $data = [];
+    public ?string $resultsUrl = null;
+    public ?array $travelResults = null;
+    public bool $isPolling = false;
+    public string $pollingStatus = 'idle'; // idle, polling, completed, timeout, error
+
     protected static ?string $activeNavigationIcon = 'heroicon-s-map';
     protected static ?string $navigationLabel = 'Travel Analyzer';
     protected static ?string $title = 'Travel Analyzer';
 
     protected static string $view = 'filament.pages.travel-analyzer';
-
 
     public function mount(): void
     {
@@ -37,12 +39,10 @@ class TravelAnalyzer extends Page
         $this->env_form->fill();
     }
 
-
     protected function getForms(): array
     {
         return ['env_form', 'travel_form'];
     }
-
 
     public function travel_form(Form $form): Form
     {
@@ -72,7 +72,6 @@ class TravelAnalyzer extends Page
                                     ->live(),
                                 TextInput::make('address_from')
                                     ->prefixIcon('heroicon-s-map')
-//                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
                                         Forms\Components\Actions\Action::make('geocode_address')
@@ -110,7 +109,6 @@ class TravelAnalyzer extends Page
                                     ->live(),
                                 TextInput::make('address_to')
                                     ->prefixIcon('heroicon-s-map')
-//                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
                                         Forms\Components\Actions\Action::make('geocode_address')
@@ -127,7 +125,6 @@ class TravelAnalyzer extends Page
                                     )
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),
-
                     ])
                     ->footerActions([
                         Forms\Components\Actions\Action::make('analyze_travel')
@@ -145,6 +142,10 @@ class TravelAnalyzer extends Page
     public function dotheThing($get): void
     {
         $this->response = null;
+        $this->travelResults = null;
+        $this->resultsUrl = null;
+        $this->pollingStatus = 'idle';
+
         $this->validateForms($this->getForms());
 
         $payload = array_merge(
@@ -161,12 +162,48 @@ class TravelAnalyzer extends Page
             ]
         );
 
-
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew('travelanalyzer', $tokenized_payload);
-            $this->dispatch('json-updated'); // Add this line
+            $responseData = json_decode($this->response, true);
+
+            // Extract the resultsUrl
+            $this->resultsUrl = data_get($responseData, 'resultsUrl');
+
+            if ($this->resultsUrl && $this->environment_data['send_to_pso']) {
+                $this->isPolling = true;
+                $this->pollingStatus = 'polling';
+                $this->dispatch('start-polling', url: $this->resultsUrl);
+            }
+
+            $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
-            // todo this isn't very helpful because we have asynchronous calls
+        }
+    }
+
+    public function checkResults(): void
+    {
+        if (!$this->resultsUrl) {
+            return;
+        }
+
+        try {
+            $response = Http::get($this->resultsUrl);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                // Check if we have results (non-empty response means COMPLETED)
+                if (!empty($data)) {
+                    $this->travelResults = $data;
+                    $this->isPolling = false;
+                    $this->pollingStatus = 'completed';
+                    $this->dispatch('stop-polling');
+                }
+            }
+        } catch (\Exception $e) {
+            $this->pollingStatus = 'error';
+            $this->isPolling = false;
+            $this->dispatch('stop-polling');
         }
     }
 }
