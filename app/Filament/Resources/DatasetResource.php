@@ -4,6 +4,11 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DatasetResource\Pages;
 use App\Models\Dataset;
+use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -15,7 +20,7 @@ class DatasetResource extends Resource
 
     protected static bool $shouldRegisterNavigation = false;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
 
     public static function form(Schema $form): Schema
     {
@@ -48,22 +53,15 @@ class DatasetResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\ViewAction::make(),
-                Tables\Actions\EditAction::make()->slideOver(),
+            ->recordActions([
+                ViewAction::make(),
+                EditAction::make()->slideOver(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-
-        ];
     }
 
     public static function getPages(): array

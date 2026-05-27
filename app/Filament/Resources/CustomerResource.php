@@ -7,6 +7,9 @@ use App\Enums\TaskStatus;
 use App\Filament\Resources\CustomerResource\Pages;
 use App\Filament\Resources\CustomerResource\RelationManagers\TasksRelationManager;
 use App\Models\Customer;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
@@ -75,13 +78,12 @@ class CustomerResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                //                Tables\Actions\EditAction::make(),
-                Tables\Actions\ViewAction::make()->hidden(),
+            ->recordActions([
+                EditAction::make()->slideOver(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

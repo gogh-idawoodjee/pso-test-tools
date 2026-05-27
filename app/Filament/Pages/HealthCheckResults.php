@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Traits\AdminViewable;
+use BackedEnum;
 use Illuminate\Contracts\Support\Htmlable;
 use ShuvroRoy\FilamentSpatieLaravelHealth\Pages\HealthCheckResults as BaseHealthCheckResults;
 
@@ -10,7 +11,7 @@ class HealthCheckResults extends BaseHealthCheckResults
 {
     use AdminViewable;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-cpu-chip';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cpu-chip';
 
     public function getHeading(): string|Htmlable
     {

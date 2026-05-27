@@ -6,6 +6,7 @@ use App\Classes\PSOObjectRegistry;
 use App\Enums\HttpMethod;
 use App\Models\Environment;
 use App\Traits\FormTrait;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -19,18 +20,19 @@ use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JsonException;
+use UnitEnum;
 
 class GenericDelete extends Page
 {
     use FormTrait;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-trash';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-trash';
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-o-trash';
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-o-trash';
 
     protected string $view = 'filament.pages.generic-delete';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = 'API Services';
 
     public ?array $deletion_data = [];
 

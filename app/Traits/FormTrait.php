@@ -4,38 +4,40 @@ namespace App\Traits;
 
 use App\Models\Dataset;
 use App\Models\Environment;
-
+use Filament\Actions\Action;
 use Filament\Forms\Components\Hidden;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Form;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Collection;
-
 
 trait FormTrait
 {
-
     use PSOInteractionsTrait;
 
     public ?Collection $environments = null;
+
     public ?array $environment_data = [];
 
     public ?Environment $selectedEnvironment;
+
     public ?string $selectedDataset = null;
+
     public mixed $response = null;
+
     public bool $isDataSetHidden = false;
+
     public bool $isDataSetRequired = false;
+
     public bool $isHeaderActionHidden = true;
 
     public bool $isAuthenticationRequired = false;
 
     public ?string $headerActionLabel = 'Header Action Label';
-
 
     public function validateForms(array $forms): void
     {
@@ -51,7 +53,7 @@ trait FormTrait
         }
     }
 
-    public function env_form(Form $form): Form
+    public function env_form(Schema $form): Schema
     {
         return $form
             ->schema($this->getEnvFormSchema())->statePath('environment_data');
@@ -64,7 +66,7 @@ trait FormTrait
             Section::make('Environment')
                 ->headerActions([
                     Action::make($this->headerActionLabel)
-                        ->action(fn() => $this->environmentHeaderAction())
+                        ->action(fn () => $this->environmentHeaderAction())
                         ->hidden($this->isHeaderActionHidden),
                 ])
                 ->description($this->isAuthenticationRequired ? 'This function requires PSO Authentication. Send to PSO must be selected.' : null)
@@ -93,10 +95,10 @@ trait FormTrait
                         ->label('Dataset')
                         ->preload()
                         ->prefixIcon('heroicon-o-cube-transparent')
-                        ->options(fn(Get $get) => $this->getDatasetOptions($get))
-                        ->required(!$this->isDataSetRequired)
+                        ->options(fn (Get $get) => $this->getDatasetOptions($get))
+                        ->required(! $this->isDataSetRequired)
                         ->hidden($this->isDataSetHidden)
-                        ->disabled(static fn(Get $get) => blank($get('environment_id')))
+                        ->disabled(static fn (Get $get) => blank($get('environment_id')))
                         ->live()
                         ->native(false)
                         ->searchable()
@@ -104,12 +106,12 @@ trait FormTrait
                             $livewire->validateOnly($component->getStatePath());
                             $this->setCurrentDataset($state);
                         })
-                        ->hint(static fn(Get $get) => blank($get('environment_id')) ? 'Please select an environment first.' : null)
+                        ->hint(static fn (Get $get) => blank($get('environment_id')) ? 'Please select an environment first.' : null)
 
                         // 1) Build the “new dataset” modal
                         ->createOptionForm([
                             Hidden::make('environment_id')
-                                ->default(static fn(Get $get) => $get('environment_id')),
+                                ->default(static fn (Get $get) => $get('environment_id')),
 
                             TextInput::make('name')
                                 ->label('New Dataset Name')
@@ -126,12 +128,11 @@ trait FormTrait
                             ]);
 
                             return $dataset->id;
-                        })
+                        }),
                 ])
-                ->columns(3)
+                ->columns(3),
         ];
     }
-
 
     private function getDatasetOptions(Get $get): array
     {
@@ -163,15 +164,15 @@ trait FormTrait
                 'baseUrl' => $this->selectedEnvironment?->getAttribute('base_url'),
                 'sendToPso' => data_get($this->environment_data, 'send_to_pso'),
                 'accountId' => $this->selectedEnvironment?->getAttribute('account_id'),
-            ]
+            ],
         ];
 
-//        return [
-//            'dataset_id' => $this->selectedDataset,
-//            'base_url' => $this->selectedEnvironment?->getAttribute('base_url'),
-//            'send_to_pso' => data_get($this->environment_data, 'send_to_pso'),
-//            'account_id' => $this->selectedEnvironment?->getAttribute('account_id'),
-//        ];
+        //        return [
+        //            'dataset_id' => $this->selectedDataset,
+        //            'base_url' => $this->selectedEnvironment?->getAttribute('base_url'),
+        //            'send_to_pso' => data_get($this->environment_data, 'send_to_pso'),
+        //            'account_id' => $this->selectedEnvironment?->getAttribute('account_id'),
+        //        ];
 
     }
 
@@ -190,18 +191,15 @@ trait FormTrait
             [
                 'data' => array_merge(
                     $required,
-                    array_filter($optional, static fn($v) => $v !== null)
-                )
+                    array_filter($optional, static fn ($v) => $v !== null)
+                ),
             ]
         );
     }
-
 
     public function environmentHeaderAction(): void
     {
         // used for overriding in any child
 
     }
-
-
 }

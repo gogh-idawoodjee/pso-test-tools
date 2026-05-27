@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Enums\HttpMethod;
 use App\Filament\BasePages\PSOResourceBasePage;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
@@ -16,7 +17,7 @@ use Override;
 
 class TechnicianDetails extends PSOResourceBasePage
 {
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
     // Page Information
     protected static ?string $title = 'Technician Details';

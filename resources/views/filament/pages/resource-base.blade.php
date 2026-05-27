@@ -7,7 +7,7 @@
 
     <x-filament::modal id="show-json" slide-over width="5xl">
         @php
-            $prettyJson = $this->json_form_data['json_response_pretty'];
+            $prettyJson = $this->json_form_data['json_response_pretty'] ?? null;
             $jsonElementId = 'jsonContent-' . uniqid('', true);
         @endphp
 

@@ -6,6 +6,7 @@ use App\Classes\PSOObjectRegistry;
 use App\Enums\PSOEntities;
 use App\Models\Environment;
 use App\Traits\FormTrait;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -14,18 +15,19 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
+use UnitEnum;
 
 class GenerateCustomException extends Page
 {
     use FormTrait;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-exclamation-triangle';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-exclamation-triangle';
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-exclamation-triangle';
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-exclamation-triangle';
 
     protected string $view = 'filament.pages.generate-custom-exception';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = 'API Services';
 
     public ?array $exception_data = [];
 
@@ -120,7 +122,7 @@ class GenerateCustomException extends Page
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
-            $this->response = $this->sendToPSONew('exception', $tokenized_payload, []);
+            $this->response = $this->sendToPSONew('exception', $tokenized_payload);
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');

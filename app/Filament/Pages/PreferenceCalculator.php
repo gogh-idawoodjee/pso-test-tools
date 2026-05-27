@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use BackedEnum;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Pages\Page;
@@ -14,13 +15,13 @@ use UnitEnum;
 
 class PreferenceCalculator extends Page
 {
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-calculator';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calculator';
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-calculator';
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-calculator';
 
     protected string $view = 'filament.pages.preference-calculator';
 
-    protected static string|null|UnitEnum $navigationGroup = 'Additional Tools';
+    protected static string|UnitEnum|null $navigationGroup = 'Additional Tools';
 
     public ?array $preference_data = [];
 

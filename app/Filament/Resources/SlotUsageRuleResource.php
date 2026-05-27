@@ -4,18 +4,23 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\SlotUsageRuleResource\Pages;
 use App\Models\SlotUsageRule;
+use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class SlotUsageRuleResource extends Resource
 {
     protected static ?string $model = SlotUsageRule::class;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-adjustments-horizontal';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-adjustments-horizontal';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'Base Data';
+    protected static string|UnitEnum|null $navigationGroup = 'Base Data';
 
     public static function getNavigationBadge(): ?string
     {
@@ -51,12 +56,12 @@ class SlotUsageRuleResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make()->slideOver(),
+            ->recordActions([
+                EditAction::make()->slideOver(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

@@ -4,27 +4,32 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\TaskTypeResource\Pages;
 use App\Models\TaskType;
+use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class TaskTypeResource extends Resource
 {
     protected static ?string $model = TaskType::class;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'Base Data';
+    protected static string|UnitEnum|null $navigationGroup = 'Base Data';
 
     public static function getNavigationBadge(): ?string
     {
         return static::getModel()::count();
     }
 
-    public static function form(Schema $form): Schema
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema(TaskType::getForm());
     }
 
@@ -50,12 +55,12 @@ class TaskTypeResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make()->slideOver(),
+            ->recordActions([
+                EditAction::make()->slideOver(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

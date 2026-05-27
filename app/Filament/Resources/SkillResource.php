@@ -4,19 +4,24 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\SkillResource\Pages;
 use App\Models\Skill;
+use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class SkillResource extends Resource
 {
     protected static ?string $model = Skill::class;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-academic-cap';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-academic-cap';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'Base Data';
+    protected static string|UnitEnum|null $navigationGroup = 'Base Data';
 
     public static function getNavigationBadge(): ?string
     {
@@ -56,21 +61,14 @@ class SkillResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make()->slideOver(),
+            ->recordActions([
+                EditAction::make()->slideOver(),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
     }
 
     public static function getPages(): array

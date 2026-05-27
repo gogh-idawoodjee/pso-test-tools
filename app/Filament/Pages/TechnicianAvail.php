@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Jobs\GetTechnicianShiftsJob;
 use App\Jobs\GetTechniciansListJob;
 use App\Traits\FilamentJobMonitoring;
+use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
@@ -16,6 +17,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Url;
+use UnitEnum;
 
 class TechnicianAvail extends Page
 {
@@ -27,11 +29,11 @@ class TechnicianAvail extends Page
     private const string JOB_TYPE_SHIFTS = 'Technician-Shift-Job';
 
     // 1. Constants/Static properties
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-calendar';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar';
 
     protected string $view = 'filament.pages.technician-avail';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'Additional Tools';
+    protected static string|UnitEnum|null $navigationGroup = 'Additional Tools';
 
     protected static ?string $title = 'Technician Availability';
 
