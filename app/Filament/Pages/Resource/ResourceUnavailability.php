@@ -3,24 +3,23 @@
 namespace App\Filament\Pages\Resource;
 
 use App\Filament\BasePages\PSOResourceBasePage;
-use Filament\Actions\Action;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use JsonException;
-
 
 class ResourceUnavailability extends PSOResourceBasePage
 {
-
     protected static ?string $title = 'Generate Unavailabiltiy';
-    protected static ?string $slug = 'resource-unavailability';
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static string $view = 'filament.pages.resource-unavailability';
 
-    public function resource_form(Form $form): Form
+    protected static ?string $slug = 'resource-unavailability';
+
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
+    //    protected static string $view = 'filament.pages.resource-unavailability';
+
+    public function resource_form(Schema $form): Schema
     {
 
         return $form
@@ -33,14 +32,14 @@ class ResourceUnavailability extends PSOResourceBasePage
                             ->label('Resource ID')
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                            ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         TextInput::make('category_id')
                             ->prefixIcon('heroicon-o-clipboard')
                             ->label('Category ID')
                             ->helperText('This value must exist in the ARP (resource data / unavailabilty categories)')
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                            ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         DateTimePicker::make('base_time')
                             ->label('Base Date/Time')
                             ->required(),
@@ -62,16 +61,15 @@ class ResourceUnavailability extends PSOResourceBasePage
                         TextInput::make('description')
                             ->prefixIcon('heroicon-s-document-text'),
 
-
                         Actions::make([Actions\Action::make('generate_event')
                             ->label('Generate Event')
                             ->action(function () {
                                 $this->generateUnavailability();
 
-                            })->slideOver()
+                            })->slideOver(),
                         ]),
                     ])
-                    ->columns()
+                    ->columns(),
             ])
             ->statePath('resource_data');
     }
@@ -83,7 +81,6 @@ class ResourceUnavailability extends PSOResourceBasePage
     {
         $this->response = null;
         $this->validateForms($this->getForms());
-
 
         $payload = $this->buildPayload(
             required: [
@@ -98,14 +95,12 @@ class ResourceUnavailability extends PSOResourceBasePage
             ]
         );
 
-
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew('resource/unavailability', $tokenized_payload);
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');
         }
-
 
     }
 }

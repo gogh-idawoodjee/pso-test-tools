@@ -7,24 +7,24 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Pages\Page;
-use Override;
+use Filament\Schemas\Schema;
 
 class PreferenceCalculator extends Page
 {
     use InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-calculator';
-    protected static ?string $activeNavigationIcon = 'heroicon-s-calculator';
-    protected static string $view = 'filament.pages.preference-calculator';
-    protected static ?string $navigationGroup = 'Additional Tools';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-calculator';
+
+    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-calculator';
+
+    //    protected static string $view = 'filament.pages.preference-calculator';
+    protected static string|null|\UnitEnum $navigationGroup = 'Additional Tools';
 
     public ?array $preference_data = [];
 
-    #[Override]
     protected function getForms(): array
     {
         return ['preference_form'];
@@ -36,8 +36,7 @@ class PreferenceCalculator extends Page
         $this->performCalculation();
     }
 
-
-    public function preference_form(Form $form): Form
+    public function preference_form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -48,7 +47,7 @@ class PreferenceCalculator extends Page
                         $this->getPreferenceDetailsFieldset(),
                         $this->getCalculationsFieldset(),
                     ])
-                    ->columns()
+                    ->columns(),
             ])
             ->statePath('preference_data');
     }
@@ -64,7 +63,7 @@ class PreferenceCalculator extends Page
                     ->minValue(1)
                     ->required()
                     ->live()
-                    ->afterStateUpdated(fn() => $this->performCalculation())
+                    ->afterStateUpdated(fn () => $this->performCalculation())
                     ->helperText('Found on the SLA tab'),
                 TextInput::make('activity_duration')
                     ->label('Duration')
@@ -74,7 +73,7 @@ class PreferenceCalculator extends Page
                     ->maxValue(3600)
                     ->required()
                     ->live()
-                    ->afterStateUpdated(fn() => $this->performCalculation())
+                    ->afterStateUpdated(fn () => $this->performCalculation())
                     ->helperText('Duration in Minutes'),
             ])
             ->label('Activity Data');
@@ -119,12 +118,12 @@ class PreferenceCalculator extends Page
     {
         return TextInput::make($name)
             ->label($label)
-            ->disabled(fn(Get $get) => $get($toggleField))
+            ->disabled(fn (Get $get) => $get($toggleField))
             ->numeric()
             ->minValue(0.1)
             ->step(0.1)
             ->default($default)
-            ->required(fn(Get $get) => $get($toggleField) === false)
+            ->required(fn (Get $get) => $get($toggleField) === false)
             ->live()
             ->afterStateUpdated(function (Get $get, Set $set) use ($name, $toggleField) {
                 // If this is tech1 field and the toggle is on, copy the value to tech2
@@ -163,9 +162,9 @@ class PreferenceCalculator extends Page
             ->step(0.1)
             ->inputMode('decimal')
             ->live(onBlur: true)
-            ->dehydrateStateUsing(fn($state) => is_numeric($state) ? (float)$state : $default)
+            ->dehydrateStateUsing(fn ($state) => is_numeric($state) ? (float) $state : $default)
             ->afterStateUpdated(function ($state, $set) use ($name, $default) {
-                if (!is_numeric($state) || $state === '') {
+                if (! is_numeric($state) || $state === '') {
                     $set($name, $default);
                 }
                 $this->performCalculation();
@@ -181,7 +180,7 @@ class PreferenceCalculator extends Page
             ->numeric()
             ->minValue(0.5)
             ->live()
-            ->afterStateUpdated(fn() => $this->performCalculation());
+            ->afterStateUpdated(fn () => $this->performCalculation());
     }
 
     protected function createDriveTimeField(string $name, string $label): TextInput
@@ -191,7 +190,7 @@ class PreferenceCalculator extends Page
             ->helperText('leave blank if unknown')
             ->numeric()
             ->live()
-            ->afterStateUpdated(fn() => $this->performCalculation());
+            ->afterStateUpdated(fn () => $this->performCalculation());
     }
 
     protected function getCalculationsFieldset(): Fieldset
@@ -213,7 +212,7 @@ class PreferenceCalculator extends Page
                         if ($tech1 > $tech2) {
                             return [
                                 'class' => 'text-xl font-bold',
-                                'style' => 'background-color: #22c55e; color: white; transition: all 0.3s ease; padding: 0.5rem; border-radius: 0.375rem;'
+                                'style' => 'background-color: #22c55e; color: white; transition: all 0.3s ease; padding: 0.5rem; border-radius: 0.375rem;',
                             ];
                         }
 
@@ -227,7 +226,7 @@ class PreferenceCalculator extends Page
                         if ($tech2 > $tech1) {
                             return [
                                 'class' => 'text-xl font-bold',
-                                'style' => 'background-color: #22c55e; color: white; transition: all 0.3s ease; padding: 0.5rem; border-radius: 0.375rem;'
+                                'style' => 'background-color: #22c55e; color: white; transition: all 0.3s ease; padding: 0.5rem; border-radius: 0.375rem;',
                             ];
                         }
 

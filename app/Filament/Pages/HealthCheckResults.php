@@ -9,7 +9,8 @@ use ShuvroRoy\FilamentSpatieLaravelHealth\Pages\HealthCheckResults as BaseHealth
 class HealthCheckResults extends BaseHealthCheckResults
 {
     use AdminViewable;
-    protected static ?string $navigationIcon = 'heroicon-o-cpu-chip';
+
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-cpu-chip';
 
     public function getHeading(): string|Htmlable
     {

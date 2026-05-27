@@ -7,8 +7,8 @@ use App\Filament\BasePages\PSOResourceBasePage;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Form;
 use Filament\Forms\Set;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
 use JsonException;
@@ -16,32 +16,32 @@ use Override;
 
 class TechnicianDetails extends PSOResourceBasePage
 {
-
-
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
 
     // Page Information
     protected static ?string $title = 'Technician Details';
+
     protected static ?string $slug = 'resource-details';
 
-
-    protected static string $view = 'filament.pages.technician-details';
+    //    protected static string $view = 'filament.pages.technician-details';
 
     public bool $isAuthenticationRequired = true;
 
     public ?array $technician_list_data = [];
+
     public ?array $technician_list = [];
+
     public ?array $technician_details = [];
+
     public bool $loadingDetails = false;
 
-
-    #[Override] protected function getForms(): array
+    #[Override]
+    protected function getForms(): array
     {
         return ['env_form', 'json_form', 'technicianListForm'];
     }
 
-
-    public function technicianListForm(Form $form): Form
+    public function technicianListForm(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -69,9 +69,9 @@ class TechnicianDetails extends PSOResourceBasePage
                                 })
                                 ->hint(new HtmlString(Blade::render('<x-filament::loading-indicator class="h-5 w-5" wire:loading wire:target="loadingDetails" />')))
                                 ->required()
-                                ->live()
+                                ->live(),
                         ]
-                    )
+                    ),
             ])->statePath('technician_list_data');
 
     }
@@ -84,12 +84,12 @@ class TechnicianDetails extends PSOResourceBasePage
         $payload = array_merge($this->environnment_payload_data(), []);
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
-            $this->response = $this->sendToPSONew('resource/' . $state, null, $tokenized_payload, HttpMethod::GET, true);
+            $this->response = $this->sendToPSONew('resource/'.$state, null, $tokenized_payload, HttpMethod::GET, true);
             $this->technician_details = data_get(json_decode($this->response, true, 512, JSON_THROW_ON_ERROR), 'data.resource', []);
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated'); // Add this line
 
-//            $this->dispatch('open-modal', id: 'show-json');
+            //            $this->dispatch('open-modal', id: 'show-json');
         }
     }
 
@@ -109,7 +109,6 @@ class TechnicianDetails extends PSOResourceBasePage
 
             $this->response = $this->sendToPSONew('resource', null, $tokenized_payload, HttpMethod::GET, true);
             $this->technician_list = data_get(json_decode($this->response, true, 512, JSON_THROW_ON_ERROR), 'data.resources', []);
-
 
         }
 

@@ -6,6 +6,7 @@ use App\Classes\PSOObjectRegistry;
 use App\Enums\HttpMethod;
 use App\Models\Environment;
 use App\Traits\FormTrait;
+use Filament\Forms;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -13,30 +14,29 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
-use Filament\Forms;
 use Filament\Forms\Get;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JsonException;
 
-use Override;
-
 class GenericDelete extends Page
 {
-    use InteractsWithForms, FormTrait;
+    use FormTrait, InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-trash';
-    protected static ?string $activeNavigationIcon = 'heroicon-o-trash';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-trash';
 
-    protected static string $view = 'filament.pages.generic-delete';
-    protected static ?string $navigationGroup = 'API Services';
+    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-o-trash';
+
+    //    protected static string $view = 'filament.pages.generic-delete';
+    protected static string|null|\UnitEnum $navigationGroup = 'API Services';
 
     public ?array $deletion_data = [];
+
     public ?array $PSOObjectTypes = [];
+
     public ?array $selectedPSOObject = null;
 
-    #[Override]
     protected function getForms(): array
     {
         return ['deletion_form', 'env_form', 'json_form'];
@@ -48,7 +48,7 @@ class GenericDelete extends Page
 
         $this->PSOObjectTypes = PSOObjectRegistry::forSelect();
 
-        //pre-filling
+        // pre-filling
         $this->deletion_data = collect(range(1, 4))->mapWithKeys(static function ($index) {
             return ["object_pk{$index}" => null];
         })->toArray();
@@ -67,19 +67,19 @@ class GenericDelete extends Page
                             ->label('PSO Object')
                             ->options($this->PSOObjectTypes)
                             ->live()
-                            ->afterStateUpdated(fn(Get $get) => $this->setSelectedObject($get('object_type_id'))),
+                            ->afterStateUpdated(fn (Get $get) => $this->setSelectedObject($get('object_type_id'))),
 
                         Fieldset::make('deletion_details')
-                            ->label(fn(Get $get) => ($this->selectedPSOObject['label'] . ' Deletion Details' ?? ''))
-                            ->visible(fn() => filled($this->selectedPSOObject))
-                            ->schema(fn() => $this->getPkInputFields()),
+                            ->label(fn (Get $get) => ($this->selectedPSOObject['label'].' Deletion Details' ?? ''))
+                            ->visible(fn () => filled($this->selectedPSOObject))
+                            ->schema(fn () => $this->getPkInputFields()),
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('delete_object')
                             ->label('Delete Object')
                             ->icon('heroicon-o-trash')
                             ->action(function () {
                                 $this->delete_object();
-                            })->visible(fn() => filled($this->selectedPSOObject))
-                        ])
+                            })->visible(fn () => filled($this->selectedPSOObject)),
+                        ]),
                     ]),
 
             ])
@@ -88,8 +88,9 @@ class GenericDelete extends Page
 
     public function setSelectedObject(?string $objectKey): void
     {
-        if (!$objectKey) {
+        if (! $objectKey) {
             $this->selectedPSOObject = null;
+
             return;
         }
 
@@ -99,32 +100,31 @@ class GenericDelete extends Page
     protected function getPkInputFields(): array
     {
 
-        if (!$this->selectedPSOObject || empty($this->selectedPSOObject['attributes'])) {
+        if (! $this->selectedPSOObject || empty($this->selectedPSOObject['attributes'])) {
             return [];
         }
 
         return collect($this->selectedPSOObject['attributes'])->map(function ($attribute, $index) {
-            $key = "object_pk" . ($index + 1);
+            $key = 'object_pk'.($index + 1);
             $label = Str::of($attribute['name'])->replace('_', ' ')->title()
                 ->replace('Id', 'ID')->replace('Sla', 'SLA');
 
             return match ($attribute['type']) {
                 'boolean' => Toggle::make($key)
                     ->label($label)
-                    ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+                    ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
                     ->inline(false),
                 'int', 'integer' => TextInput::make($key)
                     ->label($label)
                     ->required()
-                    ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+                    ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
                     ->numeric()
                     ->step(1)
                     ->minValue(0),
-                default =>
-                TextInput::make($key)
+                default => TextInput::make($key)
                     ->label($label)
                     ->required()
-                    ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                    ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
             };
         })->toArray();
 
@@ -134,9 +134,8 @@ class GenericDelete extends Page
     {
         $value = $this->deletion_data["object_pk{$index}"] ?? null;
 
-        return empty($value) ? 'false' : (string)$value;
+        return empty($value) ? 'false' : (string) $value;
     }
-
 
     /**
      * @throws JsonException
@@ -152,15 +151,15 @@ class GenericDelete extends Page
                 $value = $this->deletion_data["object_pk{$i}"] ?? null;
 
                 // Handle different types
-                $processedValue = match($attribute['type']) {
+                $processedValue = match ($attribute['type']) {
                     'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
-                    'int', 'integer' => (int)$value,
-                    default => empty($value) ? 'false' : (string)$value,
+                    'int', 'integer' => (int) $value,
+                    default => empty($value) ? 'false' : (string) $value,
                 };
 
                 return [
-                    'objectPkName' . $i => $attribute['name'],
-                    'objectPk' . $i => $processedValue,
+                    'objectPkName'.$i => $attribute['name'],
+                    'objectPk'.$i => $processedValue,
                 ];
             })
             ->toArray();
@@ -183,5 +182,4 @@ class GenericDelete extends Page
             $this->dispatch('open-modal', id: 'show-json');
         }
     }
-
 }

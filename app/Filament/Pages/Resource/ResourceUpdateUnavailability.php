@@ -8,21 +8,21 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use JsonException;
-
 
 class ResourceUpdateUnavailability extends PSOResourceBasePage
 {
-
     protected static ?string $title = 'Update Unavailablity';
+
     protected static ?string $slug = 'resource-update-unavailability';
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static string $view = 'filament.pages.resource-update-unavailability';
+
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
+    //    protected static string $view = 'filament.pages.resource-update-unavailability';
 
     public bool $isAuthenticationRequired = true;
 
-    public function resource_form(Form $form): Form
+    public function resource_form(Schema $form): Schema
     {
 
         return $form
@@ -35,7 +35,7 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                             ->label('Category ID')
                             ->helperText('This value must exist in the ARP (resource data / unavailabilty categories)')
                             ->live()
-                            ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                            ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         DateTimePicker::make('base_time')
                             ->prefixIcon('heroicon-o-calendar-days') // Calendar for datetime
                             ->label('Base Date/Time'),
@@ -69,10 +69,10 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                             ->icon('heroicon-o-arrow-path') // Update/refresh
                             ->action(function () {
                                 $this->updateUnavailability();
-                            })
+                            }),
                         ])->columnSpan(2),
                     ])
-                    ->columns()
+                    ->columns(),
             ])
             ->statePath('resource_data');
     }
@@ -85,7 +85,6 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
         $this->response = null;
         $this->validateForms($this->getForms());
 
-
         $payload =
 
             $this->buildPayload(
@@ -94,22 +93,22 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                     'description' => $this->resource_data['description'] ?? null,
                     'duration' => $this->resource_data['duration'] ?? null,
                     'category_id' => $this->resource_data['category_id'] ?? null,
-                    'base_time' => $this->resource_data['base_time'] ?? null,],
+                    'base_time' => $this->resource_data['base_time'] ?? null, ],
             );
 
-//
-//        $payload = array_merge(
-//            $this->environnment_payload_data(),
-//            array_filter([
-//                'time_zone' => $this->resource_data['time_zone'] ?? null,
-//                'description' => $this->resource_data['description'] ?? null,
-//                'duration' => $this->resource_data['duration'] ?? null,
-//                'category_id' => $this->resource_data['category_id'] ?? null,
-//                'base_time' => $this->resource_data['base_time'] ?? null,
-//            ])
-//        );
+        //
+        //        $payload = array_merge(
+        //            $this->environnment_payload_data(),
+        //            array_filter([
+        //                'time_zone' => $this->resource_data['time_zone'] ?? null,
+        //                'description' => $this->resource_data['description'] ?? null,
+        //                'duration' => $this->resource_data['duration'] ?? null,
+        //                'category_id' => $this->resource_data['category_id'] ?? null,
+        //                'base_time' => $this->resource_data['base_time'] ?? null,
+        //            ])
+        //        );
 
-        $apiSegment = 'unavailability/' . $this->resource_data['resource_id'] . '/unavailability';
+        $apiSegment = 'unavailability/'.$this->resource_data['resource_id'].'/unavailability';
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew($apiSegment, $tokenized_payload);
@@ -117,7 +116,6 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');
         }
-
 
     }
 }

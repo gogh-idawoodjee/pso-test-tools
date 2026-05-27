@@ -2,21 +2,20 @@
 
 namespace App\Filament\Pages;
 
+use App\Models\User;
 use App\Traits\AdminViewable;
-use Filament\Forms\Form;
-use Filament\Pages\Page;
 use Filament\Forms;
 use Filament\Notifications\Notification;
+use Filament\Pages\Page;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
-use App\Models\User;
 
 class IssueToken extends Page
 {
-
     use AdminViewable;
 
-    protected static ?string $navigationIcon = 'heroicon-o-key';
-    protected static string $view = 'filament.pages.issue-token';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-key';
+    //    protected static string $view = 'filament.pages.issue-token';
 
     public ?string $token = null;
 
@@ -27,7 +26,7 @@ class IssueToken extends Page
         $this->form->fill();
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $form): Schema
     {
         return $form
             ->schema([

@@ -13,40 +13,34 @@ use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\Group;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;
-use Filament\Resources\Pages\Page;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Resources\Pages\Page;
+use Filament\Schemas\Schema;
 use Filament\Support\Enums\VerticalAlignment;
 use Illuminate\Support\Arr;
-use Override;
-
 
 class AppointmentBooking extends Page
 {
-    use InteractsWithRecord, FormTrait;
+    use FormTrait, InteractsWithRecord;
 
     protected static string $resource = TaskResource::class;
 
-    protected static string $view = 'filament.resources.tasks.pages.appointment-booking';
+    //    protected static string $view = 'filament.resources.tasks.pages.appointment-booking';
 
     public ?string $countdownExpiresAt = null;
+
     public bool $countdownExpired = false;
 
     public ?array $task_data = [];
 
-
     /**
      * Format a time window between two dates
-     *
-     * @param string|Carbon|null $startDate
-     * @param string|Carbon|null $endDate
-     * @return string
      */
     protected function formatAppointmentWindow(Carbon|string|null $startDate, Carbon|string|null $endDate): string
     {
@@ -56,26 +50,23 @@ class AppointmentBooking extends Page
 
         // Format the date and time
         $formattedDate = $start->format('l F jS');
-        $formattedTime = $start->format('H:i') . '-' . $end->format('H:i');
+        $formattedTime = $start->format('H:i').'-'.$end->format('H:i');
 
-        return $formattedDate . ' ' . $formattedTime;
+        return $formattedDate.' '.$formattedTime;
     }
 
     /**
      * Format a duration in minutes to a human-readable string
-     *
-     * @param int $durationInMinutes
-     * @return string
      */
     protected function formatDuration(int $durationInMinutes): string
     {
         $hours = floor($durationInMinutes / 60);
         $minutes = $durationInMinutes % 60;
 
-        $formattedDuration = $hours . ' hour' . ($hours != 1 ? 's' : '');
+        $formattedDuration = $hours.' hour'.($hours != 1 ? 's' : '');
 
         if ($minutes > 0) {
-            $formattedDuration .= ' ' . $minutes . ' minute' . ($minutes !== 1 ? 's' : '');
+            $formattedDuration .= ' '.$minutes.' minute'.($minutes !== 1 ? 's' : '');
         }
 
         return $formattedDuration;
@@ -83,9 +74,6 @@ class AppointmentBooking extends Page
 
     /**
      * Check if an appointment is urgent (less than 2 hours away)
-     *
-     * @param string|Carbon|null $appointmentStart
-     * @return bool
      */
     protected function isAppointmentUrgent(Carbon|string|null $appointmentStart): bool
     {
@@ -98,9 +86,6 @@ class AppointmentBooking extends Page
 
     /**
      * Build the infolist for task details
-     *
-     * @param Infolist $infolist
-     * @return Infolist
      */
     public function infolist(Infolist $infolist): Infolist
     {
@@ -120,7 +105,7 @@ class AppointmentBooking extends Page
             ->record($this->record)
             ->columns(1) // Single column for the main container
             ->schema([
-                \Filament\Infolists\Components\Section::make('Task ' . data_get($this->record, 'friendly_id') . ' - ' . data_get($this->record, 'taskType.name'))
+                \Filament\Infolists\Components\Section::make('Task '.data_get($this->record, 'friendly_id').' - '.data_get($this->record, 'taskType.name'))
                     ->icon('heroicon-o-clipboard-document-list')
                     ->schema([
                         // Activity ID and Status row
@@ -149,7 +134,7 @@ class AppointmentBooking extends Page
                                             ->weight('bold')
                                             ->color('primary')
                                             ->formatStateUsing(static function ($state) {
-                                                return number_format((float)$state);
+                                                return number_format((float) $state);
                                             }),
                                     ]),
 
@@ -162,9 +147,9 @@ class AppointmentBooking extends Page
                                             ->weight('bold'),
                                         TextEntry::make('status')
                                             ->label(false)
-                                            ->formatStateUsing(fn(int $state) => TaskStatus::tryFrom($state)?->getLabel())
+                                            ->formatStateUsing(fn (int $state) => TaskStatus::tryFrom($state)?->getLabel())
                                             ->badge()
-                                            ->color(static fn(int $state) => match (TaskStatus::tryFrom($state)) {
+                                            ->color(static fn (int $state) => match (TaskStatus::tryFrom($state)) {
                                                 TaskStatus::IGNORE => 'gray',
                                                 TaskStatus::UNALLOCATED, TaskStatus::ALLOCATED => 'warning',
                                                 TaskStatus::FOLLOW_ON, TaskStatus::COMMITTED, TaskStatus::SENT, TaskStatus::DOWNLOADED => 'info',
@@ -177,10 +162,8 @@ class AppointmentBooking extends Page
                                             ->size('md'),
                                     ]),
 
-
                             ])
                             ->columns(3),
-
 
                         \Filament\Infolists\Components\Section::make()
                             ->schema([
@@ -189,34 +172,33 @@ class AppointmentBooking extends Page
                                     ->state($appointmentTime)
                                     ->formatStateUsing(static function ($state) use ($isUrgent) {
                                         $colorClass = $isUrgent ? 'text-red-600' : 'text-purple-600';
-                                        return '<span class="' . $colorClass . '">' . $state . '</span>';
+
+                                        return '<span class="'.$colorClass.'">'.$state.'</span>';
                                     })
                                     ->icon('heroicon-o-calendar')
                                     ->iconColor($isUrgent ? 'danger' : 'primary')
                                     ->size('lg')
                                     ->html(),
 
+                            ]),
 
-                            ])
-
-//                        // Base Value, Task Type, and Location
-//                        Grid::make()
-//                            ->schema([
-//
-//
-//                                TextEntry::make('location')
-//                                    ->label('Location')
-//                                    ->state(function () {
-//                                        return $this->record->address ?? 'No address provided';
-//                                    })
-//                                    ->icon('heroicon-o-map-pin')
-//                                    ->columnSpanFull(),
-//                            ])
-//                            ->columns(),
+                        //                        // Base Value, Task Type, and Location
+                        //                        Grid::make()
+                        //                            ->schema([
+                        //
+                        //
+                        //                                TextEntry::make('location')
+                        //                                    ->label('Location')
+                        //                                    ->state(function () {
+                        //                                        return $this->record->address ?? 'No address provided';
+                        //                                    })
+                        //                                    ->icon('heroicon-o-map-pin')
+                        //                                    ->columnSpanFull(),
+                        //                            ])
+                        //                            ->columns(),
                     ]),
             ]);
     }
-
 
     public function mount(int|string $record): void
     {
@@ -233,7 +215,6 @@ class AppointmentBooking extends Page
 
         $this->setTaskData();
 
-
     }
 
     public function setTaskData(): void
@@ -244,12 +225,12 @@ class AppointmentBooking extends Page
 
     }
 
-    #[Override] protected function getForms(): array
+    protected function getForms(): array
     {
         return ['env_form', 'taskForm'];
     }
 
-    public function taskForm(Form $form): Form
+    public function taskForm(Schema $form): Schema
     {
         return $form
             ->schema(
@@ -257,7 +238,7 @@ class AppointmentBooking extends Page
                     Section::make('Appointment Booking')->schema([
                         Select::make('appointmentTemplateId')
                             ->label('Appointment Template')
-                            ->options(fn() => AppointmentTemplate::query()
+                            ->options(fn () => AppointmentTemplate::query()
                                 ->orderBy('name')
                                 ->pluck('name', 'id')
                                 ->toArray()
@@ -272,7 +253,7 @@ class AppointmentBooking extends Page
 
                         Select::make('slotUsageRuleSetId')
                             ->label('Slot Usage Rule')
-                            ->options(fn() => SlotUsageRule::query()
+                            ->options(fn () => SlotUsageRule::query()
                                 ->orderBy('name')
                                 ->pluck('name', 'id')
                                 ->toArray()
@@ -299,18 +280,16 @@ class AppointmentBooking extends Page
                             ->required()
                             ->live()->columnSpan(2),
 
-
                         Actions::make([Actions\Action::make('get_appointments')
                             ->label('Get Appointments')
                             ->icon('heroicon-o-calendar')
                             ->action(function () {
                                 $this->getAppointments();
-                            })
+                            }),
                         ])->verticalAlignment(VerticalAlignment::End),
                     ])->columns(),
 
                 ])->statePath('task_data');
-
 
     }
 
@@ -326,19 +305,17 @@ class AppointmentBooking extends Page
 
         $payload = array_merge($data, $environment);
 
-
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
             $this->response = $this->sendToPSONew('appointment', $tokenized_payload);
 
-            if (!empty($this->response['data']['appointment_offers']['valid_offers'] ?? [])) {
+            if (! empty($this->response['data']['appointment_offers']['valid_offers'] ?? [])) {
                 $this->countdownExpiresAt = now()->addMinutes(3)->toIso8601String(); // DO NOT USE ->format(), do not force UTC
             }
 
         }
 
     }
-
 
     private function setSlaStart(Set $set)
     {
@@ -350,22 +327,21 @@ class AppointmentBooking extends Page
     {
 
         $data = [
-            'data' =>
-                [
-                    'appointmentTemplateId' => data_get($this->task_data, 'appointmentTemplateId'),
-                    'baseValue' => data_get($this->record, 'base_value'),
-                    'priority' => data_get($this->record, 'taskType.priority'),
-                    'slaStart' => Carbon::parse(data_get($this->task_data, 'sla_start'))->format('Y-m-d\TH:i:s'),
-                    'slaEnd' => Carbon::parse(data_get($this->task_data, 'sla_start'))->addDays(21)->format('Y-m-d\TH:i:s'),
-                    'duration' => data_get($this->record, 'duration'),
-                    'activityId' => data_get($this->record, 'friendly_id'),
-                    'activityTypeId' => data_get($this->record, 'taskType.name'),
-                    'lat' => data_get($this->record, 'customer.lat'),
-                    'long' => data_get($this->record, 'customer.long'),
-                    'slaTypeId' => 'Appointment', // todo parameterize this
-                    'appointmentTemplateDuration' => 21,
-                    'appointmentBaseDate' => now()->startOfDay()->toIso8601String(),
-                ]
+            'data' => [
+                'appointmentTemplateId' => data_get($this->task_data, 'appointmentTemplateId'),
+                'baseValue' => data_get($this->record, 'base_value'),
+                'priority' => data_get($this->record, 'taskType.priority'),
+                'slaStart' => Carbon::parse(data_get($this->task_data, 'sla_start'))->format('Y-m-d\TH:i:s'),
+                'slaEnd' => Carbon::parse(data_get($this->task_data, 'sla_start'))->addDays(21)->format('Y-m-d\TH:i:s'),
+                'duration' => data_get($this->record, 'duration'),
+                'activityId' => data_get($this->record, 'friendly_id'),
+                'activityTypeId' => data_get($this->record, 'taskType.name'),
+                'lat' => data_get($this->record, 'customer.lat'),
+                'long' => data_get($this->record, 'customer.long'),
+                'slaTypeId' => 'Appointment', // todo parameterize this
+                'appointmentTemplateDuration' => 21,
+                'appointmentBaseDate' => now()->startOfDay()->toIso8601String(),
+            ],
         ];
 
         if (data_get($this->task_data, 'slotUsageRuleSetId')) {
@@ -374,6 +350,4 @@ class AppointmentBooking extends Page
 
         return $data;
     }
-
-
 }

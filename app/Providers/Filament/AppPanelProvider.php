@@ -2,17 +2,13 @@
 
 namespace App\Providers\Filament;
 
-
 use App\Filament\Pages\Backups;
 use App\Filament\Pages\HealthCheckResults;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-
-
 use Filament\Pages;
-
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -20,15 +16,15 @@ use Filament\Support\Facades\FilamentView;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use pxlrbt\FilamentEnvironmentIndicator\EnvironmentIndicatorPlugin;
 use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
 use ShuvroRoy\FilamentSpatieLaravelHealth\FilamentSpatieLaravelHealthPlugin;
-use Illuminate\Support\Facades\Vite;
 
 class AppPanelProvider extends PanelProvider
 {
@@ -52,11 +48,6 @@ class AppPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
                 Pages\Dashboard::class,
-
-//                ModellingServices::class
-            ])
-            ->resources([
-                config('filament-logger.activity_resource')
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
@@ -68,7 +59,7 @@ class AppPanelProvider extends PanelProvider
                     ->usingPage(Backups::class),
                 EnvironmentIndicatorPlugin::make()->showGitBranch(),
                 FilamentSpatieLaravelHealthPlugin::make()
-                    ->usingPage(HealthCheckResults::class)
+                    ->usingPage(HealthCheckResults::class),
             ])
             ->middleware([
                 EncryptCookies::class,
@@ -76,7 +67,7 @@ class AppPanelProvider extends PanelProvider
                 StartSession::class,
                 AuthenticateSession::class,
                 ShareErrorsFromSession::class,
-                VerifyCsrfToken::class,
+                PreventRequestForgery::class,
                 SubstituteBindings::class,
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
@@ -90,7 +81,7 @@ class AppPanelProvider extends PanelProvider
     {
         parent::register();
         FilamentView::registerRenderHook('panels::body.end',
-            fn(): string => Blade::render("@vite('resources/js/app.js')"));
+            fn (): string => Blade::render("@vite('resources/js/app.js')"));
 
     }
 }

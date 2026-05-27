@@ -9,29 +9,30 @@ use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
 use Filament\Forms\Get;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use JsonException;
 
-
 class UpdateActivityStatus extends PSOActivityBasePage
 {
-// View
-    protected static string $view = 'filament.pages.activity-update-status';
+    // View
+    //    protected static string $view = 'filament.pages.activity-update-status';
 
-// Navigation
+    // Navigation
 
-    protected static ?string $navigationIcon = 'heroicon-o-arrow-path';
-    protected static ?string $activeNavigationIcon = 'heroicon-s-arrow-path';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-arrow-path';
+
+    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-arrow-path';
+
     protected static ?string $navigationLabel = 'Update Activity Status';
 
-// Page Information
+    // Page Information
     protected static ?string $title = 'Update Activity Status';
+
     protected static ?string $slug = 'activity-status';
 
-
-    public function activity_form(Form $form): Form
+    public function activity_form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -43,7 +44,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
                             ->label('Activity ID')
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                            ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         Select::make('status')
                             ->prefixIcon('heroicon-o-adjustments-horizontal')
                             ->enum(TaskStatus::class)
@@ -58,13 +59,13 @@ class UpdateActivityStatus extends PSOActivityBasePage
                             ->prefixIcon('heroicon-o-user')
                             ->label('Resource ID')
                             ->helperText('Required if Status is Committed or higher')
-                            ->required(static fn(Get $get) => $get('status') > 29)
+                            ->required(static fn (Get $get) => $get('status') > 29)
                             ->validationMessages([
                                 'required' => 'A resources is required for statuses Committed and higher'])
                             ->live(),
-//                            ->hidden(static function (Get $get) {
-//                                return $get('status') < 29;
-//                            }),
+                        //                            ->hidden(static function (Get $get) {
+                        //                                return $get('status') < 29;
+                        //                            }),
                         TextInput::make('duration')
                             ->label('Duration (minutes)')
                             ->prefixIcon('heroicon-o-clock')
@@ -74,7 +75,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
                             ->action(function () {
                                 $this->updateTaskStatus();
 
-                            })
+                            }),
                         ])->columnSpan(2),
 
                     ])
@@ -90,8 +91,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
     {
         $this->response = null;
         $this->validateForms($this->getForms());
-        $apiSegment = 'activity/' . $this->activity_data['activity_id'] . '/status';
-
+        $apiSegment = 'activity/'.$this->activity_data['activity_id'].'/status';
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->TaskStatusPayload())) {
             $this->response = $this->sendToPSONew($apiSegment, $tokenized_payload, [], HttpMethod::PATCH);

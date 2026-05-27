@@ -2,46 +2,37 @@
 
 namespace App\Filament\Resources;
 
-
 use App\Enums\Status;
 use App\Enums\TaskStatus;
 use App\Filament\Resources\CustomerResource\Pages;
 use App\Filament\Resources\CustomerResource\RelationManagers\TasksRelationManager;
-use Filament\Infolists\Components\Section;
+use App\Models\Customer;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
-use Filament\Infolists\Infolist;
-use App\Models\Customer;
-
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
-
 
 class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-user-group';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-user-group';
 
     public static function getNavigationBadge(): ?string
     {
         return static::getModel()::count();
     }
 
-
-
-    public static function form(Form $form): Form
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema(
                 Customer::getForm()
             );
     }
-
-
-
 
     public static function table(Table $table): Table
     {
@@ -61,11 +52,11 @@ class CustomerResource extends Resource
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
                     ->badge()
-                    ->color(static fn($state) => ($state instanceof Status ? $state : Status::tryFrom($state)) === Status::ACTIVE
+                    ->color(static fn ($state) => ($state instanceof Status ? $state : Status::tryFrom($state)) === Status::ACTIVE
                         ? 'success'
                         : 'danger'
                     )
-                    ->formatStateUsing(fn($state) => ($state instanceof Status ? $state : Status::tryFrom($state))?->getLabel() ?? $state
+                    ->formatStateUsing(fn ($state) => ($state instanceof Status ? $state : Status::tryFrom($state))?->getLabel() ?? $state
                     )->sortable(),
                 Tables\Columns\TextColumn::make('tasks_count')
                     ->label('Tasks')
@@ -85,7 +76,7 @@ class CustomerResource extends Resource
                 //
             ])
             ->actions([
-//                Tables\Actions\EditAction::make(),
+                //                Tables\Actions\EditAction::make(),
                 Tables\Actions\ViewAction::make()->hidden(),
             ])
             ->bulkActions([
@@ -98,11 +89,11 @@ class CustomerResource extends Resource
     public static function getRelations(): array
     {
         return [
-            TasksRelationManager::class
+            TasksRelationManager::class,
         ];
     }
 
-    public static function infolist(Infolist $infolist): Infolist
+    public static function infolist(Infolist|Schema $infolist): Schema
     {
         return $infolist
             ->schema([
@@ -119,18 +110,18 @@ class CustomerResource extends Resource
                         TextEntry::make('created_at')
                             ->label('Created At')
                             ->icon('heroicon-o-calendar')
-                            ->formatStateUsing(static fn($state) => $state?->toFormattedDateString() ?? '—'),
+                            ->formatStateUsing(static fn ($state) => $state?->toFormattedDateString() ?? '—'),
 
                         TextEntry::make('updated_at')
                             ->label('Last Updated')
                             ->icon('heroicon-o-clock')
-                            ->tooltip(static fn($state) => $state?->toDayDateTimeString())
-                            ->formatStateUsing(static fn($state) => $state?->diffForHumans() ?? '—'),
+                            ->tooltip(static fn ($state) => $state?->toDayDateTimeString())
+                            ->formatStateUsing(static fn ($state) => $state?->diffForHumans() ?? '—'),
                         ViewEntry::make('summary_last_30')
                             ->view('filament.components.customer-summary-tile')
                             ->viewData([
                                 'label' => 'Tasks in the Last 30 Days',
-                                'value' => fn($record) => $record->tasks()
+                                'value' => fn ($record) => $record->tasks()
                                     ->where('appt_window_finish', '>=', now()->subDays(30))
                                     ->count(),
                                 'icon' => 'heroicon-o-calendar',
@@ -140,7 +131,7 @@ class CustomerResource extends Resource
                             ->view('filament.components.customer-summary-tile')
                             ->viewData([
                                 'label' => 'Upcoming Tasks',
-                                'value' => fn($record) => $record->tasks()
+                                'value' => fn ($record) => $record->tasks()
                                     ->where('appt_window_finish', '>', now())
                                     ->count(),
                                 'icon' => 'heroicon-o-arrow-up',
@@ -150,7 +141,7 @@ class CustomerResource extends Resource
                             ->view('filament.components.customer-summary-tile')
                             ->viewData([
                                 'label' => 'Incomplete Tasks',
-                                'value' => fn($record) => $record->tasks()
+                                'value' => fn ($record) => $record->tasks()
                                     ->whereNotIn('status', collect(TaskStatus::endStateStatuses())->pluck('value'))
                                     ->count(),
                                 'icon' => 'heroicon-o-exclamation-circle',
@@ -176,26 +167,24 @@ class CustomerResource extends Resource
                             ->label('Coordinates')
                             ->state(static function ($record) {
                                 return isset($record->lat, $record->long)
-                                    ? number_format($record->lat, 5) . ', ' . number_format($record->long, 5)
+                                    ? number_format($record->lat, 5).', '.number_format($record->long, 5)
                                     : '—';
                             }),
 
-
                         ViewEntry::make('map')
                             ->view('filament.components.customer-map')
-                            ->columnSpanFull(),])
+                            ->columnSpanFull(), ])
                     ->columns()->columnSpan(1),
                 // Splits the section into 2 columns (left = name/status, right = addr/map)
             ]);
     }
-
 
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListCustomers::route('/'),
             'create' => Pages\CreateCustomer::route('/create'),
-//            'edit' => Pages\EditCustomer::route('/{record}/edit'),
+            //            'edit' => Pages\EditCustomer::route('/{record}/edit'),
             'view' => Pages\ViewCustomer::route('/{record}'),
         ];
     }

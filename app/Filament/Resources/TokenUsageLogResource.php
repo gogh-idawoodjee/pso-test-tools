@@ -3,30 +3,26 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\TokenUsageLogResource\Pages;
-
 use App\Models\TokenUsageLog;
-
 use App\Traits\AdminViewable;
 use Exception;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 
 class TokenUsageLogResource extends Resource
 {
-
     use AdminViewable;
 
     protected static ?string $model = TokenUsageLog::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static ?string $navigationGroup = 'Core';
+    protected static string|null|\UnitEnum $navigationGroup = 'Core';
 
-
-    public static function form(Form $form): Form
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -59,7 +55,7 @@ class TokenUsageLogResource extends Resource
                     ]),
             ])
             ->actions([
-//                Tables\Actions\EditAction::make(),
+                //                Tables\Actions\EditAction::make(),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -72,8 +68,8 @@ class TokenUsageLogResource extends Resource
     {
         return [
             'index' => Pages\ListTokenUsageLogs::route('/'),
-//            'create' => Pages\CreateTokenUsageLog::route('/create'),
-//            'edit' => Pages\EditTokenUsageLog::route('/{record}/edit'),
+            //            'create' => Pages\CreateTokenUsageLog::route('/create'),
+            //            'edit' => Pages\EditTokenUsageLog::route('/{record}/edit'),
         ];
     }
 }

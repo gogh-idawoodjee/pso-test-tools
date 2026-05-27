@@ -9,49 +9,50 @@ use App\Filament\Resources\EnvironmentResource;
 use App\Traits\PSOInteractionsTrait;
 use Carbon\Carbon;
 use Filament\Actions\Action;
-use Filament\Forms\Get;
-use Filament\Resources\Pages\Page;
-use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Forms;
+use Filament\Forms\Components\Actions\Action as formAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Form;
+use Filament\Forms\Get;
+use Filament\Resources\Pages\Concerns\InteractsWithRecord;
+use Filament\Resources\Pages\Page;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Arr;
-use Filament\Forms;
 use JsonException;
 use Override;
-use Filament\Forms\Components\Actions\Action as formAction;
 
 class EnvironmentTools extends Page
 {
-
-    use InteractsWithRecord, PSOInteractionsTrait, Forms\Concerns\InteractsWithForms;
+    use Forms\Concerns\InteractsWithForms, InteractsWithRecord, PSOInteractionsTrait;
 
     protected static string $resource = EnvironmentResource::class;
 
-    protected static string $view = 'filament.resources.environment-resource.pages.envtools';
+    //    protected static string $view = 'filament.resources.environment-resource.pages.envtools';
 
     protected static ?string $breadcrumb = 'Tools';
+
     public ?array $data = [];
 
     public mixed $response = null;
 
     protected static ?string $title = 'Tools';
 
-    #[Override] protected function getHeaderActions(): array
+    #[Override]
+    protected function getHeaderActions(): array
     {
         return [
 
             Action::make('Return to Environment')
                 ->icon('heroicon-o-arrow-uturn-left')
-                ->url('/environments/' . $this->record->getRouteKey() . '/edit')
+                ->url('/environments/'.$this->record->getRouteKey().'/edit'),
 
         ];
     }
 
-    #[Override] protected function getForms(): array
+    protected function getForms(): array
     {
         return ['psoload', 'form', 'json_form'];
     }
@@ -63,7 +64,6 @@ class EnvironmentTools extends Page
         $this->psoload->fill($this->record->toArray());
         $this->json_form->fill();
 
-
     }
 
     private function setDefaults(): void
@@ -73,10 +73,10 @@ class EnvironmentTools extends Page
         $this->record->appointment_window = 7;
         $this->record->process_type = ProcessType::APPOINTMENT;
         $this->record->datetime = Carbon::now();
-        $this->record->commit_url = 'https://' . config('psott.pso-services-api') . '/api/v2/commit/' . $this->record->id;
+        $this->record->commit_url = 'https://'.config('psott.pso-services-api').'/api/v2/commit/'.$this->record->id;
     }
 
-    public function psoload(Form $form): Form
+    public function psoload(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -97,7 +97,7 @@ class EnvironmentTools extends Page
                             ->live()
                             ->enum(InputMode::class)
                             ->options(InputMode::class)
-                            ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+                            ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
 
                     ]),
                 Section::make('Environment Properties')
@@ -111,25 +111,25 @@ class EnvironmentTools extends Page
                             ->label('Base URL')
                             ->prefixIcon('heroicon-o-globe-alt')
                             ->disabled(static function (Get $get) {
-                                return !$get('send_to_pso');
+                                return ! $get('send_to_pso');
                             }),
                         TextInput::make('account_id')
                             ->label('Account ID')
                             ->prefixIcon('heroicon-o-identification') // ID card icon
                             ->disabled(static function (Get $get) {
-                                return !$get('send_to_pso');
+                                return ! $get('send_to_pso');
                             }),
                         TextInput::make('username')
                             ->label('Username')
                             ->prefixIcon('heroicon-o-user') // User icon
                             ->disabled(static function (Get $get) {
-                                return !$get('send_to_pso');
+                                return ! $get('send_to_pso');
                             }),
                         TextInput::make('password')
                             ->label('Password')
                             ->prefixIcon('heroicon-o-lock-closed') // Lock icon
                             ->password()->disabled(static function (Get $get) {
-                                return !$get('send_to_pso');
+                                return ! $get('send_to_pso');
                             }),
                     ]),
                 Forms\Components\Tabs::make('activity_tabs')->tabs([
@@ -144,16 +144,16 @@ class EnvironmentTools extends Page
                                 ->dehydrated(false)
                                 ->label('Keep PSO Data')
                                 ->requiredIf('send_to_pso', true)
-                                ->visible(fn(Get $get) => $get('input_mode') === InputMode::LOAD)
+                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->disabled(static function (Get $get) {
-                                    return !$get('send_to_pso');
+                                    return ! $get('send_to_pso');
                                 }),
                             TextInput::make('dse_duration')
                                 ->dehydrated(false)
                                 ->label('DSE Duration')
                                 ->integer()
                                 ->minValue(3)
-                                ->visible(fn(Get $get) => $get('input_mode') === InputMode::LOAD)
+                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->placeholder(3)
                                 ->prefixIcon('heroicon-o-cube-transparent'),
                             TextInput::make('appointment_window')
@@ -162,22 +162,22 @@ class EnvironmentTools extends Page
                                 ->integer()
                                 ->minValue(7)
                                 ->placeholder(7)
-                                ->visible(fn(Get $get) => $get('input_mode') === InputMode::LOAD)
+                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->prefixIcon('heroicon-o-calendar-date-range'),
                             Select::make('process_type')
                                 ->enum(ProcessType::class)
-                                ->visible(fn(Get $get) => $get('input_mode') === InputMode::LOAD)
+                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->options(ProcessType::class)
                                 ->live()
-                                ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+                                ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
                                 ->prefixIcon('heroicon-o-adjustments-horizontal'),
                             DateTimePicker::make('datetime')
                                 ->dehydrated(false)
                                 ->label('Input Date Time')
                                 ->prefixIcon('heroicon-o-clock'),
-                            Forms\Components\Actions::make([Forms\Components\Actions\Action::make('push_it')->slideOver()
-                                ->action(function (Forms\Get $get) {
-//                                $set('excerpt', str($get('content'))->words(45, end: ''));
+                            Forms\Components\Actions::make([formAction::make('push_it')->slideOver()
+                                ->action(function (Get $get) {
+                                    //                                $set('excerpt', str($get('content'))->words(45, end: ''));
                                     // the update status thingy
                                     $this->initPSO($get);
 
@@ -186,7 +186,7 @@ class EnvironmentTools extends Page
                                     return $this->data['input_mode'] === InputMode::LOAD ? 'Load' : 'Update Rota';
                                 }),
 
-                            ])->columnSpan(2)
+                            ])->columnSpan(2),
                         ])->columns()
                         ->icon('heroicon-o-arrow-up-on-square')
                         ->label('Initial Load and Rota'),
@@ -240,11 +240,10 @@ class EnvironmentTools extends Page
                         ->icon('heroicon-o-cog')
                         ->label('Services'),
 
-                ])
+                ]),
 
             ])->statePath('data');
     }
-
 
     /**
      * @throws JsonException
@@ -265,14 +264,12 @@ class EnvironmentTools extends Page
 
         $payload = $this->buildPayLoad($data);
 
-
         $environmentProperties = [
             'base_url' => $data('base_url'),
             'account_id' => $data('account_id'),
             'username' => $data('username'),
             'password' => $data('password'),
         ];
-
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload, $environmentProperties)) {
 
@@ -283,9 +280,7 @@ class EnvironmentTools extends Page
             $this->dispatch('open-modal', id: 'show-json');
         }
 
-
     }
-
 
     private function buildPayLoad($data): array
     {
@@ -293,7 +288,7 @@ class EnvironmentTools extends Page
             'base_url' => $data('base_url'),
             'dse_duration' => $data('dse_duration'),
             'dataset_id' => $data('dataset_id'),
-            'rota_id' => $data('dataset_id'), //todo get this from dataset table
+            'rota_id' => $data('dataset_id'), // todo get this from dataset table
             'description' => $data('input_mode') === InputMode::CHANGE ? 'Update Rota From Tool Box' : 'Load From Tool Box',
             'send_to_pso' => $data('send_to_pso'),
             'keep_pso_data' => $data('keep_pso_data'),
@@ -334,5 +329,4 @@ class EnvironmentTools extends Page
 
         return $payload;
     }
-
 }

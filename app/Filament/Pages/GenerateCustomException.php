@@ -3,12 +3,9 @@
 namespace App\Filament\Pages;
 
 use App\Classes\PSOObjectRegistry;
-
-
 use App\Enums\PSOEntities;
 use App\Models\Environment;
 use App\Traits\FormTrait;
-
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
@@ -16,31 +13,26 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Form;
 use Filament\Pages\Page;
-
-
 use JsonException;
-use Override;
 
 class GenerateCustomException extends Page
-
 {
-    use InteractsWithForms, FormTrait;
+    use FormTrait, InteractsWithForms;
 
-    protected static ?string $navigationIcon = 'heroicon-o-exclamation-triangle';
-    protected static ?string $activeNavigationIcon = 'heroicon-s-exclamation-triangle';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-exclamation-triangle';
 
-    protected static string $view = 'filament.pages.generate-custom-exception';
-    protected static ?string $navigationGroup = 'API Services';
+    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-exclamation-triangle';
 
+    //    protected static string $view = 'filament.pages.generate-custom-exception';
+    protected static string|null|\UnitEnum $navigationGroup = 'API Services';
 
     public ?array $exception_data = [];
+
     public ?array $PSOObjectTypes = [];
 
-
-    #[Override]
     protected function getForms(): array
     {
-        return ['exception_form', 'env_form','json_form'];
+        return ['exception_form', 'env_form', 'json_form'];
     }
 
     public function mount(): void
@@ -50,7 +42,6 @@ class GenerateCustomException extends Page
 
         $this->fillForms($this->getForms());
     }
-
 
     public function exception_form(Form $form): Form
     {
@@ -75,15 +66,15 @@ class GenerateCustomException extends Page
                         // Resource ID field visible when 'object_type_id' is 'Resource'
                         TextInput::make('resourceId')
                             ->label('Resource ID')
-                            ->visible(fn(callable $get) => $get('object_type_id') === 'resource')
-                            ->required(fn(callable $get) => $get('object_type_id') === 'resource')
+                            ->visible(fn (callable $get) => $get('object_type_id') === 'resource')
+                            ->required(fn (callable $get) => $get('object_type_id') === 'resource')
                             ->placeholder('Enter Resource ID'),
 
                         // Activity ID field visible when 'object_type_id' is 'Activity'
                         TextInput::make('activity_id')
                             ->label('Activity ID')
-                            ->visible(fn(callable $get) => $get('object_type_id') === 'activity')
-                            ->required(fn(callable $get) => $get('object_type_id') === 'activity')
+                            ->visible(fn (callable $get) => $get('object_type_id') === 'activity')
+                            ->required(fn (callable $get) => $get('object_type_id') === 'activity')
                             ->placeholder('Enter Activity ID'),
 
                         // Generic Label and Value fields
@@ -96,10 +87,10 @@ class GenerateCustomException extends Page
                             ->icon('heroicon-o-exclamation-triangle')
                             ->action(function () {
                                 $this->generate_exception();
-                            })->disabled(static fn(callable $get) => !$get('object_type_id'))
-                        ])->columnSpan(2)
+                            })->disabled(static fn (callable $get) => ! $get('object_type_id')),
+                        ])->columnSpan(2),
                     ])
-                    ->columns()
+                    ->columns(),
             ])
             ->statePath('exception_data');
 
@@ -117,25 +108,22 @@ class GenerateCustomException extends Page
         $object_id = $this->exception_data['object_type_id'];
         $object_value = $this->exception_data['object_type_id'] === 'activity' ? $this->exception_data['activity_id'] : $this->exception_data['resource_id'];
 
-
         $payload = $this->buildPayload(
             required: [
-                $object_id . 'Id' => $object_value,
+                $object_id.'Id' => $object_value,
                 'label' => $this->exception_data['label'],
                 'value' => $this->exception_data['value'],
                 'exceptionTypeId' => $this->exception_data['schedule_exception_type_id'],
             ],
         );
 
-
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
-            $this->response = $this->sendToPSONew('exception', $tokenized_payload,[]);
+            $this->response = $this->sendToPSONew('exception', $tokenized_payload, []);
             $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');
         }
 
     }
-
 }

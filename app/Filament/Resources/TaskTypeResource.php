@@ -3,11 +3,9 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\TaskTypeResource\Pages;
-
-
 use App\Models\TaskType;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
 
@@ -15,15 +13,16 @@ class TaskTypeResource extends Resource
 {
     protected static ?string $model = TaskType::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationGroup = 'Base Data';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
+
+    protected static string|null|\UnitEnum $navigationGroup = 'Base Data';
 
     public static function getNavigationBadge(): ?string
     {
         return static::getModel()::count();
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema(TaskType::getForm());
@@ -65,8 +64,8 @@ class TaskTypeResource extends Resource
     {
         return [
             'index' => Pages\ListTaskTypes::route('/'),
-//            'create' => Pages\CreateTaskType::route('/create'),
-//            'edit' => Pages\EditTaskType::route('/{record}/edit'),
+            //            'create' => Pages\CreateTaskType::route('/create'),
+            //            'edit' => Pages\EditTaskType::route('/{record}/edit'),
         ];
     }
 }

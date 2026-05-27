@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-
 use App\Models\Environment;
 use App\Support\GeocodeHelper;
 use App\Traits\FormTrait;
@@ -14,22 +13,23 @@ use Filament\Forms\Form;
 use Filament\Pages\Page;
 use JsonException;
 
-
 class TravelAnalyzer extends Page
 {
+    use FormTrait, InteractsWithForms;
 
-    use InteractsWithForms, FormTrait;
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-map';
 
-    protected static ?string $navigationIcon = 'heroicon-o-map';
-    protected static ?string $navigationGroup = 'API Services';
+    protected static string|null|\UnitEnum $navigationGroup = 'API Services';
 
     public ?array $data = [];
-    protected static ?string $activeNavigationIcon = 'heroicon-s-map';
+
+    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-map';
+
     protected static ?string $navigationLabel = 'Travel Analyzer';
+
     protected static ?string $title = 'Travel Analyzer';
 
-    protected static string $view = 'filament.pages.travel-analyzer';
-
+    //    protected static string $view = 'filament.pages.travel-analyzer';
 
     public function mount(): void
     {
@@ -37,12 +37,10 @@ class TravelAnalyzer extends Page
         $this->env_form->fill();
     }
 
-
     protected function getForms(): array
     {
         return ['env_form', 'travel_form'];
     }
-
 
     public function travel_form(Form $form): Form
     {
@@ -133,7 +131,7 @@ class TravelAnalyzer extends Page
                         Forms\Components\Actions\Action::make('analyze_travel')
                             ->action(function (Forms\Get $get) {
                                 $this->dotheThing($get);
-                            })
+                            }),
                     ])
                     ->columns(),
             ])->statePath('data');
@@ -157,10 +155,9 @@ class TravelAnalyzer extends Page
                     'longTo' => $get('long_to'),
                     'sendToPso' => $this->environment_data['send_to_pso'],
                     'googleApiKey' => config('psott.google_api_key'),
-                ]
+                ],
             ]
         );
-
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew('travelanalyzer', $tokenized_payload);

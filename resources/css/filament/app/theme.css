@@ -1,11 +1,5 @@
+@import "tailwindcss";
 @import '../../../../vendor/filament/filament/resources/css/base.css';
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-@tailwind variants;
-
-
-@config 'tailwind.config.js';
 
 /* Force Highlight.js styles */
 .hljs {

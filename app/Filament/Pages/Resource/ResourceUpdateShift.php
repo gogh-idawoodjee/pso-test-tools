@@ -9,21 +9,21 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use JsonException;
-
 
 class ResourceUpdateShift extends PSOResourceBasePage
 {
-
     protected static ?string $title = 'Update Shift';
-    protected static ?string $slug = 'resource-update-shift';
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
 
-    protected static string $view = 'filament.pages.resource-update-shift';
+    protected static ?string $slug = 'resource-update-shift';
+
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
+
+    //    protected static string $view = 'filament.pages.resource-update-shift';
     public bool $isAuthenticationRequired = true;
 
-    public function resource_form(Form $form): Form
+    public function resource_form(Schema $form): Schema
     {
 
         return $form
@@ -36,18 +36,18 @@ class ResourceUpdateShift extends PSOResourceBasePage
                             ->label('Resource ID')
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                            ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         TextInput::make('shift_id')
                             ->prefixIcon('heroicon-o-hashtag') // Good for ID/reference numbers
                             ->label('Shift ID')
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                            ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         TextInput::make('shift_type')
                             ->prefixIcon('heroicon-o-tag') // Better than clipboard for "type"
                             ->label('Shift Type')
                             ->live()
-                            ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                            ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         DateTimePicker::make('start_datetime')
                             ->label('Start Date/Time')
                             ->prefixIcon('heroicon-o-play') // Start/begin
@@ -61,17 +61,16 @@ class ResourceUpdateShift extends PSOResourceBasePage
                             ->inline(false)
                             ->live(),
 
-
                         Actions::make([Actions\Action::make('update_shift')
                             ->label('Update Shift')
                             ->icon('heroicon-o-arrow-path') // Refresh/update icon
                             ->action(function () {
                                 $this->updateShift();
 
-                            })
+                            }),
                         ]),
                     ])
-                    ->columns(3)
+                    ->columns(3),
             ])
             ->statePath('resource_data');
     }
@@ -83,7 +82,6 @@ class ResourceUpdateShift extends PSOResourceBasePage
     {
         $this->response = null;
         $this->validateForms($this->getForms());
-
 
         $payload = $this->buildPayload(
             required: [
@@ -98,7 +96,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
             ]
         );
 
-        $apiSegment = 'resource/' . $this->resource_data['resource_id'] . '/shift';
+        $apiSegment = 'resource/'.$this->resource_data['resource_id'].'/shift';
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew($apiSegment, $tokenized_payload, [], HttpMethod::PATCH);
@@ -106,7 +104,6 @@ class ResourceUpdateShift extends PSOResourceBasePage
             $this->dispatch('json-updated'); // Add this line
             $this->dispatch('open-modal', id: 'show-json');
         }
-
 
     }
 }

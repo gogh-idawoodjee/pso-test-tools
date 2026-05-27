@@ -6,34 +6,33 @@ use App\Models\Environment;
 use App\Traits\FormTrait;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Pages\Page;
-use Override;
-
 
 abstract class ModellingBasePage extends Page
 {
-    use InteractsWithForms, FormTrait;
+    use FormTrait, InteractsWithForms;
 
-    protected static ?string $navigationGroup = 'API Services';
+    protected static string|null|\UnitEnum $navigationGroup = 'API Services';
+
     protected static ?string $navigationParentItem = 'Modelling Services';
 
     public ?array $modelling_data = [];
 
-    protected static ?string $navigationIcon = 'heroicon-o-document-text';
-    protected static ?string $activeNavigationIcon = 'heroicon-s-document-text';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
+
+    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-document-text';
 
     protected static ?string $navigationLabel = 'Modelling Services';
+
     protected static ?string $title = 'Modelling Services';
+
     protected static ?string $slug = 'modelling-services';
 
+    //    protected static string $view = 'filament.pages.modelling-services';
 
-    protected static string $view = 'filament.pages.modelling-services';
-
-
-    #[Override] protected function getForms(): array
+    protected function getForms(): array
     {
         return ['env_form', 'modelling_form', 'json_form'];
     }
-
 
     public function mount(): void
     {
@@ -41,6 +40,4 @@ abstract class ModellingBasePage extends Page
 
         $this->fillForms($this->getForms());
     }
-
-
 }

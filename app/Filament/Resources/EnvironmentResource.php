@@ -5,31 +5,31 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EnvironmentResource\Pages;
 use App\Filament\Resources\EnvironmentResource\RelationManagers;
 use App\Models\Environment;
-
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
-
 
 class EnvironmentResource extends Resource
 {
     protected static ?string $model = Environment::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-circle-stack';
-    protected static ?string $activeNavigationIcon = 'heroicon-s-circle-stack';
-    protected static ?string $navigationGroup = 'Base Data';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-circle-stack';
+
+    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-circle-stack';
+
+    protected static string|null|\UnitEnum $navigationGroup = 'Base Data';
+
     protected static ?int $navigationSort = 1;
 
-
-    protected static ?string $navigationBadgeTooltip = 'The number of configured environments';
+    protected static string|\Illuminate\Contracts\Support\Htmlable|null $navigationBadgeTooltip = 'The number of configured environments';
 
     public static function getNavigationBadge(): ?string
     {
         return static::getModel()::count();
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema(Environment::getForm());
@@ -88,7 +88,7 @@ class EnvironmentResource extends Resource
     {
         return [
 
-            RelationManagers\DatasetsRelationManager::class
+            RelationManagers\DatasetsRelationManager::class,
         ];
     }
 
@@ -98,7 +98,7 @@ class EnvironmentResource extends Resource
             'index' => Pages\ListEnvironments::route('/'),
             'create' => Pages\CreateEnvironment::route('/create'),
             'edit' => Pages\EditEnvironment::route('/{record}/edit'),
-//            'tools' => Pages\PsoLoad::route('/psoload/{record}'),
+            //            'tools' => Pages\PsoLoad::route('/psoload/{record}'),
             'environmentTools' => Pages\EnvironmentTools::route('/environmentTools/{record}'),
 
         ];

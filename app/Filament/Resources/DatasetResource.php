@@ -3,24 +3,22 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\DatasetResource\Pages;
-use App\Filament\Resources\DatasetResource\RelationManagers;
 use App\Models\Dataset;
-use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
 
 class DatasetResource extends Resource
 {
     protected static ?string $model = Dataset::class;
 
     protected static bool $shouldRegisterNavigation = false;
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    public static function form(Form $form): Form
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
+
+    public static function form(Form|Schema $form): Schema
     {
         return $form
             ->schema(Dataset::getForm());
@@ -73,9 +71,9 @@ class DatasetResource extends Resource
     {
         return [
             'index' => Pages\ListDatasets::route('/'),
-//            'create' => Pages\CreateDataset::route('/create'),
+            //            'create' => Pages\CreateDataset::route('/create'),
             'view' => Pages\ViewDataset::route('/{record}'),
-//            'edit' => Pages\EditDataset::route('/{record}/edit'),
+            //            'edit' => Pages\EditDataset::route('/{record}/edit'),
         ];
     }
 }

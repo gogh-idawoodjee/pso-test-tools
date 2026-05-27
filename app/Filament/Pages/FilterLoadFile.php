@@ -2,7 +2,9 @@
 
 namespace App\Filament\Pages;
 
+use App\Jobs\ProcessResourceFile;
 use App\Models\Environment;
+use App\Traits\FilamentJobMonitoring;
 use App\Traits\FormTrait;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Fieldset;
@@ -11,45 +13,60 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Pages\Page;
-use App\Jobs\ProcessResourceFile;
-use App\Traits\FilamentJobMonitoring;
 use Filament\Forms\Form;
+use Filament\Pages\Page;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
-use Override;
 
 class FilterLoadFile extends Page
 {
-    use InteractsWithForms, FilamentJobMonitoring, FormTrait;
+    use FilamentJobMonitoring, FormTrait, InteractsWithForms;
 
     // Job type identifier
     private const string JOB_TYPE = 'resource-job';
 
-    protected static ?string $navigationIcon = 'heroicon-o-funnel';
-    protected static ?string $activeNavigationIcon = 'heroicon-s-funnel';
-    protected static string $view = 'filament.pages.filter-load-file';
-    protected static ?string $navigationGroup = 'Additional Tools';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-funnel';
+
+    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-funnel';
+
+    //    protected static string $view = 'filament.pages.filter-load-file';
+    protected static string|null|\UnitEnum $navigationGroup = 'Additional Tools';
 
     // File upload and processing properties
     public ?array $upload = null;
+
     public ?string $startDate = null;
+
     public ?string $endDate = null;
+
     public ?Carbon $jobCreatedAt = null;
+
     public ?Carbon $overrideDatetime = null;
+
     public array $regionIds = [];
+
     public array $resourceIds = [];
+
     public array $activityIds = [];
+
     public bool $dryRun = true;
+
     public ?string $downloadUrl = null;
+
     public array $preview = [];
+
     public array $availableActivityIds = [];
+
     public array $availableResourceIds = [];
+
     public array $availableRegionIds = [];
+
     public array $activityTypeIds = [];
+
     public array $availableActivityTypes = [];
 
     public array $activityTypeCounts = [];
+
     public bool $hasRunFilterJob = false;
 
     protected int $pollingCount = 0;
@@ -85,61 +102,57 @@ class FilterLoadFile extends Page
         }
     }
 
-
-    #[Override] protected function getForms(): array
+    protected function getForms(): array
     {
         return ['env_form', 'form'];
     }
 
-
-    #[Override]
     public function form(Form $form): Form
     {
         return $form->schema([
-                Section::make()
-                    ->schema([
-                        FileUpload::make('upload')
-                            ->label('Upload JSON File')
-                            ->disk('r2')
-                            ->directory('uploads')
-                            ->maxSize(102400) // ← 100MB in kilobytes
-                            ->acceptedFileTypes(['application/json'])
-                            ->required()->columnSpan(2),
-                        Fieldset::make('Filtering Options')->schema([
-                            $this->createRegionSelector(),
-                            $this->createResourceSelector(),
-                            $this->createActivityTypeSelector(),
-                            $this->createActivitySelector(),
-                            DateTimePicker::make('startDate')
-                                ->label('Start Date')
-                                ->helperText('Optional. Filters data starting from this date.')
-                                ->native(false)
-                                ->seconds(false)
-                                ->nullable()
-                                ->reactive(),
+            Section::make()
+                ->schema([
+                    FileUpload::make('upload')
+                        ->label('Upload JSON File')
+                        ->disk('r2')
+                        ->directory('uploads')
+                        ->maxSize(102400) // ← 100MB in kilobytes
+                        ->acceptedFileTypes(['application/json'])
+                        ->required()->columnSpan(2),
+                    Fieldset::make('Filtering Options')->schema([
+                        $this->createRegionSelector(),
+                        $this->createResourceSelector(),
+                        $this->createActivityTypeSelector(),
+                        $this->createActivitySelector(),
+                        DateTimePicker::make('startDate')
+                            ->label('Start Date')
+                            ->helperText('Optional. Filters data starting from this date.')
+                            ->native(false)
+                            ->seconds(false)
+                            ->nullable()
+                            ->reactive(),
 
-                            DateTimePicker::make('endDate')
-                                ->label('End Date')
-                                ->helperText('Optional. Filters data up to this date.')
-                                ->native(false)
-                                ->seconds(false)
-                                ->nullable()
-                                ->after('startDate')
-                                ->reactive(),
+                        DateTimePicker::make('endDate')
+                            ->label('End Date')
+                            ->helperText('Optional. Filters data up to this date.')
+                            ->native(false)
+                            ->seconds(false)
+                            ->nullable()
+                            ->after('startDate')
+                            ->reactive(),
 
-                            $this->createDatetimeOverrideField(),
-                        ])->visible(fn() => $this->shouldShowDropdowns()),
+                        $this->createDatetimeOverrideField(),
+                    ])->visible(fn () => $this->shouldShowDropdowns()),
 
-
-                        Toggle::make('dryRun')
-                            ->label('Get Data')
-                            ->helperText('Required Prior to Filtering')
-                            ->disabled(fn() => !$this->shouldShowDropdowns())
-                            ->dehydrated()
-                            ->default(true)
-                            ->live(),
-                    ])->columns(),
-            ]
+                    Toggle::make('dryRun')
+                        ->label('Get Data')
+                        ->helperText('Required Prior to Filtering')
+                        ->disabled(fn () => ! $this->shouldShowDropdowns())
+                        ->dehydrated()
+                        ->default(true)
+                        ->live(),
+                ])->columns(),
+        ]
         );
 
     }
@@ -155,6 +168,7 @@ class FilterLoadFile extends Page
                         // If the entry is like "SVBARR - Service Barrie"
                         if (str_contains($entry, ' - ')) {
                             [$id, $desc] = explode(' - ', $entry, 2);
+
                             return [$id => "{$id} - {$desc}"]; // 🟢 Key = ID, Value = "ID - Description"
                         }
 
@@ -167,13 +181,12 @@ class FilterLoadFile extends Page
             ->columnSpan(1);
     }
 
-
     protected function createResourceSelector(): Select
     {
         return Select::make('resourceIds')
             ->label('Filter to Specific Resources')
             ->multiple()
-            ->options(fn() => $this->availableResourceIds)
+            ->options(fn () => $this->availableResourceIds)
             ->searchable()
             ->native(false)
             ->helperText('Optional. Only these resources will be included if selected.');
@@ -191,6 +204,7 @@ class FilterLoadFile extends Page
                     })
                     ->mapWithKeys(function ($label, $id) {
                         $count = $this->activityTypeCounts[$id];
+
                         return [$id => "{$label} ({$count})"];
                     });
             })
@@ -200,7 +214,6 @@ class FilterLoadFile extends Page
             ->live()
             ->helperText('Only shows types that have matching activities. Use this to filter by type.');
     }
-
 
     protected function createActivitySelector(): Select
     {
@@ -215,14 +228,13 @@ class FilterLoadFile extends Page
                 // Only include activities matching selected types
                 return collect($this->availableActivityIds)
                     ->filter(function ($label) {
-                        return array_any($this->activityTypeIds, static fn($typeId) => str_contains($label, $typeId));
+                        return array_any($this->activityTypeIds, static fn ($typeId) => str_contains($label, $typeId));
                     })->all();
             })
             ->searchable()
             ->native(false)
             ->helperText('Optional. Only these activities will be included if selected.');
     }
-
 
     protected function createDatetimeOverrideField(): DateTimePicker
     {
@@ -237,7 +249,7 @@ class FilterLoadFile extends Page
 
     public function shouldShowDropdowns(): bool
     {
-        return filled($this->upload) && !empty($this->availableRegionIds);
+        return filled($this->upload) && ! empty($this->availableRegionIds);
     }
 
     /**
@@ -247,13 +259,15 @@ class FilterLoadFile extends Page
     {
         // Validate form state
 
-        if (!$this->dryRun && (($this->startDate && !$this->endDate) || (!$this->startDate && $this->endDate))) {
+        if (! $this->dryRun && (($this->startDate && ! $this->endDate) || (! $this->startDate && $this->endDate))) {
             $this->notifyWarning('Date range incomplete', 'Both start and end dates must be filled or left blank.');
+
             return;
         }
 
-        if (!$this->dryRun && empty($this->availableRegionIds)) {
+        if (! $this->dryRun && empty($this->availableRegionIds)) {
             $this->notifyWarning('Please preview first', 'Run a dry run to load region, resource, and activity IDs.');
+
             return;
         }
 
@@ -303,7 +317,6 @@ class FilterLoadFile extends Page
         $this->resetAvailableData();
     }
 
-
     protected function resetAvailableData(): void
     {
         $this->availableRegionIds = [];
@@ -322,7 +335,6 @@ class FilterLoadFile extends Page
         $this->preview = [];
         $this->dryRun = true;
     }
-
 
     private function cleanupPreviousJob(): void
     {
@@ -352,7 +364,7 @@ class FilterLoadFile extends Page
 
         Log::info('[FilterLoadFile] 📮 dispatching ProcessResourceFile', $data);
 
-        activity()->event('FilterLoadFile.dispatch')->log('[FilterLoadFile] 📮 dispatching ProcessResourceFile' . json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
+        activity()->event('FilterLoadFile.dispatch')->log('[FilterLoadFile] 📮 dispatching ProcessResourceFile'.json_encode($data, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
 
         ProcessResourceFile::dispatch(
             $this->jobId,
@@ -367,10 +379,9 @@ class FilterLoadFile extends Page
         );
     }
 
-
     public function checkStatus(): void
     {
-        if (!$this->jobId) {
+        if (! $this->jobId) {
             return;
         }
 
@@ -400,6 +411,7 @@ class FilterLoadFile extends Page
         // Handle job timeout
         if ($this->isJobTimedOut()) {
             $this->handleJobTimeout();
+
             return;
         }
 
@@ -418,7 +430,7 @@ class FilterLoadFile extends Page
             $this->form->fill(['dryRun' => false]);
         }
 
-        if ($this->status === 'complete' && !$this->dryRun) {
+        if ($this->status === 'complete' && ! $this->dryRun) {
             // use this method to show the environment section and activate the push to PSO button
             $this->hasRunFilterJob = true;
         }
@@ -450,12 +462,12 @@ class FilterLoadFile extends Page
 
     public function cancelJob(): void
     {
-        if (!$this->jobId) {
+        if (! $this->jobId) {
             return;
         }
 
         // Cancel the job and clean up
-//        $this->updateCache('status', 'cancelled');
+        //        $this->updateCache('status', 'cancelled');
         $this->progress = 0;
         $this->status = 'cancelled';
         $this->jobId = null;
@@ -512,7 +524,7 @@ class FilterLoadFile extends Page
 
     protected function getElapsedTime(): string
     {
-        if (!$this->jobCreatedAt) {
+        if (! $this->jobCreatedAt) {
             return '0:00';
         }
 
@@ -520,6 +532,6 @@ class FilterLoadFile extends Page
         $minutes = floor($seconds / 60);
         $remainingSeconds = $seconds % 60;
 
-        return $minutes . ':' . str_pad($remainingSeconds, 2, '0', STR_PAD_LEFT);
+        return $minutes.':'.str_pad($remainingSeconds, 2, '0', STR_PAD_LEFT);
     }
 }

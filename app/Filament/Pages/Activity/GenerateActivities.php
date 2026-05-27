@@ -3,32 +3,31 @@
 namespace App\Filament\Pages\Activity;
 
 use App\Filament\BasePages\PSOActivityBasePage;
-
 use App\Support\GeocodeHelper;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
-
+use Filament\Schemas\Schema;
 use JsonException;
 
 class GenerateActivities extends PSOActivityBasePage
 {
+    // View
+    //    protected static string $view = 'filament.pages.activity-generate-activities';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-plus';
 
-// View
-    protected static string $view = 'filament.pages.activity-generate-activities';
-    protected static ?string $navigationIcon = 'heroicon-o-document-plus';
-    protected static ?string $activeNavigationIcon = 'heroicon-s-document-plus';
+    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-document-plus';
 
-// Page Information
+    // Page Information
     protected static ?string $title = 'Generate Activities';
+
     protected static ?string $slug = 'activity-generate';
+
     protected static ?string $navigationLabel = 'Generate Activities';
 
-// Data
+    // Data
 
-
-    public function activity_form(Form $form): Form
+    public function activity_form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -44,14 +43,14 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->label('Activity Type ID')
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                                    ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                                 TextInput::make('sla_type_id')
                                     ->label('SLA Type ID')
                                     ->prefixIcon('heroicon-o-shield-check') // SLA = service level agreement
                                     ->required()
-                                    ->validationMessages(['required' => "SLA Type ID is required"])
+                                    ->validationMessages(['required' => 'SLA Type ID is required'])
                                     ->live()
-                                    ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                                    ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                                 TextInput::make('base_value')
                                     ->label('Base Value')
                                     ->required()
@@ -95,7 +94,6 @@ class GenerateActivities extends PSOActivityBasePage
                                             ->action(static function (Forms\Set $set) {
                                                 $set('time_zone', null);
                                             })),
-
 
                             ])->columns(3),
                         Forms\Components\Fieldset::make('scheduling')
@@ -189,7 +187,6 @@ class GenerateActivities extends PSOActivityBasePage
         $this->response = null;
         $this->validateForms($this->getForms());
 
-
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->generateActivitiesPayload())) {
             $this->response = $this->sendToPSONew('activity', $tokenized_payload);
             // todo this method is not complete
@@ -198,7 +195,6 @@ class GenerateActivities extends PSOActivityBasePage
         }
 
     }
-
 
     private function generateActivitiesPayload(): array
     {
@@ -213,7 +209,7 @@ class GenerateActivities extends PSOActivityBasePage
                 'long' => $this->activity_data['longitude'],
                 'relative_day' => $this->activity_data['relative_day'],
                 'relative_day_end' => $this->activity_data['relative_day_end'],
-                'window_size' => $this->activity_data['window_size']
+                'window_size' => $this->activity_data['window_size'],
             ]);
 
         if ($skills = collect($this->activity_data['skills'])->pluck('skill')->filter()->values()) {

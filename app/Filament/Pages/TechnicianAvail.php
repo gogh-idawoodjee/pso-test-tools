@@ -17,24 +17,29 @@ use Filament\Forms\Form;
 use Filament\Pages\Page;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Url;
-use Override;
 
 class TechnicianAvail extends Page
 {
-    use InteractsWithForms, FilamentJobMonitoring;
+    use FilamentJobMonitoring, InteractsWithForms;
 
     // Job types
     private const string JOB_TYPE_RESOURCES = 'resource-job';
+
     private const string JOB_TYPE_SHIFTS = 'Technician-Shift-Job';
 
     // 1. Constants/Static properties
-    protected static ?string $navigationIcon = 'heroicon-o-calendar';
-    protected static string $view = 'filament.pages.technician-avail';
-    protected static ?string $navigationGroup = 'Additional Tools';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-calendar';
+
+    //    protected static string $view = 'filament.pages.technician-avail';
+    protected static string|null|\UnitEnum $navigationGroup = 'Additional Tools';
+
     protected static ?string $title = 'Technician Availability';
+
     // 2. Public properties
     public array $technicianOptions = [];
-    public array|null $technicianShifts = [];
+
+    public ?array $technicianShifts = [];
+
     #[Url]
     public bool $enableDebug = false;
 
@@ -55,7 +60,6 @@ class TechnicianAvail extends Page
 
     }
 
-    #[Override]
     public function form(Form $form): Form
     {
         return $form->schema([
@@ -66,7 +70,7 @@ class TechnicianAvail extends Page
                         ->disk('r2')
                         ->directory('uploads')
                         ->acceptedFileTypes(['application/json'])
-                        ->required(fn() => empty($this->technicianShifts))
+                        ->required(fn () => empty($this->technicianShifts))
                         ->dehydrated()
                         ->live()
                         ->columnSpan(2),
@@ -76,13 +80,13 @@ class TechnicianAvail extends Page
                         ->options($this->technicianOptions)
                         ->placeholder('Choose a tech')
                         ->searchable()
-                        ->afterStateUpdated(static fn($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
-                        ->visible(fn() => !empty($this->technicianOptions))
+                        ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+                        ->visible(fn () => ! empty($this->technicianOptions))
                         ->live(),
                     DatePicker::make('startDate')
                         ->label('Start Date')
                         ->default(now()->toDateString())
-                        ->visible(fn() => !empty($this->technicianOptions))
+                        ->visible(fn () => ! empty($this->technicianOptions))
                         ->required()
                         ->native(false),
                 ])->columns(),
@@ -90,14 +94,14 @@ class TechnicianAvail extends Page
                 Action::make('get_resources')
                     ->label('Load Resources')
                     ->icon('heroicon-o-arrow-down-circle')
-                    ->disabled(fn() => !empty($this->formData['selectedTechnician']) || empty($this->formData['upload']))
+                    ->disabled(fn () => ! empty($this->formData['selectedTechnician']) || empty($this->formData['upload']))
                     ->action(function () {
                         $this->getResources();
                     }),
                 Action::make('get_schedule')
                     ->label('Get Technician Schedule')
                     ->icon('heroicon-o-arrow-down-circle')
-                    ->disabled(fn() => empty($this->formData['selectedTechnician']))
+                    ->disabled(fn () => empty($this->formData['selectedTechnician']))
                     ->action(function () {
                         $this->getSchedule();
                     }),
@@ -105,18 +109,17 @@ class TechnicianAvail extends Page
                     ->label('Load Next Batch')
                     ->icon('heroicon-o-arrow-right')
                     ->action('loadNextBatch')
-                    ->visible(fn() => !empty($this->technicianShifts) && !empty($this->formData['selectedTechnician'])),
-            ])
+                    ->visible(fn () => ! empty($this->technicianShifts) && ! empty($this->formData['selectedTechnician'])),
+            ]),
         ])->statePath('formData');
     }
-
 
     public function loadNextBatch(): void
     {
         // 1) Determine the last shift date we just fetched:
         $lastShift = collect($this->technicianShifts)
             ->pluck('start_datetime')
-            ->map(static fn($dt) => Carbon::parse($dt))
+            ->map(static fn ($dt) => Carbon::parse($dt))
             ->max();
 
         // 2) Bump it forward one day:
@@ -158,7 +161,7 @@ class TechnicianAvail extends Page
 
     public function checkStatus(): void
     {
-        if (!$this->jobId || !$this->jobKey) {
+        if (! $this->jobId || ! $this->jobKey) {
             return;
         }
 
@@ -173,7 +176,7 @@ class TechnicianAvail extends Page
         Log::info("Polling checkStatus for jobId: {$this->jobId}, Progress: {$this->progress}, Status: {$this->status}");
 
         if ($this->status === 'complete') {
-            Log::info("Status Changed to Completed: TechAvail checkstatus method");
+            Log::info('Status Changed to Completed: TechAvail checkstatus method');
             $this->handleJobCompletion();
         }
     }
@@ -197,7 +200,6 @@ class TechnicianAvail extends Page
         $this->resetJobState();
     }
 
-
     protected function resetJobState(): void
     {
         // Only clear the job‐monitoring fields:
@@ -216,7 +218,7 @@ class TechnicianAvail extends Page
                 ->pluck('name', 'id')
                 ->toArray();
 
-            Log::info('Technician dropdown updated with ' . count($this->technicianOptions) . ' options');
+            Log::info('Technician dropdown updated with '.count($this->technicianOptions).' options');
         }
     }
 
@@ -264,14 +266,14 @@ class TechnicianAvail extends Page
                         'start' => '2025-04-14T12:00:00+00:00',
                         'end' => '2025-04-14T14:00:00+00:00',
                         'full_coverage' => false,
-                    ]
+                    ],
                 ],
                 'breaks' => [
                     [
                         'start' => '2025-04-14T16:00:00+00:00',
                         'end' => '2025-04-14T17:00:00+00:00',
-                    ]
-                ]
+                    ],
+                ],
             ],
             [
                 'id' => '372730',
@@ -302,7 +304,7 @@ class TechnicianAvail extends Page
                         'start' => '2025-04-15T14:30:00+00:00',
                         'end' => '2025-04-15T16:30:00+00:00',
                         'full_coverage' => false,
-                    ]
+                    ],
                 ],
             ],
             [
@@ -323,10 +325,9 @@ class TechnicianAvail extends Page
                         'start' => '2025-04-16T08:00:00+00:00',
                         'end' => '2025-04-16T16:00:00+00:00',
                         'full_coverage' => true,
-                    ]
+                    ],
                 ],
             ],
         ];
     }
-
 }

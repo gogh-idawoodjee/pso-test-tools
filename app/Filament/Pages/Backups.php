@@ -10,7 +10,7 @@ class Backups extends BaseBackups
 {
     use AdminViewable;
 
-    protected static ?string $navigationIcon = 'heroicon-o-cpu-chip';
+    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-cpu-chip';
 
     public function getHeading(): string|Htmlable
     {

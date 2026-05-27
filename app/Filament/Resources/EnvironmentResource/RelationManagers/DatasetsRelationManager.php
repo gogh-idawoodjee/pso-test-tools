@@ -2,32 +2,28 @@
 
 namespace App\Filament\Resources\EnvironmentResource\RelationManagers;
 
-
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
-
 
 class DatasetsRelationManager extends RelationManager
 {
     protected static string $relationship = 'datasets';
 
-
-
     public string $dse_duration;
-    public array $dataset_attributes;
 
+    public array $dataset_attributes;
 
     public function isReadOnly(): bool
     {
         parent::isReadOnly();
+
         return false;
     }
 
-
-    public function form(Form $form): Form
+    public function form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -39,7 +35,7 @@ class DatasetsRelationManager extends RelationManager
             ]);
     }
 
-    protected static ?string $icon ='heroicon-o-cube-transparent';
+    protected static string|null|\BackedEnum $icon = 'heroicon-o-cube-transparent';
 
     public function table(Table $table): Table
     {

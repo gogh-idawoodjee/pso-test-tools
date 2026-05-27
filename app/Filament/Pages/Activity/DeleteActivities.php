@@ -3,30 +3,28 @@
 namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
-
 use App\Filament\BasePages\PSOActivityBasePage;
 use Filament\Forms;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
+use Filament\Schemas\Schema;
 use JsonException;
-
 
 class DeleteActivities extends PSOActivityBasePage
 {
+    // Navigation
+    protected static string|\BackedEnum|null $activeNavigationIcon = 'heroicon-s-trash';
 
-// Navigation
-    protected static ?string $activeNavigationIcon = 'heroicon-s-trash';
     protected static ?string $navigationLabel = 'Delete Activity';
 
     protected static ?string $title = 'Delete Activities';
+
     protected static ?string $slug = 'activity-delete';
 
-// View
-    protected static string $view = 'filament.pages.activity-delete-activities';
+    // View
+    //    protected static string $view = 'filament.pages.activity-delete-activities';
 
-
-    public function activity_form(Form $form): Form
+    public function activity_form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -40,7 +38,7 @@ class DeleteActivities extends PSOActivityBasePage
                                     ->label('Activity ID')
                                     ->required()
                                     ->live()
-                                    ->afterStateUpdated(fn($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                                    ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                             )
                             ->defaultItems(1)
                             ->addActionLabel('Add another activity')
@@ -49,7 +47,7 @@ class DeleteActivities extends PSOActivityBasePage
                         Forms\Components\Actions::make([Forms\Components\Actions\Action::make('delete_activity')
                             ->action(function () {
                                 $this->deleteActivities();
-                            })
+                            }),
                         ]),
                     ]),
 
@@ -72,7 +70,6 @@ class DeleteActivities extends PSOActivityBasePage
             ]
         );
 
-
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 
             $this->response = $this->sendToPSONew('activity', $tokenized_payload, [], HttpMethod::DELETE);
@@ -81,7 +78,6 @@ class DeleteActivities extends PSOActivityBasePage
             $this->dispatch('open-modal', id: 'show-json');
 
         }
-
 
     }
 }
