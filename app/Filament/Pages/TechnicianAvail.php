@@ -6,12 +6,12 @@ use App\Jobs\GetTechnicianShiftsJob;
 use App\Jobs\GetTechniciansListJob;
 use App\Traits\FilamentJobMonitoring;
 use Carbon\Carbon;
-use Filament\Forms\Components\Actions;
-use Filament\Forms\Components\Actions\Action;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Log;
@@ -29,7 +29,8 @@ class TechnicianAvail extends Page
     // 1. Constants/Static properties
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-calendar';
 
-    //    protected static string $view = 'filament.pages.technician-avail';
+    protected string $view = 'filament.pages.technician-avail';
+
     protected static string|null|\UnitEnum $navigationGroup = 'Additional Tools';
 
     protected static ?string $title = 'Technician Availability';

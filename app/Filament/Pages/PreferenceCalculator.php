@@ -2,14 +2,15 @@
 
 namespace App\Filament\Pages;
 
-use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use UnitEnum;
 
 class PreferenceCalculator extends Page
 {
@@ -17,8 +18,9 @@ class PreferenceCalculator extends Page
 
     protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-calculator';
 
-    //    protected static string $view = 'filament.pages.preference-calculator';
-    protected static string|null|\UnitEnum $navigationGroup = 'Additional Tools';
+    protected string $view = 'filament.pages.preference-calculator';
+
+    protected static string|null|UnitEnum $navigationGroup = 'Additional Tools';
 
     public ?array $preference_data = [];
 

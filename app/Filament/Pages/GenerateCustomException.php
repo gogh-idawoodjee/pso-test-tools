@@ -6,10 +6,11 @@ use App\Classes\PSOObjectRegistry;
 use App\Enums\PSOEntities;
 use App\Models\Environment;
 use App\Traits\FormTrait;
-use Filament\Forms\Components\Actions;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
@@ -22,7 +23,8 @@ class GenerateCustomException extends Page
 
     protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-exclamation-triangle';
 
-    //    protected static string $view = 'filament.pages.generate-custom-exception';
+    protected string $view = 'filament.pages.generate-custom-exception';
+
     protected static string|null|\UnitEnum $navigationGroup = 'API Services';
 
     public ?array $exception_data = [];
@@ -81,7 +83,7 @@ class GenerateCustomException extends Page
                             ->required(),
                         TextInput::make('value')
                             ->required(),
-                        Actions::make([Actions\Action::make('generate_exception')
+                        Actions::make([Action::make('generate_exception')
                             ->label('Generate Exception')
                             ->icon('heroicon-o-exclamation-triangle')
                             ->action(function () {

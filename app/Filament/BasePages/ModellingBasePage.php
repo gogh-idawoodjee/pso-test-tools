@@ -26,7 +26,7 @@ abstract class ModellingBasePage extends Page
 
     protected static ?string $slug = 'modelling-services';
 
-    //    protected static string $view = 'filament.pages.modelling-services';
+    protected string $view = 'filament.pages.modelling-services';
 
     protected function getForms(): array
     {

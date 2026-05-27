@@ -2,19 +2,21 @@
 
 namespace App\Filament\Pages\HomePages;
 
+use BackedEnum;
 use Filament\Pages\Page;
+use UnitEnum;
 
 class PSOResourceHome extends Page
 {
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-users';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-users';
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-users';
 
     protected static ?string $slug = 'pso-resource-services';
 
-    //    protected static string $view = 'filament.pages.pso-resource-home';
+    protected string $view = 'filament.pages.pso-resource-home';
 
     protected static ?string $title = 'Resource Services';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = 'API Services';
 }

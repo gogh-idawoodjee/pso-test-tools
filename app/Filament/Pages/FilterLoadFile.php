@@ -7,11 +7,11 @@ use App\Models\Environment;
 use App\Traits\FilamentJobMonitoring;
 use App\Traits\FormTrait;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
@@ -28,7 +28,8 @@ class FilterLoadFile extends Page
 
     protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-funnel';
 
-    //    protected static string $view = 'filament.pages.filter-load-file';
+    protected string $view = 'filament.pages.filter-load-file';
+
     protected static string|null|\UnitEnum $navigationGroup = 'Additional Tools';
 
     // File upload and processing properties

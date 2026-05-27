@@ -3,9 +3,10 @@
 namespace App\Filament\Pages\Resource;
 
 use App\Filament\BasePages\PSOResourceBasePage;
-use Filament\Forms\Components\Actions;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
@@ -17,7 +18,8 @@ class ResourceUnavailability extends PSOResourceBasePage
     protected static ?string $slug = 'resource-unavailability';
 
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
-    //    protected static string $view = 'filament.pages.resource-unavailability';
+
+    protected string $view = 'filament.pages.resource-unavailability';
 
     public function resource_form(Schema $form): Schema
     {
@@ -61,7 +63,7 @@ class ResourceUnavailability extends PSOResourceBasePage
                         TextInput::make('description')
                             ->prefixIcon('heroicon-s-document-text'),
 
-                        Actions::make([Actions\Action::make('generate_event')
+                        Actions::make([Action::make('generate_event')
                             ->label('Generate Event')
                             ->action(function () {
                                 $this->generateUnavailability();

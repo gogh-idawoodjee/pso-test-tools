@@ -18,7 +18,8 @@ abstract class PSOResourceBasePage extends Page
 
     protected static ?string $slug = 'resource-services';
 
-    //    protected static string $view = 'filament.pages.pso-resource';
+    protected string $view = 'filament.pages.pso-resource';
+
     protected static string|null|\UnitEnum $navigationGroup = 'API Services';
 
     protected static ?string $navigationParentItem = 'Resource Services';

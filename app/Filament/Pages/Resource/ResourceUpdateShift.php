@@ -4,10 +4,11 @@ namespace App\Filament\Pages\Resource;
 
 use App\Enums\HttpMethod;
 use App\Filament\BasePages\PSOResourceBasePage;
-use Filament\Forms\Components\Actions;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
@@ -20,7 +21,8 @@ class ResourceUpdateShift extends PSOResourceBasePage
 
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
 
-    //    protected static string $view = 'filament.pages.resource-update-shift';
+    protected string $view = 'filament.pages.resource-update-shift';
+
     public bool $isAuthenticationRequired = true;
 
     public function resource_form(Schema $form): Schema
@@ -61,7 +63,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
                             ->inline(false)
                             ->live(),
 
-                        Actions::make([Actions\Action::make('update_shift')
+                        Actions::make([Action::make('update_shift')
                             ->label('Update Shift')
                             ->icon('heroicon-o-arrow-path') // Refresh/update icon
                             ->action(function () {

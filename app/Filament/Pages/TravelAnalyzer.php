@@ -5,9 +5,11 @@ namespace App\Filament\Pages;
 use App\Models\Environment;
 use App\Support\GeocodeHelper;
 use App\Traits\FormTrait;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
@@ -28,7 +30,7 @@ class TravelAnalyzer extends Page
 
     protected static ?string $title = 'Travel Analyzer';
 
-    //    protected static string $view = 'filament.pages.travel-analyzer';
+    protected string $view = 'filament.pages.travel-analyzer';
 
     public function mount(): void
     {
@@ -48,7 +50,7 @@ class TravelAnalyzer extends Page
                 Section::make('Travel Details')
                     ->icon('heroicon-s-map')
                     ->schema([
-                        Forms\Components\Fieldset::make('from_details')
+                        Fieldset::make('from_details')
                             ->label('From Details')
                             ->schema([
                                 TextInput::make('lat_from')
@@ -72,7 +74,7 @@ class TravelAnalyzer extends Page
 //                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
-                                        Forms\Components\Actions\Action::make('geocode_address')
+                                        Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(static function (Forms\Get $get, Forms\Set $set) {
                                                 GeocodeHelper::geocodeFormAddress(
@@ -86,7 +88,7 @@ class TravelAnalyzer extends Page
                                     )
                                     ->hint('click the map icon to geocode this!'),
                             ])->columnSpan(1),
-                        Forms\Components\Fieldset::make('to_details')
+                        Fieldset::make('to_details')
                             ->label('To Details')
                             ->schema([
                                 TextInput::make('lat_to')
@@ -110,7 +112,7 @@ class TravelAnalyzer extends Page
 //                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
-                                        Forms\Components\Actions\Action::make('geocode_address')
+                                        Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(static function (Forms\Get $get, Forms\Set $set) {
                                                 GeocodeHelper::geocodeFormAddress(
@@ -127,7 +129,7 @@ class TravelAnalyzer extends Page
 
                     ])
                     ->footerActions([
-                        Forms\Components\Actions\Action::make('analyze_travel')
+                        Action::make('analyze_travel')
                             ->action(function (Forms\Get $get) {
                                 $this->dotheThing($get);
                             }),

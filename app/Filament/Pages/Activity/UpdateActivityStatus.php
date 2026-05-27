@@ -5,11 +5,13 @@ namespace App\Filament\Pages\Activity;
 use App\Enums\HttpMethod;
 use App\Enums\TaskStatus;
 use App\Filament\BasePages\PSOActivityBasePage;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Get;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use JsonException;
@@ -17,7 +19,7 @@ use JsonException;
 class UpdateActivityStatus extends PSOActivityBasePage
 {
     // View
-    //    protected static string $view = 'filament.pages.activity-update-status';
+    protected string $view = 'filament.pages.activity-update-status';
 
     // Navigation
 
@@ -71,7 +73,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
                             ->prefixIcon('heroicon-o-clock')
                             ->numeric()
                             ->minValue(0),
-                        Forms\Components\Actions::make([Forms\Components\Actions\Action::make('update_status')
+                        Actions::make([Action::make('update_status')
                             ->action(function () {
                                 $this->updateTaskStatus();
 

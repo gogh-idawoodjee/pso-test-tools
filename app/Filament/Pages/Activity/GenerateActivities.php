@@ -4,8 +4,12 @@ namespace App\Filament\Pages\Activity;
 
 use App\Filament\BasePages\PSOActivityBasePage;
 use App\Support\GeocodeHelper;
+use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
@@ -13,10 +17,11 @@ use JsonException;
 class GenerateActivities extends PSOActivityBasePage
 {
     // View
-    //    protected static string $view = 'filament.pages.activity-generate-activities';
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-plus';
+    protected string $view = 'filament.pages.activity-generate-activities';
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-document-plus';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-plus';
+
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-document-plus';
 
     // Page Information
     protected static ?string $title = 'Generate Activities';
@@ -35,7 +40,7 @@ class GenerateActivities extends PSOActivityBasePage
                     ->icon('heroicon-s-arrow-path')
                     ->description('Scheduling Section: Select either a relative day start/end (i.e. SLA starts on day 0 and ends on day 7) or pick an appt window size for the current day')
                     ->schema([
-                        Forms\Components\Fieldset::make('details')
+                        Fieldset::make('details')
                             ->label('Details')
                             ->schema([
                                 TextInput::make('activity_type_id')
@@ -88,7 +93,7 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->numeric()
                                     ->live()
                                     ->suffixAction(
-                                        Forms\Components\Actions\Action::make('clear_time_zone')
+                                        Action::make('clear_time_zone')
                                             ->icon('heroicon-m-x-circle')
                                             ->requiresConfirmation()
                                             ->action(static function (Forms\Set $set) {
@@ -96,7 +101,7 @@ class GenerateActivities extends PSOActivityBasePage
                                             })),
 
                             ])->columns(3),
-                        Forms\Components\Fieldset::make('scheduling')
+                        Fieldset::make('scheduling')
                             ->label('Scheduling')
                             ->schema([
                                 TextInput::make('relative_day')
@@ -120,7 +125,7 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->options([0 => 'All Day', 3 => '3 Hour', 4 => '4 Hour'])
                                     ->live(),
                             ])->columns(3),
-                        Forms\Components\Fieldset::make('location')
+                        Fieldset::make('location')
                             ->label('Location')
                             ->schema([
                                 TextInput::make('latitude')
@@ -142,7 +147,7 @@ class GenerateActivities extends PSOActivityBasePage
 //                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
-                                        Forms\Components\Actions\Action::make('geocode_address')
+                                        Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(function (Forms\Get $get, Forms\Set $set) {
                                                 GeocodeHelper::geocodeFormAddress($get, $set);
@@ -150,7 +155,7 @@ class GenerateActivities extends PSOActivityBasePage
                                             }))
                                     ->hint('click the map icon to geocode this!'),
                             ]),
-                        Forms\Components\Fieldset::make('optional')
+                        Fieldset::make('optional')
                             ->label('Optional')
                             ->schema([
                                 TextInput::make('activity_id')
@@ -167,7 +172,7 @@ class GenerateActivities extends PSOActivityBasePage
 
                             ])->columns(3),
 
-                        Forms\Components\Actions::make([Forms\Components\Actions\Action::make('create_activity')
+                        Actions::make([Action::make('create_activity')
                             ->action(function () {
                                 $this->createActivity();
 

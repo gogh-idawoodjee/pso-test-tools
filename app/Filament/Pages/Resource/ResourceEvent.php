@@ -5,14 +5,16 @@ namespace App\Filament\Pages\Resource;
 use App\Enums\EventType;
 use App\Filament\BasePages\PSOResourceBasePage;
 use App\Support\GeocodeHelper;
-use Filament\Forms\Components\Actions;
+use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use JsonException;
 
@@ -20,16 +22,16 @@ class ResourceEvent extends PSOResourceBasePage
 {
     // Navigation
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-arrow-path';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-arrow-path';
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-arrow-path';
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-arrow-path';
 
     // Page Information
     protected static ?string $title = 'Generate Event';
 
     protected static ?string $slug = 'resource-event';
 
-    //    protected static string $view = 'filament.pages.resource-event';
+    protected string $view = 'filament.pages.resource-event';
 
     public function resource_form(Schema $form): Schema
     {
@@ -44,7 +46,7 @@ class ResourceEvent extends PSOResourceBasePage
                             ->label('Resource ID')
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                            ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         Select::make('event_type')
                             ->prefixIcon('heroicon-o-clipboard')
                             ->label('Event Type')
@@ -52,7 +54,7 @@ class ResourceEvent extends PSOResourceBasePage
                             ->options(EventType::class)
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                            ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         DateTimePicker::make('event_date_time')
                             ->label('Event Date/Time')
                             ->helperText('Optional. Defaults to current datetime if not set.'),
@@ -86,7 +88,7 @@ class ResourceEvent extends PSOResourceBasePage
 //                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
-                                        Actions\Action::make('geocode_address')
+                                        Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
                                             ->action(static function (Get $get, Set $set) {
                                                 GeocodeHelper::geocodeFormAddress($get, $set);
@@ -95,7 +97,7 @@ class ResourceEvent extends PSOResourceBasePage
                                     ->hint('click the map icon to geocode this!'),
                             ]),
                         Actions::make([
-                            Actions\Action::make('generate_event')
+                            Action::make('generate_event')
                                 ->label('Generate Event')
                                 ->action(function () {
                                     $this->generateEvent();

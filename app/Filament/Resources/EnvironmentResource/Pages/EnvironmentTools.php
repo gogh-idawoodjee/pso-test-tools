@@ -10,15 +10,17 @@ use App\Traits\PSOInteractionsTrait;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms;
-use Filament\Forms\Components\Actions\Action as formAction;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Get;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Tabs;
+use Filament\Schemas\Components\Tabs\Tab;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Arr;
 use JsonException;
@@ -30,7 +32,7 @@ class EnvironmentTools extends Page
 
     protected static string $resource = EnvironmentResource::class;
 
-    //    protected static string $view = 'filament.resources.environment-resource.pages.envtools';
+    protected string $view = 'filament.resources.environment-resource.pages.envtools';
 
     protected static ?string $breadcrumb = 'Tools';
 
@@ -132,8 +134,8 @@ class EnvironmentTools extends Page
                                 return ! $get('send_to_pso');
                             }),
                     ]),
-                Forms\Components\Tabs::make('activity_tabs')->tabs([
-                    Forms\Components\Tabs\Tab::make('load_rota_tab')
+                Tabs::make('activity_tabs')->tabs([
+                    Tab::make('load_rota_tab')
 //                Section::make('PSO Input Reference Settings')
                         ->schema([
                             Toggle::make('send_to_pso')
@@ -175,7 +177,7 @@ class EnvironmentTools extends Page
                                 ->dehydrated(false)
                                 ->label('Input Date Time')
                                 ->prefixIcon('heroicon-o-clock'),
-                            Forms\Components\Actions::make([formAction::make('push_it')->slideOver()
+                            Actions::make([Action::make('push_it')->slideOver()
                                 ->action(function (Get $get) {
                                     //                                $set('excerpt', str($get('content'))->words(45, end: ''));
                                     // the update status thingy
@@ -191,18 +193,18 @@ class EnvironmentTools extends Page
                         ->icon('heroicon-o-arrow-up-on-square')
                         ->label('Initial Load and Rota'),
 
-                    Forms\Components\Tabs\Tab::make('system_usage_tab')
+                    Tab::make('system_usage_tab')
                         ->schema([])
                         ->icon('heroicon-o-cog')
                         ->label('System Usage'),
-                    Forms\Components\Tabs\Tab::make('services_tab')
+                    Tab::make('services_tab')
                         ->schema([
                             TextInput::make('commit_url')
                                 ->label('Commit Broadcast URL (SDS)')
                                 ->hint('Ask for  more details')
                                 ->disabled()
                                 ->suffixAction(
-                                    formAction::make('copy')
+                                    Action::make('copy')
                                         ->icon('heroicon-o-clipboard')
                                         ->action(function ($livewire, $state) {
                                             $livewire->dispatch('copy-to-clipboard', text: $state);

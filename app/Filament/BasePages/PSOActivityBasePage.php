@@ -26,7 +26,7 @@ abstract class PSOActivityBasePage extends Page
 
     protected static ?string $slug = 'activity-services';
 
-    //    protected static string $view = 'filament.pages.pso-activity';
+    protected string $view = 'filament.pages.pso-activity';
 
     protected function getForms(): array
     {

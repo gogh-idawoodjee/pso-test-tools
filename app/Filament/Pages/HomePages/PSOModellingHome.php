@@ -12,7 +12,7 @@ class PSOModellingHome extends Page
 
     protected static ?string $slug = 'pso-modelling-services';
 
-    //    protected static string $view = 'filament.pages.modelling-services';
+    protected string $view = 'filament.pages.modelling-services';
 
     protected static ?string $title = 'Modelling Services';
 

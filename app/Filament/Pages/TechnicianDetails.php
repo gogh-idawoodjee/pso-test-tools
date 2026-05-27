@@ -4,10 +4,10 @@ namespace App\Filament\Pages;
 
 use App\Enums\HttpMethod;
 use App\Filament\BasePages\PSOResourceBasePage;
-use Filament\Forms\Components\Actions\Action;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Set;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
@@ -23,7 +23,7 @@ class TechnicianDetails extends PSOResourceBasePage
 
     protected static ?string $slug = 'resource-details';
 
-    //    protected static string $view = 'filament.pages.technician-details';
+    protected string $view = 'filament.pages.technician-details';
 
     public bool $isAuthenticationRequired = true;
 

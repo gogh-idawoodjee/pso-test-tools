@@ -3,10 +3,11 @@
 namespace App\Filament\Pages\Resource;
 
 use App\Filament\BasePages\PSOResourceBasePage;
-use Filament\Forms\Components\Actions;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
@@ -18,7 +19,8 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
     protected static ?string $slug = 'resource-update-unavailability';
 
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
-    //    protected static string $view = 'filament.pages.resource-update-unavailability';
+
+    protected string $view = 'filament.pages.resource-update-unavailability';
 
     public bool $isAuthenticationRequired = true;
 
@@ -64,7 +66,7 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                             )->addActionLabel('Add another unavailability')
                             ->reorderable(false),
 
-                        Actions::make([Actions\Action::make('update_unavailability')
+                        Actions::make([Action::make('update_unavailability')
                             ->label('Update Unavailabilities')
                             ->icon('heroicon-o-arrow-path') // Update/refresh
                             ->action(function () {

@@ -6,7 +6,7 @@ use App\Filament\BasePages\ModellingBasePage;
 
 class ARPRegion extends ModellingBasePage
 {
-    //    protected static string $view = 'filament.pages.modelling.arp-region';
+    protected string $view = 'filament.pages.modelling.arp-region';
 
     protected static ?string $navigationLabel = 'Generate Regions';
 

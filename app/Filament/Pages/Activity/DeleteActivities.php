@@ -4,8 +4,11 @@ namespace App\Filament\Pages\Activity;
 
 use App\Enums\HttpMethod;
 use App\Filament\BasePages\PSOActivityBasePage;
+use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
@@ -13,7 +16,7 @@ use JsonException;
 class DeleteActivities extends PSOActivityBasePage
 {
     // Navigation
-    protected static string|\BackedEnum|null $activeNavigationIcon = 'heroicon-s-trash';
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-trash';
 
     protected static ?string $navigationLabel = 'Delete Activity';
 
@@ -22,7 +25,7 @@ class DeleteActivities extends PSOActivityBasePage
     protected static ?string $slug = 'activity-delete';
 
     // View
-    //    protected static string $view = 'filament.pages.activity-delete-activities';
+    protected string $view = 'filament.pages.activity-delete-activities';
 
     public function activity_form(Schema $form): Schema
     {
@@ -44,7 +47,7 @@ class DeleteActivities extends PSOActivityBasePage
                             ->addActionLabel('Add another activity')
                             ->reorderable(false),
 
-                        Forms\Components\Actions::make([Forms\Components\Actions\Action::make('delete_activity')
+                        Actions::make([Action::make('delete_activity')
                             ->action(function () {
                                 $this->deleteActivities();
                             }),

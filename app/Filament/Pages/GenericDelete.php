@@ -6,14 +6,15 @@ use App\Classes\PSOObjectRegistry;
 use App\Enums\HttpMethod;
 use App\Models\Environment;
 use App\Traits\FormTrait;
-use Filament\Forms;
-use Filament\Forms\Components\Fieldset;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Get;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -27,7 +28,8 @@ class GenericDelete extends Page
 
     protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-o-trash';
 
-    //    protected static string $view = 'filament.pages.generic-delete';
+    protected string $view = 'filament.pages.generic-delete';
+
     protected static string|null|\UnitEnum $navigationGroup = 'API Services';
 
     public ?array $deletion_data = [];
@@ -72,7 +74,7 @@ class GenericDelete extends Page
                             ->label(fn (Get $get) => ($this->selectedPSOObject['label'].' Deletion Details' ?? ''))
                             ->visible(fn () => filled($this->selectedPSOObject))
                             ->schema(fn () => $this->getPkInputFields()),
-                        Forms\Components\Actions::make([Forms\Components\Actions\Action::make('delete_object')
+                        Actions::make([Action::make('delete_object')
                             ->label('Delete Object')
                             ->icon('heroicon-o-trash')
                             ->action(function () {

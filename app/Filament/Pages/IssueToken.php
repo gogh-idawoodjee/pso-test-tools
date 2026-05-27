@@ -15,7 +15,8 @@ class IssueToken extends Page
     use AdminViewable;
 
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-key';
-    //    protected static string $view = 'filament.pages.issue-token';
+
+    protected string $view = 'filament.pages.issue-token';
 
     public ?string $token = null;
 

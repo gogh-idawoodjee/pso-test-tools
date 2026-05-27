@@ -9,17 +9,18 @@ use App\Models\Environment;
 use App\Models\SlotUsageRule;
 use App\Traits\FormTrait;
 use Carbon\Carbon;
-use Filament\Forms\Components\Actions;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
-use Filament\Infolists\Components\Grid;
-use Filament\Infolists\Components\Group;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\VerticalAlignment;
 use Illuminate\Support\Arr;
@@ -30,7 +31,7 @@ class AppointmentBooking extends Page
 
     protected static string $resource = TaskResource::class;
 
-    //    protected static string $view = 'filament.resources.tasks.pages.appointment-booking';
+    protected string $view = 'filament.resources.tasks.pages.appointment-booking';
 
     public ?string $countdownExpiresAt = null;
 
@@ -269,7 +270,7 @@ class AppointmentBooking extends Page
                             ->closeOnDateSelection()
                             ->seconds(false)
                             ->suffixAction(
-                                Actions\Action::make('set_sla_start')
+                                Action::make('set_sla_start')
                                     ->icon('heroicon-m-clock')
                                     ->action(function (Get $get, Set $set) {
                                         $this->setSlaStart($set);
@@ -279,7 +280,7 @@ class AppointmentBooking extends Page
                             ->required()
                             ->live()->columnSpan(2),
 
-                        Actions::make([Actions\Action::make('get_appointments')
+                        Actions::make([Action::make('get_appointments')
                             ->label('Get Appointments')
                             ->icon('heroicon-o-calendar')
                             ->action(function () {

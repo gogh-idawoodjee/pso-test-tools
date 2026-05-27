@@ -6,7 +6,7 @@ use App\Filament\BasePages\ModellingBasePage;
 
 class ARPResource extends ModellingBasePage
 {
-    //    protected static string $view = 'filament.pages.modelling.arp-resource';
+    protected string $view = 'filament.pages.modelling.arp-resource';
 
     protected static ?string $navigationLabel = 'Generate Resources';
 
