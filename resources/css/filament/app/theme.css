@@ -1,5 +1,7 @@
-@import "tailwindcss";
-@import '../../../../vendor/filament/filament/resources/css/base.css';
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
 
 /* Force Highlight.js styles */
 .hljs {
