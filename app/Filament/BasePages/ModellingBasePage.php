@@ -30,7 +30,7 @@ abstract class ModellingBasePage extends Page
 
     protected function getForms(): array
     {
-        return ['env_form', 'modelling_form', 'json_form'];
+        return ['env_form', 'modelling_form'];
     }
 
     public function mount(): void

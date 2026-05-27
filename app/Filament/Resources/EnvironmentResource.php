@@ -5,33 +5,40 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EnvironmentResource\Pages;
 use App\Filament\Resources\EnvironmentResource\RelationManagers;
 use App\Models\Environment;
+use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Contracts\Support\Htmlable;
+use UnitEnum;
 
 class EnvironmentResource extends Resource
 {
     protected static ?string $model = Environment::class;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-circle-stack';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-circle-stack';
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-circle-stack';
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-circle-stack';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'Base Data';
+    protected static string|UnitEnum|null $navigationGroup = 'Base Data';
 
     protected static ?int $navigationSort = 1;
 
-    protected static string|\Illuminate\Contracts\Support\Htmlable|null $navigationBadgeTooltip = 'The number of configured environments';
+    protected static string|Htmlable|null $navigationBadgeTooltip = 'The number of configured environments';
 
     public static function getNavigationBadge(): ?string
     {
         return static::getModel()::count();
     }
 
-    public static function form(Schema $form): Schema
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema(Environment::getForm());
     }
 
@@ -69,17 +76,17 @@ class EnvironmentResource extends Resource
             ->filters([
                 //
             ])
-            ->actions([
-                Tables\Actions\EditAction::make('Manage')->label('Manage'),
-                Tables\Actions\Action::make('Tools')->label('Tools')
+            ->recordActions([
+                EditAction::make('Manage')->label('Manage'),
+                Action::make('Tools')->label('Tools')
                     ->url(static function (Environment $record) {
                         return self::getUrl('environmentTools', compact('record'));
                     })
                     ->icon('heroicon-o-wrench-screwdriver'),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -98,9 +105,7 @@ class EnvironmentResource extends Resource
             'index' => Pages\ListEnvironments::route('/'),
             'create' => Pages\CreateEnvironment::route('/create'),
             'edit' => Pages\EditEnvironment::route('/{record}/edit'),
-            //            'tools' => Pages\PsoLoad::route('/psoload/{record}'),
             'environmentTools' => Pages\EnvironmentTools::route('/environmentTools/{record}'),
-
         ];
     }
 }

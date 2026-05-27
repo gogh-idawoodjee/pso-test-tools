@@ -28,7 +28,7 @@ abstract class PSOResourceBasePage extends Page
 
     protected function getForms(): array
     {
-        return ['env_form', 'resource_form', 'json_form'];
+        return ['env_form', 'resource_form'];
     }
 
     public function mount(): void

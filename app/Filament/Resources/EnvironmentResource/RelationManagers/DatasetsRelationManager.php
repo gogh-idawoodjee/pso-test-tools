@@ -2,6 +2,11 @@
 
 namespace App\Filament\Resources\EnvironmentResource\RelationManagers;
 
+use BackedEnum;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -18,14 +23,12 @@ class DatasetsRelationManager extends RelationManager
 
     public function isReadOnly(): bool
     {
-        parent::isReadOnly();
-
         return false;
     }
 
-    public function form(Schema $form): Schema
+    public function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->required()
@@ -35,7 +38,7 @@ class DatasetsRelationManager extends RelationManager
             ]);
     }
 
-    protected static string|null|\BackedEnum $icon = 'heroicon-o-cube-transparent';
+    protected static string|BackedEnum|null $icon = 'heroicon-o-cube-transparent';
 
     public function table(Table $table): Table
     {
@@ -51,15 +54,15 @@ class DatasetsRelationManager extends RelationManager
                 //
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make()->slideOver()->label('Add Dataset'),
+                CreateAction::make()->slideOver()->label('Add Dataset'),
             ])
-            ->actions([
-                Tables\Actions\DeleteAction::make(),
+            ->recordActions([
+                DeleteAction::make(),
 
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

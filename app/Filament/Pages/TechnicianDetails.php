@@ -38,7 +38,7 @@ class TechnicianDetails extends PSOResourceBasePage
     #[Override]
     protected function getForms(): array
     {
-        return ['env_form', 'json_form', 'technicianListForm'];
+        return ['env_form', 'technicianListForm'];
     }
 
     public function technicianListForm(Schema $form): Schema

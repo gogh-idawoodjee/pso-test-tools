@@ -40,7 +40,7 @@ class GenericDelete extends Page
 
     protected function getForms(): array
     {
-        return ['deletion_form', 'env_form', 'json_form'];
+        return ['deletion_form', 'env_form'];
     }
 
     public function mount(): void

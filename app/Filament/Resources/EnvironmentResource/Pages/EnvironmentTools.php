@@ -56,7 +56,7 @@ class EnvironmentTools extends Page
 
     protected function getForms(): array
     {
-        return ['psoload', 'form', 'json_form'];
+        return ['psoload', 'form'];
     }
 
     public function mount(int|string $record): void
@@ -64,8 +64,6 @@ class EnvironmentTools extends Page
         $this->record = $this->resolveRecord($record);
         $this->setDefaults();
         $this->psoload->fill($this->record->toArray());
-        $this->json_form->fill();
-
     }
 
     private function setDefaults(): void

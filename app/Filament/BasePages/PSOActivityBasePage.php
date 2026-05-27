@@ -30,7 +30,7 @@ abstract class PSOActivityBasePage extends Page
 
     protected function getForms(): array
     {
-        return ['env_form', 'activity_form', 'json_form'];
+        return ['env_form', 'activity_form'];
     }
 
     public function mount(): void

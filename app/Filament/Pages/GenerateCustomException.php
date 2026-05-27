@@ -33,7 +33,7 @@ class GenerateCustomException extends Page
 
     protected function getForms(): array
     {
-        return ['exception_form', 'env_form', 'json_form'];
+        return ['exception_form', 'env_form'];
     }
 
     public function mount(): void

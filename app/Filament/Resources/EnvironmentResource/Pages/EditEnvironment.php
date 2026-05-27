@@ -6,21 +6,18 @@ use App\Filament\Resources\EnvironmentResource;
 use App\Models\Environment;
 use App\Traits\PSOInteractionsTrait;
 use Filament\Actions;
-
-
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Facades\Crypt;
 
-
 class EditEnvironment extends EditRecord
 {
-
     use PSOInteractionsTrait;
 
     protected static string $resource = EnvironmentResource::class;
-    protected static ?string $title = 'Manage Environment';
-    protected static ?string $breadcrumb = 'Manage Environment';
 
+    protected static ?string $title = 'Manage Environment';
+
+    protected static ?string $breadcrumb = 'Manage Environment';
 
     public function hasCombinedRelationManagerTabsWithContent(): bool
     {
@@ -38,11 +35,9 @@ class EditEnvironment extends EditRecord
         return 'heroicon-o-circle-stack';
     }
 
-
     protected function getHeaderActions(): array
     {
         return [
-//            Actions\ViewAction::make()->label('Tools'),
             Actions\Action::make('tools')
                 ->icon('heroicon-o-wrench-screwdriver')
                 ->url(function (Environment $record) {
@@ -59,14 +54,9 @@ class EditEnvironment extends EditRecord
                     if ($this->error_value === 500) {
                         $message = 'Check Configuration';
                     }
-                    $this->notifyPayloadSent(!$this->error_value ? "Looks Good" : "Something Looks Off", $message, !$this->error_value);
+                    $this->notifyPayloadSent(! $this->error_value ? 'Looks Good' : 'Something Looks Off', $message, ! $this->error_value);
                 }),
-//                ->url(function (Environment $record) {
-//                    return EnvironmentResource::getUrl('environmentTools', compact('record'));
-//                }),
             Actions\DeleteAction::make(),
         ];
     }
-
-
 }
