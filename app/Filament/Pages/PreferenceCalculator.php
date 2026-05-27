@@ -3,19 +3,16 @@
 namespace App\Filament\Pages;
 
 use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 
 class PreferenceCalculator extends Page
 {
-    use InteractsWithForms;
-
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-calculator';
 
     protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-calculator';

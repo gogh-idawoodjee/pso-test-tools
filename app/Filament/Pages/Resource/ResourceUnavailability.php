@@ -5,8 +5,8 @@ namespace App\Filament\Pages\Resource;
 use App\Filament\BasePages\PSOResourceBasePage;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
 

@@ -6,9 +6,9 @@ use App\Enums\HttpMethod;
 use App\Filament\BasePages\PSOResourceBasePage;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
 

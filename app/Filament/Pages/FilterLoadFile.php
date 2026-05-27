@@ -9,18 +9,17 @@ use App\Traits\FormTrait;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Fieldset;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Form;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class FilterLoadFile extends Page
 {
-    use FilamentJobMonitoring, FormTrait, InteractsWithForms;
+    use FilamentJobMonitoring, FormTrait;
 
     // Job type identifier
     private const string JOB_TYPE = 'resource-job';
@@ -107,7 +106,7 @@ class FilterLoadFile extends Page
         return ['env_form', 'form'];
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $form): Schema
     {
         return $form->schema([
             Section::make()

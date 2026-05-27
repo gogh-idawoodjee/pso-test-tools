@@ -93,7 +93,7 @@ class CustomerResource extends Resource
         ];
     }
 
-    public static function infolist(Infolist|Schema $infolist): Schema
+    public static function infolist(Schema $infolist): Schema
     {
         return $infolist
             ->schema([

@@ -10,17 +10,16 @@ use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Form;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Url;
 
 class TechnicianAvail extends Page
 {
-    use FilamentJobMonitoring, InteractsWithForms;
+    use FilamentJobMonitoring;
 
     // Job types
     private const string JOB_TYPE_RESOURCES = 'resource-job';
@@ -60,7 +59,7 @@ class TechnicianAvail extends Page
 
     }
 
-    public function form(Form $form): Form
+    public function form(Schema $form): Schema
     {
         return $form->schema([
             Section::make()

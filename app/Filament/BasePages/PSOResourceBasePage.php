@@ -4,12 +4,11 @@ namespace App\Filament\BasePages;
 
 use App\Models\Environment;
 use App\Traits\FormTrait;
-use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Pages\Page;
 
 abstract class PSOResourceBasePage extends Page
 {
-    use FormTrait, InteractsWithForms;
+    use FormTrait;
 
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-user-group';
 

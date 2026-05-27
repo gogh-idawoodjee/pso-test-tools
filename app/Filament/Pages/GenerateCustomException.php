@@ -7,17 +7,16 @@ use App\Enums\PSOEntities;
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use Filament\Forms\Components\Actions;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Form;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use JsonException;
 
 class GenerateCustomException extends Page
 {
-    use FormTrait, InteractsWithForms;
+    use FormTrait;
 
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-exclamation-triangle';
 
@@ -43,7 +42,7 @@ class GenerateCustomException extends Page
         $this->fillForms($this->getForms());
     }
 
-    public function exception_form(Form $form): Form
+    public function exception_form(Schema $form): Schema
     {
         return $form
             ->schema([

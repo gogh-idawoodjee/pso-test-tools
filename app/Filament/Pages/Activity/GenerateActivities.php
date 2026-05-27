@@ -5,8 +5,8 @@ namespace App\Filament\Pages\Activity;
 use App\Filament\BasePages\PSOActivityBasePage;
 use App\Support\GeocodeHelper;
 use Filament\Forms;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\TextInput;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
 

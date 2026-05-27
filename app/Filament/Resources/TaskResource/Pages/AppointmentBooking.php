@@ -11,16 +11,15 @@ use App\Traits\FormTrait;
 use Carbon\Carbon;
 use Filament\Forms\Components\Actions;
 use Filament\Forms\Components\DateTimePicker;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Infolists\Components\Grid;
 use Filament\Infolists\Components\Group;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Infolists\Infolist;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\VerticalAlignment;
 use Illuminate\Support\Arr;
@@ -87,7 +86,7 @@ class AppointmentBooking extends Page
     /**
      * Build the infolist for task details
      */
-    public function infolist(Infolist $infolist): Infolist
+    public function infolist(Schema $infolist): Schema
     {
         // Get appointment window data
         $appointmentTime = $this->formatAppointmentWindow(

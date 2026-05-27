@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DatasetResource\Pages;
 use App\Models\Dataset;
-use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -18,7 +17,7 @@ class DatasetResource extends Resource
 
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    public static function form(Form|Schema $form): Schema
+    public static function form(Schema $form): Schema
     {
         return $form
             ->schema(Dataset::getForm());

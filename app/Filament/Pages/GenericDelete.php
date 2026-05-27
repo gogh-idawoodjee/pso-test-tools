@@ -8,21 +8,20 @@ use App\Models\Environment;
 use App\Traits\FormTrait;
 use Filament\Forms;
 use Filament\Forms\Components\Fieldset;
-use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Pages\Page;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JsonException;
 
 class GenericDelete extends Page
 {
-    use FormTrait, InteractsWithForms;
+    use FormTrait;
 
     protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-trash';
 
@@ -57,7 +56,7 @@ class GenericDelete extends Page
 
     }
 
-    public function deletion_form(Form $form): Form
+    public function deletion_form(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -173,7 +172,7 @@ class GenericDelete extends Page
             )
         );
 
-        Log::info(json_encode($payload, JSON_PRETTY_PRINT));
+        Log::info(json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew('delete', $tokenized_payload, [], HttpMethod::DELETE);
