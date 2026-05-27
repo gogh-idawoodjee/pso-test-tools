@@ -3,32 +3,25 @@
 namespace App\Models;
 
 use App\Models\Scopes\UserOwnedModel;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Filament\Forms;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
-
 /**
- * @method static SlotUsageRule create(array $attributes = [])
+ * @method static Model|static create(array $attributes = [])
+ * @method static Builder|static query()
+ *
  * @mixin Builder
  */
 class SlotUsageRule extends Model
 {
+    use HasUuids, LogsActivity;
 
-    use LogsActivity;
-
-    // Tell Eloquent we're not using auto-incrementing IDs
-    public $incrementing = false;
-
-    // Keys are strings (UUIDs), not ints
-    protected $keyType = 'string';
-
-
-    // These fields can be mass-assigned
     protected $fillable = [
         'id',
         'name',
@@ -46,9 +39,9 @@ class SlotUsageRule extends Model
 
     }
 
+    #[Override]
     public function getActivitylogOptions(): LogOptions
     {
-
         return LogOptions::defaults();
     }
 
@@ -57,11 +50,9 @@ class SlotUsageRule extends Model
         return $this->belongsTo(User::class);
     }
 
-
-    #[Override] protected static function booted(): void
+    #[Override]
+    protected static function booted(): void
     {
-        static::addGlobalScope(new UserOwnedModel());
+        static::addGlobalScope(new UserOwnedModel);
     }
-
-
 }

@@ -6,6 +6,7 @@ use App\Enums\Status;
 use App\Models\Scopes\UserOwnedModel;
 use App\Support\GeocodeHelper;
 use Filament\Forms;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,12 +17,18 @@ use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
+/**
+ * @method static Model|static create(array $attributes = [])
+ * @method static Builder|static query()
+ *
+ * @mixin Builder
+ */
 class Customer extends Model
 {
     use HasFactory, HasUuids, LogsActivity;
 
-
     public $incrementing = false;
+
     protected $keyType = 'string';
 
     protected $fillable = [
@@ -38,22 +45,18 @@ class Customer extends Model
         'status',
     ];
 
-    #[Override] public function getRouteKeyName(): string
+    #[Override]
+    public function getRouteKeyName(): string
     {
         return 'slug';
     }
 
-    /**
-     * The attributes that should be cast to native types.
-     *
-     * @var array
-     */
-    protected $casts = [
-
-        'status' => Status::class,
-    ];
-
-    protected $guarded = [];
+    protected function casts(): array
+    {
+        return [
+            'status' => Status::class,
+        ];
+    }
 
     public function region(): BelongsTo
     {
@@ -112,16 +115,15 @@ class Customer extends Model
 
                         ])->columns(3)->columnSpan(2),
 
-
                 ])->columns(),
         ];
 
     }
 
-
-    #[Override] protected static function booted(): void
+    #[Override]
+    protected static function booted(): void
     {
-        static::addGlobalScope(new UserOwnedModel());
+        static::addGlobalScope(new UserOwnedModel);
         static::creating(static function ($customer) {
             if (empty($customer->slug)) {
                 $base = Str::slug($customer->name);
@@ -137,9 +139,9 @@ class Customer extends Model
         });
     }
 
+    #[Override]
     public function getActivitylogOptions(): LogOptions
     {
-
         return LogOptions::defaults();
     }
 

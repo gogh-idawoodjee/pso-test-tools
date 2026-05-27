@@ -5,21 +5,20 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Traits\Hashidable;
 use Database\Factories\UserFactory;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Filament\Models\Contracts\FilamentUser;
-use Filament\Panel;
 use Laravel\Sanctum\HasApiTokens;
-
+use Override;
 
 class User extends Authenticatable implements FilamentUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, Hashidable, HasApiTokens;
+    use HasApiTokens, HasFactory, Hashidable, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -55,17 +54,17 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
+    #[Override]
     public function canAccessPanel(Panel $panel): bool
     {
         $allowed = str_ends_with($this->email, '@mac.com')
             || str_ends_with($this->email, '@goghsolutions.com')
             || str_ends_with($this->email, '@thetechnodro.me');
 
-        if (!$allowed) {
+        if (! $allowed) {
             logger()->warning('Blocked Filament login attempt', ['email' => $this->email]);
         }
 
-        return $allowed; //&& $this->hasVerifiedEmail();
-
+        return $allowed;
     }
 }

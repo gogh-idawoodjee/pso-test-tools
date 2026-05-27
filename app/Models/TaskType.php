@@ -3,17 +3,23 @@
 namespace App\Models;
 
 use App\Models\Scopes\UserOwnedModel;
+use Filament\Forms;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Filament\Forms;
 use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
-
+/**
+ * @method static Model|static create(array $attributes = [])
+ * @method static Builder|static query()
+ *
+ * @mixin Builder
+ */
 class TaskType extends Model
 {
     use HasFactory, HasUuids, LogsActivity;
@@ -23,16 +29,13 @@ class TaskType extends Model
         'name',
         'priority',
         'base_duration',
+        'base_value',
     ];
-
-    protected $guarded = [];
-
 
     public function skills(): HasMany
     {
         return $this->hasMany(Skill::class);
     }
-
 
     public static function getForm(): array
     {
@@ -60,12 +63,11 @@ class TaskType extends Model
                 ->required(),
         ];
 
-
     }
 
+    #[Override]
     public function getActivitylogOptions(): LogOptions
     {
-
         return LogOptions::defaults();
     }
 
@@ -74,10 +76,11 @@ class TaskType extends Model
         return $this->belongsTo(User::class);
     }
 
-    #[Override] protected static function booted(): void
+    #[Override]
+    protected static function booted(): void
     {
 
-        static::addGlobalScope(new UserOwnedModel());
+        static::addGlobalScope(new UserOwnedModel);
 
     }
 }

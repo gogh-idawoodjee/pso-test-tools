@@ -7,6 +7,7 @@ use App\Rules\NoProdURL;
 use Filament\Forms;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,12 @@ use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
+/**
+ * @method static Model|static create(array $attributes = [])
+ * @method static Builder|static query()
+ *
+ * @mixin Builder
+ */
 class Environment extends Model
 {
     use HasFactory, HasUuids, LogsActivity;

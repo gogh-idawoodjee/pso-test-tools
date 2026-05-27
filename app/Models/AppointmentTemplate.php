@@ -3,38 +3,34 @@
 namespace App\Models;
 
 use App\Models\Scopes\UserOwnedModel;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Model;
 use Filament\Forms;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Override;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
- * @method static SlotUsageRule create(array $attributes = [])
+ * @method static Model|static create(array $attributes = [])
+ * @method static Builder|static query()
+ *
  * @mixin Builder
  */
 class AppointmentTemplate extends Model
 {
-    use LogsActivity;
+    use HasUuids, LogsActivity;
 
-    // Disable auto-incrementing (we're using UUIDs)
-    public $incrementing = false;
-
-    // Keys are stored as strings, not ints
-    protected $keyType = 'string';
-
-    // Allow mass-assignment
     protected $fillable = [
         'id',
         'name',
     ];
 
-    #[Override] protected static function booted(): void
+    #[Override]
+    protected static function booted(): void
     {
-
-        static::addGlobalScope(new UserOwnedModel());
+        static::addGlobalScope(new UserOwnedModel);
     }
 
     public function user(): BelongsTo
@@ -54,9 +50,9 @@ class AppointmentTemplate extends Model
 
     }
 
+    #[Override]
     public function getActivitylogOptions(): LogOptions
     {
-
         return LogOptions::defaults();
     }
 }
