@@ -11,18 +11,21 @@ trait Hashidable
         return Hashids::encode($this->getKey());
     }
 
-    public static function findByHashid(string $hashid)
+    public static function findByHashid(string $hashid): ?static
     {
         $decoded = Hashids::decode($hashid);
+
         return isset($decoded[0]) ? static::find($decoded[0]) : null;
     }
 
-    public static function findOrFailByHashid(string $hashid)
+    public static function findOrFailByHashid(string $hashid): static
     {
         $decoded = Hashids::decode($hashid);
-        if (!isset($decoded[0])) {
+
+        if (! isset($decoded[0])) {
             abort(404);
         }
+
         return static::findOrFail($decoded[0]);
     }
 }
