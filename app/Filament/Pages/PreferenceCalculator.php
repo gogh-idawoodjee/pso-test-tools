@@ -62,7 +62,7 @@ class PreferenceCalculator extends Page
                     ->default(2000)
                     ->minValue(1)
                     ->required()
-                    ->live()
+                    ->live(onBlur: true)
                     ->afterStateUpdated(fn () => $this->performCalculation())
                     ->helperText('Found on the SLA tab'),
                 TextInput::make('activity_duration')
@@ -72,7 +72,7 @@ class PreferenceCalculator extends Page
                     ->minValue(10)
                     ->maxValue(3600)
                     ->required()
-                    ->live()
+                    ->live(onBlur: true)
                     ->afterStateUpdated(fn () => $this->performCalculation())
                     ->helperText('Duration in Minutes'),
             ])
@@ -124,7 +124,7 @@ class PreferenceCalculator extends Page
             ->step(0.1)
             ->default($default)
             ->required(fn (Get $get) => $get($toggleField) === false)
-            ->live()
+            ->live(onBlur: true)
             ->afterStateUpdated(function (Get $get, Set $set) use ($name, $toggleField) {
                 // If this is tech1 field and the toggle is on, copy the value to tech2
                 if (str_contains($name, 'tech1') && $get($toggleField)) {
@@ -179,7 +179,7 @@ class PreferenceCalculator extends Page
             ->default($default)
             ->numeric()
             ->minValue(0.5)
-            ->live()
+            ->live(onBlur: true)
             ->afterStateUpdated(fn () => $this->performCalculation());
     }
 
@@ -189,7 +189,7 @@ class PreferenceCalculator extends Page
             ->label($label)
             ->helperText('leave blank if unknown')
             ->numeric()
-            ->live()
+            ->live(onBlur: true)
             ->afterStateUpdated(fn () => $this->performCalculation());
     }
 
@@ -238,7 +238,6 @@ class PreferenceCalculator extends Page
 
     private function performCalculation(): void
     {
-        $this->preference_form->getState();
         $this->calculateOnSiteTimeCost();
         $this->calculateTravelCost();
         $this->calculateDriveTimeCost();
