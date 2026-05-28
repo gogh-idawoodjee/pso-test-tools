@@ -2,6 +2,6 @@
 
     {{ $this->psoload }}
 
-    <x-filament.json-modal />
+    <x-json-modal />
 
 </x-filament-panels::page>
