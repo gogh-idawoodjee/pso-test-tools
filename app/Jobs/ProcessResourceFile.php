@@ -21,6 +21,10 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    public int $timeout = 300; // 5 minutes
+
+    public int $tries = 1; // Don't retry — large files shouldn't be re-queued
+
     protected const int|float LARGE_FILE_THRESHOLD = 8 * 1024 * 1024; // 8MB
 
     public function __construct(
@@ -112,11 +116,14 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
     /** @throws JsonException */
     protected function loadInputData(): array
     {
-        Log::debug("[ProcessResourceFile][{$this->jobId}] ⏳ Reading file from storage"); // ← logging
+        ini_set('memory_limit', '512M');
+
+        Log::debug("[ProcessResourceFile][{$this->jobId}] ⏳ Reading file from storage");
         $raw = Storage::disk('r2')->get($this->path);
-        Log::debug("[ProcessResourceFile][{$this->jobId}] 🔢 Read bytes", ['bytes' => strlen($raw)]); // ← logging
+        Log::debug("[ProcessResourceFile][{$this->jobId}] 🔢 Read bytes", ['bytes' => strlen($raw)]);
 
         $json = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+        unset($raw); // Free the raw string immediately
 
         return $json['dsScheduleData'] ?? [];
     }
