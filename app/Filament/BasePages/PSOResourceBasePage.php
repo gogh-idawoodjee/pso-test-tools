@@ -4,15 +4,17 @@ namespace App\Filament\BasePages;
 
 use App\Models\Environment;
 use App\Traits\FormTrait;
+use BackedEnum;
 use Filament\Pages\Page;
+use UnitEnum;
 
 abstract class PSOResourceBasePage extends Page
 {
     use FormTrait;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-user-group';
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-user-group';
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-user-group';
+    protected static string|null|BackedEnum $activeNavigationIcon = 'heroicon-s-user-group';
 
     protected static ?string $title = 'Resource Services';
 
@@ -20,7 +22,7 @@ abstract class PSOResourceBasePage extends Page
 
     protected string $view = 'filament.pages.pso-resource';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'API Services';
+    protected static string|null|UnitEnum $navigationGroup = 'API Services';
 
     protected static ?string $navigationParentItem = 'Resource Services';
 
@@ -33,9 +35,7 @@ abstract class PSOResourceBasePage extends Page
 
     public function mount(): void
     {
-
         $this->environments = Environment::with('datasets')->get();
         $this->fillForms($this->getForms());
-
     }
 }

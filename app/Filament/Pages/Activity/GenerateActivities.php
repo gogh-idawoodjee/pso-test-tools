@@ -144,7 +144,6 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->live(),
                                 TextInput::make('address')
                                     ->prefixIcon('heroicon-s-map')
-//                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
                                         Action::make('geocode_address')
@@ -195,7 +194,7 @@ class GenerateActivities extends PSOActivityBasePage
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->generateActivitiesPayload())) {
             $this->response = $this->sendToPSONew('activity', $tokenized_payload);
             // todo this method is not complete
-            $this->dispatch('json-updated'); // Add this line
+            $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
         }
 
@@ -203,7 +202,7 @@ class GenerateActivities extends PSOActivityBasePage
 
     private function generateActivitiesPayload(): array
     {
-        $payload = array_merge($this->environnment_payload_data(),
+        $payload = array_merge($this->environment_payload_data(),
             ['activity_id' => $this->activity_data['activity_id'],
                 'activity_type_id' => $this->activity_data['activity_type_id'],
                 'sla_type_id' => $this->activity_data['sla_type_id'],

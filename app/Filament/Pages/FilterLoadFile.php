@@ -6,6 +6,7 @@ use App\Jobs\ProcessResourceFile;
 use App\Models\Environment;
 use App\Traits\FilamentJobMonitoring;
 use App\Traits\FormTrait;
+use BackedEnum;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
@@ -16,6 +17,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use UnitEnum;
 
 class FilterLoadFile extends Page
 {
@@ -24,13 +26,13 @@ class FilterLoadFile extends Page
     // Job type identifier
     private const string JOB_TYPE = 'resource-job';
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-funnel';
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-funnel';
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-funnel';
+    protected static string|null|BackedEnum $activeNavigationIcon = 'heroicon-s-funnel';
 
     protected string $view = 'filament.pages.filter-load-file';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'Additional Tools';
+    protected static string|null|UnitEnum $navigationGroup = 'Additional Tools';
 
     // File upload and processing properties
     public ?array $upload = null;

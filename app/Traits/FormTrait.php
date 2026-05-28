@@ -155,7 +155,7 @@ trait FormTrait
 
     }
 
-    public function environnment_payload_data(): array
+    public function environment_payload_data(): array
     {
 
         return [
@@ -166,14 +166,6 @@ trait FormTrait
                 'accountId' => $this->selectedEnvironment?->getAttribute('account_id'),
             ],
         ];
-
-        //        return [
-        //            'dataset_id' => $this->selectedDataset,
-        //            'base_url' => $this->selectedEnvironment?->getAttribute('base_url'),
-        //            'send_to_pso' => data_get($this->environment_data, 'send_to_pso'),
-        //            'account_id' => $this->selectedEnvironment?->getAttribute('account_id'),
-        //        ];
-
     }
 
     protected function buildPayload(array $required, array $optional = [], array $extra = []): array
@@ -186,7 +178,7 @@ trait FormTrait
         //            'data' => []
         //         ]
         return array_merge(
-            $this->environnment_payload_data(),
+            $this->environment_payload_data(),
             $extra,
             [
                 'data' => array_merge(

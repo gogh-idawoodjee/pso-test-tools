@@ -5,6 +5,7 @@ namespace App\Filament\Pages\Activity;
 use App\Enums\HttpMethod;
 use App\Enums\TaskStatus;
 use App\Filament\BasePages\PSOActivityBasePage;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\Select;
@@ -18,14 +19,11 @@ use JsonException;
 
 class UpdateActivityStatus extends PSOActivityBasePage
 {
-    // View
     protected string $view = 'filament.pages.activity-update-status';
 
-    // Navigation
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-arrow-path';
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-arrow-path';
-
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-arrow-path';
+    protected static string|null|BackedEnum $activeNavigationIcon = 'heroicon-s-arrow-path';
 
     protected static ?string $navigationLabel = 'Update Activity Status';
 
@@ -65,9 +63,6 @@ class UpdateActivityStatus extends PSOActivityBasePage
                             ->validationMessages([
                                 'required' => 'A resources is required for statuses Committed and higher'])
                             ->live(),
-                        //                            ->hidden(static function (Get $get) {
-                        //                                return $get('status') < 29;
-                        //                            }),
                         TextInput::make('duration')
                             ->label('Duration (minutes)')
                             ->prefixIcon('heroicon-o-clock')
@@ -98,7 +93,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->TaskStatusPayload())) {
             $this->response = $this->sendToPSONew($apiSegment, $tokenized_payload, [], HttpMethod::PATCH);
             $this->json_form_data['json_response_pretty'] = $this->response;
-            $this->dispatch('json-updated'); // Add this line
+            $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
         }
 

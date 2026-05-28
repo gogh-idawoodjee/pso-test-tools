@@ -301,7 +301,7 @@ class AppointmentBooking extends Page
         $data = $this->setDataPayload();
 
         // done eventually do this on the formtrait since all payloads are now env => env_d
-        $environment = $this->environnment_payload_data();
+        $environment = $this->environment_payload_data();
 
         $payload = array_merge($data, $environment);
 

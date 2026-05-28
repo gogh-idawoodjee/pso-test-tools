@@ -4,6 +4,7 @@ namespace App\Filament\Pages\Resource;
 
 use App\Enums\HttpMethod;
 use App\Filament\BasePages\PSOResourceBasePage;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
@@ -19,7 +20,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
 
     protected static ?string $slug = 'resource-update-shift';
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-document-text';
 
     protected string $view = 'filament.pages.resource-update-shift';
 
@@ -103,7 +104,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew($apiSegment, $tokenized_payload, [], HttpMethod::PATCH);
             $this->json_form_data['json_response_pretty'] = $this->response;
-            $this->dispatch('json-updated'); // Add this line
+            $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
         }
 

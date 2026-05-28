@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\Environment;
 use App\Support\GeocodeHelper;
 use App\Traits\FormTrait;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
@@ -13,18 +14,19 @@ use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use JsonException;
+use UnitEnum;
 
 class TravelAnalyzer extends Page
 {
     use FormTrait;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-map';
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-map';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'API Services';
+    protected static string|null|UnitEnum $navigationGroup = 'API Services';
 
     public ?array $data = [];
 
-    protected static string|null|\BackedEnum $activeNavigationIcon = 'heroicon-s-map';
+    protected static string|null|BackedEnum $activeNavigationIcon = 'heroicon-s-map';
 
     protected static ?string $navigationLabel = 'Travel Analyzer';
 
@@ -71,7 +73,6 @@ class TravelAnalyzer extends Page
                                     ->live(),
                                 TextInput::make('address_from')
                                     ->prefixIcon('heroicon-s-map')
-//                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
                                         Action::make('geocode_address')
@@ -109,7 +110,6 @@ class TravelAnalyzer extends Page
                                     ->live(),
                                 TextInput::make('address_to')
                                     ->prefixIcon('heroicon-s-map')
-//                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
                                         Action::make('geocode_address')
@@ -131,7 +131,7 @@ class TravelAnalyzer extends Page
                     ->footerActions([
                         Action::make('analyze_travel')
                             ->action(function (Forms\Get $get) {
-                                $this->dotheThing($get);
+                                $this->analyzeTravel($get);
                             }),
                     ])
                     ->columns(),
@@ -141,13 +141,13 @@ class TravelAnalyzer extends Page
     /**
      * @throws JsonException
      */
-    public function dotheThing($get): void
+    public function analyzeTravel($get): void
     {
         $this->response = null;
         $this->validateForms($this->getForms());
 
         $payload = array_merge(
-            $this->environnment_payload_data(),
+            $this->environment_payload_data(),
             [
                 'data' => [
                     'latTo' => $get('lat_to'),
@@ -162,7 +162,7 @@ class TravelAnalyzer extends Page
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew('travelanalyzer', $tokenized_payload);
-            $this->dispatch('json-updated'); // Add this line
+            $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
             // todo this isn't very helpful because we have asynchronous calls
         }

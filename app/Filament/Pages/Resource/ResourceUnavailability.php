@@ -3,6 +3,7 @@
 namespace App\Filament\Pages\Resource;
 
 use App\Filament\BasePages\PSOResourceBasePage;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\TextInput;
@@ -13,11 +14,11 @@ use JsonException;
 
 class ResourceUnavailability extends PSOResourceBasePage
 {
-    protected static ?string $title = 'Generate Unavailabiltiy';
+    protected static ?string $title = 'Generate Unavailability';
 
     protected static ?string $slug = 'resource-unavailability';
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-document-text';
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-document-text';
 
     protected string $view = 'filament.pages.resource-unavailability';
 
@@ -38,7 +39,7 @@ class ResourceUnavailability extends PSOResourceBasePage
                         TextInput::make('category_id')
                             ->prefixIcon('heroicon-o-clipboard')
                             ->label('Category ID')
-                            ->helperText('This value must exist in the ARP (resource data / unavailabilty categories)')
+                            ->helperText('This value must exist in the ARP (resource data / unavailability categories)')
                             ->required()
                             ->live()
                             ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
@@ -100,7 +101,7 @@ class ResourceUnavailability extends PSOResourceBasePage
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew('resource/unavailability', $tokenized_payload);
             $this->json_form_data['json_response_pretty'] = $this->response;
-            $this->dispatch('json-updated'); // Add this line
+            $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
         }
 

@@ -82,15 +82,13 @@ class TechnicianDetails extends PSOResourceBasePage
      */
     private function getTechnicianDetails($state): void // Make this private
     {
-        $payload = array_merge($this->environnment_payload_data(), []);
+        $payload = array_merge($this->environment_payload_data(), []);
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew('resource/'.$state, null, $tokenized_payload, HttpMethod::GET, true);
             $this->technician_details = data_get(json_decode($this->response, true, 512, JSON_THROW_ON_ERROR), 'data.resource', []);
             $this->json_form_data['json_response_pretty'] = $this->response;
-            $this->dispatch('json-updated'); // Add this line
-
-            //            $this->dispatch('open-modal', id: 'show-json');
+            $this->dispatch('json-updated');
         }
     }
 
@@ -101,7 +99,7 @@ class TechnicianDetails extends PSOResourceBasePage
     {
         $this->response = null;
         $this->validateForms(['env_form']);
-        $payload = array_merge($this->environnment_payload_data(),
+        $payload = array_merge($this->environment_payload_data(),
             [
 
             ]);

@@ -85,7 +85,6 @@ class ResourceEvent extends PSOResourceBasePage
                                     ->live(),
                                 TextInput::make('address')
                                     ->prefixIcon('heroicon-s-map')
-//                                    ->helperText('use an address and geocode it')
                                     ->columnSpan(2)
                                     ->suffixAction(
                                         Action::make('geocode_address')
@@ -133,7 +132,7 @@ class ResourceEvent extends PSOResourceBasePage
 
             $this->response = $this->sendToPSONew('resource/'.$this->resource_data['resource_id'].'/event', $tokenized_payload);
             $this->json_form_data['json_response_pretty'] = $this->response;
-            $this->dispatch('json-updated'); // Add this line
+            $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
         }
 
