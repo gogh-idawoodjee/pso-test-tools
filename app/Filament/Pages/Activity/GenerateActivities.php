@@ -193,37 +193,36 @@ class GenerateActivities extends PSOActivityBasePage
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $this->generateActivitiesPayload())) {
             $this->response = $this->sendToPSONew('activity', $tokenized_payload);
-            // todo this method is not complete
+            $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
         }
-
     }
 
     private function generateActivitiesPayload(): array
     {
-        $payload = array_merge($this->environment_payload_data(),
-            ['activity_id' => $this->activity_data['activity_id'],
-                'activity_type_id' => $this->activity_data['activity_type_id'],
-                'sla_type_id' => $this->activity_data['sla_type_id'],
-                'base_value' => $this->activity_data['base_value'],
+        $skills = collect($this->activity_data['skills'])->pluck('skill')->filter()->values()->all();
+        $regions = collect($this->activity_data['regions'])->pluck('region')->filter()->values()->all();
+
+        return $this->buildPayload(
+            required: [
+                'activityTypeId' => $this->activity_data['activity_type_id'],
+                'slaTypeId' => $this->activity_data['sla_type_id'],
+                'baseValue' => $this->activity_data['base_value'],
                 'duration' => $this->activity_data['duration'],
                 'priority' => $this->activity_data['priority'],
                 'lat' => $this->activity_data['latitude'],
                 'long' => $this->activity_data['longitude'],
-                'relative_day' => $this->activity_data['relative_day'],
-                'relative_day_end' => $this->activity_data['relative_day_end'],
-                'window_size' => $this->activity_data['window_size'],
-            ]);
-
-        if ($skills = collect($this->activity_data['skills'])->pluck('skill')->filter()->values()) {
-            $payload['skills'] = $skills;
-        }
-
-        if ($regions = collect($this->activity_data['regions'])->pluck('region')->filter()->values()) {
-            $payload['regions'] = $regions;
-        }
-
-        return $payload;
+            ],
+            optional: [
+                'activityId' => $this->activity_data['activity_id'] ?? null,
+                'relativeDay' => $this->activity_data['relative_day'] ?? null,
+                'relativeDayEnd' => $this->activity_data['relative_day_end'] ?? null,
+                'windowSize' => $this->activity_data['window_size'] ?? null,
+                'timeZone' => $this->activity_data['time_zone'] ?? null,
+                'skills' => $skills ?: null,
+                'regions' => $regions ?: null,
+            ],
+        );
     }
 }

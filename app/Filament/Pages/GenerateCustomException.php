@@ -13,6 +13,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use JsonException;
 use UnitEnum;
@@ -57,30 +58,27 @@ class GenerateCustomException extends Page
                             ->options($this->PSOObjectTypes)
                             ->required()
                             ->native(false)
-                            ->reactive(), // Use reactive for live updates
+                            ->live(),
 
                         TextInput::make('schedule_exception_type_id')
                             ->label('Schedule Exception Type ID')
-                            ->helperText('Please Ensure this exists in PSO')
+                            ->helperText('Please ensure this exists in PSO')
                             ->numeric()
                             ->integer()
                             ->required(),
 
-                        // Resource ID field visible when 'object_type_id' is 'Resource'
                         TextInput::make('resourceId')
                             ->label('Resource ID')
-                            ->visible(fn (callable $get) => $get('object_type_id') === 'resource')
-                            ->required(fn (callable $get) => $get('object_type_id') === 'resource')
+                            ->visible(static fn (Get $get) => $get('object_type_id') === 'resource')
+                            ->required(static fn (Get $get) => $get('object_type_id') === 'resource')
                             ->placeholder('Enter Resource ID'),
 
-                        // Activity ID field visible when 'object_type_id' is 'Activity'
                         TextInput::make('activity_id')
                             ->label('Activity ID')
-                            ->visible(fn (callable $get) => $get('object_type_id') === 'activity')
-                            ->required(fn (callable $get) => $get('object_type_id') === 'activity')
+                            ->visible(static fn (Get $get) => $get('object_type_id') === 'activity')
+                            ->required(static fn (Get $get) => $get('object_type_id') === 'activity')
                             ->placeholder('Enter Activity ID'),
 
-                        // Generic Label and Value fields
                         TextInput::make('label')
                             ->required(),
                         TextInput::make('value')
@@ -90,7 +88,7 @@ class GenerateCustomException extends Page
                             ->icon('heroicon-o-exclamation-triangle')
                             ->action(function () {
                                 $this->generate_exception();
-                            })->disabled(static fn (callable $get) => ! $get('object_type_id')),
+                            })->disabled(static fn (Get $get) => ! $get('object_type_id')),
                         ])->columnSpan(2),
                     ])
                     ->columns(),

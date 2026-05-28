@@ -80,9 +80,9 @@ class TechnicianDetails extends PSOResourceBasePage
     /**
      * @throws JsonException
      */
-    private function getTechnicianDetails($state): void // Make this private
+    private function getTechnicianDetails($state): void
     {
-        $payload = array_merge($this->environment_payload_data(), []);
+        $payload = $this->environment_payload_data();
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
             $this->response = $this->sendToPSONew('resource/'.$state, null, $tokenized_payload, HttpMethod::GET, true);
@@ -99,10 +99,7 @@ class TechnicianDetails extends PSOResourceBasePage
     {
         $this->response = null;
         $this->validateForms(['env_form']);
-        $payload = array_merge($this->environment_payload_data(),
-            [
-
-            ]);
+        $payload = $this->environment_payload_data();
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
 

@@ -164,7 +164,6 @@ class TravelAnalyzer extends Page
             $this->response = $this->sendToPSONew('travelanalyzer', $tokenized_payload);
             $this->dispatch('json-updated');
             $this->dispatch('open-modal', id: 'show-json');
-            // todo this isn't very helpful because we have asynchronous calls
         }
     }
 }
