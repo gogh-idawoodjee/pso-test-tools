@@ -5,12 +5,16 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\TokenUsageLogResource\Pages;
 use App\Models\TokenUsageLog;
 use App\Traits\AdminViewable;
+use BackedEnum;
 use Exception;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class TokenUsageLogResource extends Resource
 {
@@ -18,9 +22,9 @@ class TokenUsageLogResource extends Resource
 
     protected static ?string $model = TokenUsageLog::class;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'Core';
+    protected static string|null|UnitEnum $navigationGroup = 'Core';
 
     public static function form(Schema $form): Schema
     {
@@ -54,12 +58,12 @@ class TokenUsageLogResource extends Resource
                         'DELETE' => 'DELETE',
                     ]),
             ])
-            ->actions([
-                //                Tables\Actions\EditAction::make(),
+            ->recordActions([
+                //
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }
@@ -68,8 +72,6 @@ class TokenUsageLogResource extends Resource
     {
         return [
             'index' => Pages\ListTokenUsageLogs::route('/'),
-            //            'create' => Pages\CreateTokenUsageLog::route('/create'),
-            //            'edit' => Pages\EditTokenUsageLog::route('/{record}/edit'),
         ];
     }
 }

@@ -50,9 +50,6 @@ class DatasetResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
             ->recordActions([
                 ViewAction::make(),
                 EditAction::make()->slideOver(),
@@ -68,9 +65,7 @@ class DatasetResource extends Resource
     {
         return [
             'index' => Pages\ListDatasets::route('/'),
-            //            'create' => Pages\CreateDataset::route('/create'),
             'view' => Pages\ViewDataset::route('/{record}'),
-            //            'edit' => Pages\EditDataset::route('/{record}/edit'),
         ];
     }
 }

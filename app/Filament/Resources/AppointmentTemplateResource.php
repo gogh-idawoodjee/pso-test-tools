@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\AppointmentTemplateResource\Pages;
 use App\Models\AppointmentTemplate;
+use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -11,14 +12,15 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
 use Filament\Tables\Table;
+use UnitEnum;
 
 class AppointmentTemplateResource extends Resource
 {
     protected static ?string $model = AppointmentTemplate::class;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-calendar';
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-calendar';
 
-    protected static string|null|\UnitEnum $navigationGroup = 'Base Data';
+    protected static string|null|UnitEnum $navigationGroup = 'Base Data';
 
     public static function getNavigationBadge(): ?string
     {
@@ -49,9 +51,6 @@ class AppointmentTemplateResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
             ->recordActions([
                 EditAction::make()->slideOver(),
             ])
@@ -66,8 +65,6 @@ class AppointmentTemplateResource extends Resource
     {
         return [
             'index' => Pages\ListAppointmentTemplates::route('/'),
-            //            'create' => Pages\CreateAppointmentTemplate::route('/create'),
-            //            'edit' => Pages\EditAppointmentTemplate::route('/{record}/edit'),
         ];
     }
 }

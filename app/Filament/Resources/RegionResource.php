@@ -49,9 +49,6 @@ class RegionResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
             ->recordActions([
                 EditAction::make()->slideOver(),
             ])
@@ -62,19 +59,10 @@ class RegionResource extends Resource
             ]);
     }
 
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
-    }
-
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListRegions::route('/'),
-            //            'create' => Pages\CreateRegion::route('/create'),
-            //            'edit' => Pages\EditRegion::route('/{record}/edit'),
         ];
     }
 }

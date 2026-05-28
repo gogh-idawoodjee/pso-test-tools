@@ -8,7 +8,6 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables;
@@ -47,7 +46,6 @@ class SkillResource extends Resource
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('taskType.name')
-                    ->numeric()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
@@ -57,9 +55,6 @@ class SkillResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                //
             ])
             ->recordActions([
                 EditAction::make()->slideOver(),
@@ -75,8 +70,6 @@ class SkillResource extends Resource
     {
         return [
             'index' => Pages\ListSkills::route('/'),
-            //            'create' => Pages\CreateSkill::route('/create'),
-            //            'edit' => Pages\EditSkill::route('/{record}/edit'),
         ];
     }
 }

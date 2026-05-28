@@ -53,9 +53,6 @@ class SlotUsageRuleResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
             ->recordActions([
                 EditAction::make()->slideOver(),
             ])
@@ -70,8 +67,6 @@ class SlotUsageRuleResource extends Resource
     {
         return [
             'index' => Pages\ListSlotUsageRules::route('/'),
-            //            'create' => Pages\CreateSlotUsageRule::route('/create'),
-            //            'edit' => Pages\EditSlotUsageRule::route('/{record}/edit'),
         ];
     }
 }

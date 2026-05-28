@@ -73,9 +73,6 @@ class EnvironmentResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
             ->recordActions([
                 EditAction::make('Manage')->label('Manage'),
                 Action::make('Tools')->label('Tools')

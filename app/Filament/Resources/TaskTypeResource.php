@@ -52,9 +52,6 @@ class TaskTypeResource extends Resource
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
-            ->filters([
-                //
-            ])
             ->recordActions([
                 EditAction::make()->slideOver(),
             ])
@@ -69,8 +66,6 @@ class TaskTypeResource extends Resource
     {
         return [
             'index' => Pages\ListTaskTypes::route('/'),
-            //            'create' => Pages\CreateTaskType::route('/create'),
-            //            'edit' => Pages\EditTaskType::route('/{record}/edit'),
         ];
     }
 }

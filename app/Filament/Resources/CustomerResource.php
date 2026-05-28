@@ -2,11 +2,11 @@
 
 namespace App\Filament\Resources;
 
-use App\Enums\Status;
 use App\Enums\TaskStatus;
 use App\Filament\Resources\CustomerResource\Pages;
 use App\Filament\Resources\CustomerResource\RelationManagers\TasksRelationManager;
 use App\Models\Customer;
+use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -22,7 +22,7 @@ class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
 
-    protected static string|null|\BackedEnum $navigationIcon = 'heroicon-o-user-group';
+    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-user-group';
 
     public static function getNavigationBadge(): ?string
     {
@@ -53,14 +53,8 @@ class CustomerResource extends Resource
                 Tables\Columns\TextColumn::make('region.name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('status')
-                    ->label('Status')
                     ->badge()
-                    ->color(static fn ($state) => ($state instanceof Status ? $state : Status::tryFrom($state)) === Status::ACTIVE
-                        ? 'success'
-                        : 'danger'
-                    )
-                    ->formatStateUsing(fn ($state) => ($state instanceof Status ? $state : Status::tryFrom($state))?->getLabel() ?? $state
-                    )->sortable(),
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('tasks_count')
                     ->label('Tasks')
                     ->counts('tasks')
@@ -74,9 +68,6 @@ class CustomerResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                //
             ])
             ->recordActions([
                 EditAction::make()->slideOver(),
@@ -105,10 +96,7 @@ class CustomerResource extends Resource
                         TextEntry::make('name'),
 
                         TextEntry::make('status')
-                            ->badge()
-                            ->color(static function ($state) {
-                                return $state === Status::ACTIVE ? 'success' : 'danger';
-                            }),
+                            ->badge(),
                         TextEntry::make('created_at')
                             ->label('Created At')
                             ->icon('heroicon-o-calendar')
@@ -186,7 +174,6 @@ class CustomerResource extends Resource
         return [
             'index' => Pages\ListCustomers::route('/'),
             'create' => Pages\CreateCustomer::route('/create'),
-            //            'edit' => Pages\EditCustomer::route('/{record}/edit'),
             'view' => Pages\ViewCustomer::route('/{record}'),
         ];
     }
