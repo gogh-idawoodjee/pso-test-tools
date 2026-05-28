@@ -1,37 +1,84 @@
 <x-filament::page>
     @if ($this->shouldShowDropdowns())
-        {{$this->env_form}}
+        {{ $this->env_form }}
     @endif
 
-    <form wire:submit.prevent="submit" wire:poll.1500ms="checkStatus" class="relative">
+    <form wire:submit.prevent="submit" class="relative">
         {{ $this->form }}
 
-        <div class="flex items-center gap-2 mt-6">
-            <div class="relative">
-                <x-filament::button
-                    type="submit"
-                    :disabled="$jobId && $progress < 100"
-                    wire:loading.attr="disabled"
-                    wire:target="submit"
-                    :color="$jobId && $progress < 100 ? 'gray' : 'primary'"
-                >
-                    <div class="flex items-center gap-1">
-                        @if($jobId && $progress < 100)
-                            <x-filament::loading-indicator class="h-4 w-4"/>
-                            <span>Processing {{ $progress }}%</span>
+        {{-- Progress bar while job is running --}}
+        @if ($jobId)
+            <div wire:poll.1500ms="checkStatus" class="mt-6">
+                <div class="flex items-center justify-between mb-2">
+                    <p class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                        @if ($progress >= 100)
+                            <span class="text-success-600 dark:text-success-400">Complete</span>
+                        @elseif ($status === 'processing')
+                            Processing...
                         @else
-                            <span>{{ $dryRun ? 'Get Filterable Data' : 'Filter File' }}</span>
+                            Preparing...
+                        @endif
+                        <span class="{{ $progress >= 100 ? 'text-success-600 dark:text-success-400' : 'text-primary-600 dark:text-primary-400' }}">
+                            {{ $progress }}%
+                        </span>
+                    </p>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">
+                        @if ($progress >= 100)
+                            Done!
+                        @elseif ($progress < 10)
+                            Loading file data...
+                        @elseif ($progress < 30)
+                            Filtering resources...
+                        @elseif ($progress < 60)
+                            Processing shifts and activities...
+                        @elseif ($progress < 90)
+                            Finalizing results...
+                        @else
+                            Preparing output...
+                        @endif
+                    </span>
+                </div>
+                <div class="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                        class="h-4 rounded-full transition-all duration-1000 ease-in-out relative overflow-hidden
+                            {{ $progress >= 100 ? 'bg-success-500' : 'bg-primary-500' }}"
+                        style="width: {{ $progress }}%"
+                    >
+                        @if ($progress < 100)
+                            {{-- Animated shimmer stripe --}}
+                            <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-[shimmer_1.5s_infinite]"></div>
                         @endif
                     </div>
-                </x-filament::button>
-
-                @if($jobId && $progress < 100)
-                    <div class="absolute left-0 bottom-0 h-1 bg-primary-500 transition-all duration-300 rounded-b-lg"
-                         style="width: {{ $progress }}%"></div>
-                @endif
+                </div>
             </div>
 
-            @if($jobId && $progress < 100)
+            <style>
+                @keyframes shimmer {
+                    0% { transform: translateX(-100%); }
+                    100% { transform: translateX(100%); }
+                }
+            </style>
+        @endif
+
+        <div class="flex items-center gap-2 mt-6">
+            <x-filament::button
+                type="submit"
+                :disabled="filled($jobId)"
+                wire:loading.attr="disabled"
+                wire:target="submit"
+                :color="filled($jobId) ? 'gray' : 'primary'"
+            >
+                <div class="flex items-center gap-1">
+                    @if (filled($jobId))
+                        <x-filament::loading-indicator class="h-4 w-4"/>
+                        <span>Processing...</span>
+                    @else
+                        <span>{{ $dryRun ? 'Get Filterable Data' : 'Filter File' }}</span>
+                    @endif
+                </div>
+            </x-filament::button>
+
+            @if (filled($jobId) && $progress < 100)
                 <x-filament::button
                     color="danger"
                     size="sm"
@@ -47,7 +94,7 @@
             @endif
         </div>
 
-        <!-- Add a global loading overlay for the initial submission -->
+        <!-- Loading overlay for initial submission -->
         <div
             wire:loading
             wire:target="submit"
@@ -59,92 +106,6 @@
             </div>
         </div>
     </form>
-{{--        <div class="mt-8 space-y-6 border-s-2 border-gray-200 dark:border-gray-700 ps-6">--}}
-{{--            <div class="flex items-start gap-3">--}}
-{{--                <div class="w-4 h-4 mt-1 rounded-full bg-success-500 flex items-center justify-center">--}}
-{{--                    <x-heroicon-s-check class="w-3 h-3 text-white"/>--}}
-{{--                </div>--}}
-{{--                <div>--}}
-{{--                    <h4 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">Filtering Resources</h4>--}}
-{{--                    <p class="text-xs text-gray-600 dark:text-gray-400">Complete</p>--}}
-{{--                </div>--}}
-{{--            </div>--}}
-
-{{--            <div class="flex items-start gap-3">--}}
-{{--                <div class="w-4 h-4 mt-1 rounded-full bg-success-500 flex items-center justify-center">--}}
-{{--                    <x-heroicon-s-check class="w-3 h-3 text-white"/>--}}
-{{--                </div>--}}
-{{--                <div>--}}
-{{--                    <h4 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">Filtering Shifts</h4>--}}
-{{--                    <p class="text-xs text-gray-600 dark:text-gray-400">Complete</p>--}}
-{{--                </div>--}}
-{{--            </div>--}}
-
-{{--            <div class="flex items-start gap-3">--}}
-{{--                <div class="w-4 h-4 mt-1 rounded-full bg-warning-400 animate-pulse ring-2 ring-warning-300"></div>--}}
-{{--                <div>--}}
-{{--                    <h4 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">Filtering Activities</h4>--}}
-{{--                    <p class="text-xs text-warning-600 dark:text-warning-400">In progress...</p>--}}
-{{--                </div>--}}
-{{--            </div>--}}
-
-{{--            <div class="flex items-start gap-3">--}}
-{{--                <div class="w-4 h-4 mt-1 rounded-full bg-neutral-500"></div>--}}
-{{--                <div>--}}
-{{--                    <h4 class="text-sm font-medium text-gray-900 dark:text-white leading-snug">Filtering SLAs</h4>--}}
-{{--                    <p class="text-xs text-gray-600 dark:text-gray-400">Waiting</p>--}}
-{{--                </div>--}}
-{{--            </div>--}}
-{{--        </div>--}}
-
-
-
-        {{--    <div class="flex items-center gap-2 mt-2">--}}
-    {{--        <p class="text-sm text-gray-500">Status: <span class="font-medium">{{ $status ?: 'Waiting' }}</span></p>--}}
-    {{--        @if($progress > 0)--}}
-    {{--            <span class="text-gray-300">|</span>--}}
-    {{--            <p class="text-sm text-gray-500">Progress: <span class="font-medium">{{ $progress }}%</span></p>--}}
-    {{--        @endif--}}
-    {{--    </div>--}}
-
-    {{--    --}}{{-- Progress bar while job is running --}}
-    {{--    @if ($jobId && $progress < 100)--}}
-    {{--        <div wire:poll.1500ms="checkStatus">--}}
-    {{--            <div class="mt-6">--}}
-    {{--                <div class="flex items-center justify-between mb-2">--}}
-    {{--                    <p class="font-semibold">--}}
-    {{--                        {{ $status === 'processing' ? 'Processing... ' : 'Preparing... ' }}--}}
-    {{--                        <span class="text-primary-600">{{ $progress }}%</span>--}}
-    {{--                    </p>--}}
-
-    {{--                    --}}{{-- Phase indicator based on progress --}}
-    {{--                    <span class="text-sm text-gray-500">--}}
-    {{--                        @if($progress < 10)--}}
-    {{--                            Loading file data...--}}
-    {{--                        @elseif($progress < 30)--}}
-    {{--                            Filtering resources...--}}
-    {{--                        @elseif($progress < 60)--}}
-    {{--                            Processing shifts and activities...--}}
-    {{--                        @elseif($progress < 90)--}}
-    {{--                            Finalizing results...--}}
-    {{--                        @else--}}
-    {{--                            Preparing download...--}}
-    {{--                        @endif--}}
-    {{--                    </span>--}}
-    {{--                </div>--}}
-    {{--                <div class="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden">--}}
-    {{--                    <div class="h-4 bg-primary-500 rounded-lg transition-all duration-500"--}}
-    {{--                         style="width: {{ $progress }}%"></div>--}}
-    {{--                </div>--}}
-
-    {{--                --}}{{-- Elapsed time indicator --}}
-    {{--                <p class="text-xs text-gray-500 mt-1">--}}
-    {{--                    Time elapsed: {{ now()->diffForHumans($jobCreatedAt, ['parts' => 1, 'short' => true, 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}--}}
-    {{--                </p>--}}
-    {{--            </div>--}}
-    {{--        </div>--}}
-    {{--    @endif--}}
-
     {{-- Download button --}}
     @if ($downloadUrl)
         <div class="mt-6">

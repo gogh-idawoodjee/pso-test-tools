@@ -422,21 +422,14 @@ class FilterLoadFile extends Page
         // Handle job completion
         if ($this->status === 'complete') {
             $this->handleJobCompletion();
+
+            return;
         }
 
         // Handle job failure
         if ($this->status === 'failed') {
             $this->notifyDanger('Processing failed', 'Something went wrong during processing.');
-        }
-
-        if ($this->shouldShowDropdowns()) {
-            // attempt to change state of toggle once IDs have been loaded
-            $this->form->fill(['dryRun' => false]);
-        }
-
-        if ($this->status === 'complete' && ! $this->dryRun) {
-            // use this method to show the environment section and activate the push to PSO button
-            $this->hasRunFilterJob = true;
+            $this->resetJobState();
         }
     }
 
@@ -507,7 +500,15 @@ class FilterLoadFile extends Page
             $this->downloadUrl ? 'File is ready to download.' : 'Preview complete.'
         );
 
-        // Update form state
+        // Mark filter job as complete for non-dry runs
+        if (! $this->dryRun) {
+            $this->hasRunFilterJob = true;
+        }
+
+        // Update form state with dryRun toggled off now that data is available
+        if ($this->shouldShowDropdowns()) {
+            $this->dryRun = false;
+        }
         $this->updateFormState();
 
         // Reset job state but keep form values

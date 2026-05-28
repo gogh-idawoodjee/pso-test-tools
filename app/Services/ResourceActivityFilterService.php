@@ -21,12 +21,6 @@ class ResourceActivityFilterService extends HasScopedCache
 
     protected array $validActivityIds = [];
 
-    protected int $currentProgress = 0;
-
-    protected array $itemCounts = [];
-
-    protected array $processedItems = [];
-
     protected int $progressStart = 0;
 
     protected int $progressEnd = 100;
@@ -47,24 +41,9 @@ class ResourceActivityFilterService extends HasScopedCache
     ) {
         $this->progressStart = $progressStart;
         $this->progressEnd = $progressEnd;
-        $this->currentProgress = $progressStart;
         $this->updateProgress($this->progressStart);
 
-        // Initial counts
-        $this->itemCounts = [
-            'resources' => count($data['Resources'] ?? []),
-            'shifts' => count($data['Shift'] ?? []),
-            'shift_breaks' => count($data['Shift_Break'] ?? []),
-            'activities' => count($data['Activity'] ?? []),
-            'locations' => count($data['Location'] ?? []),
-        ];
-        $this->processedItems = array_fill_keys(array_keys($this->itemCounts), 0);
-
         activity()->event('Filter Service')->log('Filter service initialized');
-        Log::info('🔢 Filter service initialized with progress range '.
-            "{$this->progressStart}%-{$this->progressEnd}%",
-            ['itemCounts' => $this->itemCounts]
-        );
     }
 
     public function filter(): array
@@ -100,33 +79,40 @@ class ResourceActivityFilterService extends HasScopedCache
             return $this->handleDryRun();
         }
 
-        // 1) Region filter
+        // 1) Region filter (~15%)
+        $this->reportStep(0.0);
         if (! empty($this->regionIds)) {
             $this->filterResourcesByRegion();
         } else {
             $this->validResourceIds = collect($this->data['Resources'] ?? [])->pluck('id')->all();
             $this->validLocationIds = collect($this->data['Location'] ?? [])->pluck('id')->all();
-            $this->updateProcessedItems('resources', count($this->validResourceIds));
-            $this->updateProcessedItems('locations', count($this->validLocationIds));
         }
 
-        // 2) Specific resource IDs
+        // 2) Specific resource IDs (~20%)
+        $this->reportStep(0.15);
         if (! empty($this->resourceIds)) {
             $this->filterResourcesByIds();
         }
 
-        // 3) Shift filtering (resource + date range)
+        // 3) Shift filtering (~40%)
+        $this->reportStep(0.20);
         $this->applyShiftFilters();
 
-        // 4) Resource relations & availability
+        // 4) Resource relations & availability (~55%)
+        $this->reportStep(0.40);
         $this->filterResourceRelations();
+        $this->reportStep(0.50);
         $this->filterAvailability();
 
-        // 5) Activity filtering
+        // 5) Activity filtering (~75%)
+        $this->reportStep(0.55);
         $this->filterActivitiesAndRelatedData();
 
         // 6) Assemble final dataset
+        $this->reportStep(0.75);
         $filtered = $this->assembleFilteredData();
+        $this->reportStep(0.90);
+
         Log::info('📊 Filter summary:', [
             'resourcesBefore' => count($this->data['Resources'] ?? []),
             'resourcesAfter' => count($filtered['Resources']),
@@ -312,34 +298,12 @@ class ResourceActivityFilterService extends HasScopedCache
         ));
     }
 
-    protected function updateProcessedItems(string $type, int $processed): void
+    /**
+     * Report progress as a fraction (0.0–1.0) within the assigned progress range.
+     */
+    protected function reportStep(float $fraction): void
     {
-        if (! isset($this->processedItems[$type])) {
-            return;
-        }
-        $this->processedItems[$type] = $processed;
-        $pct = $this->calculateProgress();
-        if ($pct > $this->currentProgress) {
-            $this->currentProgress = $pct;
-            $this->updateProgress($pct);
-        }
-    }
-
-    protected function calculateProgress(): int
-    {
-        $total = array_sum($this->itemCounts) ?: 1;
-        $weights = ['resources' => 0.2, 'shifts' => 0.25, 'shift_breaks' => 0.05, 'activities' => 0.4, 'locations' => 0.1];
-        $ratio = 0;
-        foreach ($weights as $key => $weight) {
-            $ratio += ($this->processedItems[$key] / max(1, $this->itemCounts[$key])) * $weight;
-        }
-
-        return min(
-            $this->progressEnd,
-            max(
-                $this->progressStart,
-                (int) ($this->progressStart + $ratio * ($this->progressEnd - $this->progressStart))
-            )
-        );
+        $pct = (int) ($this->progressStart + $fraction * ($this->progressEnd - $this->progressStart));
+        $this->updateProgress(min($pct, $this->progressEnd));
     }
 }
