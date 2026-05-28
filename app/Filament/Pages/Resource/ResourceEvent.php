@@ -60,15 +60,16 @@ class ResourceEvent extends PSOResourceBasePage
                             ->helperText('Optional. Defaults to current datetime if not set.'),
                         Fieldset::make('location')
                             ->visible(static function (Get $get) {
-                                return $get('event_type') === EventType::GPSFIX->value;
+                                return $get('event_type') === EventType::GPSFIX;
                             })
                             ->live()
                             ->label('Location')
+                            ->columnSpanFull()
                             ->schema([
                                 TextInput::make('latitude')
                                     ->prefixIcon('heroicon-s-arrows-up-down')
                                     ->required(static function (Get $get) {
-                                        return $get('event_type') === EventType::GPSFIX->value;
+                                        return $get('event_type') === EventType::GPSFIX;
                                     })
                                     ->minValue(-90.0)
                                     ->maxValue(90.0)
@@ -77,7 +78,7 @@ class ResourceEvent extends PSOResourceBasePage
                                 TextInput::make('longitude')
                                     ->prefixIcon('heroicon-s-arrows-right-left')
                                     ->required(static function (Get $get) {
-                                        return $get('event_type') === EventType::GPSFIX->value;
+                                        return $get('event_type') === EventType::GPSFIX;
                                     })
                                     ->minValue(-180.0)
                                     ->maxValue(180.0)

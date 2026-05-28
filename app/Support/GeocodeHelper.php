@@ -2,15 +2,13 @@
 
 namespace App\Support;
 
-use Filament\Forms\Get;
-use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use GuzzleHttp\Client;
 use Spatie\Geocoder\Geocoder;
 
 class GeocodeHelper
 {
-    public static function makeAddressFromParts(Get $get): string
+    public static function makeAddressFromParts(callable $get): string
     {
         return collect([
             $get('address'),
@@ -21,11 +19,11 @@ class GeocodeHelper
     }
 
     public static function geocodeFormAddress(
-        Get $get,
-        Set $set,
-        string|null $latPath = null,
-        string|null $longPath = null,
-        string|null $addressPath = null,
+        callable $get,
+        callable $set,
+        ?string $latPath = null,
+        ?string $longPath = null,
+        ?string $addressPath = null,
         bool $usesFullAddressAsPath = false
     ): void {
         $addressPath ??= 'address';
@@ -33,8 +31,9 @@ class GeocodeHelper
         $latPath ??= 'latitude';
         $address = $usesFullAddressAsPath ? $addressPath : $get($addressPath);
 
-        if (!$address) {
+        if (! $address) {
             self::sendGeocodeNotification('noaddress', 'Please enter an address', 'warning');
+
             return;
         }
 
@@ -51,7 +50,7 @@ class GeocodeHelper
 
     public static function performGeocode(string $address): array
     {
-        $client = new Client();
+        $client = new Client;
 
         $geocoder = new Geocoder($client);
         $geocoder->setApiKey(config('geocoder.key'));

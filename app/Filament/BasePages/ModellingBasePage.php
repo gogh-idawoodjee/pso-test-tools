@@ -12,15 +12,15 @@ abstract class ModellingBasePage extends Page
 {
     use FormTrait;
 
-    protected static string|null|UnitEnum $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = 'API Services';
 
     protected static ?string $navigationParentItem = 'Modelling Services';
 
     public ?array $modelling_data = [];
 
-    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-document-text';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
 
-    protected static string|null|BackedEnum $activeNavigationIcon = 'heroicon-s-document-text';
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-document-text';
 
     protected static ?string $navigationLabel = 'Modelling Services';
 

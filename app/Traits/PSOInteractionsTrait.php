@@ -16,17 +16,16 @@ use SensitiveParameter;
 
 trait PSOInteractionsTrait
 {
-    protected int|null $error_value = null;
+    protected ?int $error_value = null;
 
-    public array|null $json_form_data = [];
+    public ?array $json_form_data = [];
 
     public function authenticatePSO(
         string $base_url,
         string $account_id,
         string $username,
-        string $password,
-    ): string|null
-    {
+        #[SensitiveParameter] string $password,
+    ): ?string {
         $this->error_value = null;
 
         if (! $base_url) {
@@ -89,7 +88,7 @@ trait PSOInteractionsTrait
      * @throws JsonException
      */
     public function sendToPSONew(
-        #[SensitiveParameter] string $api_segment,
+        string $api_segment,
         mixed $payload = null,
         array $headers = [],
         ?HttpMethod $method = null,
@@ -107,8 +106,8 @@ trait PSOInteractionsTrait
             $method = $payload === null ? HttpMethod::GET : HttpMethod::POST;
         }
 
-        $version = config('psott.pso-services-api-version') ? 'v2/' : '';
-        $url = 'https://'.config('psott.pso-services-api').'/api/'.$version.$api_segment;
+        $version = config('psott.pso-services-api-version');
+        $url = 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').$api_segment;
 
         $request = Http::contentType('application/json')
             ->accept('application/json');
@@ -187,11 +186,7 @@ trait PSOInteractionsTrait
         Notification::make()
             ->title($title)
             ->body($body)
-            ->when($pass, function ($notification) {
-                $notification->success();
-            }, function ($notification) {
-                $notification->danger();
-            })
+            ->{$pass ? 'success' : 'danger'}()
             ->send();
     }
 }
