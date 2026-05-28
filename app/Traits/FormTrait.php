@@ -119,15 +119,17 @@ trait FormTrait
                         ])
                         ->createOptionModalHeading('Create Dataset')
 
-                        // 2) Persist it and return the new ID
                         ->createOptionUsing(function (Get $get, array $data): string {
-                            $dataset = Dataset::create([
+                            Dataset::create([
                                 'environment_id' => $get('environment_id'),
                                 'name' => $data['name'],
                                 'rota' => $data['name'],
                             ]);
 
-                            return $dataset->id;
+                            // Refresh so the new dataset appears in the dropdown options
+                            $this->environments = Environment::with('datasets')->get();
+
+                            return $data['name'];
                         }),
                 ])
                 ->columns(3),
