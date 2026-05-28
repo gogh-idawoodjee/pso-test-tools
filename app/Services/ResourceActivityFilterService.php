@@ -12,29 +12,38 @@ use Illuminate\Support\Facades\Log;
 class ResourceActivityFilterService extends HasScopedCache
 {
     protected array $filteredAvailabilityIds = [];
+
     protected array $validResourceIds = [];
+
     protected array $validShiftIds = [];
+
     protected array $validLocationIds = [];
+
     protected array $validActivityIds = [];
 
     protected int $currentProgress = 0;
+
     protected array $itemCounts = [];
+
     protected array $processedItems = [];
+
     protected int $progressStart = 0;
+
     protected int $progressEnd = 100;
 
     public function __construct(
-        protected array   $data,
-        protected array   $regionIds,
+        protected array $data,
+        protected array $regionIds,
         protected ?string $jobId = null,
         protected ?string $overrideDatetime = null,
-        protected array   $resourceIds = [],
-        protected array   $activityIds = [],
-        protected bool    $isDryRun = false,
+        protected array $resourceIds = [],
+        protected array $activityIds = [],
+        protected bool $isDryRun = false,
         protected ?Carbon $startDate = null,
         protected ?Carbon $endDate = null,
-        int               $progressStart = 0,
-        int               $progressEnd = 100
+        int $progressStart = 0,
+        int $progressEnd = 100,
+        protected array $activityTypeIds = [],
     ) {
         $this->progressStart = $progressStart;
         $this->progressEnd = $progressEnd;
@@ -43,15 +52,16 @@ class ResourceActivityFilterService extends HasScopedCache
 
         // Initial counts
         $this->itemCounts = [
-            'resources'  => count($data['Resources'] ?? []),
-            'shifts'     => count($data['Shift'] ?? []),
+            'resources' => count($data['Resources'] ?? []),
+            'shifts' => count($data['Shift'] ?? []),
+            'shift_breaks' => count($data['Shift_Break'] ?? []),
             'activities' => count($data['Activity'] ?? []),
-            'locations'  => count($data['Location'] ?? []),
+            'locations' => count($data['Location'] ?? []),
         ];
         $this->processedItems = array_fill_keys(array_keys($this->itemCounts), 0);
 
         activity()->event('Filter Service')->log('Filter service initialized');
-        Log::info('🔢 Filter service initialized with progress range ' .
+        Log::info('🔢 Filter service initialized with progress range '.
             "{$this->progressStart}%-{$this->progressEnd}%",
             ['itemCounts' => $this->itemCounts]
         );
@@ -61,13 +71,13 @@ class ResourceActivityFilterService extends HasScopedCache
     {
         // Log parameters
         $params = [
-            'regionIds'   => $this->regionIds,
+            'regionIds' => $this->regionIds,
             'resourceIds' => $this->resourceIds,
             'activityIds' => $this->activityIds,
-            'startDate'   => $this->startDate?->toIso8601String() ?: null,
-            'endDate'     => $this->endDate?->toIso8601String() ?: null,
-            'isDryRun'    => $this->isDryRun,
-            'jobId'       => $this->jobId,
+            'startDate' => $this->startDate?->toIso8601String() ?: null,
+            'endDate' => $this->endDate?->toIso8601String() ?: null,
+            'isDryRun' => $this->isDryRun,
+            'jobId' => $this->jobId,
         ];
         Log::info('🔍 Filter called with parameters:', $params);
 
@@ -86,11 +96,12 @@ class ResourceActivityFilterService extends HasScopedCache
 
         if ($this->isDryRun) {
             Log::info('🧪 Dry run mode — skipping filters');
+
             return $this->handleDryRun();
         }
 
         // 1) Region filter
-        if (!empty($this->regionIds)) {
+        if (! empty($this->regionIds)) {
             $this->filterResourcesByRegion();
         } else {
             $this->validResourceIds = collect($this->data['Resources'] ?? [])->pluck('id')->all();
@@ -100,16 +111,11 @@ class ResourceActivityFilterService extends HasScopedCache
         }
 
         // 2) Specific resource IDs
-        if (!empty($this->resourceIds)) {
+        if (! empty($this->resourceIds)) {
             $this->filterResourcesByIds();
-            $this->validShiftIds = collect($this->data['Shift'] ?? [])
-                ->whereIn('resource_id', $this->validResourceIds)
-                ->pluck('id')
-                ->all();
-            $this->filterShiftBreaks();
         }
 
-        // 3) Shift filtering (always after resource filters)
+        // 3) Shift filtering (resource + date range)
         $this->applyShiftFilters();
 
         // 4) Resource relations & availability
@@ -123,14 +129,14 @@ class ResourceActivityFilterService extends HasScopedCache
         $filtered = $this->assembleFilteredData();
         Log::info('📊 Filter summary:', [
             'resourcesBefore' => count($this->data['Resources'] ?? []),
-            'resourcesAfter'  => count($filtered['Resources']),
-            'shiftsBefore'    => count($this->data['Shift'] ?? []),
-            'shiftsAfter'     => count($filtered['Shift']),
+            'resourcesAfter' => count($filtered['Resources']),
+            'shiftsBefore' => count($this->data['Shift'] ?? []),
+            'shiftsAfter' => count($filtered['Shift']),
         ]);
 
         return [
             'filtered' => $filtered,
-            'summary'  => $this->generateSummary($filtered),
+            'summary' => $this->generateSummary($filtered),
         ];
     }
 
@@ -144,17 +150,17 @@ class ResourceActivityFilterService extends HasScopedCache
         return array_merge(
             $this->data,
             [
-                'Resources'                    => $this->getFilteredData('Resources', 'id', $this->validResourceIds),
-                'Shift'                        => $this->getFilteredData('Shift', 'id', $this->validShiftIds),
-                'Shift_Break'                  => $this->getFilteredData('Shift_Break', 'shift_id', $this->validShiftIds),
-                'Resource_Region'              => $this->getFilteredData('Resource_Region', 'resource_id', $this->validResourceIds),
-                'Resource_Skill'               => $this->getFilteredData('Resource_Skill', 'resource_id', $this->validResourceIds),
+                'Resources' => $this->getFilteredData('Resources', 'id', $this->validResourceIds),
+                'Shift' => $this->getFilteredData('Shift', 'id', $this->validShiftIds),
+                'Shift_Break' => $this->getFilteredData('Shift_Break', 'shift_id', $this->validShiftIds),
+                'Resource_Region' => $this->getFilteredData('Resource_Region', 'resource_id', $this->validResourceIds),
+                'Resource_Skill' => $this->getFilteredData('Resource_Skill', 'resource_id', $this->validResourceIds),
                 'Resource_Region_Availability' => $this->getFilteredData('Resource_Region_Availability', 'resource_id', $this->validResourceIds),
-                'Availability'                 => $this->getFilteredData('Availability', 'id', $this->filteredAvailabilityIds),
-                'Activity'                     => $this->getFilteredData('Activity', 'id', $this->validActivityIds),
-                'Activity_SLA'                 => $this->getFilteredData('Activity_SLA', 'activity_id', $this->validActivityIds),
-                'Activity_Status'              => $this->getFilteredData('Activity_Status', 'activity_id', $this->validActivityIds),
-                'Activity_Group'               => $this->getFilteredActivityGroupData($this->validActivityIds),
+                'Availability' => $this->getFilteredData('Availability', 'id', $this->filteredAvailabilityIds),
+                'Activity' => $this->getFilteredData('Activity', 'id', $this->validActivityIds),
+                'Activity_SLA' => $this->getFilteredData('Activity_SLA', 'activity_id', $this->validActivityIds),
+                'Activity_Status' => $this->getFilteredData('Activity_Status', 'activity_id', $this->validActivityIds),
+                'Activity_Group' => $this->getFilteredActivityGroupData($this->validActivityIds),
             ]
         );
     }
@@ -165,8 +171,7 @@ class ResourceActivityFilterService extends HasScopedCache
             ->whereIn('resource_id', $this->validResourceIds);
 
         if ($this->startDate && $this->endDate) {
-            $shifts = $shifts->filter(fn($s) =>
-                Carbon::parse($s['start_datetime'])->lte($this->endDate) &&
+            $shifts = $shifts->filter(fn ($s) => Carbon::parse($s['start_datetime'])->lte($this->endDate) &&
                 Carbon::parse($s['end_datetime'])->gte($this->startDate)
             );
         }
@@ -177,20 +182,28 @@ class ResourceActivityFilterService extends HasScopedCache
 
     protected function filterShiftBreaks(): void
     {
+        $shiftIdSet = array_flip($this->validShiftIds);
+
         $this->data['Shift_Break'] = collect($this->data['Shift_Break'] ?? [])
-            ->filter(fn($break) => in_array(data_get($break, 'shift_id'), $this->validShiftIds))
+            ->filter(static fn ($break) => isset($shiftIdSet[data_get($break, 'shift_id')]))
             ->values()
             ->all();
     }
 
     protected function filterResourcesByRegion(): void
     {
-        $valid = collect($this->data['Resource_Region'] ?? [])
-            ->filter(fn($rr) => in_array($rr['region_id'], $this->regionIds))
+        $regionIdSet = array_flip($this->regionIds);
+
+        $this->validResourceIds = collect($this->data['Resource_Region'] ?? [])
+            ->filter(static fn ($rr) => isset($regionIdSet[$rr['region_id']]))
             ->pluck('resource_id')
             ->unique()
             ->all();
-        $this->validResourceIds = $valid;
+
+        $this->validLocationIds = collect($this->data['Location'] ?? [])
+            ->filter(static fn ($loc) => isset($regionIdSet[$loc['region_id']]))
+            ->pluck('id')
+            ->all();
     }
 
     protected function filterResourcesByIds(): void
@@ -202,9 +215,11 @@ class ResourceActivityFilterService extends HasScopedCache
 
     protected function filterResourceRelations(): void
     {
+        $resourceIdSet = array_flip($this->validResourceIds);
+
         foreach (['Resource_Region', 'Resource_Skill', 'Resource_Region_Availability'] as $section) {
             $this->data[$section] = collect($this->data[$section] ?? [])
-                ->filter(fn($i) => in_array(data_get($i, 'resource_id'), $this->validResourceIds))
+                ->filter(static fn ($i) => isset($resourceIdSet[data_get($i, 'resource_id')]))
                 ->values()
                 ->all();
         }
@@ -223,10 +238,14 @@ class ResourceActivityFilterService extends HasScopedCache
     protected function filterActivitiesAndRelatedData(): void
     {
         $acts = collect($this->data['Activity'] ?? []);
-        if (!empty($this->regionIds)) {
+        if (! empty($this->regionIds)) {
             $acts = $acts->whereIn('location_id', $this->validLocationIds);
         }
-        if (!empty($this->activityIds)) {
+        if (! empty($this->activityTypeIds)) {
+            $typeIdSet = array_flip($this->activityTypeIds);
+            $acts = $acts->filter(static fn ($a) => isset($typeIdSet[$a['activity_type_id'] ?? '']));
+        }
+        if (! empty($this->activityIds)) {
             $acts = $acts->whereIn('id', $this->activityIds);
         }
         if ($this->startDate && $this->endDate) {
@@ -240,7 +259,7 @@ class ResourceActivityFilterService extends HasScopedCache
     {
         $sections = [
             'resources' => 'Resources',
-            'shifts'    => 'Shift',
+            'shifts' => 'Shift',
             'shift_breaks' => 'Shift_Break',
             'resource_skills' => 'Resource_Skill',
             'resource_regions' => 'Resource_Region',
@@ -257,15 +276,15 @@ class ResourceActivityFilterService extends HasScopedCache
             $kept = count($data[$section] ?? []);
             $summary[$label] = compact('total', 'kept') + ['skipped' => $total - $kept];
         }
+
         return $summary;
     }
 
     protected function getActivityIdsWithinDateRange(): array
     {
         return collect($this->data['Activity_SLA'] ?? [])
-            ->filter(fn($sla) => data_get($sla, 'sla_type_id') === 'APPOINTMENT')
-            ->filter(fn($sla) =>
-                Carbon::parse(data_get($sla, 'datetime_start'))->lte($this->endDate) &&
+            ->filter(fn ($sla) => data_get($sla, 'sla_type_id') === 'APPOINTMENT')
+            ->filter(fn ($sla) => Carbon::parse(data_get($sla, 'datetime_start'))->lte($this->endDate) &&
                 Carbon::parse(data_get($sla, 'datetime_end'))->gte($this->startDate)
             )
             ->pluck('activity_id')
@@ -275,23 +294,27 @@ class ResourceActivityFilterService extends HasScopedCache
 
     protected function getFilteredData(string $section, string $key, array $ids): array
     {
+        $idSet = array_flip($ids);
+
         return array_values(array_filter(
             $this->data[$section] ?? [],
-            static fn($item) => in_array($item[$key], $ids)
+            static fn ($item) => isset($idSet[$item[$key]])
         ));
     }
 
     protected function getFilteredActivityGroupData(array $validIds): array
     {
+        $idSet = array_flip($validIds);
+
         return array_values(array_filter(
             $this->data['Activity_Group'] ?? [],
-            static fn($g) => in_array($g['activity_id1'], $validIds) && in_array($g['activity_id2'], $validIds)
+            static fn ($g) => isset($idSet[$g['activity_id1']]) && isset($idSet[$g['activity_id2']])
         ));
     }
 
     protected function updateProcessedItems(string $type, int $processed): void
     {
-        if (!isset($this->processedItems[$type])) {
+        if (! isset($this->processedItems[$type])) {
             return;
         }
         $this->processedItems[$type] = $processed;
@@ -305,16 +328,17 @@ class ResourceActivityFilterService extends HasScopedCache
     protected function calculateProgress(): int
     {
         $total = array_sum($this->itemCounts) ?: 1;
-        $weights = ['resources' => 0.2, 'shifts' => 0.3, 'activities' => 0.4, 'locations' => 0.1];
+        $weights = ['resources' => 0.2, 'shifts' => 0.25, 'shift_breaks' => 0.05, 'activities' => 0.4, 'locations' => 0.1];
         $ratio = 0;
         foreach ($weights as $key => $weight) {
             $ratio += ($this->processedItems[$key] / max(1, $this->itemCounts[$key])) * $weight;
         }
+
         return min(
             $this->progressEnd,
             max(
                 $this->progressStart,
-                (int)($this->progressStart + $ratio * ($this->progressEnd - $this->progressStart))
+                (int) ($this->progressStart + $ratio * ($this->progressEnd - $this->progressStart))
             )
         );
     }

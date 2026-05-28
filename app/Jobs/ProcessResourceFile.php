@@ -11,7 +11,6 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-
 use Illuminate\Support\Facades\Storage;
 use JsonException;
 use Log;
@@ -26,24 +25,25 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
 
     public function __construct(
         public ?string $jobId,
-        public string  $path,
-        public array   $regionIds,
-        public bool    $dryRun = false,
+        public string $path,
+        public array $regionIds,
+        public bool $dryRun = false,
         public ?string $overrideDatetime = null,
-        public array   $resourceIds = [],
-        public array   $activityIds = [],
+        public array $resourceIds = [],
+        public array $activityIds = [],
         public ?Carbon $startDate = null,
         public ?Carbon $endDate = null,
+        public array $activityTypeIds = [],
     ) {}
 
     public function handle(): void
     {
         Log::info("[ProcessResourceFile][{$this->jobId}] 🚀 Job started", [
-            'path'       => $this->path,
-            'regions'    => $this->regionIds,
-            'dryRun'     => $this->dryRun,
-            'startDate'  => $this->startDate?->toDateString(),
-            'endDate'    => $this->endDate?->toDateString(),
+            'path' => $this->path,
+            'regions' => $this->regionIds,
+            'dryRun' => $this->dryRun,
+            'startDate' => $this->startDate?->toDateString(),
+            'endDate' => $this->endDate?->toDateString(),
         ]); // ← logging
 
         try {
@@ -53,10 +53,10 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             // --- LOAD INPUT ---
             $data = $this->loadInputData();
             Log::info("[ProcessResourceFile][{$this->jobId}] 📂 Input loaded", [
-                'Region'       => count($data['Region'] ?? []),
-                'Activity'     => count($data['Activity'] ?? []),
-                'Resources'    => count($data['Resources'] ?? []),
-                'Shifts'       => count($data['Shifts'] ?? []),
+                'Region' => count($data['Region'] ?? []),
+                'Activity' => count($data['Activity'] ?? []),
+                'Resources' => count($data['Resources'] ?? []),
+                'Shifts' => count($data['Shifts'] ?? []),
                 'Shift_Breaks' => count($data['Shift_Breaks'] ?? []),
             ]); // ← logging
             $this->updateProgress(10);
@@ -64,10 +64,10 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             // --- PROCESS (FILTER) ---
             $result = $this->processData($data);
             Log::info("[ProcessResourceFile][{$this->jobId}] 🔍 Filtering done", [
-                'resources_kept'    => $result['summary']['resources']['kept']    ?? null,
+                'resources_kept' => $result['summary']['resources']['kept'] ?? null,
                 'resources_skipped' => $result['summary']['resources']['skipped'] ?? null,
-                'shifts_kept'       => $result['summary']['shifts']['kept']       ?? null,
-                'shifts_skipped'    => $result['summary']['shifts']['skipped']    ?? null,
+                'shifts_kept' => $result['summary']['shifts']['kept'] ?? null,
+                'shifts_skipped' => $result['summary']['shifts']['skipped'] ?? null,
             ]); // ← logging
 
             // --- CACHE IDS ---
@@ -84,6 +84,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
                 Log::info("[ProcessResourceFile][{$this->jobId}] 🛑 Dry run – skipping output"); // ← logging
                 $this->updateStatus('complete');
                 $this->updateProgress(100);
+
                 return;
             }
 
@@ -102,7 +103,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
         } catch (Throwable $e) {
             Log::error("[ProcessResourceFile][{$this->jobId}] ❌ Failed", [
                 'message' => $e->getMessage(),
-                'trace'   => $e->getTraceAsString(),
+                'trace' => $e->getTraceAsString(),
             ]); // ← logging
             $this->updateStatus('failed');
         }
@@ -116,6 +117,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
         Log::debug("[ProcessResourceFile][{$this->jobId}] 🔢 Read bytes", ['bytes' => strlen($raw)]); // ← logging
 
         $json = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
+
         return $json['dsScheduleData'] ?? [];
     }
 
@@ -133,7 +135,8 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             $this->startDate,
             $this->endDate,
             10,
-            80
+            80,
+            $this->activityTypeIds,
         );
 
         $result = $service->filter();
@@ -144,31 +147,31 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
 
     protected function cacheAvailableIds(array $data): void
     {
-        Log::info('📦 Region entries found: ' . count($data['Region'] ?? []));
+        Log::info('📦 Region entries found: '.count($data['Region'] ?? []));
         Log::debug('📦 Sample Region:', [($data['Region'][0] ?? [])]);
 
         $regionList = collect($data['Region'] ?? [])
-            ->mapWithKeys(static fn($region) => [
+            ->mapWithKeys(static fn ($region) => [
                 $region['id'] => isset($region['description'])
                     ? "{$region['id']} - {$region['description']}"
-                    : $region['id']
+                    : $region['id'],
             ]);
 
         $activityTypeList = collect($data['Activity_Type'] ?? [])
-            ->mapWithKeys(static fn($type) => [
-                $type['id'] => "{$type['id']} - {$type['description']}"
+            ->mapWithKeys(static fn ($type) => [
+                $type['id'] => "{$type['id']} - {$type['description']}",
             ]);
 
         $resourceList = collect($data['Resources'] ?? [])
-            ->mapWithKeys(static fn($r) => [
-                $r['id'] => "{$r['id']} - " . trim(($r['first_name'] ?? '') . ' ' . ($r['surname'] ?? ''))
+            ->mapWithKeys(static fn ($r) => [
+                $r['id'] => "{$r['id']} - ".trim(($r['first_name'] ?? '').' '.($r['surname'] ?? '')),
             ]);
 
         $activityList = collect($data['Activity'] ?? [])
-            ->mapWithKeys(static fn($a) => [
+            ->mapWithKeys(static fn ($a) => [
                 $a['id'] => isset($a['activity_type_id'])
                     ? "{$a['id']} - {$a['activity_type_id']}"
-                    : $a['id']
+                    : $a['id'],
             ]);
 
         Log::info('🧠 Job regionIds:', $this->regionIds);
@@ -179,8 +182,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
 
         $activityTypeCounts = collect($data['Activity'] ?? [])
             ->groupBy('activity_type_id')
-            ->map(fn($items) => $items->count());
-
+            ->map(fn ($items) => $items->count());
 
         $this->updateCache('available_ids', [
             'regions' => $regionList->all(),
@@ -225,6 +227,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
         }
 
         Storage::disk('public')->delete($filename);
+
         return $zipName;
     }
 
@@ -234,7 +237,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             return route('download.filtered', compact('filename'));
         }
 
-        return config('app.url') . '/download/' . urlencode($filename);
+        return config('app.url').'/download/'.urlencode($filename);
     }
 
     protected function scheduleCleanup(): void
@@ -246,5 +249,4 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
         DeleteTemporaryFiles::dispatch($this->path, $outputFilename)
             ->delay(now()->addHour());
     }
-
 }

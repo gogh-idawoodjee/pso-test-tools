@@ -354,6 +354,7 @@ class FilterLoadFile extends Page
             'regionIds' => data_get($data, 'regionIds', []),
             'resourceIds' => data_get($data, 'resourceIds', []),
             'activityIds' => data_get($data, 'activityIds', []),
+            'activityTypeIds' => data_get($data, 'activityTypeIds', []),
             'dryRun' => data_get($data, 'dryRun', false),
             'overrideDatetime' => data_get($data, 'overrideDatetime'),
             'startDate' => data_get($data, 'startDate'),
@@ -378,6 +379,7 @@ class FilterLoadFile extends Page
             data_get($data, 'activityIds', []),
             $this->startDate ? Carbon::parse($this->startDate) : null,
             $this->endDate ? Carbon::parse($this->endDate) : null,
+            data_get($data, 'activityTypeIds', []),
         );
     }
 
