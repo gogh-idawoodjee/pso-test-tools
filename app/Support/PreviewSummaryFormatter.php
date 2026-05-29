@@ -2,13 +2,22 @@
 
 namespace App\Support;
 
+/**
+ * Transforms the raw filter summary (keyed by entity label) into a flat array
+ * of display-ready items with human-readable names and Heroicons for the UI preview cards.
+ */
 class PreviewSummaryFormatter
 {
+    /**
+     * @param  array<string, array{total: int, kept: int, skipped: int}>  $summary
+     * @return array<int, array{entity: string, icon: string, total: int, kept: int, skipped: int|null}>
+     */
     public static function format(array $summary): array
     {
         $iconMap = [
             'activities' => 'heroicon-o-clipboard-document-list',
             'resources' => 'heroicon-o-users',
+            'locations' => 'heroicon-o-map-pin',
             'shifts' => 'heroicon-o-clock',
             'shift_breaks' => 'heroicon-o-pause',
             'resource_skills' => 'heroicon-o-academic-cap',

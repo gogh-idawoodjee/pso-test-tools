@@ -19,20 +19,32 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use UnitEnum;
 
+/**
+ * Filament page that lets users upload a PSO load file (JSON), preview its contents,
+ * and filter it down by region, resource, activity type, activity, and date range.
+ *
+ * The workflow is two-phase:
+ *  1. **Dry run** — upload a file, the job parses it and caches the available IDs
+ *     (regions, resources, activities, activity types) so the dropdowns populate.
+ *  2. **Filter run** — user selects which items to keep, submits again with dryRun off,
+ *     and the job produces a filtered JSON file for download.
+ *
+ * All heavy processing is handled by the queued ProcessResourceFile job.
+ * This page polls the job's cache keys for progress, status, and results.
+ */
 class FilterLoadFile extends Page
 {
     use FilamentJobMonitoring, FormTrait;
 
-    // Job type identifier
     private const string JOB_TYPE = 'resource-job';
 
-    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-funnel';
+    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-funnel';
 
-    protected static string|null|BackedEnum $activeNavigationIcon = 'heroicon-s-funnel';
+    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-funnel';
 
     protected string $view = 'filament.pages.filter-load-file';
 
-    protected static string|null|UnitEnum $navigationGroup = 'Additional Tools';
+    protected static string|UnitEnum|null $navigationGroup = 'Additional Tools';
 
     // File upload and processing properties
     public ?array $upload = null;
@@ -71,14 +83,9 @@ class FilterLoadFile extends Page
 
     public bool $hasRunFilterJob = false;
 
-    protected int $pollingCount = 0;
-
-    protected function incrementPollingCount(): void
-    {
-        $this->pollingCount++;
-        Log::info("Polling count: {$this->pollingCount} for jobId: {$this->jobId}");
-    }
-
+    /**
+     * Initialize the page: load environments, set up forms, and restore any in-progress job.
+     */
     public function mount(): void
     {
         $this->environments = Environment::with('datasets')->get();
@@ -109,6 +116,10 @@ class FilterLoadFile extends Page
         return ['env_form', 'form'];
     }
 
+    /**
+     * Define the main form: file upload, filtering options (regions, resources,
+     * activity types, activities, date range, datetime override), and the dry-run toggle.
+     */
     public function form(Schema $form): Schema
     {
         return $form->schema([
@@ -164,19 +175,7 @@ class FilterLoadFile extends Page
         return Select::make('regionIds')
             ->label('Regions to Keep')
             ->multiple()
-            ->options(function () {
-                return collect($this->availableRegionIds)
-                    ->mapWithKeys(static function ($entry) {
-                        // If the entry is like "SVBARR - Service Barrie"
-                        if (str_contains($entry, ' - ')) {
-                            [$id, $desc] = explode(' - ', $entry, 2);
-
-                            return [$id => "{$id} - {$desc}"]; // 🟢 Key = ID, Value = "ID - Description"
-                        }
-
-                        return [$entry => $entry]; // fallback for malformed items
-                    });
-            })
+            ->options(fn () => $this->availableRegionIds)
             ->searchable()
             ->native(false)
             ->helperText('Only these regions will be kept. Others will be removed.')
@@ -249,18 +248,24 @@ class FilterLoadFile extends Page
             ->nullable();
     }
 
+    /**
+     * Filtering options are only visible once a file has been uploaded
+     * and the dry-run job has populated the available region IDs.
+     */
     public function shouldShowDropdowns(): bool
     {
         return filled($this->upload) && ! empty($this->availableRegionIds);
     }
 
     /**
-     * @throws \JsonException
+     * Validate filter selections and dispatch the ProcessResourceFile job.
+     *
+     * In dry-run mode, the job only parses the file and caches available IDs
+     * so the filter dropdowns can populate. In filter mode, it applies all
+     * selected filters and produces a downloadable JSON file.
      */
     public function submit(): void
     {
-        // Validate form state
-
         if (! $this->dryRun && (($this->startDate && ! $this->endDate) || (! $this->startDate && $this->endDate))) {
             $this->notifyWarning('Date range incomplete', 'Both start and end dates must be filled or left blank.');
 
@@ -290,15 +295,15 @@ class FilterLoadFile extends Page
         // Emit event for immediate UI feedback
         $this->dispatch('processingStarted');
 
+        // Clean up previous job data if exists
+        $this->cleanupPreviousJob();
+
         // Start a new job
         $this->startJob(self::JOB_TYPE);
         $this->progress = 5; // Set initial progress immediately
 
         // Save job creation time for timeout tracking
         $this->jobCreatedAt = Carbon::now();
-
-        // Clean up previous job data if exists
-        $this->cleanupPreviousJob();
 
         // Get form data and dispatch job
         $data = $this->prepareJobData();
@@ -313,6 +318,10 @@ class FilterLoadFile extends Page
         );
     }
 
+    /**
+     * Livewire hook — fires when the upload field changes.
+     * Resets all filter state so stale data from a previous file doesn't persist.
+     */
     public function updatedUpload(): void
     {
         Log::debug('[FilterLoadFile] 📤 updatedUpload()', ['upload' => $this->upload]);
@@ -345,6 +354,9 @@ class FilterLoadFile extends Page
         $this->progress = 0;
     }
 
+    /**
+     * Extract the current form state into the array shape expected by ProcessResourceFile.
+     */
     private function prepareJobData(): array
     {
         $data = $this->form->getState();
@@ -362,6 +374,9 @@ class FilterLoadFile extends Page
         ];
     }
 
+    /**
+     * Dispatch the ProcessResourceFile queued job with the prepared filter parameters.
+     */
     private function dispatchResourceJob(array $data): void
     {
 
@@ -383,6 +398,11 @@ class FilterLoadFile extends Page
         );
     }
 
+    /**
+     * Called by Livewire polling to track job progress.
+     * Reads progress/status from cache, loads available IDs when ready,
+     * and handles completion, failure, or timeout.
+     */
     public function checkStatus(): void
     {
         if (! $this->jobId) {
@@ -433,6 +453,9 @@ class FilterLoadFile extends Page
         }
     }
 
+    /**
+     * Reset the page for a new filter run while keeping the uploaded file.
+     */
     public function resetFilterJob(): void
     {
         // Reset job-related properties
@@ -457,6 +480,9 @@ class FilterLoadFile extends Page
         $this->notifySuccess('Reset complete', 'Ready to run another filter job.');
     }
 
+    /**
+     * Cancel the current in-progress job and reset UI state.
+     */
     public function cancelJob(): void
     {
         if (! $this->jobId) {
@@ -472,6 +498,10 @@ class FilterLoadFile extends Page
         $this->notifyWarning('Processing cancelled', 'The job has been cancelled.');
     }
 
+    /**
+     * Pull the available IDs (regions, resources, activities, activity types) from the
+     * job's cache and populate the component properties that drive the filter dropdowns.
+     */
     private function loadAvailableIds(): void
     {
         $availableIds = $this->getFromJobCache('available_ids', [
@@ -490,6 +520,10 @@ class FilterLoadFile extends Page
 
     }
 
+    /**
+     * Process a completed job: retrieve the download URL and preview data from cache,
+     * toggle the form out of dry-run mode, and notify the user.
+     */
     private function handleJobCompletion(): void
     {
         $this->downloadUrl = $this->getFromJobCache('download');

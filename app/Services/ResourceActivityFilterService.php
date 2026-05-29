@@ -7,7 +7,20 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Service for filtering resources, shifts, and activities based on region constraints
+ * Filters a PSO load file dataset down to a subset of resources, activities,
+ * shifts, locations, and their related entities.
+ *
+ * Filtering pipeline (applied in order):
+ *  1. Region filter — keep only resources belonging to selected regions.
+ *  2. Resource ID filter — optionally narrow to specific resource IDs.
+ *  3. Shift filter — keep shifts for valid resources, optionally within a date range.
+ *  4. Resource relations — trim Resource_Region, Resource_Skill, and availability joins.
+ *  5. Activity filter — keep activities matching region locations, activity types,
+ *     specific IDs, and/or date range.
+ *  6. Assemble — build the final dataset, filtering locations to only those
+ *     referenced by the remaining resources and activities.
+ *
+ * In dry-run mode, no filters are applied — the original data is returned with a summary.
  */
 class ResourceActivityFilterService extends HasScopedCache
 {
@@ -46,6 +59,12 @@ class ResourceActivityFilterService extends HasScopedCache
         activity()->event('Filter Service')->log('Filter service initialized');
     }
 
+    /**
+     * Run the full filtering pipeline and return the filtered dataset with a summary.
+     *
+     * @return array{filtered: array, summary: array} 'filtered' is the dataset ready for output,
+     *                                                'summary' has per-entity kept/skipped counts.
+     */
     public function filter(): array
     {
         // Log parameters
@@ -126,11 +145,20 @@ class ResourceActivityFilterService extends HasScopedCache
         ];
     }
 
+    /**
+     * Dry run — skip all filters, return the original data with a summary
+     * showing total = kept for every entity (nothing filtered).
+     */
     protected function handleDryRun(): array
     {
         return ['filtered' => $this->data, 'summary' => $this->generateSummary($this->data)];
     }
 
+    /**
+     * Build the final filtered dataset by selecting only valid entities from each section.
+     * Starts with the original data (preserving unfiltered keys like Region, Activity_Type, etc.)
+     * and overlays the filtered arrays for Resources, Activities, Shifts, Locations, and joins.
+     */
     protected function assembleFilteredData(): array
     {
         $filteredResources = $this->getFilteredData('Resources', 'id', $this->validResourceIds);
@@ -157,6 +185,11 @@ class ResourceActivityFilterService extends HasScopedCache
         );
     }
 
+    /**
+     * Collect all unique location IDs referenced by the filtered resources
+     * (location_id_start, location_id_end) and activities (location_id).
+     * Used to strip unreferenced locations from the output.
+     */
     protected function collectReferencedLocationIds(array $filteredResources, array $filteredActivities): array
     {
         $locationIds = [];
@@ -179,6 +212,10 @@ class ResourceActivityFilterService extends HasScopedCache
         return array_keys($locationIds);
     }
 
+    /**
+     * Keep only shifts belonging to valid resources. If a date range is set,
+     * further narrow to shifts that overlap the range.
+     */
     protected function applyShiftFilters(): void
     {
         $shifts = collect($this->data['Shift'] ?? [])
@@ -191,19 +228,12 @@ class ResourceActivityFilterService extends HasScopedCache
         }
 
         $this->validShiftIds = $shifts->pluck('id')->all();
-        $this->filterShiftBreaks();
     }
 
-    protected function filterShiftBreaks(): void
-    {
-        $shiftIdSet = array_flip($this->validShiftIds);
-
-        $this->data['Shift_Break'] = collect($this->data['Shift_Break'] ?? [])
-            ->filter(static fn ($break) => isset($shiftIdSet[data_get($break, 'shift_id')]))
-            ->values()
-            ->all();
-    }
-
+    /**
+     * Filter resources to only those assigned to selected regions (via Resource_Region join).
+     * Also builds validLocationIds for locations in those regions, used later to filter activities.
+     */
     protected function filterResourcesByRegion(): void
     {
         $regionIdSet = array_flip($this->regionIds);
@@ -220,6 +250,10 @@ class ResourceActivityFilterService extends HasScopedCache
             ->all();
     }
 
+    /**
+     * Narrow validResourceIds to only those explicitly selected by the user.
+     * Intersects with the already region-filtered list so both constraints apply.
+     */
     protected function filterResourcesByIds(): void
     {
         $this->validResourceIds = array_values(
@@ -227,6 +261,11 @@ class ResourceActivityFilterService extends HasScopedCache
         );
     }
 
+    /**
+     * Trim the resource join tables (Resource_Region, Resource_Skill,
+     * Resource_Region_Availability) to only rows for valid resources.
+     * Mutates $this->data in place for these sections.
+     */
     protected function filterResourceRelations(): void
     {
         $resourceIdSet = array_flip($this->validResourceIds);
@@ -239,6 +278,10 @@ class ResourceActivityFilterService extends HasScopedCache
         }
     }
 
+    /**
+     * Collect availability IDs referenced by the filtered Resource_Region_Availability rows.
+     * These are used later to filter the Availability section in assembleFilteredData().
+     */
     protected function filterAvailability(): void
     {
         $ids = collect($this->data['Resource_Region_Availability'] ?? [])
@@ -249,6 +292,10 @@ class ResourceActivityFilterService extends HasScopedCache
         $this->filteredAvailabilityIds = $ids;
     }
 
+    /**
+     * Apply all activity filters in sequence: region locations, activity types,
+     * specific activity IDs, and date range. Each filter narrows the set further.
+     */
     protected function filterActivitiesAndRelatedData(): void
     {
         $acts = collect($this->data['Activity'] ?? []);
@@ -269,6 +316,10 @@ class ResourceActivityFilterService extends HasScopedCache
         $this->validActivityIds = $acts->pluck('id')->all();
     }
 
+    /**
+     * Compare the filtered dataset against the original to produce a per-entity
+     * summary with total, kept, and skipped counts.
+     */
     protected function generateSummary(array $data): array
     {
         $sections = [
@@ -295,6 +346,10 @@ class ResourceActivityFilterService extends HasScopedCache
         return $summary;
     }
 
+    /**
+     * Find activities that have an APPOINTMENT SLA overlapping the selected date range.
+     * Returns the activity IDs that fall within range.
+     */
     protected function getActivityIdsWithinDateRange(): array
     {
         return collect($this->data['Activity_SLA'] ?? [])
@@ -307,6 +362,10 @@ class ResourceActivityFilterService extends HasScopedCache
             ->all();
     }
 
+    /**
+     * Generic filter helper: keep only items from a data section whose $key value
+     * is in the provided $ids array. Uses array_flip for O(1) lookups.
+     */
     protected function getFilteredData(string $section, string $key, array $ids): array
     {
         $idSet = array_flip($ids);
@@ -317,6 +376,10 @@ class ResourceActivityFilterService extends HasScopedCache
         ));
     }
 
+    /**
+     * Filter Activity_Group — keep only groups where BOTH linked activities are valid.
+     * Activity groups link two activities (activity_id1 and activity_id2).
+     */
     protected function getFilteredActivityGroupData(array $validIds): array
     {
         $idSet = array_flip($validIds);
