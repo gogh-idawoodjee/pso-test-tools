@@ -118,16 +118,19 @@ class TechnicianAvail extends Page
 
     public function loadNextBatch(): void
     {
-        // 1) Determine the last shift date we just fetched:
         $lastShift = collect($this->technicianShifts)
             ->pluck('start_datetime')
             ->map(static fn ($dt) => Carbon::parse($dt))
             ->max();
 
-        // 2) Bump it forward one day:
-        $nextStart = $lastShift->addDay()->toDateString();
+        if (! $lastShift) {
+            $this->notifyWarning('No shifts loaded', 'Cannot determine next batch — no shifts available.');
 
-        // 3) Update formData and re-fetch:
+            return;
+        }
+
+        $nextStart = $lastShift->copy()->addDay()->toDateString();
+
         $this->formData['startDate'] = $nextStart;
 
         $this->getSchedule();
@@ -135,30 +138,33 @@ class TechnicianAvail extends Page
 
     public function getSchedule(): void
     {
+        if (! $data = $this->form->getState()) {
+            return;
+        }
+
         $this->startJob(self::JOB_TYPE_SHIFTS);
 
-        if ($data = $this->form->getState()) {
-            $path = $data['upload'];
-            $technicianId = $data['selectedTechnician'];
-            $startDate = $data['startDate'];
-            Log::info("Dispatching shift job from {$startDate}");
-            Log::info("Get Schedule Job ID: {$this->jobId}, File: {$path}, Technician: {$technicianId}");
+        $path = $data['upload'];
+        $technicianId = $data['selectedTechnician'];
+        $startDate = $data['startDate'];
+        Log::info("Dispatching shift job from {$startDate}");
+        Log::info("Get Schedule Job ID: {$this->jobId}, File: {$path}, Technician: {$technicianId}");
 
-            GetTechnicianShiftsJob::dispatch($this->jobId, $path, $technicianId, $startDate);
-        }
+        GetTechnicianShiftsJob::dispatch($this->jobId, $path, $technicianId, $startDate);
     }
 
     public function getResources(): void
     {
+        if (! $data = $this->form->getState()) {
+            return;
+        }
+
         $this->startJob(self::JOB_TYPE_RESOURCES);
 
-        if ($data = $this->form->getState()) {
-            $path = $data['upload'];
+        $path = $data['upload'];
+        Log::info("Job ID: {$this->jobId}, File: {$path}");
 
-            Log::info("Job ID: {$this->jobId}, File: {$path}");
-
-            GetTechniciansListJob::dispatch($this->jobId, $path);
-        }
+        GetTechniciansListJob::dispatch($this->jobId, $path);
     }
 
     public function checkStatus(): void
@@ -173,13 +179,25 @@ class TechnicianAvail extends Page
         // Get job status data
         $this->progress = $this->getJobProgress();
         $this->status = $this->getJobStatus();
-        $this->data = $this->getJobData();
 
         Log::info("Polling checkStatus for jobId: {$this->jobId}, Progress: {$this->progress}, Status: {$this->status}");
 
         if ($this->status === 'complete') {
             Log::info('Status Changed to Completed: TechAvail checkstatus method');
             $this->handleJobCompletion();
+
+            return;
+        }
+
+        if ($this->status === 'failed' || $this->status === 'error') {
+            $this->notifyDanger('Processing failed', 'Something went wrong during processing.');
+            $this->resetJobState();
+
+            return;
+        }
+
+        if ($this->isJobTimedOut()) {
+            $this->handleJobTimeout();
         }
     }
 
@@ -226,110 +244,7 @@ class TechnicianAvail extends Page
 
     private function loadSampleData(): void
     {
-        // Sample technician shifts data (for development/testing)
-        $this->technicianShifts = [
-            [
-                'id' => '372729',
-                'resource_id' => '155',
-                'start_datetime' => '2025-04-14T12:00:00+00:00',
-                'end_datetime' => '2025-04-14T21:00:00+00:00',
-                'manual_scheduling_only' => false,
-                'label' => 'Shift',
-                'region_availability' => [
-                    [
-                        'id' => '155-MAINTENANCE',
-                        'region_id' => 'MAINTENANCE',
-                        'region_description' => 'Maintenance Zone',
-                        'region_group_id' => 'SERVICE_ZONES',
-                        'region_group_description' => 'Service Zones',
-                        'region_active' => false,
-                        'start' => '2025-04-14T12:00:00+00:00',
-                        'end' => '2025-04-14T21:00:00+00:00',
-                        'full_coverage' => true,
-                    ],
-                    [
-                        'id' => '155-MAINTENANCE_AC',
-                        'region_id' => 'MAINTENANCE_AC',
-                        'region_description' => 'Air Conditioning',
-                        'region_group_id' => 'SERVICE_ZONES',
-                        'region_group_description' => 'Service Zones',
-                        'region_active' => true,
-                        'start' => '2025-04-14T14:00:00+00:00',
-                        'end' => '2025-04-14T16:00:00+00:00',
-                        'full_coverage' => false,
-                    ],
-                    [
-                        'id' => '155-WEST',
-                        'region_id' => 'WEST',
-                        'region_description' => 'Western Coverage',
-                        'region_group_id' => 'TERRITORIES',
-                        'region_group_description' => 'Franchise Territories',
-                        'region_active' => false,
-                        'start' => '2025-04-14T12:00:00+00:00',
-                        'end' => '2025-04-14T14:00:00+00:00',
-                        'full_coverage' => false,
-                    ],
-                ],
-                'breaks' => [
-                    [
-                        'start' => '2025-04-14T16:00:00+00:00',
-                        'end' => '2025-04-14T17:00:00+00:00',
-                    ],
-                ],
-            ],
-            [
-                'id' => '372730',
-                'resource_id' => '155',
-                'start_datetime' => '2025-04-15T09:00:00+00:00',
-                'end_datetime' => '2025-04-15T18:00:00+00:00',
-                'manual_scheduling_only' => true,
-                'label' => 'Manual Shift',
-                'region_availability' => [
-                    [
-                        'id' => '155-WEST',
-                        'region_id' => 'WEST',
-                        'region_description' => 'Western Coverage',
-                        'region_group_id' => 'TERRITORIES',
-                        'region_group_description' => 'Franchise Territories',
-                        'region_active' => true,
-                        'start' => '2025-04-15T09:30:00+00:00',
-                        'end' => '2025-04-15T14:30:00+00:00',
-                        'full_coverage' => false,
-                    ],
-                    [
-                        'id' => '156-WEST',
-                        'region_id' => 'WEST',
-                        'region_description' => 'Western Coverage',
-                        'region_group_id' => 'TERRITORIES',
-                        'region_group_description' => 'Franchise Territories',
-                        'region_active' => false,
-                        'start' => '2025-04-15T14:30:00+00:00',
-                        'end' => '2025-04-15T16:30:00+00:00',
-                        'full_coverage' => false,
-                    ],
-                ],
-            ],
-            [
-                'id' => '372731',
-                'resource_id' => '155',
-                'start_datetime' => '2025-04-16T07:30:00+00:00',
-                'end_datetime' => '2025-04-16T16:00:00+00:00',
-                'manual_scheduling_only' => false,
-                'label' => 'Shift',
-                'region_availability' => [
-                    [
-                        'id' => '155-NORTH',
-                        'region_id' => 'NORTH',
-                        'region_description' => 'Northern Sector',
-                        'region_group_id' => 'TERRITORIES',
-                        'region_group_description' => 'Franchise Territories',
-                        'region_active' => false,
-                        'start' => '2025-04-16T08:00:00+00:00',
-                        'end' => '2025-04-16T16:00:00+00:00',
-                        'full_coverage' => true,
-                    ],
-                ],
-            ],
-        ];
+        $path = base_path('tests/Fixtures/sample-technician-shifts.json');
+        $this->technicianShifts = json_decode(file_get_contents($path), true);
     }
 }

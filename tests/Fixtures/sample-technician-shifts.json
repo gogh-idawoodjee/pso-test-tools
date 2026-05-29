@@ -1,0 +1,104 @@
+[
+    {
+        "id": "372729",
+        "resource_id": "155",
+        "start_datetime": "2025-04-14T12:00:00+00:00",
+        "end_datetime": "2025-04-14T21:00:00+00:00",
+        "manual_scheduling_only": false,
+        "label": "Shift",
+        "region_availability": [
+            {
+                "id": "155-MAINTENANCE",
+                "region_id": "MAINTENANCE",
+                "region_description": "Maintenance Zone",
+                "region_group_id": "SERVICE_ZONES",
+                "region_group_description": "Service Zones",
+                "region_active": false,
+                "start": "2025-04-14T12:00:00+00:00",
+                "end": "2025-04-14T21:00:00+00:00",
+                "full_coverage": true
+            },
+            {
+                "id": "155-MAINTENANCE_AC",
+                "region_id": "MAINTENANCE_AC",
+                "region_description": "Air Conditioning",
+                "region_group_id": "SERVICE_ZONES",
+                "region_group_description": "Service Zones",
+                "region_active": true,
+                "start": "2025-04-14T14:00:00+00:00",
+                "end": "2025-04-14T16:00:00+00:00",
+                "full_coverage": false
+            },
+            {
+                "id": "155-WEST",
+                "region_id": "WEST",
+                "region_description": "Western Coverage",
+                "region_group_id": "TERRITORIES",
+                "region_group_description": "Franchise Territories",
+                "region_active": false,
+                "start": "2025-04-14T12:00:00+00:00",
+                "end": "2025-04-14T14:00:00+00:00",
+                "full_coverage": false
+            }
+        ],
+        "breaks": [
+            {
+                "start": "2025-04-14T16:00:00+00:00",
+                "end": "2025-04-14T17:00:00+00:00"
+            }
+        ]
+    },
+    {
+        "id": "372730",
+        "resource_id": "155",
+        "start_datetime": "2025-04-15T09:00:00+00:00",
+        "end_datetime": "2025-04-15T18:00:00+00:00",
+        "manual_scheduling_only": true,
+        "label": "Manual Shift",
+        "region_availability": [
+            {
+                "id": "155-WEST",
+                "region_id": "WEST",
+                "region_description": "Western Coverage",
+                "region_group_id": "TERRITORIES",
+                "region_group_description": "Franchise Territories",
+                "region_active": true,
+                "start": "2025-04-15T09:30:00+00:00",
+                "end": "2025-04-15T14:30:00+00:00",
+                "full_coverage": false
+            },
+            {
+                "id": "156-WEST",
+                "region_id": "WEST",
+                "region_description": "Western Coverage",
+                "region_group_id": "TERRITORIES",
+                "region_group_description": "Franchise Territories",
+                "region_active": false,
+                "start": "2025-04-15T14:30:00+00:00",
+                "end": "2025-04-15T16:30:00+00:00",
+                "full_coverage": false
+            }
+        ]
+    },
+    {
+        "id": "372731",
+        "resource_id": "155",
+        "start_datetime": "2025-04-16T07:30:00+00:00",
+        "end_datetime": "2025-04-16T16:00:00+00:00",
+        "manual_scheduling_only": false,
+        "label": "Shift",
+        "region_availability": [
+            {
+                "id": "155-NORTH",
+                "region_id": "NORTH",
+                "region_description": "Northern Sector",
+                "region_group_id": "TERRITORIES",
+                "region_group_description": "Franchise Territories",
+                "region_active": false,
+                "start": "2025-04-16T08:00:00+00:00",
+                "end": "2025-04-16T16:00:00+00:00",
+                "full_coverage": true
+            }
+        ]
+    }
+]
