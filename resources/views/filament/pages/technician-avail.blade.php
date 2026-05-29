@@ -53,7 +53,6 @@
     {{-- Gantt Chart --}}
     @if($technicianShifts)
         <x-filament::section heading="Technician Availability">
-
             <x-technician-gantt :shifts="$technicianShifts"/>
         </x-filament::section>
     @endif

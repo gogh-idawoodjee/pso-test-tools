@@ -65,6 +65,28 @@
     }
 @endphp
 
+<div
+    x-data="{
+        showTip(e, html) {
+            const tip = this.$refs.ganttTip;
+            tip.children[0].innerHTML = html;
+            tip.style.display = 'block';
+            this.moveTip(e);
+        },
+        moveTip(e) {
+            const tip = this.$refs.ganttTip;
+            tip.style.left = (e.clientX + 12) + 'px';
+            tip.style.top = (e.clientY + 16) + 'px';
+        },
+        hideTip() {
+            this.$refs.ganttTip.style.display = 'none';
+        }
+    }"
+>
+    <div x-ref="ganttTip" style="position:fixed;z-index:2147483647;pointer-events:none;display:none;">
+        <div style="background:#1f2937;color:#f9fafb;border:1px solid #4b5563;border-radius:8px;padding:6px 10px;font-size:12px;line-height:1.5;box-shadow:0 4px 12px rgba(0,0,0,0.4);white-space:nowrap;"></div>
+    </div>
+
 <div class="mb-4 flex items-center justify-between">
     <div class="flex flex-wrap gap-4">
         @foreach ($uniqueRegions as $region)
@@ -101,46 +123,8 @@
     </div>
 @endif
 
-<div x-data="{
-    tooltipContent: null,
-    showGroupBackgrounds: true,
+<div class="space-y-6">
 
-    showRegionTooltip(event, region, start, end, isActive) {
-        if (this.tooltipContent) {
-            this.hideTooltip();
-        }
-
-        const tooltip = document.createElement('div');
-        tooltip.className = 'absolute px-3 py-2 text-xs rounded shadow-lg whitespace-pre max-w-xs';
-        tooltip.style.cssText = 'background-color: rgba(17, 24, 39, 1); color: #ffffff; border: 1px solid rgba(75, 85, 99, 1); z-index: 99999;';
-        tooltip.innerHTML = `${region}<br>Start: ${start}<br>End: ${end}<br>Status: ${isActive ? 'Active' : 'Not Active'}`;
-
-        const portal = document.getElementById('tooltip-portal');
-        portal.appendChild(tooltip);
-        this.tooltipContent = tooltip;
-        this.positionTooltipAtCursor(event);
-        document.addEventListener('mousemove', this.moveTooltip.bind(this));
-    },
-
-    moveTooltip(event) {
-        this.positionTooltipAtCursor(event);
-    },
-
-    positionTooltipAtCursor(event) {
-        if (!this.tooltipContent) return;
-        this.tooltipContent.style.transform = 'none';
-        this.tooltipContent.style.left = (event.clientX + 10) + 'px';
-        this.tooltipContent.style.top = (event.clientY - 80) + 'px';
-    },
-
-    hideTooltip() {
-        if (this.tooltipContent) {
-            this.tooltipContent.remove();
-            this.tooltipContent = null;
-            document.removeEventListener('mousemove', this.moveTooltip);
-        }
-    }
-}" class="space-y-6">
     @foreach ($activeDates as $dateString)
         @php
             $day = Carbon::parse($dateString);
@@ -182,11 +166,9 @@
             $groupSpacerHeight = $groupCount * 6;
             $bottomPadding = 8; // Give it a bit more room at the bottom
             // Calculate total height with equal top and bottom padding
-//            $totalHeight = $shiftHeight + ($stackCount * $regionBarHeight) + ($groupCount * 6) + $topPadding + $bottomPadding;
-$minTotalHeight = $shiftHeight + 48; // enough for 1 group + some breathing room
-$totalHeight = $shiftHeight
-    + ($stackCount > 0 ? $totalRegionStackHeight + $groupSpacerHeight + $topPadding + $bottomPadding : 0);
-
+            $minTotalHeight = $shiftHeight + 48; // enough for 1 group + some breathing room
+            $totalHeight = $shiftHeight
+                + ($stackCount > 0 ? $totalRegionStackHeight + $groupSpacerHeight + $topPadding + $bottomPadding : 0);
         @endphp
 
         <div class="flex flex-col space-y-2">
@@ -222,27 +204,18 @@ $totalHeight = $shiftHeight
                             $isManual = $shift['manual_scheduling_only'] ?? false;
                             $barColor = $isManual ? '#facc15' : '#f5deb3';
                             $textColor = $isManual ? '#000000' : '#333333';
+                            $shiftType = $isManual ? 'Manual Shift' : 'Planned Shift';
+                            $shiftTooltip = "<strong>{$shiftType}</strong><br><span class='opacity-75'>Start:</span> {$start->format('H:i')}<br><span class='opacity-75'>End:</span> {$end->format('H:i')}";
                         @endphp
 
                         <div
-                            x-data="{ show: false }"
-                            class="absolute top-1 h-8 rounded flex items-center justify-center text-xs px-2 z-20"
+                            class="absolute top-1 h-8 rounded flex items-center justify-center text-xs px-2 z-20 cursor-pointer"
                             style="left: {{ $leftPercent }}%; width: {{ max($widthPercent, 2) }}%; background-color: {{ $barColor }}; color: {{ $textColor }};"
-                            @mouseenter="show = true"
-                            @mouseleave="show = false"
+                            @mouseenter="showTip($event, @js($shiftTooltip))"
+                            @mousemove="moveTip($event)"
+                            @mouseleave="hideTip()"
                         >
                             {{ $shift['label'] ?? 'Shift' }}
-
-                            <div
-                                x-show="show"
-                                x-transition
-                                class="absolute -top-14 left-1/2 -translate-x-1/2 z-[9999] px-3 py-2 text-xs rounded shadow-md whitespace-pre max-w-xs"
-                                style="background-color: rgba(17, 24, 39, 1); color: #ffffff; border: 1px solid rgba(75, 85, 99, 1);"
-                            >
-                                {{ $isManual ? 'Manual Shift' : 'Planned Shift' }}<br>
-                                Start: {{ $start->format('Y-m-d H:i') }}<br>
-                                End: {{ $end->format('Y-m-d H:i') }}
-                            </div>
                         </div>
 
                         @foreach ($shift['breaks'] ?? [] as $break)
@@ -257,10 +230,11 @@ $totalHeight = $shiftHeight
 
                                 $breakLeft = ($breakStartSec / 86400) * 100;
                                 $breakWidth = (($breakEndSec - $breakStartSec) / 86400) * 100;
+                                $breakTooltip = "<strong>Break</strong><br><span class='opacity-75'>Start:</span> {$breakStart->format('H:i')}<br><span class='opacity-75'>End:</span> {$breakEnd->format('H:i')}";
                             @endphp
 
                             <div
-                                class="absolute top-1 h-8 rounded z-30 opacity-80"
+                                class="absolute top-1 h-8 rounded z-30 opacity-80 cursor-pointer"
                                 style="
                                         left: {{ $breakLeft }}%;
                                         width: {{ max($breakWidth, 1) }}%;
@@ -272,7 +246,9 @@ $totalHeight = $shiftHeight
                                                 #4b5563 8px);
                                             background-color: #9ca3af; /* Medium gray background */
                                         "
-                                title="Break: {{ $breakStart->format('H:i') }} - {{ $breakEnd->format('H:i') }}"
+                                @mouseenter="showTip($event, @js($breakTooltip))"
+                                @mousemove="moveTip($event)"
+                                @mouseleave="hideTip()"
                             ></div>
                             @php
                                 }
@@ -397,6 +373,7 @@ $totalHeight = $shiftHeight
                                 $regionId = $availability['region_id'] ?? 'unknown';
                                 $availColor = $legendColorMap[$regionId] ?? '#ccc';
                                 $regionDescription = $availability['region_description'] ?? 'Unknown region';
+                                $activeStatus = ($availability['region_active'] ?? true) ? 'Active' : 'Not Active';
 
                                 // Get the line index for this region ID from the prepared line map
                                 $lineIndex = $groupInfo['lineMap'][$regionId] ?? 0;
@@ -415,23 +392,26 @@ $totalHeight = $shiftHeight
                                     $style .= " background-image: repeating-linear-gradient(45deg, {$availColor}, {$availColor} 4px, rgba(255,255,255,0.5) 4px, rgba(255,255,255,0.5) 8px); background-blend-mode: multiply;";
                                 }
                                 $zIndex = 20 + ($availability['override_priority'] ?? 0);
+
+                                $regionTooltip = "<strong>{$regionDescription}</strong><br><span class='opacity-75'>Start:</span> {$availStart->format('H:i')}<br><span class='opacity-75'>End:</span> {$availEnd->format('H:i')}<br><span class='opacity-75'>Status:</span> {$activeStatus}";
                             @endphp
 
                             <div
                                 class="absolute h-3 rounded-sm opacity-90 cursor-pointer"
                                 style="{{ $style }} z-index: {{ $zIndex }};"
-                                @mouseenter="showRegionTooltip($event, '{{ $regionDescription }}', '{{ $availStart->format('Y-m-d H:i') }}', '{{ $availEnd->format('Y-m-d H:i') }}', {{ $availability['region_active'] ? 'true' : 'false' }})"
-                                @mouseleave="hideTooltip()"
+                                @mouseenter="showTip($event, @js($regionTooltip))"
+                                @mousemove="moveTip($event)"
+                                @mouseleave="hideTip()"
                             ></div>
                         @endforeach
                     @endforeach
                     @if ($stackCount > 0)
                         <div class="absolute left-0 right-0 bottom-0" style="height: 8px;"></div>
                     @endif
-                    <div id="tooltip-portal" class="fixed inset-0 pointer-events-none" style="z-index: 99999;"
-                         x-ref="tooltipPortal"></div>
                 </div>
             </div>
         </div>
     @endforeach
+</div>
+
 </div>
