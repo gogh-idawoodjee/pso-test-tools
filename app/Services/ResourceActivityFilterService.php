@@ -133,22 +133,50 @@ class ResourceActivityFilterService extends HasScopedCache
 
     protected function assembleFilteredData(): array
     {
+        $filteredResources = $this->getFilteredData('Resources', 'id', $this->validResourceIds);
+        $filteredActivities = $this->getFilteredData('Activity', 'id', $this->validActivityIds);
+
+        $referencedLocationIds = $this->collectReferencedLocationIds($filteredResources, $filteredActivities);
+
         return array_merge(
             $this->data,
             [
-                'Resources' => $this->getFilteredData('Resources', 'id', $this->validResourceIds),
+                'Resources' => $filteredResources,
+                'Location' => $this->getFilteredData('Location', 'id', $referencedLocationIds),
                 'Shift' => $this->getFilteredData('Shift', 'id', $this->validShiftIds),
                 'Shift_Break' => $this->getFilteredData('Shift_Break', 'shift_id', $this->validShiftIds),
                 'Resource_Region' => $this->getFilteredData('Resource_Region', 'resource_id', $this->validResourceIds),
                 'Resource_Skill' => $this->getFilteredData('Resource_Skill', 'resource_id', $this->validResourceIds),
                 'Resource_Region_Availability' => $this->getFilteredData('Resource_Region_Availability', 'resource_id', $this->validResourceIds),
                 'Availability' => $this->getFilteredData('Availability', 'id', $this->filteredAvailabilityIds),
-                'Activity' => $this->getFilteredData('Activity', 'id', $this->validActivityIds),
+                'Activity' => $filteredActivities,
                 'Activity_SLA' => $this->getFilteredData('Activity_SLA', 'activity_id', $this->validActivityIds),
                 'Activity_Status' => $this->getFilteredData('Activity_Status', 'activity_id', $this->validActivityIds),
                 'Activity_Group' => $this->getFilteredActivityGroupData($this->validActivityIds),
             ]
         );
+    }
+
+    protected function collectReferencedLocationIds(array $filteredResources, array $filteredActivities): array
+    {
+        $locationIds = [];
+
+        foreach ($filteredResources as $resource) {
+            if (isset($resource['location_id_start'])) {
+                $locationIds[$resource['location_id_start']] = true;
+            }
+            if (isset($resource['location_id_end'])) {
+                $locationIds[$resource['location_id_end']] = true;
+            }
+        }
+
+        foreach ($filteredActivities as $activity) {
+            if (isset($activity['location_id'])) {
+                $locationIds[$activity['location_id']] = true;
+            }
+        }
+
+        return array_keys($locationIds);
     }
 
     protected function applyShiftFilters(): void
@@ -245,6 +273,7 @@ class ResourceActivityFilterService extends HasScopedCache
     {
         $sections = [
             'resources' => 'Resources',
+            'locations' => 'Location',
             'shifts' => 'Shift',
             'shift_breaks' => 'Shift_Break',
             'resource_skills' => 'Resource_Skill',
