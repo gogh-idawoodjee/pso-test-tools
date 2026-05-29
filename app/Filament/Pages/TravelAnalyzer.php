@@ -7,12 +7,18 @@ use App\Support\GeocodeHelper;
 use App\Traits\FormTrait;
 use BackedEnum;
 use Filament\Actions\Action;
-use Filament\Forms;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use JsonException;
 use UnitEnum;
 
@@ -20,19 +26,27 @@ class TravelAnalyzer extends Page
 {
     use FormTrait;
 
-    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-map';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMap;
 
-    protected static string|null|UnitEnum $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = 'API Services';
 
     public ?array $data = [];
 
-    protected static string|null|BackedEnum $activeNavigationIcon = 'heroicon-s-map';
+    protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::Map;
 
     protected static ?string $navigationLabel = 'Travel Analyzer';
 
     protected static ?string $title = 'Travel Analyzer';
 
     protected string $view = 'filament.pages.travel-analyzer';
+
+    public ?string $travelLogId = null;
+
+    public ?array $travelResults = null;
+
+    public bool $isWaiting = false;
+
+    public ?string $waitingStartedAt = null;
 
     public function mount(): void
     {
@@ -50,13 +64,13 @@ class TravelAnalyzer extends Page
         return $form
             ->schema([
                 Section::make('Travel Details')
-                    ->icon('heroicon-s-map')
+                    ->icon(Heroicon::Map)
                     ->schema([
                         Fieldset::make('from_details')
                             ->label('From Details')
                             ->schema([
                                 TextInput::make('lat_from')
-                                    ->prefixIcon('heroicon-s-arrows-up-down')
+                                    ->prefixIcon(Heroicon::ArrowsUpDown)
                                     ->label('Latitude')
                                     ->required()
                                     ->minValue(-90.0)
@@ -65,19 +79,19 @@ class TravelAnalyzer extends Page
                                     ->live(),
                                 TextInput::make('long_from')
                                     ->label('Longitude')
-                                    ->prefixIcon('heroicon-s-arrows-right-left')
+                                    ->prefixIcon(Heroicon::ArrowsRightLeft)
                                     ->required()
                                     ->minValue(-180.0)
                                     ->maxValue(180.0)
                                     ->numeric()
                                     ->live(),
                                 TextInput::make('address_from')
-                                    ->prefixIcon('heroicon-s-map')
+                                    ->prefixIcon(Heroicon::Map)
                                     ->columnSpan(2)
                                     ->suffixAction(
                                         Action::make('geocode_address')
-                                            ->icon('heroicon-m-map-pin')
-                                            ->action(static function (Forms\Get $get, Forms\Set $set) {
+                                            ->icon(Heroicon::MapPin)
+                                            ->action(static function (Get $get, Set $set) {
                                                 GeocodeHelper::geocodeFormAddress(
                                                     $get,
                                                     $set,
@@ -93,7 +107,7 @@ class TravelAnalyzer extends Page
                             ->label('To Details')
                             ->schema([
                                 TextInput::make('lat_to')
-                                    ->prefixIcon('heroicon-s-arrows-up-down')
+                                    ->prefixIcon(Heroicon::ArrowsUpDown)
                                     ->label('Latitude')
                                     ->required()
                                     ->minValue(-90.0)
@@ -102,19 +116,19 @@ class TravelAnalyzer extends Page
                                     ->live(),
                                 TextInput::make('long_to')
                                     ->label('Longitude')
-                                    ->prefixIcon('heroicon-s-arrows-right-left')
+                                    ->prefixIcon(Heroicon::ArrowsRightLeft)
                                     ->required()
                                     ->minValue(-180.0)
                                     ->maxValue(180.0)
                                     ->numeric()
                                     ->live(),
                                 TextInput::make('address_to')
-                                    ->prefixIcon('heroicon-s-map')
+                                    ->prefixIcon(Heroicon::Map)
                                     ->columnSpan(2)
                                     ->suffixAction(
                                         Action::make('geocode_address')
-                                            ->icon('heroicon-m-map-pin')
-                                            ->action(static function (Forms\Get $get, Forms\Set $set) {
+                                            ->icon(Heroicon::MapPin)
+                                            ->action(static function (Get $get, Set $set) {
                                                 GeocodeHelper::geocodeFormAddress(
                                                     $get,
                                                     $set,
@@ -130,7 +144,7 @@ class TravelAnalyzer extends Page
                     ])
                     ->footerActions([
                         Action::make('analyze_travel')
-                            ->action(function (Forms\Get $get) {
+                            ->action(function (Get $get) {
                                 $this->analyzeTravel($get);
                             }),
                     ])
@@ -143,8 +157,14 @@ class TravelAnalyzer extends Page
      */
     public function analyzeTravel($get): void
     {
+        $this->travelResults = null;
         $this->response = null;
         $this->validateForms($this->getForms());
+
+        $sendToPso = $this->environment_data['send_to_pso'];
+        $this->travelLogId = Str::uuid()->toString();
+
+        $callbackUrl = route('travel.callback');
 
         $payload = array_merge(
             $this->environment_payload_data(),
@@ -154,16 +174,78 @@ class TravelAnalyzer extends Page
                     'latFrom' => $get('lat_from'),
                     'longFrom' => $get('long_from'),
                     'longTo' => $get('long_to'),
-                    'sendToPso' => $this->environment_data['send_to_pso'],
+                    'sendToPso' => $sendToPso,
                     'googleApiKey' => config('psott.google_api_key'),
+                    'travelLogId' => $this->travelLogId,
+                    'callbackUrl' => $callbackUrl,
                 ],
             ]
         );
 
-        if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
+        if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload)) {
+            // Reserve the cache key so the callback controller can validate it
+            Cache::put("travel-analysis:{$this->travelLogId}", [
+                'status' => 'pending',
+            ], now()->addMinutes(10));
+
+            $this->isWaiting = true;
+            $this->waitingStartedAt = now()->toIso8601String();
+
+            Log::info('Travel analysis dispatched', ['travelLogId' => $this->travelLogId]);
+
             $this->response = $this->sendToPSONew('travelanalyzer', $tokenized_payload);
             $this->dispatch('json-updated');
-            $this->dispatch('open-modal', id: 'show-json');
         }
+    }
+
+    public function checkTravelResults(): void
+    {
+        if (! $this->travelLogId || ! $this->isWaiting) {
+            return;
+        }
+
+        // Check timeout (2 minutes)
+        if ($this->waitingStartedAt && now()->diffInSeconds($this->waitingStartedAt) > 120) {
+            Cache::forget("travel-analysis:{$this->travelLogId}");
+            $this->isWaiting = false;
+            $this->travelLogId = null;
+            $this->waitingStartedAt = null;
+
+            Notification::make()
+                ->title('Travel Analysis Timed Out')
+                ->body('No results were received within 2 minutes. Try again or check the raw JSON response.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $cached = Cache::get("travel-analysis:{$this->travelLogId}");
+
+        if ($cached && ($cached['status'] ?? null) === 'complete') {
+            $this->travelResults = $cached['results'] ?? [];
+            $this->isWaiting = false;
+            $this->waitingStartedAt = null;
+
+            Cache::forget("travel-analysis:{$this->travelLogId}");
+
+            Notification::make()
+                ->title('Travel Analysis Complete')
+                ->body('Results have been received and are displayed below.')
+                ->success()
+                ->send();
+        }
+    }
+
+    public function cancelWaiting(): void
+    {
+        if ($this->travelLogId) {
+            Cache::forget("travel-analysis:{$this->travelLogId}");
+        }
+
+        $this->isWaiting = false;
+        $this->travelLogId = null;
+        $this->waitingStartedAt = null;
+        $this->travelResults = null;
     }
 }
