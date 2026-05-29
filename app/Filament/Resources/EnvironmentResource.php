@@ -12,6 +12,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
@@ -21,9 +22,9 @@ class EnvironmentResource extends Resource
 {
     protected static ?string $model = Environment::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-circle-stack';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCircleStack;
 
-    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-circle-stack';
+    protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::CircleStack;
 
     protected static string|UnitEnum|null $navigationGroup = 'Base Data';
 
@@ -79,7 +80,7 @@ class EnvironmentResource extends Resource
                     ->url(static function (Environment $record) {
                         return self::getUrl('environmentTools', compact('record'));
                     })
-                    ->icon('heroicon-o-wrench-screwdriver'),
+                    ->icon(Heroicon::OutlinedWrenchScrewdriver),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

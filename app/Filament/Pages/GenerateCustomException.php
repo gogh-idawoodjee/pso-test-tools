@@ -15,6 +15,7 @@ use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use JsonException;
 use UnitEnum;
 
@@ -22,9 +23,9 @@ class GenerateCustomException extends Page
 {
     use FormTrait;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-exclamation-triangle';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedExclamationTriangle;
 
-    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-exclamation-triangle';
+    protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::ExclamationTriangle;
 
     protected string $view = 'filament.pages.generate-custom-exception';
 
@@ -85,7 +86,7 @@ class GenerateCustomException extends Page
                             ->required(),
                         Actions::make([Action::make('generate_exception')
                             ->label('Generate Exception')
-                            ->icon('heroicon-o-exclamation-triangle')
+                            ->icon(Heroicon::OutlinedExclamationTriangle)
                             ->action(function () {
                                 $this->generate_exception();
                             })->disabled(static fn (Get $get) => ! $get('object_type_id')),

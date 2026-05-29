@@ -10,6 +10,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use UnitEnum;
@@ -18,7 +19,7 @@ class RegionResource extends Resource
 {
     protected static ?string $model = Region::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-map';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMap;
 
     protected static string|UnitEnum|null $navigationGroup = 'Base Data';
 

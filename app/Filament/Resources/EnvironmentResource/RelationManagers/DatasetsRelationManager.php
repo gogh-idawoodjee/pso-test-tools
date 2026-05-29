@@ -10,6 +10,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Forms;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 
@@ -38,7 +39,7 @@ class DatasetsRelationManager extends RelationManager
             ]);
     }
 
-    protected static string|BackedEnum|null $icon = 'heroicon-o-cube-transparent';
+    protected static string|BackedEnum|null $icon = Heroicon::OutlinedCubeTransparent;
 
     public function table(Table $table): Table
     {

@@ -7,8 +7,8 @@
         <div class="flex justify-between items-start">
             <div class="text-sm font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">{{ $label }}</div>
             <div class="bg-primary-100 dark:bg-gray-700 p-1.5 rounded-lg group-hover:bg-primary-200 dark:group-hover:bg-gray-600">
-                <x-dynamic-component
-                    :component="$icon"
+                <x-filament::icon
+                    :icon="$icon"
                     class="w-6 h-6 text-primary-600 dark:text-primary-400"
                 />
             </div>

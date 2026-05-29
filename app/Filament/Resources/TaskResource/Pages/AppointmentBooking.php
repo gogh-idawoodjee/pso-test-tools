@@ -23,6 +23,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Enums\VerticalAlignment;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Arr;
 
 class AppointmentBooking extends Page
@@ -105,8 +106,8 @@ class AppointmentBooking extends Page
             ->record($this->record)
             ->columns(1) // Single column for the main container
             ->schema([
-                \Filament\Infolists\Components\Section::make('Task '.data_get($this->record, 'friendly_id').' - '.data_get($this->record, 'taskType.name'))
-                    ->icon('heroicon-o-clipboard-document-list')
+                Section::make('Task '.data_get($this->record, 'friendly_id').' - '.data_get($this->record, 'taskType.name'))
+                    ->icon(Heroicon::OutlinedClipboardDocumentList)
                     ->schema([
                         // Activity ID and Status row
                         Grid::make()
@@ -120,7 +121,7 @@ class AppointmentBooking extends Page
                                         TextEntry::make('duration')
                                             ->label(false)
                                             ->state($formattedDuration)
-                                            ->icon('heroicon-o-clock')
+                                            ->icon(Heroicon::OutlinedClock)
                                             ->size('md'),
                                     ]),
                                 Group::make()
@@ -165,7 +166,7 @@ class AppointmentBooking extends Page
                             ])
                             ->columns(3),
 
-                        \Filament\Infolists\Components\Section::make()
+                        Section::make()
                             ->schema([
                                 TextEntry::make('appointment')
                                     ->label('Appointment Window')
@@ -175,7 +176,7 @@ class AppointmentBooking extends Page
 
                                         return '<span class="'.$colorClass.'">'.$state.'</span>';
                                     })
-                                    ->icon('heroicon-o-calendar')
+                                    ->icon(Heroicon::OutlinedCalendar)
                                     ->iconColor($isUrgent ? 'danger' : 'primary')
                                     ->size('lg')
                                     ->html(),
@@ -271,7 +272,7 @@ class AppointmentBooking extends Page
                             ->seconds(false)
                             ->suffixAction(
                                 Action::make('set_sla_start')
-                                    ->icon('heroicon-m-clock')
+                                    ->icon(Heroicon::Clock)
                                     ->action(function (Get $get, Set $set) {
                                         $this->setSlaStart($set);
 
@@ -282,7 +283,7 @@ class AppointmentBooking extends Page
 
                         Actions::make([Action::make('get_appointments')
                             ->label('Get Appointments')
-                            ->icon('heroicon-o-calendar')
+                            ->icon(Heroicon::OutlinedCalendar)
                             ->action(function () {
                                 $this->getAppointments();
                             }),

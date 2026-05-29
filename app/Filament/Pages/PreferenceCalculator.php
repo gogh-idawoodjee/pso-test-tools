@@ -11,13 +11,14 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use UnitEnum;
 
 class PreferenceCalculator extends Page
 {
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calculator';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalculator;
 
-    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-calculator';
+    protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::Calculator;
 
     protected string $view = 'filament.pages.preference-calculator';
 

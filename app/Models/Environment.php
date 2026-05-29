@@ -64,6 +64,7 @@ class Environment extends Model
 
         static::addGlobalScope(new UserOwnedModel);
         static::creating(static function (self $env) {
+            // TODO duplicated code
             if (empty($env->slug)) {
                 $base = Str::slug($env->name);
                 $slug = $base;

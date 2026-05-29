@@ -10,6 +10,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use UnitEnum;
@@ -18,7 +19,7 @@ class AppointmentTemplateResource extends Resource
 {
     protected static ?string $model = AppointmentTemplate::class;
 
-    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-calendar';
+    protected static string|null|BackedEnum $navigationIcon = Heroicon::OutlinedCalendar;
 
     protected static string|null|UnitEnum $navigationGroup = 'Base Data';
 

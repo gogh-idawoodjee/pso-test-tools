@@ -15,6 +15,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Log;
 use Livewire\Attributes\Url;
 use UnitEnum;
@@ -29,7 +30,7 @@ class TechnicianAvail extends Page
     private const string JOB_TYPE_SHIFTS = 'Technician-Shift-Job';
 
     // 1. Constants/Static properties
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-calendar';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCalendar;
 
     protected string $view = 'filament.pages.technician-avail';
 
@@ -43,7 +44,7 @@ class TechnicianAvail extends Page
     public ?array $technicianShifts = [];
 
     #[Url]
-    public bool $enableDebug = false;
+    public bool $enableDebug = true;
 
     // 3. Form-related properties
     public array $formData = [
@@ -95,21 +96,21 @@ class TechnicianAvail extends Page
             Actions::make([
                 Action::make('get_resources')
                     ->label('Load Resources')
-                    ->icon('heroicon-o-arrow-down-circle')
+                    ->icon(Heroicon::OutlinedArrowDownCircle)
                     ->disabled(fn () => ! empty($this->formData['selectedTechnician']) || empty($this->formData['upload']))
                     ->action(function () {
                         $this->getResources();
                     }),
                 Action::make('get_schedule')
                     ->label('Get Technician Schedule')
-                    ->icon('heroicon-o-arrow-down-circle')
+                    ->icon(Heroicon::OutlinedArrowDownCircle)
                     ->disabled(fn () => empty($this->formData['selectedTechnician']))
                     ->action(function () {
                         $this->getSchedule();
                     }),
                 Action::make('load_next_batch')
                     ->label('Load Next Batch')
-                    ->icon('heroicon-o-arrow-right')
+                    ->icon(Heroicon::OutlinedArrowRight)
                     ->action('loadNextBatch')
                     ->visible(fn () => ! empty($this->technicianShifts) && ! empty($this->formData['selectedTechnician'])),
             ]),

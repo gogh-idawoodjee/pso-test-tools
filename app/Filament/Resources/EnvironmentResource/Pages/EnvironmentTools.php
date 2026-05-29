@@ -22,6 +22,7 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Arr;
 use JsonException;
 use Override;
@@ -48,7 +49,7 @@ class EnvironmentTools extends Page
         return [
 
             Action::make('Return to Environment')
-                ->icon('heroicon-o-arrow-uturn-left')
+                ->icon(Heroicon::OutlinedArrowUturnLeft)
                 ->url('/environments/'.$this->record->getRouteKey().'/edit'),
 
         ];
@@ -102,32 +103,32 @@ class EnvironmentTools extends Page
                     ]),
                 Section::make('Environment Properties')
                     ->description('These properties are for use with these tools when sending to PSO. Please click Return to environment above to update properties.')
-                    ->icon('heroicon-o-circle-stack')
+                    ->icon(Heroicon::OutlinedCircleStack)
                     ->collapsible()
                     ->collapsed()
                     ->columns()
                     ->schema([
                         TextInput::make('base_url')
                             ->label('Base URL')
-                            ->prefixIcon('heroicon-o-globe-alt')
+                            ->prefixIcon(Heroicon::OutlinedGlobeAlt)
                             ->disabled(static function (Get $get) {
                                 return ! $get('send_to_pso');
                             }),
                         TextInput::make('account_id')
                             ->label('Account ID')
-                            ->prefixIcon('heroicon-o-identification') // ID card icon
+                            ->prefixIcon(Heroicon::OutlinedIdentification)
                             ->disabled(static function (Get $get) {
                                 return ! $get('send_to_pso');
                             }),
                         TextInput::make('username')
                             ->label('Username')
-                            ->prefixIcon('heroicon-o-user') // User icon
+                            ->prefixIcon(Heroicon::OutlinedUser)
                             ->disabled(static function (Get $get) {
                                 return ! $get('send_to_pso');
                             }),
                         TextInput::make('password')
                             ->label('Password')
-                            ->prefixIcon('heroicon-o-lock-closed') // Lock icon
+                            ->prefixIcon(Heroicon::OutlinedLockClosed)
                             ->password()->disabled(static function (Get $get) {
                                 return ! $get('send_to_pso');
                             }),
@@ -155,7 +156,7 @@ class EnvironmentTools extends Page
                                 ->minValue(3)
                                 ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->placeholder(3)
-                                ->prefixIcon('heroicon-o-cube-transparent'),
+                                ->prefixIcon(Heroicon::OutlinedCubeTransparent),
                             TextInput::make('appointment_window')
                                 ->dehydrated(false)
                                 ->label('Appointment Window')
@@ -163,18 +164,18 @@ class EnvironmentTools extends Page
                                 ->minValue(7)
                                 ->placeholder(7)
                                 ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
-                                ->prefixIcon('heroicon-o-calendar-date-range'),
+                                ->prefixIcon(Heroicon::OutlinedCalendarDateRange),
                             Select::make('process_type')
                                 ->enum(ProcessType::class)
                                 ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
                                 ->options(ProcessType::class)
                                 ->live()
                                 ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
-                                ->prefixIcon('heroicon-o-adjustments-horizontal'),
+                                ->prefixIcon(Heroicon::OutlinedAdjustmentsHorizontal),
                             DateTimePicker::make('datetime')
                                 ->dehydrated(false)
                                 ->label('Input Date Time')
-                                ->prefixIcon('heroicon-o-clock'),
+                                ->prefixIcon(Heroicon::OutlinedClock),
                             Actions::make([Action::make('push_it')->slideOver()
                                 ->action(function (Get $get) {
                                     //                                $set('excerpt', str($get('content'))->words(45, end: ''));
@@ -188,12 +189,12 @@ class EnvironmentTools extends Page
 
                             ])->columnSpan(2),
                         ])->columns()
-                        ->icon('heroicon-o-arrow-up-on-square')
+                        ->icon(Heroicon::OutlinedArrowUpOnSquare)
                         ->label('Initial Load and Rota'),
 
                     Tab::make('system_usage_tab')
                         ->schema([])
-                        ->icon('heroicon-o-cog')
+                        ->icon(Heroicon::OutlinedCog)
                         ->label('System Usage'),
                     Tab::make('services_tab')
                         ->schema([
@@ -203,7 +204,7 @@ class EnvironmentTools extends Page
                                 ->disabled()
                                 ->suffixAction(
                                     Action::make('copy')
-                                        ->icon('heroicon-o-clipboard')
+                                        ->icon(Heroicon::OutlinedClipboard)
                                         ->action(function ($livewire, $state) {
                                             $livewire->dispatch('copy-to-clipboard', text: $state);
                                         })
@@ -237,7 +238,7 @@ class EnvironmentTools extends Page
                                     'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
                                 ]),
                         ])
-                        ->icon('heroicon-o-cog')
+                        ->icon(Heroicon::OutlinedCog)
                         ->label('Services'),
 
                 ]),

@@ -8,8 +8,10 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use UnitEnum;
@@ -18,7 +20,7 @@ class SkillResource extends Resource
 {
     protected static ?string $model = Skill::class;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-academic-cap';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedAcademicCap;
 
     protected static string|UnitEnum|null $navigationGroup = 'Base Data';
 

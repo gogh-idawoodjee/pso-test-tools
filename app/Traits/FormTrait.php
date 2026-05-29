@@ -13,6 +13,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
 
 trait FormTrait
@@ -70,7 +71,7 @@ trait FormTrait
                         ->hidden($this->isHeaderActionHidden),
                 ])
                 ->description($this->isAuthenticationRequired ? 'This function requires PSO Authentication. Send to PSO must be selected.' : null)
-                ->icon('heroicon-s-circle-stack')
+                ->icon(Heroicon::CircleStack)
                 ->schema([
                     Toggle::make('send_to_pso')
                         ->label('Send to PSO')
@@ -80,7 +81,7 @@ trait FormTrait
                         ->disabled($this->isAuthenticationRequired),
                     Select::make('environment_id')
                         ->label('Environment')
-                        ->prefixIcon('heroicon-o-globe-alt')
+                        ->prefixIcon(Heroicon::OutlinedGlobeAlt)
                         ->options($this->environments?->pluck('name', 'id')->toArray() ?? [])
                         ->required()
                         ->preload()
@@ -94,7 +95,7 @@ trait FormTrait
                     Select::make('dataset_id')
                         ->label('Dataset')
                         ->preload()
-                        ->prefixIcon('heroicon-o-cube-transparent')
+                        ->prefixIcon(Heroicon::OutlinedCubeTransparent)
                         ->options(fn (Get $get) => $this->getDatasetOptions($get))
                         ->required(! $this->isDataSetRequired)
                         ->hidden($this->isDataSetHidden)

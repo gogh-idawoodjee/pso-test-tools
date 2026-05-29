@@ -9,13 +9,14 @@ use Filament\Forms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
 
 class IssueToken extends Page
 {
     use AdminViewable;
 
-    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-key';
+    protected static string|null|BackedEnum $navigationIcon = Heroicon::OutlinedKey;
 
     protected string $view = 'filament.pages.issue-token';
 

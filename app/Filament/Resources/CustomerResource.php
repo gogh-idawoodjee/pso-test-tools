@@ -13,8 +13,10 @@ use Filament\Actions\EditAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 
@@ -22,16 +24,16 @@ class CustomerResource extends Resource
 {
     protected static ?string $model = Customer::class;
 
-    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-user-group';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUserGroup;
 
     public static function getNavigationBadge(): ?string
     {
         return static::getModel()::count();
     }
 
-    public static function form(Schema $form): Schema
+    public static function form(Schema $schema): Schema
     {
-        return $form
+        return $schema
             ->schema(
                 Customer::getForm()
             );
@@ -86,27 +88,15 @@ class CustomerResource extends Resource
         ];
     }
 
-    public static function infolist(Schema $infolist): Schema
+    public static function infolist(Schema $schema): Schema
     {
-        return $infolist
+        return $schema
+            ->columns(1)
             ->schema([
-                Section::make('Customer Information')
+                // Row 1: Summary tiles across the top
+                Section::make('Summary')
+                    ->icon(Heroicon::OutlinedChartBar)
                     ->schema([
-                        // Left column: Name + Status
-                        TextEntry::make('name'),
-
-                        TextEntry::make('status')
-                            ->badge(),
-                        TextEntry::make('created_at')
-                            ->label('Created At')
-                            ->icon('heroicon-o-calendar')
-                            ->formatStateUsing(static fn ($state) => $state?->toFormattedDateString() ?? '—'),
-
-                        TextEntry::make('updated_at')
-                            ->label('Last Updated')
-                            ->icon('heroicon-o-clock')
-                            ->tooltip(static fn ($state) => $state?->toDayDateTimeString())
-                            ->formatStateUsing(static fn ($state) => $state?->diffForHumans() ?? '—'),
                         ViewEntry::make('summary_last_30')
                             ->view('filament.components.customer-summary-tile')
                             ->viewData([
@@ -114,7 +104,7 @@ class CustomerResource extends Resource
                                 'value' => fn ($record) => $record->tasks()
                                     ->where('appt_window_finish', '>=', now()->subDays(30))
                                     ->count(),
-                                'icon' => 'heroicon-o-calendar',
+                                'icon' => Heroicon::OutlinedCalendar,
                             ]),
 
                         ViewEntry::make('summary_upcoming')
@@ -124,7 +114,7 @@ class CustomerResource extends Resource
                                 'value' => fn ($record) => $record->tasks()
                                     ->where('appt_window_finish', '>', now())
                                     ->count(),
-                                'icon' => 'heroicon-o-arrow-up',
+                                'icon' => Heroicon::OutlinedArrowUp,
                             ]),
 
                         ViewEntry::make('summary_incomplete')
@@ -134,38 +124,58 @@ class CustomerResource extends Resource
                                 'value' => fn ($record) => $record->tasks()
                                     ->whereNotIn('status', collect(TaskStatus::endStateStatuses())->pluck('value'))
                                     ->count(),
-                                'icon' => 'heroicon-o-exclamation-circle',
+                                'icon' => Heroicon::OutlinedExclamationCircle,
                             ]),
-
                     ])
-                    ->columns()->columnSpan(1),
-                Section::make('Location')
-                    ->icon('heroicon-o-map')
-                    ->schema([           // Right column: Address + Map
-                        TextEntry::make('address')
-                            ->label('Address')
-                            ->columnSpan(1),
+                    ->columns(3),
 
-                        TextEntry::make('city')
-                            ->label('City')
-                            ->columnSpan(1),
+                // Row 2: Customer info (left) + Location (right)
+                Grid::make(2)->schema([
+                    Section::make('Customer Information')
+                        ->schema([
+                            TextEntry::make('name'),
 
-                        TextEntry::make('country')
-                            ->label('Country')
-                            ->columnSpan(1),
-                        TextEntry::make('coordinates')
-                            ->label('Coordinates')
-                            ->state(static function ($record) {
-                                return isset($record->lat, $record->long)
-                                    ? number_format($record->lat, 5).', '.number_format($record->long, 5)
-                                    : '—';
-                            }),
+                            TextEntry::make('status')
+                                ->badge(),
+                            TextEntry::make('created_at')
+                                ->label('Created At')
+                                ->icon(Heroicon::OutlinedCalendar)
+                                ->formatStateUsing(static fn ($state) => $state?->toFormattedDateString() ?? '—'),
 
-                        ViewEntry::make('map')
-                            ->view('filament.components.customer-map')
-                            ->columnSpanFull(), ])
-                    ->columns()->columnSpan(1),
-                // Splits the section into 2 columns (left = name/status, right = addr/map)
+                            TextEntry::make('updated_at')
+                                ->label('Last Updated')
+                                ->icon(Heroicon::OutlinedClock)
+                                ->tooltip(static fn ($state) => $state?->toDayDateTimeString())
+                                ->formatStateUsing(static fn ($state) => $state?->diffForHumans() ?? '—'),
+                        ])
+                        ->columns(),
+
+                    Section::make('Location')
+                        ->icon(Heroicon::OutlinedMap)
+                        ->schema([
+                            TextEntry::make('address')
+                                ->label('Address'),
+
+                            TextEntry::make('city')
+                                ->label('City'),
+
+                            TextEntry::make('country')
+                                ->label('Country'),
+
+                            TextEntry::make('coordinates')
+                                ->label('Coordinates')
+                                ->state(static function ($record) {
+                                    return isset($record->lat, $record->long)
+                                        ? number_format($record->lat, 5).', '.number_format($record->long, 5)
+                                        : '—';
+                                }),
+
+                            ViewEntry::make('map')
+                                ->view('filament.components.customer-map')
+                                ->columnSpanFull(),
+                        ])
+                        ->columns(),
+                ]),
             ]);
     }
 

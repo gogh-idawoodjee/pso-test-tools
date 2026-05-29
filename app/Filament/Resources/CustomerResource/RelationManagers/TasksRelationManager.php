@@ -9,11 +9,18 @@ use App\Models\Environment;
 use App\Models\SlotUsageRule;
 use App\Models\Task;
 use App\Traits\FormTrait;
+use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
+use Filament\Actions\EditAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
-use Filament\Tables\Actions\ActionGroup;
 use Filament\Tables\Table;
 use Override;
 
@@ -79,17 +86,17 @@ class TasksRelationManager extends RelationManager
                     ->sortable(),
             ])
             ->headerActions([
-                Tables\Actions\CreateAction::make()
+                CreateAction::make()
                     ->slideOver()
                     ->label('Create Task'),
             ])
-            ->actions([
+            ->recordActions([
                 ActionGroup::make([
-                    Tables\Actions\EditAction::make(),
-                    Tables\Actions\DeleteAction::make(),
-                    Tables\Actions\Action::make('bookOrRebook')
+                    EditAction::make(),
+                    DeleteAction::make(),
+                    Action::make('bookOrRebook')
                         ->label(static fn (Task $record) => $record->appt_window_start ? 'Rebook' : 'Book')
-                        ->icon('heroicon-o-calendar')
+                        ->icon(Heroicon::OutlinedCalendar)
                         ->color(static fn (Task $record) => $record->appt_window_start ? 'warning' : 'primary')
                         ->slideOver()->modalWidth('6xl')
                         ->visible(static fn (Task $record) => ! in_array(
@@ -100,12 +107,11 @@ class TasksRelationManager extends RelationManager
                         ->url(function (Task $record) {
                             return TaskResource::getUrl('bookAppointment', compact('record'));
                         }),
-
                 ]),
             ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make(),
                 ]),
             ]);
     }

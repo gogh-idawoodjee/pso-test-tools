@@ -90,10 +90,11 @@ trait PSOInteractionsTrait
     public function sendToPSONew(
         string $api_segment,
         mixed $payload = null,
-        array $headers = [],
+        ?array $headers = null,
         ?HttpMethod $method = null,
         bool $isNonStandardResponse = false,
     ): string {
+        $headers ??= [];
         $responseKey = 'data.payloadToPso';
         $returnKey = 'input_payload';
 

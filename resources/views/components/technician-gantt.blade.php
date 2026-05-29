@@ -334,7 +334,7 @@
                             $shiftEnd = null;
 
                             foreach ($dayShifts as $s) {
-                                if ($s['id'] == $groupInfo['shift_id']) {
+                                if ($s['id'] === $groupInfo['shift_id']) {
                                     $shiftStart = Carbon::parse($s['start_datetime'])->tz(config('app.timezone'));
                                     $shiftEnd = Carbon::parse($s['end_datetime'])->tz(config('app.timezone'));
                                     break;

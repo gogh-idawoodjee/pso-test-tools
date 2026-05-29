@@ -5,8 +5,10 @@ namespace App\Filament\Resources\EnvironmentResource\Pages;
 use App\Filament\Resources\EnvironmentResource;
 use App\Models\Environment;
 use App\Traits\PSOInteractionsTrait;
+use BackedEnum;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Crypt;
 
 class EditEnvironment extends EditRecord
@@ -30,21 +32,21 @@ class EditEnvironment extends EditRecord
         return 'Environment';
     }
 
-    public function getContentTabIcon(): ?string
+    public function getContentTabIcon(): string|BackedEnum|null
     {
-        return 'heroicon-o-circle-stack';
+        return Heroicon::OutlinedCircleStack;
     }
 
     protected function getHeaderActions(): array
     {
         return [
             Actions\Action::make('tools')
-                ->icon('heroicon-o-wrench-screwdriver')
+                ->icon(Heroicon::OutlinedWrenchScrewdriver)
                 ->url(function (Environment $record) {
                     return EnvironmentResource::getUrl('environmentTools', compact('record'));
                 }),
             Actions\Action::make('test_configuration')
-                ->icon('heroicon-o-check')
+                ->icon(Heroicon::OutlinedCheck)
                 ->action(function (Environment $record) {
                     $this->authenticatePSO($record->base_url, $record->account_id, $record->username, Crypt::decryptString($record->password));
                     $message = 'Configuration valid';

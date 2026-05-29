@@ -6,7 +6,6 @@ use App\Filament\Resources\CustomerResource;
 use App\Models\Customer;
 use Filament\Actions;
 use Filament\Resources\Pages\ViewRecord;
-use Illuminate\Contracts\View\View;
 
 class ViewCustomer extends ViewRecord
 {
@@ -18,7 +17,7 @@ class ViewCustomer extends ViewRecord
         return [
             Actions\EditAction::make('Edit')
                 ->slideOver()
-                ->form(Customer::getForm())
+                ->schema(Customer::getForm()),
         ];
     }
 }

@@ -10,6 +10,7 @@ use Filament\Forms\Components\Select;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
 use JsonException;
@@ -17,7 +18,7 @@ use Override;
 
 class TechnicianDetails extends PSOResourceBasePage
 {
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
     // Page Information
     protected static ?string $title = 'Technician Details';
@@ -59,7 +60,7 @@ class TechnicianDetails extends PSOResourceBasePage
                                 ->suffixAction(
                                     Action::make('getTechnicianList')
                                         ->label('Get List')
-                                        ->icon('heroicon-o-arrow-down-on-square')
+                                        ->icon(Heroicon::OutlinedArrowDownOnSquare)
                                         ->action(function () {
                                             $this->getTechnicianList();
                                         })

@@ -15,6 +15,7 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use UnitEnum;
@@ -38,9 +39,9 @@ class FilterLoadFile extends Page
 
     private const string JOB_TYPE = 'resource-job';
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-funnel';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedFunnel;
 
-    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-funnel';
+    protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::Funnel;
 
     protected string $view = 'filament.pages.filter-load-file';
 
@@ -241,7 +242,7 @@ class FilterLoadFile extends Page
     {
         return DateTimePicker::make('overrideDatetime')
             ->label('Override Input Reference Datetime')
-            ->prefixIcon('heroicon-o-calendar-days')
+            ->prefixIcon(Heroicon::OutlinedCalendarDays)
             ->helperText('Optional. Replaces the datetime in the Input_Reference.')
             ->native(false)
             ->seconds(false)

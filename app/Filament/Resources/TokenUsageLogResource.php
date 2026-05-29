@@ -11,6 +11,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -22,7 +23,7 @@ class TokenUsageLogResource extends Resource
 
     protected static ?string $model = TokenUsageLog::class;
 
-    protected static string|null|BackedEnum $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static string|null|BackedEnum $navigationIcon = Heroicon::OutlinedRectangleStack;
 
     protected static string|null|UnitEnum $navigationGroup = 'Core';
 

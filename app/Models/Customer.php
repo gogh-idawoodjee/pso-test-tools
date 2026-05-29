@@ -5,7 +5,13 @@ namespace App\Models;
 use App\Enums\Status;
 use App\Models\Scopes\UserOwnedModel;
 use App\Support\GeocodeHelper;
+use Filament\Actions\Action;
 use Filament\Forms;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -72,7 +78,7 @@ class Customer extends Model
     {
 
         return [
-            Forms\Components\Section::make('Customer Details')
+            Section::make('Customer Details')
                 ->schema([
                     Forms\Components\TextInput::make('name')
                         ->required(),
@@ -82,14 +88,14 @@ class Customer extends Model
                         ->options(Status::class)
                         ->required(),
                 ])->columns(),
-            Forms\Components\Section::make('Location')
+            Section::make('Location')
                 ->schema([
                     Forms\Components\TextInput::make('address')
                         ->required()
                         ->columnSpan(2)->suffixAction(
-                            Forms\Components\Actions\Action::make('geocode_address')
-                                ->icon('heroicon-m-map-pin')
-                                ->action(static function (Forms\Get $get, Forms\Set $set) {
+                            Action::make('geocode_address')
+                                ->icon(Heroicon::MapPin)
+                                ->action(static function (Get $get, Set $set) {
                                     $addressToGeocode = GeocodeHelper::makeAddressFromParts($get);
                                     GeocodeHelper::geocodeFormAddress($get, $set, 'lat', 'long', $addressToGeocode, true);
                                 }))
@@ -104,7 +110,7 @@ class Customer extends Model
                         ->relationship('region', 'name')
                         ->createOptionForm(Region::getForm())
                         ->editOptionForm(Region::getForm()),
-                    Forms\Components\Group::make()
+                    Group::make()
                         ->schema([
                             Forms\Components\TextInput::make('lat')
                                 ->label('Latitude')

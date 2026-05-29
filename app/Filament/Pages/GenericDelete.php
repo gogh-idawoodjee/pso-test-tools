@@ -17,6 +17,7 @@ use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JsonException;
@@ -26,9 +27,9 @@ class GenericDelete extends Page
 {
     use FormTrait;
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-trash';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedTrash;
 
-    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-o-trash';
+    protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::OutlinedTrash;
 
     protected string $view = 'filament.pages.generic-delete';
 
@@ -78,7 +79,7 @@ class GenericDelete extends Page
                             ->schema(fn () => $this->getPkInputFields()),
                         Actions::make([Action::make('delete_object')
                             ->label('Delete Object')
-                            ->icon('heroicon-o-trash')
+                            ->icon(Heroicon::OutlinedTrash)
                             ->action(function () {
                                 $this->delete_object();
                             })->visible(fn () => filled($this->selectedPSOObject)),

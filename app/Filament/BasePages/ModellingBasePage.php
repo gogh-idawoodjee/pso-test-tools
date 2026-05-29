@@ -6,6 +6,7 @@ use App\Models\Environment;
 use App\Traits\FormTrait;
 use BackedEnum;
 use Filament\Pages\Page;
+use Filament\Support\Icons\Heroicon;
 use UnitEnum;
 
 abstract class ModellingBasePage extends Page
@@ -18,9 +19,9 @@ abstract class ModellingBasePage extends Page
 
     public ?array $modelling_data = [];
 
-    protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-document-text';
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
-    protected static string|BackedEnum|null $activeNavigationIcon = 'heroicon-s-document-text';
+    protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::DocumentText;
 
     protected static ?string $navigationLabel = 'Modelling Services';
 
