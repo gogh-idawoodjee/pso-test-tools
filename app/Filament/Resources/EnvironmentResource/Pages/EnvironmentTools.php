@@ -184,7 +184,7 @@ class EnvironmentTools extends Page
 
                                 })
                                 ->label(function () {
-                                    return $this->data['input_mode'] === InputMode::LOAD ? 'Load' : 'Update Rota';
+                                    return $this->data['input_mode'] === InputMode::LOAD->value ? 'Send Initial Load' : 'Update Rota';
                                 }),
 
                             ])->columnSpan(2),
