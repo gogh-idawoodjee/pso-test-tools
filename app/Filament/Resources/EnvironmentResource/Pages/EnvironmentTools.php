@@ -265,6 +265,15 @@ class EnvironmentTools extends Page
 
         $payload = $this->buildPayLoad($data);
 
+        if (! $sendToPso) {
+            $this->response = json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+            $this->json_form_data['json_response_pretty'] = $this->response;
+            $this->dispatch('json-updated');
+            $this->dispatch('open-modal', id: 'show-json');
+
+            return;
+        }
+
         $environmentProperties = [
             'base_url' => $data('base_url'),
             'account_id' => $data('account_id'),
