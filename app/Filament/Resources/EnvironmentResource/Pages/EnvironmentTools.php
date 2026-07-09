@@ -74,7 +74,7 @@ class EnvironmentTools extends Page
         $this->record->appointment_window = 7;
         $this->record->process_type = ProcessType::APPOINTMENT;
         $this->record->datetime = Carbon::now();
-        $this->record->commit_url = 'https://'.config('psott.pso-services-api').'/api/v2/commit/'.$this->record->id;
+        $this->record->commit_url = 'https://'.config('psott.pso-services-api').'/api/commit/'.$this->record->id;
     }
 
     public function psoload(Schema $form): Schema
