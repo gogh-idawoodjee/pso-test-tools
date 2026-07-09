@@ -257,7 +257,7 @@ class EnvironmentTools extends Page
             $this->{$form}->getState();
         }
 
-        $inputMode = data_get($this->data, 'input_mode');
+        $inputMode = $data('input_mode');
         $segment = $inputMode === InputMode::LOAD ? InputMode::LOAD->getSegment() : InputMode::CHANGE->getSegment();
         $method = $inputMode === InputMode::LOAD ? HttpMethod::POST : HttpMethod::PATCH;
 
