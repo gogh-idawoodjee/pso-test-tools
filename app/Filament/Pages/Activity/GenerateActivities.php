@@ -11,6 +11,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use JsonException;
 
@@ -96,7 +98,7 @@ class GenerateActivities extends PSOActivityBasePage
                                         Action::make('clear_time_zone')
                                             ->icon('heroicon-m-x-circle')
                                             ->requiresConfirmation()
-                                            ->action(static function (Forms\Set $set) {
+                                            ->action(static function (Set $set) {
                                                 $set('time_zone', null);
                                             })),
 
@@ -148,7 +150,7 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->suffixAction(
                                         Action::make('geocode_address')
                                             ->icon('heroicon-m-map-pin')
-                                            ->action(function (Forms\Get $get, Forms\Set $set) {
+                                            ->action(function (Get $get, Set $set) {
                                                 GeocodeHelper::geocodeFormAddress($get, $set);
 
                                             }))
@@ -178,7 +180,7 @@ class GenerateActivities extends PSOActivityBasePage
                             }),
                         ]),
 
-                    ])->columns(),
+                    ])->columns(1),
 
             ])->statePath('activity_data');
     }
