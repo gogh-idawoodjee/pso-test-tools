@@ -109,18 +109,31 @@ trait PSOInteractionsTrait
 
         $version = config('psott.pso-services-api-version');
         $url = 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').$api_segment;
+        $timeout = config('psott.defaults.timeout', 10);
 
         $request = Http::contentType('application/json')
-            ->accept('application/json');
+            ->accept('application/json')
+            ->timeout($timeout)
+            ->connectTimeout($timeout);
 
         if (! empty($headers)) {
             $updatedHeaders = Arr::except(data_get($headers, 'environment'), ['sendToPso']);
             $request = $request->withHeaders($updatedHeaders);
         }
 
-        $response = $payload === null
-            ? $request->{$method->value}($url)
-            : $request->{$method->value}($url, $payload);
+        try {
+            $response = $payload === null
+                ? $request->{$method->value}($url)
+                : $request->{$method->value}($url, $payload);
+        } catch (ConnectionException $e) {
+            Log::error('Connection error while calling PSO services API', ['url' => $url, 'message' => $e->getMessage()]);
+            $this->notifyPayloadSent('Error', 'Could not reach the PSO services API (timed out or unreachable).', false);
+
+            return json_encode(
+                ['error' => 'Connection error: '.$e->getMessage()],
+                JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+            );
+        }
 
         $pass = $response->successful();
 
@@ -134,7 +147,17 @@ trait PSOInteractionsTrait
         $this->notifyPayloadSent($pass ? 'Success' : 'Error', $body, $pass);
 
         if ($pass) {
-            $decoded = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);
+            try {
+                $decoded = json_decode($response->body(), true, 512, JSON_THROW_ON_ERROR);
+            } catch (JsonException $e) {
+                Log::error('Invalid JSON response from PSO services API', ['url' => $url, 'message' => $e->getMessage()]);
+
+                return json_encode(
+                    ['error' => 'Received an invalid (non-JSON) response from the PSO services API.'],
+                    JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+                );
+            }
+
             $payload = data_get($decoded, $responseKey);
 
             return json_encode(
