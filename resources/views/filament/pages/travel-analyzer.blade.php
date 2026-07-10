@@ -40,8 +40,8 @@
             </div>
 
             @php
-                $pso = data_get($this->travelResults, 'pso', []);
-                $google = data_get($this->travelResults, 'google', []);
+                $pso = data_get($this->travelResults, 'results.pso', []);
+                $google = data_get($this->travelResults, 'results.google', []);
                 $hasBoth = !empty($pso) && !empty($google);
             @endphp
 
