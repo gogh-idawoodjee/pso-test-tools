@@ -11,6 +11,8 @@ class TravelCallbackController extends Controller
 {
     public function __invoke(Request $request): JsonResponse
     {
+        Log::debug('Travel callback payload received', ['payload' => $request->all()]);
+
         $validated = $request->validate([
             'travelLogId' => 'required|string',
         ]);
@@ -25,13 +27,18 @@ class TravelCallbackController extends Controller
             return response()->json(['error' => 'Unknown travelLogId'], 404);
         }
 
+        $results = $request->except('travelLogId');
+
         Cache::put($cacheKey, [
             'status' => 'complete',
-            'results' => $request->except('travelLogId'),
+            'results' => $results,
             'completed_at' => now()->toIso8601String(),
         ], now()->addMinutes(10));
 
-        Log::info('Travel callback received', ['travelLogId' => $validated['travelLogId']]);
+        Log::info('Travel callback received', [
+            'travelLogId' => $validated['travelLogId'],
+            'results' => $results,
+        ]);
 
         return response()->json(['message' => 'Results received']);
     }
