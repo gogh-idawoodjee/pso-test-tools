@@ -4,6 +4,8 @@ namespace App\Support;
 
 use Filament\Notifications\Notification;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Log;
+use Spatie\Geocoder\Exceptions\CouldNotGeocode;
 use Spatie\Geocoder\Geocoder;
 
 class GeocodeHelper
@@ -55,7 +57,13 @@ class GeocodeHelper
         $geocoder = new Geocoder($client);
         $geocoder->setApiKey(config('geocoder.key'));
 
-        return $geocoder->getCoordinatesForAddress($address);
+        try {
+            return $geocoder->getCoordinatesForAddress($address);
+        } catch (CouldNotGeocode $e) {
+            Log::error('Geocoding failed', ['address' => $address, 'message' => $e->getMessage()]);
+
+            return ['lat' => null, 'lng' => null];
+        }
     }
 
     private static function sendGeocodeNotification(string $key, string $message, string $type): void
