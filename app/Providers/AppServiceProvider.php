@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\ExternalSanctumToken;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
@@ -53,5 +54,11 @@ class AppServiceProvider extends ServiceProvider
             EnvironmentCheck::new(),
             UsedDiskSpaceCheck::new(),
         ]);
+
+        Gate::define('viewLogViewer', function ($user) {
+            return str_ends_with($user->email, '@mac.com')
+                || str_ends_with($user->email, '@goghsolutions.com')
+                || str_ends_with($user->email, '@thetechnodro.me');
+        });
     }
 }
