@@ -31,7 +31,7 @@
         <div class="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-700 dark:bg-gray-900">
             <div class="mb-4 flex items-center justify-between">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                    <x-filament::icon icon="{{ \Filament\Support\Icons\Heroicon::OutlinedChartBar }}" class="inline-block h-5 w-5 mr-1" />
+                    <x-filament::icon icon="heroicon-o-chart-bar" class="inline-block h-5 w-5 mr-1" />
                     Travel Analysis Results
                 </h3>
                 <x-filament::button color="gray" size="sm" wire:click="$set('travelResults', null)">
