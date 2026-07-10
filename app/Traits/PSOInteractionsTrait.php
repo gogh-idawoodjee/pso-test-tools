@@ -121,7 +121,11 @@ trait PSOInteractionsTrait
             $request = $request->withHeaders($updatedHeaders);
         }
 
-        Log::debug('Calling PSO services API', ['method' => $method->value, 'url' => $url]);
+        Log::debug('Calling PSO services API', [
+            'method' => $method->value,
+            'url' => $url,
+            'payload' => is_array($payload) ? self::redactSensitivePayload($payload) : $payload,
+        ]);
 
         try {
             $response = $payload === null
@@ -187,6 +191,19 @@ trait PSOInteractionsTrait
         return json_encode(
             $response->body(),
             JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES
+        );
+    }
+
+    private static function redactSensitivePayload(array $payload): array
+    {
+        return Arr::undot(
+            collect(Arr::dot($payload))
+                ->map(function ($value, string $key) {
+                    $sensitive = ['environment.token', 'data.googleApiKey', 'environment.password'];
+
+                    return in_array($key, $sensitive, true) ? '[REDACTED]' : $value;
+                })
+                ->all()
         );
     }
 
