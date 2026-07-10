@@ -46,7 +46,7 @@ class GeocodeHelper
             $set($longPath, $coords['lng']);
             self::sendGeocodeNotification('passedgeo', 'Successful Geocode', 'success');
         } else {
-            self::sendGeocodeNotification('failedgeo', 'Failed Geocode', 'danger');
+            self::sendGeocodeNotification('failedgeo', 'Failed Geocode', 'danger', $coords['error'] ?? null);
         }
     }
 
@@ -62,14 +62,15 @@ class GeocodeHelper
         } catch (CouldNotGeocode $e) {
             Log::error('Geocoding failed', ['address' => $address, 'message' => $e->getMessage()]);
 
-            return ['lat' => null, 'lng' => null];
+            return ['lat' => null, 'lng' => null, 'error' => $e->getMessage()];
         }
     }
 
-    private static function sendGeocodeNotification(string $key, string $message, string $type): void
+    private static function sendGeocodeNotification(string $key, string $message, string $type, ?string $body = null): void
     {
         Notification::make($key)
             ->title($message)
+            ->body($body)
             ->icon('heroicon-s-map')
             ->{$type}()
             ->send();
