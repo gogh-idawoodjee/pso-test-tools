@@ -18,7 +18,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use JsonException;
 use UnitEnum;
 
@@ -162,8 +161,6 @@ class TravelAnalyzer extends Page
         $this->validateForms($this->getForms());
 
         $sendToPso = $this->environment_data['send_to_pso'];
-        $this->travelLogId = Str::uuid()->toString();
-
         $callbackUrl = route('travel.callback');
 
         $payload = array_merge(
@@ -176,25 +173,34 @@ class TravelAnalyzer extends Page
                     'longTo' => $get('long_to'),
                     'sendToPso' => $sendToPso,
                     'googleApiKey' => config('psott.google_api_key'),
-                    'travelLogId' => $this->travelLogId,
                     'callbackUrl' => $callbackUrl,
                 ],
             ]
         );
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload)) {
-            // Reserve the cache key so the callback controller can validate it
-            Cache::put("travel-analysis:{$this->travelLogId}", [
-                'status' => 'pending',
-            ], now()->addMinutes(10));
-
-            $this->isWaiting = true;
-            $this->waitingStartedAt = now()->toIso8601String();
-
-            Log::info('Travel analysis dispatched', ['travelLogId' => $this->travelLogId]);
-
             $this->response = $this->sendToPSONew('travelanalyzer', $tokenized_payload);
             $this->dispatch('json-updated');
+
+            // pso-services generates the travel log id and returns it in the
+            // initial response — we must key the cache off that id, not one
+            // we invent ourselves, since that's the id DispatchTravelCallback
+            // echoes back later.
+            $decoded = json_decode($this->response, true, 512, JSON_THROW_ON_ERROR);
+            $this->travelLogId = data_get($decoded, 'input_payload.dsScheduleData.Travel_Detail_Request.0.id');
+
+            if ($this->travelLogId) {
+                Cache::put("travel-analysis:{$this->travelLogId}", [
+                    'status' => 'pending',
+                ], now()->addMinutes(10));
+
+                $this->isWaiting = true;
+                $this->waitingStartedAt = now()->toIso8601String();
+
+                Log::info('Travel analysis dispatched', ['travelLogId' => $this->travelLogId]);
+            } else {
+                Log::warning('Could not determine travelLogId from PSO services API response', ['response' => $this->response]);
+            }
         }
     }
 
