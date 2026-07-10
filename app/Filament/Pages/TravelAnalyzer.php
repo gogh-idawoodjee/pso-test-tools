@@ -187,7 +187,7 @@ class TravelAnalyzer extends Page
             // we invent ourselves, since that's the id DispatchTravelCallback
             // echoes back later.
             $decoded = json_decode($this->response, true, 512, JSON_THROW_ON_ERROR);
-            $this->travelLogId = data_get($decoded, 'input_payload.dsScheduleData.Travel_Detail_Request.0.id');
+            $this->travelLogId = data_get($decoded, 'input_payload.dsScheduleData.Travel_Detail_Request.id');
 
             if ($this->travelLogId) {
                 Cache::put("travel-analysis:{$this->travelLogId}", [
