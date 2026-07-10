@@ -121,6 +121,8 @@ trait PSOInteractionsTrait
             $request = $request->withHeaders($updatedHeaders);
         }
 
+        Log::debug('Calling PSO services API', ['method' => $method->value, 'url' => $url]);
+
         try {
             $response = $payload === null
                 ? $request->{$method->value}($url)
@@ -142,6 +144,22 @@ trait PSOInteractionsTrait
             $body = 'invalid credentials';
         } elseif ($response->failed()) {
             $body = 'see the response below';
+        }
+
+        if ($pass) {
+            Log::debug('PSO services API response', [
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+        } else {
+            Log::warning('PSO services API returned a non-successful response', [
+                'url' => $url,
+                'method' => $method->value,
+                'status' => $response->status(),
+                'headers' => $response->headers(),
+                'body' => $response->body(),
+            ]);
         }
 
         $this->notifyPayloadSent($pass ? 'Success' : 'Error', $body, $pass);
