@@ -23,6 +23,7 @@
         "league/flysystem-aws-s3-v3": "^3.0",
         "livewire/livewire": "^4.0",
         "novadaemon/filament-pretty-json": "^4.0",
+        "opcodesio/log-viewer": "^3.24",
         "pxlrbt/filament-environment-indicator": "^3.0",
         "saade/filament-fullcalendar": "^4.0@beta",
         "sentry/sentry-laravel": "^4.13",

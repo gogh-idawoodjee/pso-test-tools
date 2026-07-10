@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "laravel-adjacency-list": {
+      "source": "whoami15/claude-code-laravel-skills",
+      "sourceType": "github",
+      "skillPath": "skills/laravel-adjacency-list/SKILL.md",
+      "computedHash": "f18a05ce2734e1e0986541e96812b0b254857b7df94f4e555ae2bdee58bb5e84"
+    },
+    "payrex-laravel": {
+      "source": "whoami15/claude-code-laravel-skills",
+      "sourceType": "github",
+      "skillPath": "skills/payrex-laravel/SKILL.md",
+      "computedHash": "c48fbf800d871e246ab8a2d929395fc092cf34cb57222b6f5659d72754497eca"
+    },
+    "saloon-for-laravel": {
+      "source": "whoami15/claude-code-laravel-skills",
+      "sourceType": "github",
+      "skillPath": "skills/saloon-for-laravel/SKILL.md",
+      "computedHash": "7af689903b4c88692a83b7d7cb0648434d225f7d42f552d071a8480f4ad511c8"
+    }
+  }
+}
