@@ -47,9 +47,11 @@ class ARPRegion extends ModellingBasePage
                             ->schema([
                                 TextInput::make('region_id')
                                     ->label('Region ID')
+                                    ->prefixIcon(Heroicon::OutlinedTag)
                                     ->required(),
                                 TextInput::make('description')
                                     ->label('Description')
+                                    ->prefixIcon(Heroicon::OutlinedDocumentText)
                                     ->helperText('Leave blank to auto-generate from the Region ID.'),
                             ])
                             ->columns(2)
@@ -60,9 +62,11 @@ class ARPRegion extends ModellingBasePage
                     ->schema([
                         TextInput::make('region_parent')
                             ->label('Region Parent')
+                            ->prefixIcon(Heroicon::OutlinedRectangleGroup)
                             ->helperText('Parent division id applied to every region above.'),
                         TextInput::make('region_category')
                             ->label('Region Category')
+                            ->prefixIcon(Heroicon::OutlinedSquares2x2)
                             ->helperText('Division type id applied to every region above.'),
                         Toggle::make('send')
                             ->label('Send to Scheduling Engine')

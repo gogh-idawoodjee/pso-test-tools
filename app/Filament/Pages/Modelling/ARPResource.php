@@ -44,12 +44,15 @@ class ARPResource extends ModellingBasePage
                     ->schema([
                         TextInput::make('resource_type_id')
                             ->label('Resource Type ID')
+                            ->prefixIcon(Heroicon::OutlinedWrenchScrewdriver)
                             ->required(),
                         TagsInput::make('skills')
                             ->label('Skills')
+                            ->prefixIcon(Heroicon::OutlinedBookmark)
                             ->helperText('Applied to every resource below.'),
                         TagsInput::make('regions')
                             ->label('Regions')
+                            ->prefixIcon(Heroicon::OutlinedGlobeAlt)
                             ->helperText('Applied to every resource below.'),
                     ]),
                 Section::make('Resources')
@@ -63,6 +66,7 @@ class ARPResource extends ModellingBasePage
                             ->schema([
                                 TextInput::make('address')
                                     ->label('Address')
+                                    ->prefixIcon('heroicon-s-map')
                                     ->columnSpan(2)
                                     ->suffixAction(
                                         Action::make('geocode_address')
@@ -73,20 +77,24 @@ class ARPResource extends ModellingBasePage
                                     )
                                     ->hint('click the map icon to geocode this!'),
                                 TextInput::make('latitude')
+                                    ->prefixIcon('heroicon-s-arrows-up-down')
                                     ->required()
                                     ->numeric()
                                     ->minValue(-90)
                                     ->maxValue(90),
                                 TextInput::make('longitude')
+                                    ->prefixIcon('heroicon-s-arrows-right-left')
                                     ->required()
                                     ->numeric()
                                     ->minValue(-180)
                                     ->maxValue(180),
                                 TextInput::make('name')
                                     ->label('Name')
+                                    ->prefixIcon(Heroicon::OutlinedUser)
                                     ->helperText('Leave blank to generate a random name.'),
                                 TextInput::make('resource_id')
                                     ->label('Resource ID')
+                                    ->prefixIcon(Heroicon::OutlinedHashtag)
                                     ->helperText('Leave blank to derive from the name.'),
                             ])
                             ->columns(2)
