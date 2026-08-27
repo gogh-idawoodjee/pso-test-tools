@@ -31,16 +31,16 @@ function loadSchema(array $overrides = []): array
 it('omits psoApiVersion, includeArpData and broadcasts when not provided', function () {
     $payload = (new EnvironmentTools)->initialize_payload(loadSchema());
 
-    expect($payload['environment'])->not->toHaveKey('psoApiVersion')
-        ->and($payload['data'])->not->toHaveKey('includeArpData')
-        ->and($payload['data'])->not->toHaveKey('rotaId')
-        ->and($payload['data'])->not->toHaveKey('broadcasts');
+    expect($payload)->not->toHaveKey('environment.psoApiVersion')
+        ->and($payload)->not->toHaveKey('data.includeArpData')
+        ->and($payload)->not->toHaveKey('data.rotaId')
+        ->and($payload)->not->toHaveKey('data.broadcasts');
 });
 
 it('includes psoApiVersion when set', function () {
     $payload = (new EnvironmentTools)->initialize_payload(loadSchema(['pso_api_version' => 2]));
 
-    expect($payload['environment']['psoApiVersion'])->toBe(2);
+    expect(data_get($payload, 'environment.psoApiVersion'))->toBe(2);
 });
 
 it('includes rotaId only when includeArpData is true', function () {
@@ -49,8 +49,8 @@ it('includes rotaId only when includeArpData is true', function () {
         'rota_id' => 'rota-42',
     ]));
 
-    expect($payload['data']['includeArpData'])->toBeTrue()
-        ->and($payload['data']['rotaId'])->toBe('rota-42');
+    expect(data_get($payload, 'data.includeArpData'))->toBeTrue()
+        ->and(data_get($payload, 'data.rotaId'))->toBe('rota-42');
 });
 
 it('builds a REST broadcast with its required parameters', function () {
@@ -67,12 +67,10 @@ it('builds a REST broadcast with its required parameters', function () {
         ],
     ]));
 
-    $broadcast = $payload['data']['broadcasts'][0];
-
-    expect($broadcast['broadcastTypeId'])->toBe('REST')
-        ->and($broadcast['planType'])->toBe('COMPLETE')
-        ->and($broadcast['allocationType'])->toBe([1, 4])
-        ->and($broadcast['parameters'])->toEqualCanonicalizing([
+    expect(data_get($payload, 'data.broadcasts.0.broadcastTypeId'))->toBe('REST')
+        ->and(data_get($payload, 'data.broadcasts.0.planType'))->toBe('COMPLETE')
+        ->and(data_get($payload, 'data.broadcasts.0.allocationType'))->toBe([1, 4])
+        ->and(data_get($payload, 'data.broadcasts.0.parameters'))->toEqualCanonicalizing([
             ['name' => 'mediatype', 'value' => 'application/json'],
             ['name' => 'url', 'value' => 'https://example.test/hook'],
         ]);
@@ -91,7 +89,7 @@ it('handles allocation_type as live-wire enum instances, not just raw ints', fun
         ],
     ]));
 
-    expect($payload['data']['broadcasts'][0]['allocationType'])->toBe([1, 4]);
+    expect(data_get($payload, 'data.broadcasts.0.allocationType'))->toBe([1, 4]);
 });
 
 it('sends maximumFrequency and maximumWait as plain integer minutes', function () {
@@ -108,10 +106,8 @@ it('sends maximumFrequency and maximumWait as plain integer minutes', function (
         ],
     ]));
 
-    $broadcast = $payload['data']['broadcasts'][0];
-
-    expect($broadcast['maximumFrequency'])->toBe(5)
-        ->and($broadcast['maximumWait'])->toBe(30);
+    expect(data_get($payload, 'data.broadcasts.0.maximumFrequency'))->toBe(5)
+        ->and(data_get($payload, 'data.broadcasts.0.maximumWait'))->toBe(30);
 });
 
 it('adds application_type_id and check_in_expired_time parameters for ADMIN plan type', function () {
@@ -128,7 +124,7 @@ it('adds application_type_id and check_in_expired_time parameters for ADMIN plan
         ],
     ]));
 
-    $names = array_column($payload['data']['broadcasts'][0]['parameters'], 'name');
+    $names = array_column(data_get($payload, 'data.broadcasts.0.parameters'), 'name');
 
     expect($names)->toEqualCanonicalizing([
         'to_address',
