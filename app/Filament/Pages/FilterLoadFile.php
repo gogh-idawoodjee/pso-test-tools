@@ -17,6 +17,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use UnitEnum;
 
@@ -89,6 +90,10 @@ class FilterLoadFile extends Page
      */
     public function mount(): void
     {
+        // ProcessResourceFile's own queue timeout is 300s; give it a little
+        // buffer beyond that so the job has a chance to fail on its own first.
+        $this->jobTimeoutSeconds = 320;
+
         $this->environments = Environment::with('datasets')->get();
         $this->isAuthenticationRequired = true;
 
@@ -410,20 +415,12 @@ class FilterLoadFile extends Page
             return;
         }
 
-        Log::info("Polling checkStatus for jobId: {$this->jobId}");
-
-        // Load available IDs
-        $this->loadAvailableIds();
-
-        // Track polling for debugging
-        $this->incrementPollingCount();
-
         // Get job status data
         $this->progress = $this->getJobProgress();
         $this->status = $this->getJobStatus();
 
-        Log::info('[FilterLoadFile] 🔄 checkStatus()', [
-            'poll' => $this->pollingCount,
+        Log::debug('[FilterLoadFile] checkStatus()', [
+            'jobId' => $this->jobId,
             'status' => $this->status,
             'progress' => $this->progress,
         ]);
@@ -490,8 +487,10 @@ class FilterLoadFile extends Page
             return;
         }
 
-        // Cancel the job and clean up
-        //        $this->updateCache('status', 'cancelled');
+        // Flag the running job to stop at its next checkpoint (see
+        // ProcessResourceFile::abortIfCancelled()), then reset the UI.
+        Cache::put($this->getJobCacheKey('cancelled'), true);
+
         $this->progress = 0;
         $this->status = 'cancelled';
         $this->jobId = null;
@@ -527,6 +526,7 @@ class FilterLoadFile extends Page
      */
     private function handleJobCompletion(): void
     {
+        $this->loadAvailableIds();
         $this->downloadUrl = $this->getFromJobCache('download');
         $this->preview = $this->getFromJobCache('preview', []);
 
@@ -562,14 +562,14 @@ class FilterLoadFile extends Page
         ]);
     }
 
-    protected function getElapsedTime(): string
+    public function getElapsedTime(): string
     {
         if (! $this->jobCreatedAt) {
             return '0:00';
         }
 
-        $seconds = now()->diffInSeconds($this->jobCreatedAt);
-        $minutes = floor($seconds / 60);
+        $seconds = (int) now()->diffInSeconds($this->jobCreatedAt, absolute: true);
+        $minutes = intdiv($seconds, 60);
         $remainingSeconds = $seconds % 60;
 
         return $minutes.':'.str_pad($remainingSeconds, 2, '0', STR_PAD_LEFT);

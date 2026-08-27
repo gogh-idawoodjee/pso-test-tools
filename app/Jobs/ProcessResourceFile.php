@@ -82,6 +82,10 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             ]); // ← logging
             $this->updateProgress(10);
 
+            if ($this->abortIfCancelled()) {
+                return;
+            }
+
             // --- PROCESS (FILTER) ---
             $result = $this->processData($data);
             Log::info("[ProcessResourceFile][{$this->jobId}] 🔍 Filtering done", [
@@ -109,6 +113,10 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
                 return;
             }
 
+            if ($this->abortIfCancelled()) {
+                return;
+            }
+
             // --- OUTPUT FILE ---
             $this->createOutputFile($result['filtered']);
             Log::info("[ProcessResourceFile][{$this->jobId}] 📤 Output created"); // ← logging
@@ -128,6 +136,23 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             ]); // ← logging
             $this->updateStatus('failed');
         }
+    }
+
+    /**
+     * Checks whether the user cancelled this job from the UI (see
+     * FilterLoadFile::cancelJob()). If so, marks it cancelled and returns
+     * true so the caller can stop before the next expensive stage.
+     */
+    private function abortIfCancelled(): bool
+    {
+        if (! $this->isCancelled()) {
+            return false;
+        }
+
+        Log::info("[ProcessResourceFile][{$this->jobId}] 🛑 Cancelled by user"); // ← logging
+        $this->updateStatus('cancelled');
+
+        return true;
     }
 
     /**

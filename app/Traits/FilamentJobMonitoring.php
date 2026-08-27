@@ -21,7 +21,12 @@ trait FilamentJobMonitoring
 
     public int $progress = 0;
 
-    protected const int JOB_TIMEOUT = 60;
+    /**
+     * How long (in seconds) a job may run before the UI gives up on it.
+     * Override in the consuming class if its job legitimately needs longer
+     * (e.g. to match a queued job's own $timeout).
+     */
+    protected int $jobTimeoutSeconds = 60;
 
     public string $cachePrefixType = 'resource-job';
 
@@ -34,6 +39,7 @@ trait FilamentJobMonitoring
         $this->cachePrefixType = $jobType;
 
         Cache::put($this->getJobCacheKey('status'), 'starting up');
+        Cache::put($this->getJobCacheKey('created_at'), time());
         Log::info("Starting {$jobType} job with ID: {$this->jobId}");
     }
 
@@ -47,13 +53,13 @@ trait FilamentJobMonitoring
     {
         $createdAt = Cache::get($this->getJobCacheKey('created_at'), 0);
 
-        return $this->status === 'pending'
-            && (time() - $createdAt) > self::JOB_TIMEOUT;
+        return ! in_array($this->status, ['complete', 'failed', 'cancelled'], true)
+            && $createdAt > 0
+            && (time() - $createdAt) > $this->jobTimeoutSeconds;
     }
 
     protected function handleJobTimeout(): void
     {
-        $this->progress = 100;
         $this->notify('Job timed out', 'The processing job took too long to complete.', 'warning');
         $this->resetJobState();
     }

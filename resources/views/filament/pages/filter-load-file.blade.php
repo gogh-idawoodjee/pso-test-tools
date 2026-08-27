@@ -38,6 +38,9 @@
                         @endif
                     </span>
                 </div>
+                @if ($progress < 100)
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mb-2">Elapsed: {{ $this->getElapsedTime() }}</p>
+                @endif
                 <div class="w-full h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div
                         class="h-4 rounded-full transition-all duration-1000 ease-in-out relative overflow-hidden

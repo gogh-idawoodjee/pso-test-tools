@@ -40,4 +40,14 @@ abstract class HasScopedCache
     {
         $this->updateCache('status', $status);
     }
+
+    /**
+     * Whether the UI has flagged this job as cancelled (see
+     * FilterLoadFile::cancelJob()). Check this between stages in long-running
+     * jobs and bail out early when true.
+     */
+    protected function isCancelled(): bool
+    {
+        return $this->jobId && (bool) Cache::get($this->cachePrefix().'cancelled', false);
+    }
 }

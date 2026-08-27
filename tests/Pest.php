@@ -41,7 +41,17 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function callProtectedMethod(object $instance, string $method, array $args = []): mixed
 {
-    // ..
+    $reflection = new ReflectionMethod($instance, $method);
+    $reflection->setAccessible(true);
+
+    return $reflection->invokeArgs($instance, $args);
+}
+
+function setProtectedProperty(object $instance, string $property, mixed $value): void
+{
+    $reflection = new ReflectionProperty($instance, $property);
+    $reflection->setAccessible(true);
+    $reflection->setValue($instance, $value);
 }
