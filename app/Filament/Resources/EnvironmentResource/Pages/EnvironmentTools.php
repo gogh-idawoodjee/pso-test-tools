@@ -206,6 +206,7 @@ class EnvironmentTools extends Page
                                     Toggle::make('include_arp_data')
                                         ->dehydrated(false)
                                         ->label('Include ARP Data')
+                                        ->inline(false)
                                         ->live()
                                         ->afterStateUpdated(static function (Get $get, Set $set, ?bool $state) {
                                             if ($state && blank($get('rota_id'))) {
@@ -251,6 +252,7 @@ class EnvironmentTools extends Page
                                                 ->native(false)
                                                 ->required()
                                                 ->live()
+                                                ->default(BroadcastType::REST)
                                                 ->enum(BroadcastType::class)
                                                 ->options(BroadcastType::class)
                                                 ->helperText('How the plan/change is delivered to the external system, and which parameters below are required.')
@@ -273,6 +275,12 @@ class EnvironmentTools extends Page
                                                 ->options(BroadcastAllocationType::class)
                                                 ->columns(2)
                                                 ->columnSpanFull()
+                                                ->live()
+                                                ->afterStateUpdated(static function (Set $set, ?array $state) {
+                                                    $set('description', collect($state)
+                                                        ->map(static fn ($value) => BroadcastAllocationType::from((int) $value)->getLabel())
+                                                        ->implode(', '));
+                                                })
                                                 ->helperText('Restricts which scheduling engine\'s plan data this broadcast includes. Select more than one to combine them.'),
                                             Textarea::make('description')
                                                 ->maxLength(2000)
