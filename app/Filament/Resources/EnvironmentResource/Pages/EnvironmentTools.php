@@ -243,7 +243,8 @@ class EnvironmentTools extends Page
                                         })
                                         ->schema([
                                             Toggle::make('active')
-                                                ->default(true),
+                                                ->default(true)
+                                                ->helperText('Whether the broadcast is active.'),
                                             Select::make('broadcast_type_id')
                                                 ->label('Broadcast Type')
                                                 ->native(false)
@@ -251,6 +252,7 @@ class EnvironmentTools extends Page
                                                 ->live()
                                                 ->enum(BroadcastType::class)
                                                 ->options(BroadcastType::class)
+                                                ->helperText('How the plan/change is delivered to the external system, and which parameters below are required.')
                                                 ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                                             Select::make('plan_type')
                                                 ->label('Plan Type')
@@ -269,76 +271,103 @@ class EnvironmentTools extends Page
                                                 ->label('Allocation Type')
                                                 ->options(BroadcastAllocationType::class)
                                                 ->columns(2)
-                                                ->columnSpanFull(),
+                                                ->columnSpanFull()
+                                                ->helperText('Restricts which scheduling engine\'s plan data this broadcast includes. Select more than one to combine them.'),
                                             Textarea::make('description')
                                                 ->maxLength(2000)
                                                 ->columnSpanFull(),
-                                            Toggle::make('once_only'),
+                                            Toggle::make('once_only')
+                                                ->helperText('If on, the plan is only broadcast once, the first time it\'s required, then discarded. STATIC schedules always broadcast once only.'),
                                             TextInput::make('minimum_plan_quality')
                                                 ->label('Minimum Plan Quality')
                                                 ->numeric()
                                                 ->minValue(0)
                                                 ->maxValue(100)
-                                                ->suffix('%'),
+                                                ->suffix('%')
+                                                ->helperText('The plan will only be broadcast when the Plan Quality is greater than or equal to this value. Defaults to 100 if left blank.'),
                                             TextInput::make('minimum_step_interval')
                                                 ->label('Minimum Step Interval')
-                                                ->integer(),
+                                                ->integer()
+                                                ->helperText('A broadcast will only be sent every \'x\' plans, e.g. 3 sends on every 3rd plan. Defaults to 1 if left blank.'),
                                             TextInput::make('minimum_visit_status')
                                                 ->label('Minimum Visit Status')
-                                                ->integer(),
-                                            TextInput::make('input_reference_id')
-                                                ->label('Input Reference ID')
-                                                ->maxLength(100),
+                                                ->integer()
+                                                ->helperText('Allocation rows with a visit_status below this value are removed from the broadcast.'),
                                             TextInput::make('maximum_frequency')
                                                 ->label('Maximum Frequency')
-                                                ->placeholder('e.g. PT5M')
-                                                ->helperText('ISO 8601 duration.'),
+                                                ->integer()
+                                                ->minValue(1)
+                                                ->suffix('minutes')
+                                                ->helperText('Minimum time since the previous broadcast before sending an updated one.'),
                                             TextInput::make('maximum_wait')
                                                 ->label('Maximum Wait')
-                                                ->placeholder('e.g. PT30M')
-                                                ->helperText('ISO 8601 duration.'),
+                                                ->integer()
+                                                ->minValue(1)
+                                                ->suffix('minutes')
+                                                ->helperText('The plan is broadcast once the minimum plan quality is met, or once this wait elapses, whichever comes first.'),
                                             DateTimePicker::make('expiry_datetime')
-                                                ->label('Expiry Date Time'),
+                                                ->label('Expiry Date Time')
+                                                ->helperText('If the schedule time passes this, the broadcast is skipped and no plan is generated.'),
                                             DateTimePicker::make('time_filter_start')
-                                                ->label('Time Filter Start'),
+                                                ->label('Time Filter Start')
+                                                ->helperText('Activities ending at or before this time are excluded from the broadcast.'),
                                             DateTimePicker::make('time_filter_end')
-                                                ->label('Time Filter End'),
+                                                ->label('Time Filter End')
+                                                ->helperText('Activities starting at or after this time are excluded from the broadcast.'),
                                             TextInput::make('to_address')
                                                 ->label('To Address')
                                                 ->email()
+                                                ->helperText('Email address of the broadcast recipient.')
                                                 ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL)
                                                 ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL),
                                             TextInput::make('smtp_server')
                                                 ->label('SMTP Server')
+                                                ->helperText('Full SMTP server name of the recipient.')
                                                 ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL)
                                                 ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL),
                                             TextInput::make('file_path')
                                                 ->label('File Path')
+                                                ->helperText('File path to output the plan. A folder path keeps each broadcast as a separate file instead of overwriting the last one.')
                                                 ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::FILE)
                                                 ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::FILE),
-                                            TextInput::make('mediatype')
+                                            Select::make('mediatype')
                                                 ->label('Media Type')
+                                                ->native(false)
+                                                ->default('application/json')
+                                                ->helperText('The media type for the content of the request and response message.')
+                                                ->options([
+                                                    'application/json' => 'application/json',
+                                                    'text/json' => 'text/json',
+                                                    'application/xml' => 'application/xml',
+                                                    'text/xml' => 'text/xml',
+                                                    'application/octet-stream' => 'application/octet-stream',
+                                                ])
                                                 ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::REST)
                                                 ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::REST),
                                             TextInput::make('url')
                                                 ->label('URL')
                                                 ->url()
+                                                ->helperText('Path to the FTP site, web service, or REST endpoint.')
                                                 ->visible(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true))
                                                 ->required(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true)),
                                             TextInput::make('wsid')
                                                 ->label('Web Service ID')
+                                                ->helperText('The defined id for the webservice data to be sent back to.')
                                                 ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WEBSERVICE)
                                                 ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WEBSERVICE),
                                             TextInput::make('address')
                                                 ->label('Address')
+                                                ->helperText('Path to the WCF receiving service.')
                                                 ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WCF)
                                                 ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WCF),
                                             TextInput::make('application_type_id')
                                                 ->label('Application Type ID')
+                                                ->helperText('The application type this admin broadcast is for.')
                                                 ->visible(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN)
                                                 ->required(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN),
                                             TextInput::make('check_in_expired_time')
                                                 ->label('Check-In Expired Time')
+                                                ->helperText('Amount of time to have expired since the application last checked in before this broadcast is sent. IFS docs don\'t specify a unit/format for this field.')
                                                 ->visible(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN)
                                                 ->required(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN),
                                         ])
@@ -564,9 +593,8 @@ class EnvironmentTools extends Page
                     'minimumPlanQuality' => $broadcast['minimum_plan_quality'] ?? null,
                     'minimumStepInterval' => $broadcast['minimum_step_interval'] ?? null,
                     'expiryDatetime' => $broadcast['expiry_datetime'] ?? null,
-                    'inputReferenceId' => $broadcast['input_reference_id'] ?? null,
-                    'maximumFrequency' => $broadcast['maximum_frequency'] ?? null,
-                    'maximumWait' => $broadcast['maximum_wait'] ?? null,
+                    'maximumFrequency' => filled($broadcast['maximum_frequency'] ?? null) ? (int) $broadcast['maximum_frequency'] : null,
+                    'maximumWait' => filled($broadcast['maximum_wait'] ?? null) ? (int) $broadcast['maximum_wait'] : null,
                     'minimumVisitStatus' => $broadcast['minimum_visit_status'] ?? null,
                     'timeFilterStart' => $broadcast['time_filter_start'] ?? null,
                     'timeFilterEnd' => $broadcast['time_filter_end'] ?? null,

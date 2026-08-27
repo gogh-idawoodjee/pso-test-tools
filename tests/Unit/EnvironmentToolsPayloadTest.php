@@ -77,6 +77,26 @@ it('builds a REST broadcast with its required parameters', function () {
         ]);
 });
 
+it('sends maximumFrequency and maximumWait as plain integer minutes', function () {
+    $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
+        'broadcasts' => [
+            [
+                'broadcast_type_id' => BroadcastType::REST,
+                'plan_type' => BroadcastPlanType::COMPLETE,
+                'mediatype' => 'application/json',
+                'url' => 'https://example.test/hook',
+                'maximum_frequency' => '5',
+                'maximum_wait' => '30',
+            ],
+        ],
+    ]));
+
+    $broadcast = $payload['data']['broadcasts'][0];
+
+    expect($broadcast['maximumFrequency'])->toBe(5)
+        ->and($broadcast['maximumWait'])->toBe(30);
+});
+
 it('adds application_type_id and check_in_expired_time parameters for ADMIN plan type', function () {
     $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
         'broadcasts' => [
