@@ -138,6 +138,15 @@ class FilterLoadFile extends Page
                         ->maxSize(102400) // ← 100MB in kilobytes
                         ->acceptedFileTypes(['application/json'])
                         ->required()->columnSpan(2),
+
+                    Toggle::make('dryRun')
+                        ->label('Get Data')
+                        ->helperText('Required Prior to Filtering')
+                        ->disabled(fn () => ! $this->shouldShowDropdowns())
+                        ->dehydrated()
+                        ->default(true)
+                        ->live(),
+
                     Fieldset::make('Filtering Options')->schema([
                         $this->createRegionSelector(),
                         $this->createResourceSelector(),
@@ -162,14 +171,6 @@ class FilterLoadFile extends Page
 
                         $this->createDatetimeOverrideField(),
                     ])->visible(fn () => $this->shouldShowDropdowns()),
-
-                    Toggle::make('dryRun')
-                        ->label('Get Data')
-                        ->helperText('Required Prior to Filtering')
-                        ->disabled(fn () => ! $this->shouldShowDropdowns())
-                        ->dehydrated()
-                        ->default(true)
-                        ->live(),
                 ])->columns(),
         ]
         );
