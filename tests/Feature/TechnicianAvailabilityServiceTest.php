@@ -72,9 +72,9 @@ it('attaches an overlapping direct availability to a shift, with source_id defau
     expect($availability)->toMatchArray([
         'id' => 'A1',
         'region_id' => 'R1',
-        'region_description' => 'Region One',
+        'region_description' => 'R1 - Region One',
         'region_group_id' => 'R1',
-        'region_group_description' => 'Region One',
+        'region_group_description' => 'R1 - Region One',
         'region_active' => true,
         'full_coverage' => false,
         'source' => 'availability',
@@ -107,9 +107,37 @@ it('resolves the top-most parent region description for grouping', function () {
 
     $availability = $service->getTechnicianShifts()[0]['region_availability'][0];
 
-    expect($availability['region_group_id'])->toBe('PARENT')
-        ->and($availability['region_group_description'])->toBe('Parent Region')
+    expect($availability['region_description'])->toBe('CHILD - Child Region')
+        ->and($availability['region_group_id'])->toBe('PARENT')
+        ->and($availability['region_group_description'])->toBe('PARENT - Parent Region')
         ->and($availability['full_coverage'])->toBeTrue();
+});
+
+it('disambiguates regions that share the same description by prefixing the region id', function () {
+    $data = [
+        'Shift' => [
+            ['id' => 'S1', 'resource_id' => 'T1', 'start_datetime' => '2026-01-05T09:00:00-05:00', 'end_datetime' => '2026-01-05T17:00:00-05:00'],
+        ],
+        'Availability' => [
+            ['id' => 'A1', 'datetime_start' => '2026-01-05T08:00:00-05:00', 'datetime_end' => '2026-01-05T18:00:00-05:00'],
+        ],
+        'Resource_Region_Availability' => [
+            ['resource_id' => 'T1', 'region_id' => 'R1', 'availability_id' => 'A1'],
+            ['resource_id' => 'T1', 'region_id' => 'R2', 'availability_id' => 'A1'],
+        ],
+        'Region' => [
+            ['id' => 'R1', 'description' => 'Zone'],
+            ['id' => 'R2', 'description' => 'Zone'],
+        ],
+    ];
+
+    $service = new TechnicianAvailabilityService($data, technicianId: 'T1', startDate: '2026-01-01');
+
+    $descriptions = collect($service->getTechnicianShifts()[0]['region_availability'])
+        ->pluck('region_description')
+        ->all();
+
+    expect($descriptions)->toEqualCanonicalizing(['R1 - Zone', 'R2 - Zone']);
 });
 
 it('computes shift breaks from earliest_start_offset and duration', function () {

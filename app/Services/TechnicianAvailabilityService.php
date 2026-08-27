@@ -71,7 +71,7 @@ class TechnicianAvailabilityService
         $getTopParentDescription = static function (string $regionId) use ($getTopParentId, &$regionsById): string {
             $topId = $getTopParentId($regionId);
 
-            return $regionsById[$topId]['description'] ?? 'Unknown';
+            return "{$topId} - ".($regionsById[$topId]['description'] ?? 'Unknown');
         };
 
         // Expand pattern-based availabilities only for shift range
@@ -127,7 +127,9 @@ class TechnicianAvailabilityService
 
                         // Region metadata
                         $regionId = $rra['region_id'] ?? null;
-                        $description = $regionsById[$regionId]['description'] ?? 'Unknown';
+                        $description = $regionId
+                            ? "{$regionId} - ".($regionsById[$regionId]['description'] ?? 'Unknown')
+                            : 'Unknown';
                         $groupId = $regionId ? $getTopParentId($regionId) : null;
                         $groupDesc = $groupId ? $getTopParentDescription($regionId) : 'Unknown';
 
