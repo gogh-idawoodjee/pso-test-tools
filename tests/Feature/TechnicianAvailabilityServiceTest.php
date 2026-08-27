@@ -193,6 +193,37 @@ it('expands pattern-based availability into a region_availability entry for matc
         ->and($availability['source_id'])->toBeNull();
 });
 
+it('does not crash when the technician has no matching shifts', function () {
+    $data = [
+        'Shift' => [
+            ['id' => 'S1', 'resource_id' => 'OTHER_TECH', 'start_datetime' => '2026-01-05T09:00:00-05:00', 'end_datetime' => '2026-01-05T17:00:00-05:00'],
+        ],
+        'Resource_Region_Availability' => [
+            [
+                'resource_id' => 'T1',
+                'region_id' => 'R1',
+                'availability_pattern_id' => 'P1',
+                'within_region_multiplier' => 1.0,
+            ],
+        ],
+        'Availability_Pattern' => [
+            [
+                'id' => 'P1',
+                'period_start_datetime' => '2026-01-01T00:00:00-05:00',
+                'period_end_datetime' => '2026-01-31T00:00:00-05:00',
+                'day_pattern' => 'YYYYYNN',
+                'open_time' => 'PT8H',
+                'close_time' => 'PT16H',
+                'time_zone' => 'America/Toronto',
+            ],
+        ],
+    ];
+
+    $service = new TechnicianAvailabilityService($data, technicianId: 'T1', startDate: '2026-01-01');
+
+    expect($service->getTechnicianShifts())->toBe([]);
+});
+
 it('excludes shifts starting in the past when onlyUpcoming is true', function () {
     $data = [
         'Shift' => [

@@ -210,6 +210,10 @@ class TechnicianAvailabilityService
     {
         Log::info('Collecting the availability pattern based availability');
 
+        if (empty($shiftData)) {
+            return collect();
+        }
+
         $regionAvailability = collect($this->data['Resource_Region_Availability'] ?? []);
         $patterns = collect($this->data['Availability_Pattern'] ?? [])->keyBy('id');
 
