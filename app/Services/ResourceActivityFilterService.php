@@ -239,13 +239,13 @@ class ResourceActivityFilterService extends HasScopedCache
         $regionIdSet = array_flip($this->regionIds);
 
         $this->validResourceIds = collect($this->data['Resource_Region'] ?? [])
-            ->filter(static fn ($rr) => isset($regionIdSet[$rr['region_id']]))
+            ->filter(static fn ($rr) => isset($regionIdSet[data_get($rr, 'region_id')]))
             ->pluck('resource_id')
             ->unique()
             ->all();
 
         $this->validLocationIds = collect($this->data['Location'] ?? [])
-            ->filter(static fn ($loc) => isset($regionIdSet[$loc['region_id']]))
+            ->filter(static fn ($loc) => isset($regionIdSet[data_get($loc, 'region_id')]))
             ->pluck('id')
             ->all();
     }
