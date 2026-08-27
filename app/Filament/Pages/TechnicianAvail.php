@@ -210,6 +210,13 @@ class TechnicianAvail extends Page
         // Handle different job types
         if ($this->jobKey === self::JOB_TYPE_SHIFTS) {
             $this->technicianShifts = $this->getFromJobCache('shifts', []);
+
+            if (empty($this->technicianShifts)) {
+                $this->notifyWarning('No shifts found', 'This technician has no shifts on or after the selected date.');
+                $this->resetJobState();
+
+                return;
+            }
         } elseif ($this->jobKey === self::JOB_TYPE_RESOURCES) {
             $technicians = $this->getFromJobCache('technicians', []);
             $this->updateTechnicianOptions($technicians);
@@ -227,7 +234,7 @@ class TechnicianAvail extends Page
         // Only clear the job‐monitoring fields:
         $this->jobId = null;
         $this->jobKey = null;
-        $this->status = null;
+        $this->status = 'idle';
         $this->progress = 0;
 
         // NB: do NOT touch $this->formData or $this->technicianShifts here!

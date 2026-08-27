@@ -33,7 +33,7 @@
 
                 <div
                     style="width: 100%; height: 12px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden;">
-                    <div style="width: {{ $progress }}%; height: 100%; background-color: #10b981;"></div>
+                    <div style="width: {{ $progress }}%; height: 100%; background-color: #10b981; transition: width 0.4s ease-out;"></div>
                 </div>
 
                 <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ $progress }}%</p>
