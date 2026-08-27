@@ -45,6 +45,8 @@ class GetTechniciansListJob implements ShouldQueue
             $this->updateStatus('complete');
             $this->updateProgress(100);
 
+            CleanupTechnicianUploadJob::recordActivityAndScheduleCleanup($this->path);
+
             Log::info("✅ Technician list job {$this->jobId} completed with ".count($technicians).' technicians.');
         } catch (Throwable $e) {
             Log::error("❌ Job {$this->jobId} failed: ".$e->getMessage());

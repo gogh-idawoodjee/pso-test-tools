@@ -372,7 +372,7 @@
                                 $availWidthPercent = (($availEndSec - $availStartSec) / 86400) * 100;
                                 $regionId = $availability['region_id'] ?? 'unknown';
                                 $availColor = $legendColorMap[$regionId] ?? '#ccc';
-                                $regionDescription = $availability['region_description'] ?? 'Unknown region';
+                                $regionDescription = e($availability['region_description'] ?? 'Unknown region');
                                 $activeStatus = ($availability['region_active'] ?? true) ? 'Active' : 'Not Active';
 
                                 // Get the line index for this region ID from the prepared line map

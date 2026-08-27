@@ -61,6 +61,8 @@ class GetTechnicianShiftsJob implements ShouldQueue
             $this->updateStatus('complete');
             $this->updateProgress(100);
 
+            CleanupTechnicianUploadJob::recordActivityAndScheduleCleanup($this->path);
+
             Log::info("✅ Technician Shift Job {$this->jobId} completed");
         } catch (Throwable $e) {
             Log::error("❌ Technician Shift Job {$this->jobId} failed: ".$e->getMessage());
@@ -72,7 +74,7 @@ class GetTechnicianShiftsJob implements ShouldQueue
     {
         $service = new TechnicianAvailabilityService($data, $this->jobId, $this->technicianId, $this->startDate);
 
-        return $service->getTechnicianShifts() ?? [];
+        return $service->getTechnicianShifts();
     }
 
     /**

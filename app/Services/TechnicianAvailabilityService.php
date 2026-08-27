@@ -147,7 +147,7 @@ class TechnicianAvailabilityService
                             'full_coverage' => $availStart->lte($shiftStart)
                                 && $availEnd->gte($shiftEnd),
                             'source' => $rra['source'] ?? 'availability',
-                            'source_id' => $rra['source_id'] ?? $rra['id'],
+                            'source_id' => $rra['source_id'] ?? null,
                             'override_priority' => (int) ($rra['override_priority'] ?? 0),
                             'within_region_multiplier' => $multiplier,
                         ];

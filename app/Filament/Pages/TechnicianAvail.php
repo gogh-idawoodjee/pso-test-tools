@@ -44,7 +44,7 @@ class TechnicianAvail extends Page
     public ?array $technicianShifts = [];
 
     #[Url]
-    public bool $enableDebug = true;
+    public bool $enableDebug = false;
 
     // 3. Form-related properties
     public array $formData = [
@@ -73,6 +73,7 @@ class TechnicianAvail extends Page
                         ->disk('r2')
                         ->directory('uploads')
                         ->acceptedFileTypes(['application/json'])
+                        ->maxSize(102400) // 100MB in kilobytes
                         ->required(fn () => empty($this->technicianShifts))
                         ->dehydrated()
                         ->live()
