@@ -24,6 +24,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -278,33 +279,37 @@ class EnvironmentTools extends Page
                                                 ->columnSpanFull(),
                                             Toggle::make('once_only')
                                                 ->helperText('If on, the plan is only broadcast once, the first time it\'s required, then discarded. STATIC schedules always broadcast once only.'),
-                                            TextInput::make('minimum_plan_quality')
-                                                ->label('Minimum Plan Quality')
-                                                ->numeric()
-                                                ->minValue(0)
-                                                ->maxValue(100)
-                                                ->suffix('%')
-                                                ->helperText('The plan will only be broadcast when the Plan Quality is greater than or equal to this value. Defaults to 100 if left blank.'),
-                                            TextInput::make('minimum_step_interval')
-                                                ->label('Minimum Step Interval')
-                                                ->integer()
-                                                ->helperText('A broadcast will only be sent every \'x\' plans, e.g. 3 sends on every 3rd plan. Defaults to 1 if left blank.'),
-                                            TextInput::make('minimum_visit_status')
-                                                ->label('Minimum Visit Status')
-                                                ->integer()
-                                                ->helperText('Allocation rows with a visit_status below this value are removed from the broadcast.'),
-                                            TextInput::make('maximum_frequency')
-                                                ->label('Maximum Frequency')
-                                                ->integer()
-                                                ->minValue(1)
-                                                ->suffix('minutes')
-                                                ->helperText('Minimum time since the previous broadcast before sending an updated one.'),
-                                            TextInput::make('maximum_wait')
-                                                ->label('Maximum Wait')
-                                                ->integer()
-                                                ->minValue(1)
-                                                ->suffix('minutes')
-                                                ->helperText('The plan is broadcast once the minimum plan quality is met, or once this wait elapses, whichever comes first.'),
+                                            Grid::make(3)
+                                                ->columnSpanFull()
+                                                ->schema([
+                                                    TextInput::make('minimum_plan_quality')
+                                                        ->label('Minimum Plan Quality')
+                                                        ->numeric()
+                                                        ->minValue(0)
+                                                        ->maxValue(100)
+                                                        ->suffix('%')
+                                                        ->helperText('The plan will only be broadcast when the Plan Quality is greater than or equal to this value. Defaults to 100 if left blank.'),
+                                                    TextInput::make('minimum_step_interval')
+                                                        ->label('Minimum Step Interval')
+                                                        ->integer()
+                                                        ->helperText('A broadcast will only be sent every \'x\' plans, e.g. 3 sends on every 3rd plan. Defaults to 1 if left blank.'),
+                                                    TextInput::make('minimum_visit_status')
+                                                        ->label('Minimum Visit Status')
+                                                        ->integer()
+                                                        ->helperText('Allocation rows with a visit_status below this value are removed from the broadcast.'),
+                                                    TextInput::make('maximum_frequency')
+                                                        ->label('Maximum Frequency')
+                                                        ->integer()
+                                                        ->minValue(1)
+                                                        ->suffix('minutes')
+                                                        ->helperText('Minimum time since the previous broadcast before sending an updated one.'),
+                                                    TextInput::make('maximum_wait')
+                                                        ->label('Maximum Wait')
+                                                        ->integer()
+                                                        ->minValue(1)
+                                                        ->suffix('minutes')
+                                                        ->helperText('The plan is broadcast once the minimum plan quality is met, or once this wait elapses, whichever comes first.'),
+                                                ]),
                                             DateTimePicker::make('expiry_datetime')
                                                 ->label('Expiry Date Time')
                                                 ->helperText('If the schedule time passes this, the broadcast is skipped and no plan is generated.'),
