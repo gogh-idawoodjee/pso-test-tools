@@ -9,6 +9,7 @@ use App\Enums\BroadcastType;
 use App\Enums\HttpMethod;
 use App\Enums\InputMode;
 use App\Enums\ProcessType;
+use App\Enums\ScheduleDataUsageType;
 use App\Filament\Resources\EnvironmentResource;
 use App\Traits\PSOInteractionsTrait;
 use Carbon\Carbon;
@@ -30,9 +31,11 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Crypt;
 use JsonException;
 use Override;
 
@@ -49,6 +52,8 @@ class EnvironmentTools extends Page
     public ?array $data = [];
 
     public mixed $response = null;
+
+    public ?array $systemUsageGroups = null;
 
     protected static ?string $title = 'Tools';
 
@@ -126,7 +131,7 @@ class EnvironmentTools extends Page
 
                     ]),
                 Section::make('Environment Properties')
-                    ->description('These properties are for use with these tools when sending to PSO. Please click Return to environment above to update properties.')
+                    ->description('These properties are used by these tools when sending to PSO or fetching System Usage. Please click Return to environment above to update properties.')
                     ->icon(Heroicon::OutlinedCircleStack)
                     ->collapsible()
                     ->collapsed()
@@ -134,28 +139,17 @@ class EnvironmentTools extends Page
                     ->schema([
                         TextInput::make('base_url')
                             ->label('Base URL')
-                            ->prefixIcon(Heroicon::OutlinedGlobeAlt)
-                            ->disabled(static function (Get $get) {
-                                return ! $get('send_to_pso');
-                            }),
+                            ->prefixIcon(Heroicon::OutlinedGlobeAlt),
                         TextInput::make('account_id')
                             ->label('Account ID')
-                            ->prefixIcon(Heroicon::OutlinedIdentification)
-                            ->disabled(static function (Get $get) {
-                                return ! $get('send_to_pso');
-                            }),
+                            ->prefixIcon(Heroicon::OutlinedIdentification),
                         TextInput::make('username')
                             ->label('Username')
-                            ->prefixIcon(Heroicon::OutlinedUser)
-                            ->disabled(static function (Get $get) {
-                                return ! $get('send_to_pso');
-                            }),
+                            ->prefixIcon(Heroicon::OutlinedUser),
                         TextInput::make('password')
                             ->label('Password')
                             ->prefixIcon(Heroicon::OutlinedLockClosed)
-                            ->password()->disabled(static function (Get $get) {
-                                return ! $get('send_to_pso');
-                            }),
+                            ->password(),
                     ]),
                 Tabs::make('activity_tabs')->tabs([
                     Tab::make('load_rota_tab')
@@ -424,7 +418,28 @@ class EnvironmentTools extends Page
                         ->label('Initial Load and Rota'),
 
                     Tab::make('system_usage_tab')
-                        ->schema([])
+                        ->schema([
+                            DateTimePicker::make('usage_min_date')
+                                ->dehydrated(false)
+                                ->label('Min Date Time')
+                                ->helperText('Optional. Must be provided together with Max Date Time, or leave both blank.'),
+                            DateTimePicker::make('usage_max_date')
+                                ->dehydrated(false)
+                                ->label('Max Date Time')
+                                ->helperText('Optional. Must be provided together with Min Date Time, or leave both blank.'),
+                            Actions::make([
+                                Action::make('fetch_system_usage')
+                                    ->label('Get System Usage')
+                                    ->icon(Heroicon::OutlinedArrowPath)
+                                    ->action(function (Get $get) {
+                                        $this->fetchSystemUsage($get);
+                                    }),
+                            ])->columnSpanFull(),
+                            View::make('filament.resources.environment-resource.pages.partials.system-usage-stats')
+                                ->viewData(fn (): array => ['groups' => $this->systemUsageGroups])
+                                ->columnSpanFull(),
+                        ])
+                        ->columns()
                         ->icon(Heroicon::OutlinedCog)
                         ->label('System Usage'),
                     Tab::make('services_tab')
@@ -638,6 +653,83 @@ class EnvironmentTools extends Page
                     'parameters' => $parameters,
                 ], static fn ($value) => $value !== null);
             })
+            ->all();
+    }
+
+    public function fetchSystemUsage($get): void
+    {
+        $minDate = $get('usage_min_date');
+        $maxDate = $get('usage_max_date');
+
+        if (filled($minDate) xor filled($maxDate)) {
+            $this->notifyPayloadSent('System Usage Failed', 'Provide both Min Date Time and Max Date Time, or leave both blank.', false);
+
+            return;
+        }
+
+        $baseUrl = $get('base_url');
+        $accountId = $get('account_id');
+        $username = $get('username');
+        $password = $get('password');
+        $datasetId = $get('dataset_id');
+
+        if (blank($baseUrl) || blank($accountId) || blank($username) || blank($password)) {
+            $this->notifyPayloadSent('System Usage Failed', 'Base URL, Account ID, Username and Password are all required (see Environment Properties above).', false);
+
+            return;
+        }
+
+        $token = $this->authenticatePSO($baseUrl, $accountId, $username, Crypt::decryptString($password));
+
+        if (! $token) {
+            $this->notifyPayloadSent('System Usage Failed', 'Please see the event log', false);
+            $this->systemUsageGroups = null;
+
+            return;
+        }
+
+        $headers = [
+            'environment' => [
+                'baseUrl' => $baseUrl,
+                'accountId' => $accountId,
+                'datasetId' => $datasetId,
+                'token' => $token,
+            ],
+        ];
+
+        $query = array_filter([
+            'minDate' => $minDate,
+            'maxDate' => $maxDate,
+        ], filled(...));
+
+        $responseJson = $this->sendToPSONew('usage', null, $headers, HttpMethod::GET, true, $query ?: null);
+
+        $rows = (array) data_get(json_decode($responseJson, true), 'data.ScheduleDataUsages', []);
+
+        $this->systemUsageGroups = $this->groupUsageRows($rows);
+    }
+
+    /**
+     * Groups raw ScheduleDataUsages rows by usage type, keeping the most
+     * recent value per type plus how many readings fell in the requested range.
+     */
+    public function groupUsageRows(array $rows): array
+    {
+        return collect($rows)
+            ->groupBy('ScheduleDataUsageType')
+            ->map(function ($rowsForType) {
+                $sorted = collect($rowsForType)->sortByDesc('DatetimeStamp')->values();
+                $latest = $sorted->first();
+
+                return [
+                    'type' => ScheduleDataUsageType::tryFrom((int) data_get($latest, 'ScheduleDataUsageType')),
+                    'latestValue' => data_get($latest, 'Value'),
+                    'latestDatetime' => data_get($latest, 'DatetimeStamp'),
+                    'readingCount' => $sorted->count(),
+                ];
+            })
+            ->sortBy(fn (array $group) => $group['type']?->value ?? PHP_INT_MAX)
+            ->values()
             ->all();
     }
 }

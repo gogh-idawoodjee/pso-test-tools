@@ -93,6 +93,7 @@ trait PSOInteractionsTrait
         ?array $headers = null,
         ?HttpMethod $method = null,
         bool $isNonStandardResponse = false,
+        ?array $query = null,
     ): string {
         $headers ??= [];
         $responseKey = 'data.payloadToPso';
@@ -129,7 +130,7 @@ trait PSOInteractionsTrait
 
         try {
             $response = $payload === null
-                ? $request->{$method->value}($url)
+                ? $request->{$method->value}($url, $query ?? [])
                 : $request->{$method->value}($url, $payload);
         } catch (ConnectionException $e) {
             Log::error('Connection error while calling PSO services API', ['url' => $url, 'message' => $e->getMessage()]);
