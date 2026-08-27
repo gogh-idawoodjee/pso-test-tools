@@ -2,6 +2,10 @@
 
 namespace App\Filament\Resources\EnvironmentResource\Pages;
 
+use App\Enums\BroadcastAllocationType;
+use App\Enums\BroadcastParameterType;
+use App\Enums\BroadcastPlanType;
+use App\Enums\BroadcastType;
 use App\Enums\HttpMethod;
 use App\Enums\InputMode;
 use App\Enums\ProcessType;
@@ -10,8 +14,11 @@ use App\Traits\PSOInteractionsTrait;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
@@ -21,6 +28,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Arr;
@@ -176,6 +184,166 @@ class EnvironmentTools extends Page
                                 ->dehydrated(false)
                                 ->label('Input Date Time')
                                 ->prefixIcon(Heroicon::OutlinedClock),
+                            Section::make('Advanced Options')
+                                ->description('Additional PSO Input Reference options.')
+                                ->icon(Heroicon::OutlinedAdjustmentsVertical)
+                                ->collapsible()
+                                ->collapsed()
+                                ->columnSpan(2)
+                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
+                                ->columns()
+                                ->schema([
+                                    Select::make('pso_api_version')
+                                        ->dehydrated(false)
+                                        ->label('PSO API Version')
+                                        ->native(false)
+                                        ->prefixIcon(Heroicon::OutlinedCodeBracket)
+                                        ->options([
+                                            1 => 'v1 (Legacy)',
+                                            2 => 'v2 (6.15+)',
+                                        ]),
+                                    Toggle::make('include_arp_data')
+                                        ->dehydrated(false)
+                                        ->label('Include ARP Data')
+                                        ->live()
+                                        ->afterStateUpdated(static function (Get $get, Set $set, ?bool $state) {
+                                            if ($state && blank($get('rota_id'))) {
+                                                $set('rota_id', $get('dataset_id'));
+                                            }
+                                        }),
+                                    TextInput::make('rota_id')
+                                        ->dehydrated(false)
+                                        ->label('Rota ID')
+                                        ->prefixIcon(Heroicon::OutlinedTag)
+                                        ->requiredIf('include_arp_data', true)
+                                        ->visible(fn (Get $get) => (bool) $get('include_arp_data')),
+                                ]),
+                            Section::make('Broadcasts')
+                                ->description('Attach Broadcast entities to communicate plans/changes to external systems (email, file, REST, web service, FTP, WCF).')
+                                ->icon(Heroicon::OutlinedMegaphone)
+                                ->collapsible()
+                                ->collapsed()
+                                ->columnSpan(2)
+                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
+                                ->schema([
+                                    Repeater::make('broadcasts')
+                                        ->dehydrated(false)
+                                        ->hiddenLabel()
+                                        ->addActionLabel('Add Broadcast')
+                                        ->collapsible()
+                                        ->collapsed()
+                                        ->itemLabel(static function (array $state): ?string {
+                                            $type = $state['broadcast_type_id'] ?? null;
+
+                                            return match (true) {
+                                                $type instanceof BroadcastType => $type->getLabel(),
+                                                filled($type) => (string) $type,
+                                                default => 'New Broadcast',
+                                            };
+                                        })
+                                        ->schema([
+                                            Toggle::make('active')
+                                                ->default(true),
+                                            Select::make('broadcast_type_id')
+                                                ->label('Broadcast Type')
+                                                ->native(false)
+                                                ->required()
+                                                ->live()
+                                                ->enum(BroadcastType::class)
+                                                ->options(BroadcastType::class)
+                                                ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                                            Select::make('plan_type')
+                                                ->label('Plan Type')
+                                                ->native(false)
+                                                ->required()
+                                                ->live()
+                                                ->enum(BroadcastPlanType::class)
+                                                ->options(BroadcastPlanType::class)
+                                                ->helperText(static function (Get $get) {
+                                                    $planType = $get('plan_type');
+
+                                                    return $planType instanceof BroadcastPlanType ? $planType->description() : null;
+                                                })
+                                                ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                                            CheckboxList::make('allocation_type')
+                                                ->label('Allocation Type')
+                                                ->options(BroadcastAllocationType::class)
+                                                ->columns(2)
+                                                ->columnSpanFull(),
+                                            Textarea::make('description')
+                                                ->maxLength(2000)
+                                                ->columnSpanFull(),
+                                            Toggle::make('once_only'),
+                                            TextInput::make('minimum_plan_quality')
+                                                ->label('Minimum Plan Quality')
+                                                ->numeric()
+                                                ->minValue(0)
+                                                ->maxValue(100)
+                                                ->suffix('%'),
+                                            TextInput::make('minimum_step_interval')
+                                                ->label('Minimum Step Interval')
+                                                ->integer(),
+                                            TextInput::make('minimum_visit_status')
+                                                ->label('Minimum Visit Status')
+                                                ->integer(),
+                                            TextInput::make('input_reference_id')
+                                                ->label('Input Reference ID')
+                                                ->maxLength(100),
+                                            TextInput::make('maximum_frequency')
+                                                ->label('Maximum Frequency')
+                                                ->placeholder('e.g. PT5M')
+                                                ->helperText('ISO 8601 duration.'),
+                                            TextInput::make('maximum_wait')
+                                                ->label('Maximum Wait')
+                                                ->placeholder('e.g. PT30M')
+                                                ->helperText('ISO 8601 duration.'),
+                                            DateTimePicker::make('expiry_datetime')
+                                                ->label('Expiry Date Time'),
+                                            DateTimePicker::make('time_filter_start')
+                                                ->label('Time Filter Start'),
+                                            DateTimePicker::make('time_filter_end')
+                                                ->label('Time Filter End'),
+                                            TextInput::make('to_address')
+                                                ->label('To Address')
+                                                ->email()
+                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL)
+                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL),
+                                            TextInput::make('smtp_server')
+                                                ->label('SMTP Server')
+                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL)
+                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL),
+                                            TextInput::make('file_path')
+                                                ->label('File Path')
+                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::FILE)
+                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::FILE),
+                                            TextInput::make('mediatype')
+                                                ->label('Media Type')
+                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::REST)
+                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::REST),
+                                            TextInput::make('url')
+                                                ->label('URL')
+                                                ->url()
+                                                ->visible(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true))
+                                                ->required(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true)),
+                                            TextInput::make('wsid')
+                                                ->label('Web Service ID')
+                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WEBSERVICE)
+                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WEBSERVICE),
+                                            TextInput::make('address')
+                                                ->label('Address')
+                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WCF)
+                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WCF),
+                                            TextInput::make('application_type_id')
+                                                ->label('Application Type ID')
+                                                ->visible(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN)
+                                                ->required(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN),
+                                            TextInput::make('check_in_expired_time')
+                                                ->label('Check-In Expired Time')
+                                                ->visible(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN)
+                                                ->required(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN),
+                                        ])
+                                        ->columns(2),
+                                ]),
                             Actions::make([Action::make('push_it')->slideOver()
                                 ->action(function (Get $get) {
                                     //                                $set('excerpt', str($get('content'))->words(45, end: ''));
@@ -289,7 +457,6 @@ class EnvironmentTools extends Page
             'base_url' => $data('base_url'),
             'dse_duration' => $data('dse_duration'),
             'dataset_id' => $data('dataset_id'),
-            'rota_id' => $data('dataset_id'), // todo get this from dataset table
             'description' => $data('input_mode') === InputMode::CHANGE ? 'Update Rota From Tool Box' : 'Load From Tool Box',
             'send_to_pso' => $data('send_to_pso'),
             'keep_pso_data' => $data('keep_pso_data'),
@@ -298,6 +465,10 @@ class EnvironmentTools extends Page
             'process_type' => ProcessType::from($data('process_type')?->value ?? ProcessType::APPOINTMENT->value)->value,
             'datetime' => $data('datetime'),
             'input_mode' => $data('input_mode'),
+            'pso_api_version' => $data('pso_api_version'),
+            'include_arp_data' => $data('include_arp_data'),
+            'rota_id' => $data('rota_id'),
+            'broadcasts' => $data('broadcasts'),
         ];
 
         return $this->initialize_payload($schema);
@@ -317,11 +488,26 @@ class EnvironmentTools extends Page
             ],
         ];
 
+        if (filled(data_get($data, 'pso_api_version'))) {
+            $payload = Arr::add($payload, 'environment.psoApiVersion', (int) data_get($data, 'pso_api_version'));
+        }
+
         if (data_get($data, 'input_mode') === InputMode::LOAD) {
             $payload = Arr::add($payload, 'data.dseDuration', data_get($data, 'dse_duration'));
             $payload = Arr::add($payload, 'data.keepPsoData', data_get($data, 'keep_pso_data'));
             $payload = Arr::add($payload, 'data.processType', data_get($data, 'process_type'));
             $payload = Arr::add($payload, 'data.appointmentWindow', data_get($data, 'appointment_window'));
+
+            if (data_get($data, 'include_arp_data')) {
+                $payload = Arr::add($payload, 'data.includeArpData', true);
+                $payload = Arr::add($payload, 'data.rotaId', data_get($data, 'rota_id'));
+            }
+
+            $broadcasts = $this->buildBroadcastsPayload((array) data_get($data, 'broadcasts', []));
+
+            if (filled($broadcasts)) {
+                $payload = Arr::add($payload, 'data.broadcasts', $broadcasts);
+            }
         }
 
         if (data_get($data, 'send_to_pso')) {
@@ -329,5 +515,64 @@ class EnvironmentTools extends Page
         }
 
         return $payload;
+    }
+
+    /**
+     * Transforms the raw `broadcasts` repeater state into the `data.broadcasts[]`
+     * shape the PSO-Services load endpoint expects, including the `parameters[]`
+     * pairs required for the chosen broadcastTypeId/planType.
+     */
+    public function buildBroadcastsPayload(array $broadcasts): array
+    {
+        return collect($broadcasts)
+            ->values()
+            ->map(function (array $broadcast) {
+                $type = $broadcast['broadcast_type_id'] ?? null;
+                $type = $type instanceof BroadcastType ? $type : BroadcastType::tryFrom((string) $type);
+
+                $planType = $broadcast['plan_type'] ?? null;
+                $planType = $planType instanceof BroadcastPlanType ? $planType : BroadcastPlanType::tryFrom((string) $planType);
+
+                $requiredParameterNames = $type?->requiredParameters() ?? [];
+
+                if ($planType === BroadcastPlanType::ADMIN) {
+                    $requiredParameterNames = [
+                        ...$requiredParameterNames,
+                        BroadcastParameterType::APPLICATION_TYPE_ID,
+                        BroadcastParameterType::CHECK_IN_EXPIRED_TIME,
+                    ];
+                }
+
+                $parameters = collect($requiredParameterNames)
+                    ->map(static fn (BroadcastParameterType $parameter) => [
+                        'name' => $parameter->value,
+                        'value' => data_get($broadcast, $parameter->value),
+                    ])
+                    ->filter(static fn (array $parameter) => filled($parameter['value']))
+                    ->values()
+                    ->all();
+
+                return array_filter([
+                    'active' => $broadcast['active'] ?? true,
+                    'broadcastTypeId' => $type?->value,
+                    'planType' => $planType?->value,
+                    'allocationType' => filled($broadcast['allocation_type'] ?? null)
+                        ? array_map('intval', $broadcast['allocation_type'])
+                        : null,
+                    'description' => $broadcast['description'] ?? null,
+                    'onceOnly' => $broadcast['once_only'] ?? null,
+                    'minimumPlanQuality' => $broadcast['minimum_plan_quality'] ?? null,
+                    'minimumStepInterval' => $broadcast['minimum_step_interval'] ?? null,
+                    'expiryDatetime' => $broadcast['expiry_datetime'] ?? null,
+                    'inputReferenceId' => $broadcast['input_reference_id'] ?? null,
+                    'maximumFrequency' => $broadcast['maximum_frequency'] ?? null,
+                    'maximumWait' => $broadcast['maximum_wait'] ?? null,
+                    'minimumVisitStatus' => $broadcast['minimum_visit_status'] ?? null,
+                    'timeFilterStart' => $broadcast['time_filter_start'] ?? null,
+                    'timeFilterEnd' => $broadcast['time_filter_end'] ?? null,
+                    'parameters' => $parameters,
+                ], static fn ($value) => $value !== null);
+            })
+            ->all();
     }
 }
