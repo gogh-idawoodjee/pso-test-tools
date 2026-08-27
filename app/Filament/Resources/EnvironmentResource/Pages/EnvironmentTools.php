@@ -86,6 +86,15 @@ class EnvironmentTools extends Page
         $this->record->commit_url = 'https://'.config('psott.pso-services-api').'/api/commit/'.$this->record->id;
     }
 
+    private function rotaIdForDataset(?string $datasetName): ?string
+    {
+        if (blank($datasetName)) {
+            return null;
+        }
+
+        return $this->record->datasets()->where('name', $datasetName)->value('rota');
+    }
+
     public function psoload(Schema $form): Schema
     {
         return $form
@@ -97,8 +106,14 @@ class EnvironmentTools extends Page
                             ->label('Dataset')
                             ->required()
                             ->native(false)
+                            ->live()
                             ->placeholder('Select Dataset')
-                            ->options($this->record->datasets()->get()->pluck('name', 'name')->toArray()),
+                            ->options($this->record->datasets()->get()->pluck('name', 'name')->toArray())
+                            ->afterStateUpdated(function (Get $get, Set $set) {
+                                if ($get('include_arp_data')) {
+                                    $set('rota_id', $this->rotaIdForDataset($get('dataset_id')));
+                                }
+                            }),
                         Select::make('input_mode')
                             ->dehydrated(false)
                             ->label('Input Mode')
@@ -208,9 +223,9 @@ class EnvironmentTools extends Page
                                         ->label('Include ARP Data')
                                         ->inline(false)
                                         ->live()
-                                        ->afterStateUpdated(static function (Get $get, Set $set, ?bool $state) {
-                                            if ($state && blank($get('rota_id'))) {
-                                                $set('rota_id', $get('dataset_id'));
+                                        ->afterStateUpdated(function (Get $get, Set $set, ?bool $state) {
+                                            if ($state) {
+                                                $set('rota_id', $this->rotaIdForDataset($get('dataset_id')));
                                             }
                                         }),
                                     TextInput::make('rota_id')
@@ -278,7 +293,13 @@ class EnvironmentTools extends Page
                                                 ->live()
                                                 ->afterStateUpdated(static function (Set $set, ?array $state) {
                                                     $set('description', collect($state)
-                                                        ->map(static fn ($value) => BroadcastAllocationType::from((int) $value)->getLabel())
+                                                        ->map(static function ($value) {
+                                                            $type = $value instanceof BroadcastAllocationType
+                                                                ? $value
+                                                                : BroadcastAllocationType::from((int) $value);
+
+                                                            return $type->getLabel();
+                                                        })
                                                         ->implode(', '));
                                                 })
                                                 ->helperText('Restricts which scheduling engine\'s plan data this broadcast includes. Select more than one to combine them.'),
@@ -599,7 +620,10 @@ class EnvironmentTools extends Page
                     'broadcastTypeId' => $type?->value,
                     'planType' => $planType?->value,
                     'allocationType' => filled($broadcast['allocation_type'] ?? null)
-                        ? array_map('intval', $broadcast['allocation_type'])
+                        ? array_map(
+                            static fn ($value) => $value instanceof BroadcastAllocationType ? $value->value : (int) $value,
+                            $broadcast['allocation_type']
+                        )
                         : null,
                     'description' => $broadcast['description'] ?? null,
                     'onceOnly' => $broadcast['once_only'] ?? null,

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\BroadcastAllocationType;
 use App\Enums\BroadcastPlanType;
 use App\Enums\BroadcastType;
 use App\Enums\InputMode;
@@ -75,6 +76,22 @@ it('builds a REST broadcast with its required parameters', function () {
             ['name' => 'mediatype', 'value' => 'application/json'],
             ['name' => 'url', 'value' => 'https://example.test/hook'],
         ]);
+});
+
+it('handles allocation_type as live-wire enum instances, not just raw ints', function () {
+    $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
+        'broadcasts' => [
+            [
+                'broadcast_type_id' => BroadcastType::REST,
+                'plan_type' => BroadcastPlanType::COMPLETE,
+                'allocation_type' => [BroadcastAllocationType::DYNAMIC_SCHEDULING, BroadcastAllocationType::MANUAL_SCHEDULING],
+                'mediatype' => 'application/json',
+                'url' => 'https://example.test/hook',
+            ],
+        ],
+    ]));
+
+    expect($payload['data']['broadcasts'][0]['allocationType'])->toBe([1, 4]);
 });
 
 it('sends maximumFrequency and maximumWait as plain integer minutes', function () {
