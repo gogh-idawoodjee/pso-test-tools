@@ -14,6 +14,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
@@ -76,6 +77,9 @@ class FilterLoadFile extends Page
     public array $availableResourceIds = [];
 
     public array $availableRegionIds = [];
+
+    /** Maps resource_id => [region_id, ...], used to scope the resource picker to the selected region(s). */
+    public array $resourceRegionMap = [];
 
     public array $activityTypeIds = [];
 
@@ -145,7 +149,8 @@ class FilterLoadFile extends Page
                         ->disabled(fn () => ! $this->shouldShowDropdowns())
                         ->dehydrated()
                         ->default(true)
-                        ->live(),
+                        ->live()
+                        ->columnSpanFull(),
 
                     Fieldset::make('Filtering Options')->schema([
                         $this->createRegionSelector(),
@@ -170,7 +175,8 @@ class FilterLoadFile extends Page
                             ->reactive(),
 
                         $this->createDatetimeOverrideField(),
-                    ])->visible(fn () => $this->shouldShowDropdowns()),
+                    ])->visible(fn () => $this->shouldShowDropdowns())
+                        ->columnSpanFull(),
                 ])->columns(),
         ]
         );
@@ -185,6 +191,11 @@ class FilterLoadFile extends Page
             ->options(fn () => $this->availableRegionIds)
             ->searchable()
             ->native(false)
+            ->live()
+            ->afterStateUpdated(function (Set $set, ?array $state) {
+                $this->resourceIds = $this->resourceIdsWithinRegions($this->resourceIds, $state ?? []);
+                $set('resourceIds', $this->resourceIds);
+            })
             ->helperText('Only these regions will be kept. Others will be removed.')
             ->columnSpan(1);
     }
@@ -194,10 +205,37 @@ class FilterLoadFile extends Page
         return Select::make('resourceIds')
             ->label('Filter to Specific Resources')
             ->multiple()
-            ->options(fn () => $this->availableResourceIds)
+            ->options(fn () => empty($this->regionIds)
+                ? $this->availableResourceIds
+                : collect($this->availableResourceIds)
+                    ->only($this->resourceIdsWithinRegions(array_keys($this->availableResourceIds), $this->regionIds))
+                    ->all())
             ->searchable()
             ->native(false)
-            ->helperText('Optional. Only these resources will be included if selected.');
+            ->live()
+            ->helperText('Optional. Only these resources will be included if selected. Scoped to the selected region(s) above.');
+    }
+
+    /**
+     * Narrows a list of resource IDs to only those belonging to at least one
+     * of the given region IDs, per resourceRegionMap. Returns all given
+     * resource IDs unchanged if no regions are selected.
+     */
+    protected function resourceIdsWithinRegions(array $resourceIds, array $regionIds): array
+    {
+        if (empty($regionIds)) {
+            return $resourceIds;
+        }
+
+        $regionIdSet = array_flip($regionIds);
+
+        return collect($resourceIds)
+            ->filter(fn ($resourceId) => array_any(
+                $this->resourceRegionMap[$resourceId] ?? [],
+                static fn ($regionId) => isset($regionIdSet[$regionId])
+            ))
+            ->values()
+            ->all();
     }
 
     protected function createActivityTypeSelector(): Select
@@ -285,6 +323,16 @@ class FilterLoadFile extends Page
             return;
         }
 
+        if (! $this->dryRun && ! empty($this->regionIds) && ! empty($this->resourceIds)
+            && empty($this->resourceIdsWithinRegions($this->resourceIds, $this->regionIds))) {
+            $this->notifyWarning(
+                'No matching resources',
+                'None of the selected resources belong to the selected region(s). Nothing would be kept.'
+            );
+
+            return;
+        }
+
         activity()->event('FilterLoadFile.submit')->log(json_encode([
             'dryRun' => $this->dryRun,
             'regionIds' => $this->regionIds,
@@ -342,6 +390,7 @@ class FilterLoadFile extends Page
         $this->availableActivityIds = [];
         $this->availableActivityTypes = [];
         $this->activityTypeCounts = [];
+        $this->resourceRegionMap = [];
 
         // Also reset selected filters
         $this->regionIds = [];
@@ -511,6 +560,7 @@ class FilterLoadFile extends Page
             'activities' => [],
             'activity_types' => [], // 👈 add this
             'activity_type_counts' => [], // 👈 add this to avoid issues
+            'resource_region_map' => [],
         ]);
 
         $this->availableRegionIds = $availableIds['regions'] ?? [];
@@ -518,6 +568,7 @@ class FilterLoadFile extends Page
         $this->availableActivityIds = $availableIds['activities'] ?? [];
         $this->availableActivityTypes = $availableIds['activity_types'] ?? [];
         $this->activityTypeCounts = $availableIds['activity_type_counts'] ?? [];
+        $this->resourceRegionMap = $availableIds['resource_region_map'] ?? [];
 
     }
 

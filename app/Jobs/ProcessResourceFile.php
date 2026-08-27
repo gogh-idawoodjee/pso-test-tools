@@ -247,12 +247,21 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             ->groupBy('activity_type_id')
             ->map(fn ($items) => $items->count());
 
+        // Which regions each resource belongs to, so the UI can scope the
+        // resource picker to the currently-selected region(s) and warn when
+        // a specific-resource selection has no overlap with them.
+        $resourceRegionMap = collect($data['Resource_Region'] ?? [])
+            ->groupBy('resource_id')
+            ->map(fn ($rows) => collect($rows)->pluck('region_id')->unique()->values()->all())
+            ->all();
+
         $this->updateCache('available_ids', [
             'regions' => $regionList->all(),
             'resources' => $resourceList->all(),
             'activities' => $activityList->all(),
             'activity_types' => $activityTypeList->all(), // 👈 include this
             'activity_type_counts' => $activityTypeCounts->toArray(),
+            'resource_region_map' => $resourceRegionMap,
         ]);
     }
 
