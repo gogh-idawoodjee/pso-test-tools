@@ -46,6 +46,7 @@ class Environment extends Model
         'description',
         'username',
         'password',
+        'commit_token',
         'user_id',
     ];
 
@@ -74,6 +75,10 @@ class Environment extends Model
                     $i++;
                 }
                 $env->slug = $slug;
+            }
+
+            if (empty($env->commit_token)) {
+                $env->commit_token = Str::random(40);
             }
         });
     }

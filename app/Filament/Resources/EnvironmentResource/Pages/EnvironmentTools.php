@@ -88,7 +88,8 @@ class EnvironmentTools extends Page
         $this->record->appointment_window = 7;
         $this->record->process_type = ProcessType::APPOINTMENT;
         $this->record->datetime = Carbon::now();
-        $this->record->commit_url = 'https://'.config('psott.pso-services-api').'/api/commit/'.$this->record->id;
+        $version = config('psott.pso-services-api-version');
+        $this->record->commit_url = 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').'commit/'.$this->record->commit_token;
     }
 
     private function rotaIdForDataset(?string $datasetName): ?string
