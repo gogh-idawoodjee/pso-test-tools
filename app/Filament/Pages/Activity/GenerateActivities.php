@@ -5,6 +5,7 @@ namespace App\Filament\Pages\Activity;
 use App\Filament\BasePages\PSOActivityBasePage;
 use App\Support\GeocodeHelper;
 use BackedEnum;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\TextInput;
@@ -207,11 +208,14 @@ class GenerateActivities extends PSOActivityBasePage
     {
         $skills = collect($this->activity_data['skills'])->pluck('skill')->filter()->values()->all();
         $regions = collect($this->activity_data['regions'])->pluck('region')->filter()->values()->all();
+        $slaWindow = $this->calculateSlaWindow();
 
         return $this->buildPayload(
             required: [
                 'activityTypeId' => $this->activity_data['activity_type_id'],
                 'slaTypeId' => $this->activity_data['sla_type_id'],
+                'slaStart' => $slaWindow['slaStart'],
+                'slaEnd' => $slaWindow['slaEnd'],
                 'baseValue' => $this->activity_data['base_value'],
                 'duration' => $this->activity_data['duration'],
                 'priority' => $this->activity_data['priority'],
@@ -228,5 +232,42 @@ class GenerateActivities extends PSOActivityBasePage
                 'regions' => $regions ?: null,
             ],
         );
+    }
+
+    /**
+     * Converts the relative day range or appointment window size into
+     * concrete slaStart/slaEnd timestamps required by the PSO services API.
+     *
+     * - relative_day/relative_day_end: day offsets from today, spanning
+     *   start-of-day to end-of-day (e.g. day 0 to day 7).
+     * - window_size: hours from now today (0/"All Day" spans the full day).
+     * - Neither provided: defaults to the full current day.
+     */
+    private function calculateSlaWindow(): array
+    {
+        $timeZoneOffset = $this->activity_data['time_zone'] ?? null;
+        $now = $timeZoneOffset !== null && $timeZoneOffset !== ''
+            ? Carbon::now()->addHours((int) $timeZoneOffset)
+            : Carbon::now();
+
+        $relativeDay = $this->activity_data['relative_day'] ?? null;
+        $relativeDayEnd = $this->activity_data['relative_day_end'] ?? null;
+        $windowSize = $this->activity_data['window_size'] ?? null;
+
+        if ($relativeDay !== null && $relativeDay !== '') {
+            $slaStart = $now->copy()->startOfDay()->addDays((int) $relativeDay);
+            $slaEnd = $now->copy()->startOfDay()->addDays((int) ($relativeDayEnd ?? $relativeDay))->endOfDay();
+        } elseif ($windowSize !== null && $windowSize !== '' && (int) $windowSize > 0) {
+            $slaStart = $now->copy();
+            $slaEnd = $now->copy()->addHours((int) $windowSize);
+        } else {
+            $slaStart = $now->copy()->startOfDay();
+            $slaEnd = $now->copy()->endOfDay();
+        }
+
+        return [
+            'slaStart' => $slaStart->format('Y-m-d\TH:i:s'),
+            'slaEnd' => $slaEnd->format('Y-m-d\TH:i:s'),
+        ];
     }
 }

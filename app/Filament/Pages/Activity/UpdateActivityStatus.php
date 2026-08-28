@@ -48,7 +48,12 @@ class UpdateActivityStatus extends PSOActivityBasePage
                         Select::make('status')
                             ->prefixIcon('heroicon-o-adjustments-horizontal')
                             ->enum(TaskStatus::class)
-                            ->options(TaskStatus::class)
+                            ->options(
+                                collect(TaskStatus::cases())
+                                    ->reject(static fn (TaskStatus $status) => $status === TaskStatus::FOLLOW_ON)
+                                    ->mapWithKeys(static fn (TaskStatus $status) => [$status->value => $status->getLabel()])
+                            )
+                            ->helperText('"Follow On" is excluded — it has no equivalent status on the PSO services side')
                             ->required()
                             ->live(),
                         Forms\Components\DateTimePicker::make('datetimefixed')
@@ -103,12 +108,13 @@ class UpdateActivityStatus extends PSOActivityBasePage
 
     private function TaskStatusPayload(): array
     {
+        $status = TaskStatus::from((int) $this->activity_data['status']);
 
         return $this->buildPayload(
             required: [
                 'resourceId' => $this->activity_data['resource_id'],
                 'activityId' => $this->activity_data['activity_id'],
-                'status' => $this->activity_data['status'],
+                'status' => $status->ishServicesValue(),
             ],
             optional: [
                 'dateTimeFixed' => filled($this->activity_data['datetimefixed'])
