@@ -108,7 +108,7 @@ class GenerateCustomException extends Page
         $this->validateForms($this->getForms());
 
         $object_id = $this->exception_data['object_type_id'];
-        $object_value = $this->exception_data['object_type_id'] === 'activity' ? $this->exception_data['activity_id'] : $this->exception_data['resource_id'];
+        $object_value = $this->exception_data['object_type_id'] === 'activity' ? $this->exception_data['activity_id'] : $this->exception_data['resourceId'];
 
         $payload = $this->buildPayload(
             required: [

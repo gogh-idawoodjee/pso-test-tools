@@ -64,7 +64,8 @@ class PSOObjectRegistry
                 'label' => 'Location Region',
                 'entity' => 'Location_Region',
                 'attributes' => [
-                    ['name' => 'id', 'type' => 'string'],
+                    ['name' => 'location_id', 'type' => 'string'],
+                    ['name' => 'region_id', 'type' => 'string'],
                 ],
             ],
             'schedule_event' => [

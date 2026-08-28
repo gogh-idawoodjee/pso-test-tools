@@ -11,6 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use JsonException;
 
@@ -63,6 +64,15 @@ class ResourceUpdateShift extends PSOResourceBasePage
                             ->label('Manual Scheduling Only')
                             ->inline(false)
                             ->live(),
+                        Toggle::make('is_arp_object')
+                            ->label('ARP Object')
+                            ->inline(false)
+                            ->live(),
+                        TextInput::make('rota_id')
+                            ->prefixIcon('heroicon-o-hashtag')
+                            ->label('Rota ID')
+                            ->required(static fn (Get $get) => (bool) $get('is_arp_object'))
+                            ->live(),
 
                         Actions::make([Action::make('update_shift')
                             ->label('Update Shift')
@@ -88,14 +98,16 @@ class ResourceUpdateShift extends PSOResourceBasePage
 
         $payload = $this->buildPayload(
             required: [
-                'resource_id' => $this->resource_data['resource_id'],
-                'shift_id' => $this->resource_data['shift_id'],
+                'resourceId' => $this->resource_data['resource_id'],
+                'shiftId' => $this->resource_data['shift_id'],
             ],
             optional: [
-                'shift_type' => $this->resource_data['shift_type'] ?? null,
-                'start_datetime' => $this->resource_data['start_datetime'] ?? null,
-                'end_datetime' => $this->resource_data['end_datetime'] ?? null,
-                'turn_manual_scheduling_on' => $this->resource_data['turn_manual_scheduling_on'] ?? null,
+                'shiftType' => $this->resource_data['shift_type'] ?? null,
+                'startDateTime' => $this->resource_data['start_datetime'] ?? null,
+                'endDateTime' => $this->resource_data['end_datetime'] ?? null,
+                'turnManualSchedulingOn' => $this->resource_data['turn_manual_scheduling_on'] ?? null,
+                'isArpObject' => $this->resource_data['is_arp_object'] ?? null,
+                'rotaId' => $this->resource_data['rota_id'] ?? null,
             ]
         );
 

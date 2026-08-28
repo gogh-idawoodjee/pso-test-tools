@@ -10,6 +10,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Carbon;
 use JsonException;
 
 class ResourceUnavailability extends PSOResourceBasePage
@@ -90,7 +91,7 @@ class ResourceUnavailability extends PSOResourceBasePage
                 'resourceId' => $this->resource_data['resource_id'],
                 'duration' => $this->resource_data['duration'],
                 'categoryId' => $this->resource_data['category_id'],
-                'baseDateTime' => $this->resource_data['base_time'],
+                'baseDateTime' => Carbon::parse($this->resource_data['base_time'])->format('Y-m-d\TH:i'),
             ],
             optional: [
                 'timeZone' => $this->resource_data['time_zone'] ?? null,
