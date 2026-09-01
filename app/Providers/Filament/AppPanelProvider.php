@@ -4,6 +4,8 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Backups;
 use App\Filament\Pages\HealthCheckResults;
+use App\Filament\Widgets\QuickLaunch;
+use App\Filament\Widgets\StatsOverview;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -41,6 +43,10 @@ class AppPanelProvider extends PanelProvider
             ->colors([
                 'primary' => Color::Violet,
                 'gray' => Color::Slate,
+                'core' => Color::Emerald,
+                'base-data' => Color::Amber,
+                'api-services' => Color::Rose,
+                'additional-tools' => Color::Cyan,
             ])
             ->viteTheme('resources/css/filament/app/theme.css')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
@@ -51,7 +57,8 @@ class AppPanelProvider extends PanelProvider
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                StatsOverview::class,
+                QuickLaunch::class,
             ])
             ->plugins([
                 FilamentSpatieLaravelBackupPlugin::make()
