@@ -31,7 +31,7 @@ it('sends the user-picked datetime to PSO, not the current time', function () {
         ->callAction(TestAction::make('push_it')->schemaComponent(true, 'psoload'));
 
     Http::assertSent(function ($request) use ($chosenDatetime) {
-        $sentDatetime = data_get($request->data(), 'environment.datetime');
+        $sentDatetime = data_get($request->data(), 'data.datetime');
 
         return $sentDatetime !== null
             && Carbon::parse($sentDatetime)->eq($chosenDatetime);

@@ -134,7 +134,7 @@ it('adds application_type_id and check_in_expired_time parameters for ADMIN plan
     ]);
 });
 
-it('excludes data.* and broadcasts entirely in CHANGE mode', function () {
+it('excludes LOAD-only data fields and broadcasts in CHANGE mode, but keeps data.datetime', function () {
     $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
         'input_mode' => InputMode::CHANGE,
         'broadcasts' => [
@@ -146,5 +146,7 @@ it('excludes data.* and broadcasts entirely in CHANGE mode', function () {
         ],
     ]));
 
-    expect($payload)->not->toHaveKey('data');
+    expect($payload)->not->toHaveKey('data.dseDuration')
+        ->and($payload)->not->toHaveKey('data.broadcasts')
+        ->and(data_get($payload, 'data.datetime'))->not->toBeNull();
 });

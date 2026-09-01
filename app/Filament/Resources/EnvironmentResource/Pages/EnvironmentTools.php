@@ -559,12 +559,14 @@ class EnvironmentTools extends Page
         $payload = [
             'environment' => [
                 'baseUrl' => data_get($data, 'base_url'),
-                'datetime' => filled(data_get($data, 'datetime'))
-                    ? Carbon::parse(data_get($data, 'datetime'))->toAtomString()
-                    : Carbon::now()->toAtomString(),
                 'description' => data_get($data, 'description'),
                 'datasetId' => data_get($data, 'dataset_id'),
                 'sendToPso' => data_get($data, 'send_to_pso'),
+            ],
+            'data' => [
+                'datetime' => filled(data_get($data, 'datetime'))
+                    ? Carbon::parse(data_get($data, 'datetime'))->toAtomString()
+                    : Carbon::now()->toAtomString(),
             ],
         ];
 
