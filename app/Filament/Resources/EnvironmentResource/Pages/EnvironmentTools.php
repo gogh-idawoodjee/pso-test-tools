@@ -194,6 +194,7 @@ class EnvironmentTools extends Page
                             DateTimePicker::make('datetime')
                                 ->dehydrated(false)
                                 ->label('Input Date Time')
+                                ->live()
                                 ->prefixIcon(Heroicon::OutlinedClock),
                             Section::make('Advanced Options')
                                 ->description('Additional PSO Input Reference options.')
