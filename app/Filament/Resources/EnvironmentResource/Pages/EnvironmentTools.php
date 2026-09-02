@@ -88,8 +88,24 @@ class EnvironmentTools extends Page
         $this->record->appointment_window = 7;
         $this->record->process_type = ProcessType::APPOINTMENT;
         $this->record->datetime = Carbon::now();
+        $this->record->commit_url = $this->commitUrl();
+    }
+
+    /**
+     * Built from commit_token (a real, persisted column) rather than read
+     * back off $this->record->commit_url — that attribute is only ever set
+     * in setDefaults() at mount, and Livewire re-hydrates $record fresh from
+     * the database on every subsequent request, losing it.
+     */
+    private function commitUrl(): ?string
+    {
+        if (blank($this->record->commit_token)) {
+            return null;
+        }
+
         $version = config('psott.pso-services-api-version');
-        $this->record->commit_url = 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').'commit/'.$this->record->commit_token;
+
+        return 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').'commit/'.$this->record->commit_token;
     }
 
     private function rotaIdForDataset(?string $datasetName): ?string
@@ -99,6 +115,50 @@ class EnvironmentTools extends Page
         }
 
         return $this->record->datasets()->where('name', $datasetName)->value('rota');
+    }
+
+    /**
+     * SDS broadcasts commit back through this environment's own commit
+     * endpoint, so default the URL to it rather than leaving testers to
+     * copy it in manually from the Services tab.
+     */
+    public function maybeAutofillCommitUrl(Get $get, Set $set): void
+    {
+        if (filled($get('url'))) {
+            return;
+        }
+
+        if (! static::broadcastAllocationIncludesSds($get('allocation_type'))) {
+            return;
+        }
+
+        if (! static::broadcastTypeSupportsUrl($get('broadcast_type_id'))) {
+            return;
+        }
+
+        if (blank($commitUrl = $this->commitUrl())) {
+            return;
+        }
+
+        $set('url', $commitUrl);
+    }
+
+    private static function broadcastAllocationIncludesSds(?array $allocationType): bool
+    {
+        return collect($allocationType ?? [])->contains(
+            static fn ($value) => ($value instanceof BroadcastAllocationType
+                ? $value
+                : BroadcastAllocationType::tryFrom((int) $value)) === BroadcastAllocationType::SCHEDULE_DISPATCH_SERVICE
+        );
+    }
+
+    private static function broadcastTypeSupportsUrl(mixed $broadcastTypeId): bool
+    {
+        $type = $broadcastTypeId instanceof BroadcastType
+            ? $broadcastTypeId
+            : BroadcastType::tryFrom((string) $broadcastTypeId);
+
+        return in_array($type, [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true);
     }
 
     public function psoload(Schema $form): Schema
@@ -267,7 +327,10 @@ class EnvironmentTools extends Page
                                                 ->enum(BroadcastType::class)
                                                 ->options(BroadcastType::class)
                                                 ->helperText('How the plan/change is delivered to the external system, and which parameters below are required.')
-                                                ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                                                ->afterStateUpdated(static function ($livewire, $component, Get $get, Set $set) {
+                                                    $livewire->validateOnly($component->getStatePath());
+                                                    $livewire->maybeAutofillCommitUrl($get, $set);
+                                                }),
                                             Select::make('plan_type')
                                                 ->label('Plan Type')
                                                 ->native(false)
@@ -287,7 +350,7 @@ class EnvironmentTools extends Page
                                                 ->columns(2)
                                                 ->columnSpanFull()
                                                 ->live()
-                                                ->afterStateUpdated(static function (Set $set, ?array $state) {
+                                                ->afterStateUpdated(static function ($livewire, Get $get, Set $set, ?array $state) {
                                                     $set('description', collect($state)
                                                         ->map(static function ($value) {
                                                             $type = $value instanceof BroadcastAllocationType
@@ -297,6 +360,8 @@ class EnvironmentTools extends Page
                                                             return $type->getLabel();
                                                         })
                                                         ->implode(', '));
+
+                                                    $livewire->maybeAutofillCommitUrl($get, $set);
                                                 })
                                                 ->helperText('Restricts which scheduling engine\'s plan data this broadcast includes. Select more than one to combine them.'),
                                             Textarea::make('description')
@@ -378,6 +443,12 @@ class EnvironmentTools extends Page
                                                 ->label('URL')
                                                 ->url()
                                                 ->helperText('Path to the FTP site, web service, or REST endpoint.')
+                                                ->hint(function (Get $get) {
+                                                    return static::broadcastAllocationIncludesSds($get('allocation_type'))
+                                                        ? 'For Schedule Dispatch Service: use this environment\'s Commit Broadcast URL (Services tab)'
+                                                        : null;
+                                                })
+                                                ->hintIcon(Heroicon::OutlinedInformationCircle)
                                                 ->visible(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true))
                                                 ->required(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true)),
                                             TextInput::make('wsid')
