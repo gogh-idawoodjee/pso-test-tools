@@ -450,7 +450,8 @@ class EnvironmentTools extends Page
                                                 })
                                                 ->hintIcon(Heroicon::OutlinedInformationCircle)
                                                 ->visible(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true))
-                                                ->required(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true)),
+                                                ->required(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true))
+                                                ->columnSpan(2),
                                             TextInput::make('wsid')
                                                 ->label('Web Service ID')
                                                 ->helperText('The defined id for the webservice data to be sent back to.')
