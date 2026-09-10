@@ -5,6 +5,7 @@ use App\Jobs\SendPsoScheduleDataJob;
 use App\Models\Environment;
 use App\Models\PsoGatewayUpload;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -171,6 +172,108 @@ it('extracts and uploads a zipped json file, and cleans up the extracted temp fi
         && $request->hasHeader('Content-Type', 'application/json'));
 
     expect(is_dir(storage_path('app/private/gateway-uploads/'.$upload->id)))->toBeFalse();
+});
+
+it('removes the whole work directory when the zip entry carries a directory component', function () {
+    $zip = new ZipArchive;
+    $tmpZipPath = tempnam(sys_get_temp_dir(), 'gwzip').'.zip';
+    $zip->open($tmpZipPath, ZipArchive::CREATE);
+    // What "compress this folder" on macOS/Windows routinely produces: a
+    // single entry whose name still carries its parent directory.
+    $zip->addFromString('subdir/dsScheduleData.json', '{"dsScheduleData":{"Resources":[]}}');
+    $zip->close();
+
+    Storage::disk('r2')->put('gateway-uploads/nesteddir.zip', file_get_contents($tmpZipPath));
+    unlink($tmpZipPath);
+
+    $environment = Environment::factory()->create();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'stored_path' => 'gateway-uploads/nesteddir.zip',
+        'original_filename' => 'nesteddir.zip',
+    ]);
+
+    Http::fake([
+        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        '*/scheduling/data' => Http::response(['InternalId' => '1857100'], 200),
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))->handle();
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect(is_dir(storage_path('app/private/gateway-uploads/'.$upload->id)))->toBeFalse();
+});
+
+it('refuses to touch a stored path outside the upload directory', function () {
+    Storage::disk('r2')->put('livewire-tmp/other-users-file.json', '{"secret":true}');
+
+    Http::fake();
+
+    $environment = Environment::factory()->create();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'stored_path' => 'livewire-tmp/other-users-file.json',
+        'original_filename' => 'other-users-file.json',
+        'status' => PsoGatewayUploadStatus::QUEUED,
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))->handle();
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($upload->error_message)->toContain('not a valid');
+
+    // Neither read nor deleted.
+    Storage::disk('r2')->assertExists('livewire-tmp/other-users-file.json');
+    Http::assertNothingSent();
+});
+
+it('fails with a clear message when the stored file cannot be read back', function () {
+    Http::fake();
+
+    $environment = Environment::factory()->create();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'stored_path' => 'gateway-uploads/vanished.json',
+        'original_filename' => 'vanished.json',
+        'status' => PsoGatewayUploadStatus::QUEUED,
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))->handle();
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($upload->error_message)->toContain('could not be read');
+    Http::assertNothingSent();
+});
+
+it('marks a non-terminal upload as failed when the worker dies or times out', function () {
+    $environment = Environment::factory()->create();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'stored_path' => 'gateway-uploads/schedule.json',
+        'original_filename' => 'schedule.json',
+        'status' => PsoGatewayUploadStatus::COMPRESSING,
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))
+        ->failed(new TimeoutExceededException('Job has timed out.'));
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($upload->error_message)->toContain('did not finish');
+    expect($upload->completed_at)->not->toBeNull();
+});
+
+it('leaves an already succeeded upload alone when the failed hook fires late', function () {
+    $environment = Environment::factory()->create();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'stored_path' => 'gateway-uploads/schedule.json',
+        'original_filename' => 'schedule.json',
+        'status' => PsoGatewayUploadStatus::SUCCEEDED,
+        'internal_id' => '1234567',
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))
+        ->failed(new RuntimeException('worker killed'));
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect($upload->error_message)->toBeNull();
 });
 
 it('fails cleanly when the zip contains no json or xml entry', function () {

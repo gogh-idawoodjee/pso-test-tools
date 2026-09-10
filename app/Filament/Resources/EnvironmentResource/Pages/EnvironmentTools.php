@@ -14,6 +14,7 @@ use App\Enums\ScheduleDataUsageType;
 use App\Filament\Resources\EnvironmentResource;
 use App\Jobs\SendPsoScheduleDataJob;
 use App\Models\PsoGatewayUpload;
+use App\Support\GatewayUploadPath;
 use App\Traits\PSOInteractionsTrait;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -39,11 +40,14 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use JsonException;
+use Livewire\Attributes\Locked;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Override;
 
@@ -63,9 +67,22 @@ class EnvironmentTools extends Page
 
     public ?array $systemUsageGroups = null;
 
+    /**
+     * Locked: without it this is a client-writable Livewire property, and the
+     * status panel would happily render any upload row whose id was pushed in
+     * from the browser.
+     */
+    #[Locked]
     public ?string $gatewayUploadId = null;
 
     protected static ?string $title = 'Tools';
+
+    /**
+     * @var array<string>
+     */
+    private const array GATEWAY_UPLOAD_EXTENSIONS = ['json', 'xml', 'zip'];
+
+    private const int GATEWAY_UPLOAD_MAX_KILOBYTES = 204800; // 200MB
 
     #[Override]
     protected function getHeaderActions(): array
@@ -586,7 +603,13 @@ class EnvironmentTools extends Page
                                     'application/zip',
                                     'application/x-zip-compressed',
                                 ])
-                                ->maxSize(204800) // 200MB in KB
+                                ->maxSize(self::GATEWAY_UPLOAD_MAX_KILOBYTES)
+                                // Client-supplied paths are only ever honoured
+                                // if they match the shape this field itself
+                                // writes; submitGatewayUpload() applies the
+                                // same guard, since this one rides on the
+                                // schema validation that this tab skips.
+                                ->preventFilePathTampering(allowFilePathUsing: static fn (string $file): bool => GatewayUploadPath::isAllowed($file))
                                 ->live()
                                 ->afterStateUpdated(function (Set $set, $state) {
                                     if ($state instanceof TemporaryUploadedFile) {
@@ -896,6 +919,46 @@ class EnvironmentTools extends Page
             return;
         }
 
+        // `data.gateway_upload_file` is part of the public `$data` Livewire
+        // property, so this string is whatever the browser sent — and this tab
+        // deliberately never runs schema validation (see the field's comment).
+        // It is used as an r2 key to read from and later delete, so it is
+        // constrained to the shape this field itself produces before any of
+        // that happens.
+        if (! GatewayUploadPath::isAllowed($storedPath)) {
+            Log::warning('Rejected a gateway upload with an unexpected stored path', [
+                'user_id' => auth()->id(),
+                'pso_environment_id' => $this->record->id,
+                'stored_path' => $storedPath,
+            ]);
+
+            $set('gateway_upload_file', null);
+            $set('gateway_upload_original_filename', null);
+
+            $this->notifyPayloadSent('Upload Failed', 'That file could not be verified. Please choose the file again.', false);
+
+            return;
+        }
+
+        $originalFilename = filled($originalFilename) ? (string) $originalFilename : basename((string) $storedPath);
+
+        // Filament's own `acceptedFileTypes()`/`maxSize()` are validation
+        // rules, and this tab never runs schema validation — so the file type
+        // and size are re-checked here, server-side.
+        if (! in_array(strtolower(pathinfo($originalFilename, PATHINFO_EXTENSION)), self::GATEWAY_UPLOAD_EXTENSIONS, true)) {
+            $this->notifyPayloadSent('Upload Failed', 'Only .json, .xml and .zip schedule data files can be uploaded.', false);
+
+            return;
+        }
+
+        $fileSizeBytes = Storage::disk('r2')->size($storedPath);
+
+        if ($fileSizeBytes > self::GATEWAY_UPLOAD_MAX_KILOBYTES * 1024) {
+            $this->notifyPayloadSent('Upload Failed', 'That file is larger than the 200 MB limit for schedule data uploads.', false);
+
+            return;
+        }
+
         $baseUrl = $get('base_url');
         $accountId = $get('account_id');
         $username = $get('username');
@@ -907,12 +970,24 @@ class EnvironmentTools extends Page
             return;
         }
 
+        // Decrypted before the row is created: the password field is an
+        // editable TextInput pre-filled with ciphertext, so an operator who
+        // retypes it in plaintext would otherwise leave behind a permanently
+        // queued row with no explanation.
+        try {
+            $decryptedPassword = Crypt::decryptString($password);
+        } catch (DecryptException) {
+            $this->notifyPayloadSent('Upload Failed', 'The stored password for this environment could not be read. Re-save the environment password and try again.', false);
+
+            return;
+        }
+
         $upload = PsoGatewayUpload::create([
             'pso_environment_id' => $this->record->id,
             'initiated_by_user_id' => auth()->id(),
             'stored_path' => $storedPath,
-            'original_filename' => filled($originalFilename) ? $originalFilename : basename((string) $storedPath),
-            'file_size_bytes' => Storage::disk('r2')->size($storedPath),
+            'original_filename' => $originalFilename,
+            'file_size_bytes' => $fileSizeBytes,
             'status' => PsoGatewayUploadStatus::QUEUED,
             'queued_at' => now(),
         ]);
@@ -922,7 +997,7 @@ class EnvironmentTools extends Page
             $baseUrl,
             $accountId,
             $username,
-            Crypt::decryptString($password),
+            $decryptedPassword,
         );
 
         $this->gatewayUploadId = $upload->id;
@@ -934,7 +1009,16 @@ class EnvironmentTools extends Page
 
     public function currentGatewayUpload(): ?PsoGatewayUpload
     {
-        return $this->gatewayUploadId ? PsoGatewayUpload::find($this->gatewayUploadId) : null;
+        if (blank($this->gatewayUploadId)) {
+            return null;
+        }
+
+        // Scoped to this environment as well as `#[Locked]`: the panel must
+        // never render another environment's upload, whatever the id says.
+        return PsoGatewayUpload::query()
+            ->where('pso_environment_id', $this->record->id)
+            ->whereKey($this->gatewayUploadId)
+            ->first();
     }
 
     public function gatewayUploadHistory(): Collection

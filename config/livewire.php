@@ -65,7 +65,7 @@ return [
 
     'temporary_file_upload' => [
         'disk' => env('LIVEWIRE_TEMPORARY_UPLOAD_DISK', 'r2'),
-        'rules' =>  ['max:102400'],       // Example: ['file', 'mimes:png,jpg']  | Default: ['required', 'file', 'max:12288'] (12MB)
+        'rules' => ['file', 'max:204800'],       // 200MB — matches the PSO gateway upload ceiling (see EnvironmentTools::GATEWAY_UPLOAD_MAX_KILOBYTES)
         'directory' => null,   // Example: 'tmp'                      | Default: 'livewire-tmp'
         'middleware' => null,  // Example: 'throttle:5,1'             | Default: 'throttle:60,1'
         'preview_mimes' => [   // Supported file types for temporary pre-signed file URLs...

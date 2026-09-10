@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Enums\PsoGatewayUploadStatus;
 use App\Models\PsoGatewayUpload;
+use App\Support\GatewayUploadPath;
 use App\Support\GzipFileCompressor;
 use App\Support\ScheduleDataZipExtractor;
 use App\Traits\PSOInteractionsTrait;
@@ -15,9 +16,11 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use SensitiveParameter;
 use Throwable;
 
@@ -28,6 +31,8 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
     public int $timeout = 300;
 
     public int $tries = 1;
+
+    private const int CHUNK_SIZE = 1024 * 1024; // 1MB
 
     public function __construct(
         public string $psoGatewayUploadId,
@@ -40,6 +45,21 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
     public function handle(): void
     {
         $upload = PsoGatewayUpload::findOrFail($this->psoGatewayUploadId);
+
+        // The stored path originates in browser-supplied form state, so it is
+        // re-checked here — before anything reads from or deletes on the
+        // shared r2 bucket — rather than trusting the row.
+        if (! GatewayUploadPath::isAllowed($upload->stored_path)) {
+            Log::warning('Refused a PSO gateway upload with an unexpected stored path', [
+                'upload_id' => $upload->id,
+                'stored_path' => $upload->stored_path,
+            ]);
+
+            $this->failUpload($upload, 'The stored location of this upload is not a valid gateway upload path, so nothing was sent to PSO.');
+
+            return;
+        }
+
         $upload->update(['status' => PsoGatewayUploadStatus::COMPRESSING, 'started_at' => now()]);
 
         $workDir = storage_path('app/private/gateway-uploads/'.$upload->id);
@@ -74,10 +94,16 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
                 return;
             }
 
+            $gzipStream = @fopen($gzipPath, 'rb');
+
+            if ($gzipStream === false) {
+                throw new RuntimeException("The compressed payload could not be opened for sending: {$gzipPath}");
+            }
+
             $response = Http::withHeaders([
                 'apiKey' => $token,
                 'Content-Encoding' => 'gzip',
-            ])->withBody(fopen($gzipPath, 'rb'), $contentType)
+            ])->withBody($gzipStream, $contentType)
                 ->post("{$this->baseUrl}/IFSSchedulingRESTfulGateway/api/v1/scheduling/data");
 
             if ($response->successful()) {
@@ -108,14 +134,37 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         $localPath = "{$workDir}/upload.{$extension}";
 
         $source = Storage::disk('r2')->readStream($upload->stored_path);
-        $destination = fopen($localPath, 'wb');
 
-        while (! feof($source)) {
-            fwrite($destination, fread($source, 1024 * 1024));
+        if (! is_resource($source)) {
+            throw new RuntimeException("The uploaded file could not be read from storage: {$upload->stored_path}");
         }
 
-        fclose($source);
-        fclose($destination);
+        $destination = @fopen($localPath, 'wb');
+
+        if ($destination === false) {
+            fclose($source);
+
+            throw new RuntimeException("A local working copy of the upload could not be opened for writing: {$localPath}");
+        }
+
+        // Every I/O result is checked so a partial download fails loudly
+        // instead of being gzipped and POSTed to PSO as a truncated payload.
+        try {
+            while (! feof($source)) {
+                $chunk = fread($source, self::CHUNK_SIZE);
+
+                if ($chunk === false) {
+                    throw new RuntimeException("The uploaded file could not be read from storage: {$upload->stored_path}");
+                }
+
+                if (fwrite($destination, $chunk) === false) {
+                    throw new RuntimeException("A local working copy of the upload could not be written: {$localPath}");
+                }
+            }
+        } finally {
+            fclose($source);
+            fclose($destination);
+        }
 
         return $localPath;
     }
@@ -142,12 +191,34 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         ]);
     }
 
+    /**
+     * Laravel calls this whenever the job never reached its own catch/finally
+     * blocks — the worker was killed, `$timeout` fired, or an exception
+     * escaped `handle()` — which would otherwise leave the row parked in a
+     * non-terminal status that the UI polls forever.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        $upload = PsoGatewayUpload::find($this->psoGatewayUploadId);
+
+        if (! $upload || $upload->status->isTerminal()) {
+            return;
+        }
+
+        Log::error('PSO gateway upload job failed outright', [
+            'upload_id' => $upload->id,
+            'message' => $exception?->getMessage(),
+        ]);
+
+        $this->failUpload($upload, 'The upload did not finish — the queue worker timed out or stopped before it could be sent to PSO. Please try again.');
+    }
+
     private function cleanup(PsoGatewayUpload $upload, string $workDir): void
     {
-        foreach (glob("{$workDir}/*") ?: [] as $file) {
-            @unlink($file);
-        }
-        @rmdir($workDir);
+        // Recursive: a zip entry such as `subdir/data.json` extracts into a
+        // sub-directory, which a flat unlink/rmdir pair cannot remove — and
+        // that would leak the whole extracted payload (10-100MB) forever.
+        File::deleteDirectory($workDir);
 
         Storage::disk('r2')->delete($upload->stored_path);
     }
