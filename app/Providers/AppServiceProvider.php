@@ -42,6 +42,7 @@ class AppServiceProvider extends ServiceProvider
 
         if (app()->environment('production')) {
             URL::forceScheme('https');
+            URL::forceRootUrl(config('app.url'));
         }
 
         if (app()->runningInConsole() && app()->runningUnitTests() === false) {
