@@ -53,6 +53,7 @@ Schema::create('pso_gateway_uploads', function (Blueprint $table) {
         ->constrained('users')
         ->cascadeOnDelete();
 
+    $table->string('stored_path'); // r2 disk path of the original upload — the job needs this to know what to download
     $table->string('original_filename');
     $table->unsignedBigInteger('file_size_bytes');
     $table->unsignedBigInteger('compressed_size_bytes')->nullable();
