@@ -102,34 +102,53 @@ revisit.
 ## 5. Upload flow
 
 1. **UI**: On the "Load from File" tab, a `FileUpload` component (disk `r2`,
-   private — matches the existing convention in `FilterLoadFile.php`) plus a
-   submit action.
+   private — matches the existing convention in `FilterLoadFile.php`),
+   restricted to `.json`, `.xml`, and `.zip`, plus a submit action.
 2. **On submit**: file is already on `r2` (Filament uploads it during form
    interaction). Create a `PsoGatewayUpload` row (`status = queued`,
-   `pso_environment_id = $this->record->id`, `initiated_by_user_id = auth()->id()`),
-   dispatch `SendPsoScheduleDataJob::dispatch($upload->id)`.
+   `pso_environment_id = $this->record->id`, `initiated_by_user_id = auth()->id()`,
+   `original_filename` = the uploaded file's name), dispatch
+   `SendPsoScheduleDataJob::dispatch($upload->id)`.
 3. **Job** (`app/Jobs/SendPsoScheduleDataJob.php`):
-   - `status → compressing`. Stream the file off `r2` in chunks, gzip via
-     `zlib` streaming (`deflate_init`/`deflate_add` with `ZLIB_ENCODING_GZIP`)
-     to a local temp file. Never hold the full raw file and its compressed
-     copy in memory at once — this is the whole reason the PowerShell script
-     needed a rewrite in the first place (Bruno/Postman choke on this at
-     10–100+ MB).
+   - `status → compressing`.
+   - If the uploaded file is a `.zip`: extract it to a local temp path first
+     (streamed via `ZipArchive::extractTo()`, not read fully into memory).
+     Require exactly one entry inside, and that entry must be `.json` or
+     `.xml` — anything else (multiple files, a nested directory, an
+     unsupported entry type) fails fast with a clear `error_message` before
+     any gzip/upload work starts. The extracted file replaces the original
+     as the input to the next step. A `.zip` upload does **not** skip
+     gzip-compression — `.zip` and `gzip` are different container formats,
+     and the gateway's `Content-Encoding: gzip` expects a raw gzip stream,
+     not a zip archive. Accepting `.zip` only helps the *browser → server*
+     leg of the trip (see §7), not the server → gateway leg.
+   - Determine format (`json` or `xml`) from the resulting file's extension
+     — the original upload's extension if `.json`/`.xml` directly, or the
+     extracted entry's extension if it came via `.zip`. This drives the
+     `Content-Type` header in the gateway POST below.
+   - Stream the file in chunks, gzip via `zlib` streaming
+     (`deflate_init`/`deflate_add` with `ZLIB_ENCODING_GZIP`) to a local temp
+     file. Never hold the full raw file and its compressed copy in memory at
+     once — this is the whole reason the PowerShell script needed a rewrite
+     in the first place (Bruno/Postman choke on this at 10–100+ MB).
    - Record `compressed_size_bytes`.
    - `status → uploading`. Get a token via `authenticatePSO()` using the
      environment properties passed into the job (captured from the tab's
      live form state at submit time, same fields `fetchSystemUsage` reads).
    - POST the compressed body to `{base_url}/scheduling/data` with
-     `Content-Encoding: gzip` and the auth header, streaming the request body
-     from the temp file handle rather than loading it into a string.
+     `Content-Encoding: gzip`, `Content-Type: application/json` or
+     `application/xml` (per the detected format above), and the auth header,
+     streaming the request body from the temp file handle rather than
+     loading it into a string.
    - On 200: parse `InternalId`, `status → succeeded`, store `internal_id`.
    - On failure: `status → failed`, store a human-readable `error_message`
      (map known error responses — e.g. `AUTHENTICATION_FAILED`,
      `Invalid Parameters` — to plain language; fall back to a generic
      message for anything unmapped, never a raw stack trace).
-   - `finally`: delete the local temp compressed file and the original file
-     on `r2`. No delayed cleanup job needed (unlike `ProcessResourceFile`'s
-     pattern) — nothing else references these files after the job completes.
+   - `finally`: delete the local temp compressed file, any extracted temp
+     file, and the original file on `r2`. No delayed cleanup job needed
+     (unlike `ProcessResourceFile`'s pattern) — nothing else references
+     these files after the job completes.
 4. **UI status**: the tab polls the `PsoGatewayUpload` row directly via
    `wire:poll` while a job is in flight. This table is already the
    persisted source of truth (unlike `ProcessResourceFile`, which has no DB
@@ -150,7 +169,12 @@ or mapped error message). This matches the existing
 ## 7. Server config (this build's responsibility, per your answer)
 
 - `upload_max_filesize` / `post_max_size`: raised to 200M on this site's Herd
-  php.ini, to comfortably clear the largest expected payload.
+  php.ini, to comfortably clear the largest expected *raw* `.json`/`.xml`
+  payload. Since `.zip` uploads are now supported (§5) and schedule data
+  compresses ~96% (per the PowerShell script's production numbers), a
+  scheduler who zips client-side before uploading will land well under this
+  limit even for a 100MB+ source file — 200M stays the ceiling for whoever
+  doesn't bother zipping first, not the expected common case.
 - `memory_limit`: raised only enough to cover the largest single chunk
   processed at once (not the full file size — streaming means this doesn't
   need to scale with payload size).
@@ -170,6 +194,12 @@ Per this app's TDD convention (single-pass, no subagents for routine CRUD):
   (`accountId`/`userName`/`password`), correct status transitions on success
   and on each failure mode (auth failure, network error, non-200 data
   response).
+- Job unit test: `Content-Type` is `application/json` for a `.json` upload
+  and `application/xml` for a `.xml` upload.
+- Job unit test: a `.zip` containing a single `.json` extracts and uploads
+  successfully with the correct `Content-Type`; a `.zip` with zero or
+  multiple entries, or a non-`.json`/`.xml` entry, fails fast with a clear
+  `error_message` and never reaches the compress/upload steps.
 - Streaming-gzip step tested in isolation with a moderately large fixture (a
   few MB is enough to prove no full-file memory load) — assert the
   implementation uses chunked reads/`deflate_add`, not `file_get_contents` +
