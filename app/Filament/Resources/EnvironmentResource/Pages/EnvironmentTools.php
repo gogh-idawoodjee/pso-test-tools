@@ -9,14 +9,19 @@ use App\Enums\BroadcastType;
 use App\Enums\HttpMethod;
 use App\Enums\InputMode;
 use App\Enums\ProcessType;
+use App\Enums\PsoGatewayUploadStatus;
 use App\Enums\ScheduleDataUsageType;
 use App\Filament\Resources\EnvironmentResource;
+use App\Jobs\SendPsoScheduleDataJob;
+use App\Models\PsoGatewayUpload;
 use App\Traits\PSOInteractionsTrait;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -35,8 +40,11 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Storage;
 use JsonException;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Override;
 
 class EnvironmentTools extends Page
@@ -54,6 +62,8 @@ class EnvironmentTools extends Page
     public mixed $response = null;
 
     public ?array $systemUsageGroups = null;
+
+    public ?string $gatewayUploadId = null;
 
     protected static ?string $title = 'Tools';
 
@@ -561,6 +571,57 @@ class EnvironmentTools extends Page
                         ->icon(Heroicon::OutlinedCog)
                         ->label('Services'),
 
+                    Tab::make('gateway_upload_tab')
+                        ->schema([
+                            FileUpload::make('gateway_upload_file')
+                                ->label('Schedule Data File')
+                                ->helperText('Upload a dsScheduleData .json/.xml file, or a .zip containing one.')
+                                ->disk('r2')
+                                ->directory('gateway-uploads')
+                                ->acceptedFileTypes([
+                                    'application/json',
+                                    'text/json',
+                                    'application/xml',
+                                    'text/xml',
+                                    'application/zip',
+                                    'application/x-zip-compressed',
+                                ])
+                                ->maxSize(204800) // 200MB in KB
+                                ->live()
+                                ->afterStateUpdated(function (Set $set, $state) {
+                                    if ($state instanceof TemporaryUploadedFile) {
+                                        $set('gateway_upload_original_filename', $state->getClientOriginalName());
+                                    }
+                                })
+                                // Deliberately not ->required(): this is a schema-wide validation
+                                // rule that would fire whenever ANY action calls $this->psoload->getState()
+                                // on the full schema (e.g. the "Initial Load and Rota" tab's push_it
+                                // action via initPSO()), not just when this tab's own submit action
+                                // runs — blocking unrelated tabs with an unfilled file field. The
+                                // "file is required" check is instead done manually in
+                                // submitGatewayUpload(), scoped to only this tab's own submission.
+                                ->columnSpanFull(),
+                            Hidden::make('gateway_upload_original_filename')
+                                ->dehydrated(false),
+                            Actions::make([
+                                Action::make('submit_gateway_upload')
+                                    ->label('Upload to PSO')
+                                    ->icon(Heroicon::OutlinedArrowUpOnSquare)
+                                    ->action(function (Get $get, Set $set) {
+                                        $this->submitGatewayUpload($get, $set);
+                                    }),
+                            ])->columnSpanFull(),
+                            View::make('filament.resources.environment-resource.pages.partials.gateway-upload-status')
+                                ->viewData(fn (): array => [
+                                    'upload' => $this->currentGatewayUpload(),
+                                    'history' => $this->gatewayUploadHistory(),
+                                ])
+                                ->columnSpanFull(),
+                        ])
+                        ->columns()
+                        ->icon(Heroicon::OutlinedArrowUpOnSquare)
+                        ->label('Load from File'),
+
                 ]),
 
             ])->statePath('data');
@@ -807,5 +868,81 @@ class EnvironmentTools extends Page
             ->sortBy(fn (array $group) => $group['type']?->value ?? PHP_INT_MAX)
             ->values()
             ->all();
+    }
+
+    public function submitGatewayUpload(Get $get, Set $set): void
+    {
+        // `Get::__invoke()` only calls `getState()` on the individual field
+        // component it resolves, not the whole schema — this is what lets us
+        // avoid `$this->psoload->getState()` (and its unrelated `dataset_id`
+        // validation) elsewhere in this method. But that also means a
+        // FileUpload's raw state is never routed through the schema-level
+        // dehydration pipeline that normally moves the upload from Livewire's
+        // temporary disk onto its configured disk/directory. So we trigger
+        // that move ourselves, scoped to just this one component, before
+        // reading its state.
+        $fileUploadComponent = $this->psoload->getComponentByStatePath('gateway_upload_file');
+
+        if ($fileUploadComponent instanceof FileUpload) {
+            $fileUploadComponent->saveUploadedFiles();
+        }
+
+        $storedPath = $get('gateway_upload_file');
+        $originalFilename = $get('gateway_upload_original_filename');
+
+        if (blank($storedPath)) {
+            $this->notifyPayloadSent('Upload Failed', 'Please choose a file to upload.', false);
+
+            return;
+        }
+
+        $baseUrl = $get('base_url');
+        $accountId = $get('account_id');
+        $username = $get('username');
+        $password = $get('password');
+
+        if (blank($baseUrl) || blank($accountId) || blank($username) || blank($password)) {
+            $this->notifyPayloadSent('Upload Failed', 'Base URL, Account ID, Username and Password are all required (see Environment Properties above).', false);
+
+            return;
+        }
+
+        $upload = PsoGatewayUpload::create([
+            'pso_environment_id' => $this->record->id,
+            'initiated_by_user_id' => auth()->id(),
+            'stored_path' => $storedPath,
+            'original_filename' => filled($originalFilename) ? $originalFilename : basename((string) $storedPath),
+            'file_size_bytes' => Storage::disk('r2')->size($storedPath),
+            'status' => PsoGatewayUploadStatus::QUEUED,
+            'queued_at' => now(),
+        ]);
+
+        SendPsoScheduleDataJob::dispatch(
+            $upload->id,
+            $baseUrl,
+            $accountId,
+            $username,
+            Crypt::decryptString($password),
+        );
+
+        $this->gatewayUploadId = $upload->id;
+        $set('gateway_upload_file', null);
+        $set('gateway_upload_original_filename', null);
+
+        $this->notifyPayloadSent('Upload Queued', "\"{$upload->original_filename}\" has been queued for upload to PSO.", true);
+    }
+
+    public function currentGatewayUpload(): ?PsoGatewayUpload
+    {
+        return $this->gatewayUploadId ? PsoGatewayUpload::find($this->gatewayUploadId) : null;
+    }
+
+    public function gatewayUploadHistory(): Collection
+    {
+        return PsoGatewayUpload::query()
+            ->where('pso_environment_id', $this->record->id)
+            ->latest('created_at')
+            ->limit(10)
+            ->get();
     }
 }
