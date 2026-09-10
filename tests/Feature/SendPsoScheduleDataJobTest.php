@@ -4,6 +4,7 @@ use App\Enums\PsoGatewayUploadStatus;
 use App\Jobs\SendPsoScheduleDataJob;
 use App\Models\Environment;
 use App\Models\PsoGatewayUpload;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -130,7 +131,7 @@ it('records a plain-language error on a connection failure', function () {
     Http::fake([
         '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
         '*/scheduling/data' => function () {
-            throw new \Illuminate\Http\Client\ConnectionException('Connection timed out');
+            throw new ConnectionException('Connection timed out');
         },
     ]);
 

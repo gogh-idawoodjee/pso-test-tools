@@ -12,7 +12,7 @@ enum PsoGatewayUploadStatus: string implements HasLabel
     case SUCCEEDED = 'succeeded';
     case FAILED = 'failed';
 
-    public function getLabel(): string|null
+    public function getLabel(): ?string
     {
         return match ($this) {
             self::QUEUED => 'Queued',
