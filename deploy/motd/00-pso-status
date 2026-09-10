@@ -1,0 +1,165 @@
+#!/usr/bin/env bash
+# Dynamic MOTD for pso-services (CT 199 on technodrome).
+# Lives at /etc/update-motd.d/00-pso-status — run by pam_motd for real
+# login/ssh sessions, output concatenated into /run/motd.dynamic.
+#
+# `pct enter` attaches directly and skips PAM entirely, so it won't trigger
+# this on its own — see install.sh, which also appends a guarded call to
+# /etc/bash.bashrc so `pct enter` shows the banner too.
+#
+# Must be executable.
+
+set -u
+
+# ── CONFIG — verified against CT 199 on 2026-09-10 ───────────────────────
+SERVICES=(
+  "Apache:apache2"
+  "MariaDB:mariadb"
+  "PHP-FPM:php8.4-fpm"
+  "Supervisor:supervisor"
+)
+# label : app dir : supervisor group prefix : log mode (single|daily)
+APPS=(
+  "pso-services:/var/www/pso-services:pso-services-worker:daily"
+  "pso-test-tools:/var/www/pso-test-tools:pso-test-tools-worker:daily"
+)
+# Write this at the end of each app's deploy script:
+#   date -u +"%Y-%m-%d %H:%M UTC" > storage/.deployed_at
+NET_IFACE="eth0"
+PUBLIC_IP_CACHE="/run/motd-public-ip.cache"
+PUBLIC_IP_CACHE_TTL=3600                # seconds
+# fail2ban / ipset are not installed on this box — those sections are
+# skipped automatically below (guarded by `command -v`). Set these if you
+# ever add them:
+F2B_JAIL="nginx-scanner"
+BLOCKLIST_IPSET=""                      # `ipset list $BLOCKLIST_IPSET` ; leave empty to skip
+# ───────────────────────────────────────────────────────────────────────
+
+RESET='\e[0m'; BOLD='\e[1m'
+CYAN='\e[36m'; GREEN='\e[32m'; YELLOW='\e[33m'; RED='\e[31m'; BLUE='\e[34m'; MAGENTA='\e[35m'; DIM='\e[2m'
+
+line() { printf "${DIM}──────────────────────────────────────────────────${RESET}\n"; }
+row()  { printf " %b %-17s %b\n" "$1" "$2" "$3"; }
+
+human_bytes() {
+  local bytes=$1
+  awk -v b="$bytes" 'BEGIN {
+    split("B KB MB GB TB", u, " ")
+    i = 1
+    while (b >= 1024 && i < 5) { b /= 1024; i++ }
+    printf "%.1f %s", b, u[i]
+  }'
+}
+
+# ── Header ────────────────────────────────────────────────────────────
+HOST=$(hostname)
+LOCAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+
+if [[ -f "$PUBLIC_IP_CACHE" ]] && [[ $(( $(date +%s) - $(stat -c %Y "$PUBLIC_IP_CACHE" 2>/dev/null || echo 0) )) -lt $PUBLIC_IP_CACHE_TTL ]]; then
+  PUBLIC_IP=$(cat "$PUBLIC_IP_CACHE")
+else
+  PUBLIC_IP=$(curl -s -m 2 https://ifconfig.me 2>/dev/null || echo "n/a")
+  echo "$PUBLIC_IP" > "$PUBLIC_IP_CACHE" 2>/dev/null
+fi
+
+UPTIME=$(uptime -p | sed 's/^up //')
+KERNEL=$(uname -r)
+
+read -r MEM_TOTAL MEM_USED <<< "$(free -m | awk '/^Mem:/ {print $2, $3}')"
+MEM_PCT=$(( MEM_TOTAL > 0 ? MEM_USED * 100 / MEM_TOTAL : 0 ))
+
+read -r SWAP_TOTAL SWAP_USED <<< "$(free -m | awk '/^Swap:/ {print $2, $3}')"
+
+read -r DISK_USED DISK_TOTAL DISK_PCT <<< "$(df -h / | awk 'NR==2 {gsub("%","",$5); print $3, $2, $5}')"
+
+LOAD=$(cut -d' ' -f1-3 /proc/loadavg)
+
+RX1=$(cat "/sys/class/net/${NET_IFACE}/statistics/rx_bytes" 2>/dev/null || echo 0)
+TX1=$(cat "/sys/class/net/${NET_IFACE}/statistics/tx_bytes" 2>/dev/null || echo 0)
+sleep 1
+RX2=$(cat "/sys/class/net/${NET_IFACE}/statistics/rx_bytes" 2>/dev/null || echo 0)
+TX2=$(cat "/sys/class/net/${NET_IFACE}/statistics/tx_bytes" 2>/dev/null || echo 0)
+RX_RATE=$(human_bytes $(( RX2 - RX1 )))
+TX_RATE=$(human_bytes $(( TX2 - TX1 )))
+
+line
+row "🐾" "Host:"      "${BOLD}${HOST}${RESET}"
+row "🌐" "Local IP:"  "${LOCAL_IP}"
+row "🌍" "Public IP:" "${PUBLIC_IP}"
+row "⏱ " "Uptime:"    "${UPTIME}"
+row "⚙ " "Kernel:"    "${KERNEL}"
+row "💾" "Memory:"    "${MEM_USED}MB / ${MEM_TOTAL}MB (${MEM_PCT}%)"
+row "🔁" "Swap:"      "${SWAP_USED}MB / ${SWAP_TOTAL}MB"
+row "📦" "Disk:"      "${DISK_USED}/${DISK_TOTAL} (${DISK_PCT}%)"
+row "📊" "Load:"      "${LOAD}"
+row "📡" "Net (${NET_IFACE}):" "RX ${RX_RATE}/s  |  TX ${TX_RATE}/s"
+line
+
+# ── Services ──────────────────────────────────────────────────────────
+for entry in "${SERVICES[@]}"; do
+  label="${entry%%:*}"
+  unit="${entry#*:}"
+  if systemctl is-active --quiet "$unit" 2>/dev/null; then
+    status="${GREEN}running${RESET}"
+  else
+    status="${RED}stopped${RESET}"
+  fi
+  row "⚙ " "${label}:" "$status"
+done
+
+line
+
+# ── Per-app: queue workers, deploy time, log errors ──────────────────────
+TODAY=$(date +%F)
+for entry in "${APPS[@]}"; do
+  IFS=':' read -r label dir group logmode <<< "$entry"
+
+  if command -v supervisorctl >/dev/null 2>&1; then
+    WORKER_COUNT=$(supervisorctl status 2>/dev/null | grep -c "^${group}.*RUNNING")
+  else
+    WORKER_COUNT="n/a"
+  fi
+  row "👷" "${label}:" "${WORKER_COUNT} worker(s)"
+
+  DEPLOY_MARKER="${dir}/storage/.deployed_at"
+  if [[ -f "$DEPLOY_MARKER" ]]; then
+    row "🚀" "  Deployed:" "$(cat "$DEPLOY_MARKER")"
+  fi
+
+  if [[ "$logmode" == "daily" ]]; then
+    APP_LOG="${dir}/storage/logs/laravel-${TODAY}.log"
+  else
+    APP_LOG="${dir}/storage/logs/laravel.log"
+  fi
+  if [[ -f "$APP_LOG" ]]; then
+    if [[ "$logmode" == "daily" ]]; then
+      ERR_COUNT=$(grep -c "\.ERROR:" "$APP_LOG" 2>/dev/null || echo 0)
+    else
+      ERR_COUNT=$(grep -c "^\[${TODAY}.*\.ERROR:" "$APP_LOG" 2>/dev/null || echo 0)
+    fi
+    if [[ "$ERR_COUNT" -gt 0 ]]; then
+      row "⚠ " "  Log errors:" "${YELLOW}${ERR_COUNT} today${RESET}"
+    else
+      row "✅" "  Log errors:" "${GREEN}0 today${RESET}"
+    fi
+  fi
+done
+line
+
+# ── Security ──────────────────────────────────────────────────────────
+SSH_FAILS=$(journalctl -u ssh --since "-1 day" 2>/dev/null | grep -c "Failed password")
+row "🔒" "SSH fails:" "${SSH_FAILS} (24h)"
+
+if command -v fail2ban-client >/dev/null 2>&1; then
+  BANNED=$(fail2ban-client status "$F2B_JAIL" 2>/dev/null | awk -F: '/Currently banned/ {gsub(/ /,"",$2); print $2}')
+  [[ -z "$BANNED" ]] && BANNED="n/a"
+  row "🛡 " "F2B banned:" "${BANNED} (${F2B_JAIL})"
+fi
+
+if [[ -n "$BLOCKLIST_IPSET" ]] && command -v ipset >/dev/null 2>&1; then
+  BL_COUNT=$(ipset list "$BLOCKLIST_IPSET" 2>/dev/null | awk '/Number of entries/ {print $NF}')
+  if [[ -n "$BL_COUNT" ]]; then
+    row "🚫" "Blocklist:" "${BL_COUNT} IPs"
+  fi
+fi
+line
