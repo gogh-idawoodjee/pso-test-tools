@@ -88,6 +88,15 @@ Reuses `PSOInteractionsTrait::authenticatePSO($base_url, $account_id, $username,
 what's needed: POSTs to `{base_url}/IFSSchedulingRESTfulGateway/api/v1/scheduling/session`
 and returns a `SessionToken`. No new auth flow, no new service class.
 
+The token is passed back to the gateway on the data-upload call as an
+**`apiKey` header** (`apiKey: <SessionToken>`), not `SessionToken` or
+`Authorization: Bearer`. Verified against `pso-services`'
+`App\Classes\V2\PsoClient::sendToPso()` (`~/Herd/pso-services/app/Classes/V2/PsoClient.php`),
+which calls the same gateway and does
+`Http::withHeaders(['apiKey' => $sessionToken])->post($url, $payload)`. No
+session cleanup (`DELETE /scheduling/session`) after the upload — confirmed
+not needed.
+
 **OIDC client-credentials auth is explicitly out of scope for v1.** The
 original PowerShell script's testing surfaced a caveat that some
 Cloud-hosted (`*.ifs.cloud`) gateways require OIDC unless the PSO user has
@@ -135,16 +144,19 @@ revisit.
    - `status → uploading`. Get a token via `authenticatePSO()` using the
      environment properties passed into the job (captured from the tab's
      live form state at submit time, same fields `fetchSystemUsage` reads).
-   - POST the compressed body to `{base_url}/scheduling/data` with
+   - POST the compressed body to
+     `{base_url}/IFSSchedulingRESTfulGateway/api/v1/scheduling/data` with
      `Content-Encoding: gzip`, `Content-Type: application/json` or
-     `application/xml` (per the detected format above), and the auth header,
-     streaming the request body from the temp file handle rather than
-     loading it into a string.
+     `application/xml` (per the detected format above), and header
+     `apiKey: <SessionToken>` (§4), streaming the request body from the temp
+     file handle rather than loading it into a string.
    - On 200: parse `InternalId`, `status → succeeded`, store `internal_id`.
-   - On failure: `status → failed`, store a human-readable `error_message`
-     (map known error responses — e.g. `AUTHENTICATION_FAILED`,
-     `Invalid Parameters` — to plain language; fall back to a generic
-     message for anything unmapped, never a raw stack trace).
+   - On failure: `status → failed`, store a human-readable `error_message`.
+     PSO error bodies are shaped `{"Message": "AUTHENTICATION_FAILED"}` (per
+     `pso-services`' `PsoClient::handleErrorResponse()`); map known `Message`
+     values (`AUTHENTICATION_FAILED`, `Invalid Parameters`) to plain
+     language, fall back to a generic message plus the raw `Message` value
+     for anything unmapped — never a raw stack trace.
    - `finally`: delete the local temp compressed file, any extracted temp
      file, and the original file on `r2`. No delayed cleanup job needed
      (unlike `ProcessResourceFile`'s pattern) — nothing else references
