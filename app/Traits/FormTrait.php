@@ -4,7 +4,9 @@ namespace App\Traits;
 
 use App\Models\Dataset;
 use App\Models\Environment;
+use Carbon\Carbon;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -196,5 +198,18 @@ trait FormTrait
     {
         // used for overriding in any child
 
+    }
+
+    protected function inputDatetimeField(): DateTimePicker
+    {
+        return DateTimePicker::make('input_datetime')
+            ->label('Input Date Time')
+            ->helperText('Optional. Overrides "now" as PSO\'s scheduling reference time.')
+            ->seconds(false);
+    }
+
+    protected function inputDatetimePayloadValue(?string $value): ?string
+    {
+        return filled($value) ? Carbon::parse($value)->toAtomString() : null;
     }
 }

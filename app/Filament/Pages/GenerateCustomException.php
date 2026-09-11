@@ -84,6 +84,7 @@ class GenerateCustomException extends Page
                             ->required(),
                         TextInput::make('value')
                             ->required(),
+                        $this->inputDatetimeField(),
                         Actions::make([Action::make('generate_exception')
                             ->label('Generate Exception')
                             ->icon(Heroicon::OutlinedExclamationTriangle)
@@ -116,6 +117,9 @@ class GenerateCustomException extends Page
                 'label' => $this->exception_data['label'],
                 'value' => $this->exception_data['value'],
                 'exceptionTypeId' => $this->exception_data['schedule_exception_type_id'],
+            ],
+            optional: [
+                'inputDatetime' => $this->inputDatetimePayloadValue($this->exception_data['input_datetime'] ?? null),
             ],
         );
 

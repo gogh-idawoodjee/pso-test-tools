@@ -60,6 +60,8 @@ class UpdateActivityStatus extends PSOActivityBasePage
                             ->prefixIcon('heroicon-o-calendar')
                             ->label('Date Time Fixed'),
 
+                        $this->inputDatetimeField(),
+
                         TextInput::make('resource_id')
                             ->prefixIcon('heroicon-o-user')
                             ->label('Resource ID')
@@ -121,6 +123,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
                     ? Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i')
                     : null,
                 'duration' => $this->activity_data['duration'],
+                'inputDatetime' => $this->inputDatetimePayloadValue($this->activity_data['input_datetime'] ?? null),
             ]
         );
     }

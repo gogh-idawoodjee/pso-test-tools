@@ -58,6 +58,7 @@ class ResourceEvent extends PSOResourceBasePage
                         DateTimePicker::make('event_date_time')
                             ->label('Event Date/Time')
                             ->helperText('Optional. Defaults to current datetime if not set.'),
+                        $this->inputDatetimeField(),
                         Fieldset::make('location')
                             ->visible(static function (Get $get) {
                                 return $get('event_type') === EventType::GPSFIX;
@@ -126,6 +127,7 @@ class ResourceEvent extends PSOResourceBasePage
                 'eventDateTime' => $this->resource_data['event_date_time'] ?? null,
                 'lat' => $this->resource_data['latitude'] ?? null,
                 'long' => $this->resource_data['longitude'] ?? null,
+                'inputDatetime' => $this->inputDatetimePayloadValue($this->resource_data['input_datetime'] ?? null),
             ]
         );
 

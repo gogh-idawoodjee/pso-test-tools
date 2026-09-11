@@ -281,6 +281,8 @@ class AppointmentBooking extends Page
                             ->required()
                             ->live()->columnSpan(2),
 
+                        $this->inputDatetimeField(),
+
                         Actions::make([Action::make('get_appointments')
                             ->label('Get Appointments')
                             ->icon(Heroicon::OutlinedCalendar)
@@ -347,6 +349,10 @@ class AppointmentBooking extends Page
 
         if (data_get($this->task_data, 'slotUsageRuleSetId')) {
             Arr::add($data, 'data.slotUsageRuleId', data_get($this->task_data, 'slotUsageRuleSetId'));
+        }
+
+        if ($inputDatetime = $this->inputDatetimePayloadValue(data_get($this->task_data, 'input_datetime'))) {
+            $data['data']['inputDatetime'] = $inputDatetime;
         }
 
         return $data;

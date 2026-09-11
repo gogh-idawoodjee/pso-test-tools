@@ -722,7 +722,7 @@ class EnvironmentTools extends Page
                 'sendToPso' => data_get($data, 'send_to_pso'),
             ],
             'data' => [
-                'datetime' => filled(data_get($data, 'datetime'))
+                'inputDatetime' => filled(data_get($data, 'datetime'))
                     ? Carbon::parse(data_get($data, 'datetime'))->toAtomString()
                     : Carbon::now()->toAtomString(),
             ],

@@ -163,6 +163,7 @@ class GenerateActivities extends PSOActivityBasePage
                                 TextInput::make('activity_id')
                                     ->prefixIcon('heroicon-o-hashtag') // ID field
                                     ->helperText('will be a UUID if not included'),
+                                $this->inputDatetimeField(),
                                 Forms\Components\Repeater::make('skills')
                                     ->simple(
                                         TextInput::make('skills')
@@ -230,6 +231,7 @@ class GenerateActivities extends PSOActivityBasePage
                 'timeZone' => $this->activity_data['time_zone'] ?? null,
                 'skills' => $skills ?: null,
                 'regions' => $regions ?: null,
+                'inputDatetime' => $this->inputDatetimePayloadValue($this->activity_data['input_datetime'] ?? null),
             ],
         );
     }
