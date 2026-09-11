@@ -112,10 +112,20 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
                 throw new RuntimeException("The compressed payload could not be opened for sending: {$gzipPath}");
             }
 
-            $response = Http::withHeaders([
-                'apiKey' => $token,
-                'Content-Encoding' => 'gzip',
-            ])->withBody($gzipStream, $contentType)
+            // Laravel's HTTP client defaults to a 30s response-wait timeout,
+            // which is nowhere near enough here: PSO validates and writes
+            // the whole payload before it responds, and that can legitimately
+            // take longer than 30s for a large load. Without this, the load
+            // lands and succeeds on PSO's side while this job still times
+            // out and reports a false failure. Left under the job's own
+            // $timeout (300s) to leave headroom for the download/compress/
+            // auth steps that already ran before this request.
+            $response = Http::timeout(240)
+                ->connectTimeout(10)
+                ->withHeaders([
+                    'apiKey' => $token,
+                    'Content-Encoding' => 'gzip',
+                ])->withBody($gzipStream, $contentType)
                 ->post("{$this->baseUrl}/IFSSchedulingRESTfulGateway/api/v1/scheduling/data");
 
             if ($response->successful()) {
