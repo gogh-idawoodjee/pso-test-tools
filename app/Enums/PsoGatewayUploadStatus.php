@@ -27,4 +27,19 @@ enum PsoGatewayUploadStatus: string implements HasLabel
     {
         return in_array($this, [self::SUCCEEDED, self::FAILED], true);
     }
+
+    /**
+     * A stage-mapped percentage for the status bar, not a byte-level upload
+     * progress — the gateway POST doesn't expose transfer progress through
+     * the HTTP client, so this just gives each stage a sense of movement.
+     */
+    public function progressPercent(): int
+    {
+        return match ($this) {
+            self::QUEUED => 10,
+            self::COMPRESSING => 40,
+            self::UPLOADING => 75,
+            self::SUCCEEDED, self::FAILED => 100,
+        };
+    }
 }

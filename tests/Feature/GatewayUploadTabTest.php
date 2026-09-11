@@ -78,6 +78,38 @@ it('creates a queued upload row and dispatches the job on submit', function () {
     });
 });
 
+it('disables the submit action while an upload is in flight', function () {
+    Storage::fake('r2');
+    Queue::fake();
+
+    $environment = gatewayUploadEnvironment();
+
+    $file = UploadedFile::fake()->create('schedule.json', 500, 'application/json');
+
+    Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->fillForm(['gateway_upload_file' => $file], 'psoload')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'))
+        ->assertActionDisabled(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+});
+
+it('re-enables the submit action once the tracked upload reaches a terminal status', function () {
+    Storage::fake('r2');
+    Queue::fake();
+
+    $environment = gatewayUploadEnvironment();
+
+    $file = UploadedFile::fake()->create('schedule.json', 500, 'application/json');
+
+    $component = Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->fillForm(['gateway_upload_file' => $file], 'psoload')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+
+    $upload = PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->first();
+    $upload->update(['status' => PsoGatewayUploadStatus::SUCCEEDED, 'completed_at' => now()]);
+
+    $component->assertActionEnabled(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+});
+
 it('accepts every legitimate extension the field allows', function (string $extension, string $mimeType) {
     Storage::fake('r2');
     Queue::fake();

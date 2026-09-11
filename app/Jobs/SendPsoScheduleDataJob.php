@@ -6,6 +6,7 @@ use App\Enums\PsoGatewayUploadStatus;
 use App\Models\PsoGatewayUpload;
 use App\Support\GatewayUploadPath;
 use App\Support\GzipFileCompressor;
+use App\Support\ScheduleDataSummaryExtractor;
 use App\Support\ScheduleDataZipExtractor;
 use App\Traits\PSOInteractionsTrait;
 use Illuminate\Bus\Queueable;
@@ -74,9 +75,20 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
                 ? ScheduleDataZipExtractor::extract($downloadedPath, $workDir)
                 : $downloadedPath;
 
-            $contentType = str_ends_with(strtolower($rawPath), '.xml')
-                ? 'application/xml'
-                : 'application/json';
+            $format = str_ends_with(strtolower($rawPath), '.xml') ? 'xml' : 'json';
+            $contentType = $format === 'xml' ? 'application/xml' : 'application/json';
+
+            // Display-only — never blocks or alters the upload itself. If the
+            // file can't be parsed for these fields, they're simply left null;
+            // the raw bytes are still gzipped and sent unchanged either way.
+            $summary = ScheduleDataSummaryExtractor::extract($rawPath, $format);
+
+            $upload->update([
+                'dataset_id' => $summary['dataset_id'],
+                'input_reference_datetime' => $summary['input_reference_datetime'],
+                'activity_count' => $summary['activity_count'],
+                'resource_count' => $summary['resource_count'],
+            ]);
 
             $gzipPath = $workDir.'/payload.gz';
             $compressedSize = GzipFileCompressor::compress($rawPath, $gzipPath);

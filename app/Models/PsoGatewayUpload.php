@@ -20,9 +20,12 @@ class PsoGatewayUpload extends Model
         'status' => PsoGatewayUploadStatus::class,
         'file_size_bytes' => 'integer',
         'compressed_size_bytes' => 'integer',
+        'activity_count' => 'integer',
+        'resource_count' => 'integer',
         'queued_at' => 'datetime',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'input_reference_datetime' => 'datetime',
     ];
 
     protected $fillable = [
@@ -35,6 +38,10 @@ class PsoGatewayUpload extends Model
         'status',
         'internal_id',
         'error_message',
+        'dataset_id',
+        'input_reference_datetime',
+        'activity_count',
+        'resource_count',
         'queued_at',
         'started_at',
         'completed_at',

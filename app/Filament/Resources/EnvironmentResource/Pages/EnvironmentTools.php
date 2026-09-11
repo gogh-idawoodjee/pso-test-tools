@@ -610,6 +610,7 @@ class EnvironmentTools extends Page
                                 // same guard, since this one rides on the
                                 // schema validation that this tab skips.
                                 ->preventFilePathTampering(allowFilePathUsing: static fn (string $file): bool => GatewayUploadPath::isAllowed($file))
+                                ->disabled(fn (): bool => $this->gatewayUploadInProgress())
                                 ->live()
                                 ->afterStateUpdated(function (Set $set, $state) {
                                     if ($state instanceof TemporaryUploadedFile) {
@@ -630,6 +631,7 @@ class EnvironmentTools extends Page
                                 Action::make('submit_gateway_upload')
                                     ->label('Upload to PSO')
                                     ->icon(Heroicon::OutlinedArrowUpOnSquare)
+                                    ->disabled(fn (): bool => $this->gatewayUploadInProgress())
                                     ->action(function (Get $get, Set $set) {
                                         $this->submitGatewayUpload($get, $set);
                                     }),
@@ -1005,6 +1007,16 @@ class EnvironmentTools extends Page
         $set('gateway_upload_original_filename', null);
 
         $this->notifyPayloadSent('Upload Queued', "\"{$upload->original_filename}\" has been queued for upload to PSO.", true);
+    }
+
+    /**
+     * Whether the tracked upload is still in a non-terminal status — used to
+     * disable the file field and submit action so a 100-200MB upload can't
+     * be double-submitted while a job is still compressing/uploading it.
+     */
+    public function gatewayUploadInProgress(): bool
+    {
+        return $this->currentGatewayUpload() !== null && ! $this->currentGatewayUpload()->status->isTerminal();
     }
 
     public function currentGatewayUpload(): ?PsoGatewayUpload

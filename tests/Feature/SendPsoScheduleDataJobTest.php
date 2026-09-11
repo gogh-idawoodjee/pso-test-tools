@@ -53,6 +53,64 @@ it('uploads a json file to the gateway and records the internal id on success', 
     Storage::disk('r2')->assertMissing('gateway-uploads/schedule.json');
 });
 
+it('populates dataset id, input reference datetime, and entity counts from the uploaded file', function () {
+    $xml = <<<'XML'
+        <dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd">
+            <Input_Reference>
+                <datetime>2026-09-10T12:26:05-04:00</datetime>
+                <dataset_id>DCU</dataset_id>
+            </Input_Reference>
+            <Resources><id>Trailer_130</id></Resources>
+            <Resources><id>Trailer_150</id></Resources>
+            <Resources><id>Trailer_165</id></Resources>
+        </dsScheduleData>
+        XML;
+
+    Storage::disk('r2')->put('gateway-uploads/schedule.xml', $xml);
+
+    $environment = Environment::factory()->create();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'stored_path' => 'gateway-uploads/schedule.xml',
+        'original_filename' => 'schedule.xml',
+    ]);
+
+    Http::fake([
+        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        '*/scheduling/data' => Http::response(['InternalId' => '1857054'], 200),
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))->handle();
+
+    $upload->refresh();
+
+    expect($upload->dataset_id)->toBe('DCU');
+    expect($upload->input_reference_datetime)->not->toBeNull();
+    expect($upload->resource_count)->toBe(3);
+    expect($upload->activity_count)->toBe(0);
+});
+
+it('still succeeds even when the uploaded file cannot be parsed for summary metadata', function () {
+    Storage::disk('r2')->put('gateway-uploads/schedule.json', 'not valid json at all');
+
+    $environment = Environment::factory()->create();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'stored_path' => 'gateway-uploads/schedule.json',
+        'original_filename' => 'schedule.json',
+    ]);
+
+    Http::fake([
+        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        '*/scheduling/data' => Http::response(['InternalId' => '1857054'], 200),
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))->handle();
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect($upload->dataset_id)->toBeNull();
+});
+
 it('sets Content-Type to application/xml for an xml upload', function () {
     Storage::disk('r2')->put('gateway-uploads/schedule.xml', '<dsScheduleData></dsScheduleData>');
 
