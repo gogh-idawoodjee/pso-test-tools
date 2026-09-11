@@ -142,6 +142,21 @@ class TravelAnalyzer extends Page
 
                     ])
                     ->footerActions([
+                        Action::make('random_nyc_spots')
+                            ->label('🎲 Random NYC Spots')
+                            ->icon(Heroicon::OutlinedSparkles)
+                            ->color('gray')
+                            ->action(function (Set $set) {
+                                [$from, $to] = collect(self::nycRestaurants())->random(2)->values()->all();
+
+                                $set('address_from', "{$from['name']}, {$from['address']}");
+                                $set('lat_from', $from['lat']);
+                                $set('long_from', $from['lng']);
+
+                                $set('address_to', "{$to['name']}, {$to['address']}");
+                                $set('lat_to', $to['lat']);
+                                $set('long_to', $to['lng']);
+                            }),
                         Action::make('analyze_travel')
                             ->action(function (Get $get) {
                                 $this->analyzeTravel($get);
@@ -149,6 +164,32 @@ class TravelAnalyzer extends Page
                     ])
                     ->columns(),
             ])->statePath('data');
+    }
+
+    /**
+     * A small, hand-picked set of highly-rated NYC restaurants (Manhattan,
+     * Brooklyn, Queens) with real addresses/coordinates baked in, so the
+     * "Random NYC Spots" button can fill both address and lat/long instantly
+     * without depending on a live geocoding call.
+     *
+     * @return array<int, array{name: string, address: string, lat: float, lng: float}>
+     */
+    private static function nycRestaurants(): array
+    {
+        return [
+            // Manhattan
+            ['name' => "Katz's Delicatessen", 'address' => '205 E Houston St, New York, NY 10002', 'lat' => 40.7223, 'lng' => -73.9874],
+            ['name' => 'Le Bernardin', 'address' => '155 W 51st St, New York, NY 10019', 'lat' => 40.7614, 'lng' => -73.9814],
+            ['name' => 'Via Carota', 'address' => '51 Grove St, New York, NY 10014', 'lat' => 40.7328, 'lng' => -74.0028],
+            ['name' => "Joe's Pizza", 'address' => '7 Carmine St, New York, NY 10014', 'lat' => 40.7306, 'lng' => -74.0027],
+            ['name' => 'Peter Luger Steak House', 'address' => '178 Broadway, Brooklyn, NY 11211', 'lat' => 40.7099, 'lng' => -73.9626],
+            ['name' => 'Di Fara Pizza', 'address' => '1424 Avenue J, Brooklyn, NY 11230', 'lat' => 40.6251, 'lng' => -73.9616],
+            ['name' => 'Lilia', 'address' => '567 Union Ave, Brooklyn, NY 11211', 'lat' => 40.7178, 'lng' => -73.9556],
+            ['name' => "Roberta's", 'address' => '261 Moore St, Brooklyn, NY 11206', 'lat' => 40.7053, 'lng' => -73.9335],
+            ['name' => 'Sripraphai', 'address' => '64-13 39th Ave, Woodside, NY 11377', 'lat' => 40.7502, 'lng' => -73.9021],
+            ['name' => 'Casa Enrique', 'address' => '5-48 49th Ave, Long Island City, NY 11101', 'lat' => 40.7429, 'lng' => -73.9497],
+            ['name' => 'M. Wells Steakhouse', 'address' => '43-15 Crescent St, Long Island City, NY 11101', 'lat' => 40.7462, 'lng' => -73.9433],
+        ];
     }
 
     /**
