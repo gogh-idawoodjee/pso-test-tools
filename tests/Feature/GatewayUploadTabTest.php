@@ -52,8 +52,8 @@ it('creates a queued upload row and dispatches the job on submit', function () {
     $file = UploadedFile::fake()->create('schedule.json', 500, 'application/json');
 
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->fillForm(['gateway_upload_file' => $file], 'psoload')
-        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+        ->fillForm(['gateway_upload_file' => $file], 'gatewayUploadForm')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 
     expect(PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->count())->toBe(1);
 
@@ -87,9 +87,9 @@ it('disables the submit action while an upload is in flight', function () {
     $file = UploadedFile::fake()->create('schedule.json', 500, 'application/json');
 
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->fillForm(['gateway_upload_file' => $file], 'psoload')
-        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'))
-        ->assertActionDisabled(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+        ->fillForm(['gateway_upload_file' => $file], 'gatewayUploadForm')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'))
+        ->assertActionDisabled(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 });
 
 it('re-enables the submit action once the tracked upload reaches a terminal status', function () {
@@ -101,13 +101,13 @@ it('re-enables the submit action once the tracked upload reaches a terminal stat
     $file = UploadedFile::fake()->create('schedule.json', 500, 'application/json');
 
     $component = Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->fillForm(['gateway_upload_file' => $file], 'psoload')
-        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+        ->fillForm(['gateway_upload_file' => $file], 'gatewayUploadForm')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 
     $upload = PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->first();
     $upload->update(['status' => PsoGatewayUploadStatus::SUCCEEDED, 'completed_at' => now()]);
 
-    $component->assertActionEnabled(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+    $component->assertActionEnabled(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 });
 
 it('accepts every legitimate extension the field allows', function (string $extension, string $mimeType) {
@@ -119,8 +119,8 @@ it('accepts every legitimate extension the field allows', function (string $exte
     $file = UploadedFile::fake()->create("schedule.{$extension}", 10, $mimeType);
 
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->fillForm(['gateway_upload_file' => $file], 'psoload')
-        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+        ->fillForm(['gateway_upload_file' => $file], 'gatewayUploadForm')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 
     $upload = PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->first();
 
@@ -144,7 +144,7 @@ it('rejects submission when no file is chosen', function () {
     $environment = Environment::factory()->create(['user_id' => $user->id]);
 
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 
     expect(PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->count())->toBe(0);
     Queue::assertNotPushed(SendPsoScheduleDataJob::class);
@@ -161,9 +161,9 @@ it('rejects a crafted stored path before any r2 read or delete happens', functio
     Storage::disk('r2')->put('process-files/someone-elses.json', '{"secret":true}');
 
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->set('data.gateway_upload_file', $craftedPath)
-        ->set('data.gateway_upload_original_filename', 'looks-legit.json')
-        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+        ->set('gateway_upload_data.gateway_upload_file', $craftedPath)
+        ->set('gateway_upload_data.gateway_upload_original_filename', 'looks-legit.json')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 
     expect(PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->count())->toBe(0);
     Queue::assertNotPushed(SendPsoScheduleDataJob::class);
@@ -194,9 +194,9 @@ it('rejects a stored file that is larger than the 200MB ceiling', function () {
     fclose($handle);
 
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->set('data.gateway_upload_file', 'gateway-uploads/01JOVERSIZE.json')
-        ->set('data.gateway_upload_original_filename', 'huge.json')
-        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+        ->set('gateway_upload_data.gateway_upload_file', 'gateway-uploads/01JOVERSIZE.json')
+        ->set('gateway_upload_data.gateway_upload_original_filename', 'huge.json')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 
     expect(PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->count())->toBe(0);
     Queue::assertNotPushed(SendPsoScheduleDataJob::class);
@@ -211,9 +211,9 @@ it('rejects an original filename whose extension is not json, xml or zip', funct
     Storage::disk('r2')->put('gateway-uploads/01JABCDEF.json', '{"dsScheduleData":{}}');
 
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->set('data.gateway_upload_file', 'gateway-uploads/01JABCDEF.json')
-        ->set('data.gateway_upload_original_filename', 'payload.php')
-        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+        ->set('gateway_upload_data.gateway_upload_file', 'gateway-uploads/01JABCDEF.json')
+        ->set('gateway_upload_data.gateway_upload_original_filename', 'payload.php')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 
     expect(PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->count())->toBe(0);
     Queue::assertNotPushed(SendPsoScheduleDataJob::class);
@@ -266,8 +266,8 @@ it('fails cleanly without creating a row when the stored password is not encrypt
     $file = UploadedFile::fake()->create('schedule.json', 10, 'application/json');
 
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->fillForm(['gateway_upload_file' => $file], 'psoload')
-        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'psoload'));
+        ->fillForm(['gateway_upload_file' => $file], 'gatewayUploadForm')
+        ->callAction(TestAction::make('submit_gateway_upload')->schemaComponent(true, 'gatewayUploadForm'));
 
     expect(PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->count())->toBe(0);
     Queue::assertNotPushed(SendPsoScheduleDataJob::class);

@@ -29,7 +29,7 @@ function loadSchema(array $overrides = []): array
 }
 
 it('omits psoApiVersion, includeArpData and broadcasts when not provided', function () {
-    $payload = (new EnvironmentTools)->initialize_payload(loadSchema());
+    $payload = (new EnvironmentTools)->initializeLoadRotaPayload(loadSchema());
 
     expect($payload)->not->toHaveKey('environment.psoApiVersion')
         ->and($payload)->not->toHaveKey('data.includeArpData')
@@ -38,13 +38,13 @@ it('omits psoApiVersion, includeArpData and broadcasts when not provided', funct
 });
 
 it('includes psoApiVersion when set', function () {
-    $payload = (new EnvironmentTools)->initialize_payload(loadSchema(['pso_api_version' => 2]));
+    $payload = (new EnvironmentTools)->initializeLoadRotaPayload(loadSchema(['pso_api_version' => 2]));
 
     expect(data_get($payload, 'environment.psoApiVersion'))->toBe(2);
 });
 
 it('includes rotaId only when includeArpData is true', function () {
-    $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
+    $payload = (new EnvironmentTools)->initializeLoadRotaPayload(loadSchema([
         'include_arp_data' => true,
         'rota_id' => 'rota-42',
     ]));
@@ -54,7 +54,7 @@ it('includes rotaId only when includeArpData is true', function () {
 });
 
 it('builds a REST broadcast with its required parameters', function () {
-    $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
+    $payload = (new EnvironmentTools)->initializeLoadRotaPayload(loadSchema([
         'broadcasts' => [
             [
                 'active' => true,
@@ -77,7 +77,7 @@ it('builds a REST broadcast with its required parameters', function () {
 });
 
 it('handles allocation_type as live-wire enum instances, not just raw ints', function () {
-    $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
+    $payload = (new EnvironmentTools)->initializeLoadRotaPayload(loadSchema([
         'broadcasts' => [
             [
                 'broadcast_type_id' => BroadcastType::REST,
@@ -93,7 +93,7 @@ it('handles allocation_type as live-wire enum instances, not just raw ints', fun
 });
 
 it('sends maximumFrequency and maximumWait as plain integer minutes', function () {
-    $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
+    $payload = (new EnvironmentTools)->initializeLoadRotaPayload(loadSchema([
         'broadcasts' => [
             [
                 'broadcast_type_id' => BroadcastType::REST,
@@ -111,7 +111,7 @@ it('sends maximumFrequency and maximumWait as plain integer minutes', function (
 });
 
 it('adds application_type_id and check_in_expired_time parameters for ADMIN plan type', function () {
-    $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
+    $payload = (new EnvironmentTools)->initializeLoadRotaPayload(loadSchema([
         'broadcasts' => [
             [
                 'broadcast_type_id' => BroadcastType::EMAIL,
@@ -135,7 +135,7 @@ it('adds application_type_id and check_in_expired_time parameters for ADMIN plan
 });
 
 it('excludes LOAD-only data fields and broadcasts in CHANGE mode, but keeps data.inputDatetime', function () {
-    $payload = (new EnvironmentTools)->initialize_payload(loadSchema([
+    $payload = (new EnvironmentTools)->initializeLoadRotaPayload(loadSchema([
         'input_mode' => InputMode::CHANGE,
         'broadcasts' => [
             [
