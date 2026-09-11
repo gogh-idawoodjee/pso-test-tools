@@ -93,4 +93,6 @@
         </div>
     @endif
 
+    <x-json-modal />
+
 </x-filament-panels::page>

@@ -180,7 +180,9 @@ class TravelAnalyzer extends Page
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload)) {
             $this->response = $this->sendToPSONew('travelanalyzer', $tokenized_payload);
+            $this->json_form_data['json_response_pretty'] = $this->response;
             $this->dispatch('json-updated');
+            $this->dispatch('open-modal', id: 'show-json');
 
             // pso-services generates the travel log id and returns it in the
             // initial response — we must key the cache off that id, not one
