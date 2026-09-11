@@ -77,6 +77,7 @@ class GenericDelete extends Page
                             ->label(fn (Get $get) => ($this->selectedPSOObject['label'].' Deletion Details' ?? ''))
                             ->visible(fn () => filled($this->selectedPSOObject))
                             ->schema(fn () => $this->getPkInputFields()),
+                        $this->inputDatetimeField(),
                         Actions::make([Action::make('delete_object')
                             ->label('Delete Object')
                             ->icon(Heroicon::OutlinedTrash)
@@ -174,7 +175,10 @@ class GenericDelete extends Page
                 [
                     'objectType' => $this->selectedPSOObject['entity'],
                 ]
-            )
+            ),
+            optional: [
+                'inputDatetime' => $this->inputDatetimePayloadValue($this->deletion_data['input_datetime'] ?? null),
+            ],
         );
 
         Log::info(json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT));

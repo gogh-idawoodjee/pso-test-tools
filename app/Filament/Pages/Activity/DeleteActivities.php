@@ -47,6 +47,8 @@ class DeleteActivities extends PSOActivityBasePage
                             ->addActionLabel('Add another activity')
                             ->reorderable(false),
 
+                        $this->inputDatetimeField(),
+
                         Actions::make([Action::make('delete_activity')
                             ->action(function () {
                                 $this->deleteActivities();
@@ -70,7 +72,10 @@ class DeleteActivities extends PSOActivityBasePage
         $payload = $this->buildPayload(
             required: [
                 'activities' => collect($this->activity_data['activities'])->pluck('activity_id')->all(),
-            ]
+            ],
+            optional: [
+                'inputDatetime' => $this->inputDatetimePayloadValue($this->activity_data['input_datetime'] ?? null),
+            ],
         );
 
         if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
