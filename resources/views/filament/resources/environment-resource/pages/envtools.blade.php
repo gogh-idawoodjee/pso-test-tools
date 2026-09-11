@@ -2,7 +2,7 @@
 
     {{ $this->sharedContextForm }}
 
-    <div x-data="{ activeTab: 'load_rota' }">
+    <div x-data="{ activeTab: 'load_rota' }" class="fi-sc-tabs fi-contained">
         <x-filament::tabs label="Environment Tools">
             <x-filament::tabs.item
                 icon="heroicon-o-arrow-up-on-square"
@@ -37,19 +37,39 @@
             </x-filament::tabs.item>
         </x-filament::tabs>
 
-        <div x-show="activeTab === 'load_rota'" x-cloak>
+        <div
+            x-show="activeTab === 'load_rota'"
+            x-cloak
+            class="fi-sc-tabs-tab"
+            x-bind:class="{ 'fi-active': activeTab === 'load_rota' }"
+        >
             {{ $this->loadRotaForm }}
         </div>
 
-        <div x-show="activeTab === 'system_usage'" x-cloak>
+        <div
+            x-show="activeTab === 'system_usage'"
+            x-cloak
+            class="fi-sc-tabs-tab"
+            x-bind:class="{ 'fi-active': activeTab === 'system_usage' }"
+        >
             {{ $this->systemUsageForm }}
         </div>
 
-        <div x-show="activeTab === 'services'" x-cloak>
+        <div
+            x-show="activeTab === 'services'"
+            x-cloak
+            class="fi-sc-tabs-tab"
+            x-bind:class="{ 'fi-active': activeTab === 'services' }"
+        >
             {{ $this->servicesForm }}
         </div>
 
-        <div x-show="activeTab === 'gateway_upload'" x-cloak>
+        <div
+            x-show="activeTab === 'gateway_upload'"
+            x-cloak
+            class="fi-sc-tabs-tab"
+            x-bind:class="{ 'fi-active': activeTab === 'gateway_upload' }"
+        >
             {{ $this->gatewayUploadForm }}
         </div>
     </div>
