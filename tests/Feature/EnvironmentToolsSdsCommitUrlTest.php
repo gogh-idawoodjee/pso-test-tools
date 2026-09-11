@@ -18,15 +18,15 @@ it('autofills the url with this environment\'s commit URL when SDS allocation is
             'broadcasts' => [
                 ['broadcast_type_id' => BroadcastType::REST->value, 'allocation_type' => []],
             ],
-        ], 'psoload');
+        ], 'loadRotaForm');
 
-    $itemKey = array_key_first($test->get('data.broadcasts'));
+    $itemKey = array_key_first($test->get('load_rota_data.broadcasts'));
 
-    $test->set("data.broadcasts.{$itemKey}.allocation_type", [BroadcastAllocationType::SCHEDULE_DISPATCH_SERVICE->value]);
+    $test->set("load_rota_data.broadcasts.{$itemKey}.allocation_type", [BroadcastAllocationType::SCHEDULE_DISPATCH_SERVICE->value]);
 
     $expectedUrl = 'https://'.config('psott.pso-services-api').'/api/'.(config('psott.pso-services-api-version') ? config('psott.pso-services-api-version').'/' : '').'commit/'.$environment->commit_token;
 
-    expect($test->get("data.broadcasts.{$itemKey}.url"))->toBe($expectedUrl);
+    expect($test->get("load_rota_data.broadcasts.{$itemKey}.url"))->toBe($expectedUrl);
 });
 
 it('autofills the url when switching to a URL-based broadcast type after SDS is already selected', function () {
@@ -43,15 +43,15 @@ it('autofills the url when switching to a URL-based broadcast type after SDS is 
                     'allocation_type' => [BroadcastAllocationType::SCHEDULE_DISPATCH_SERVICE->value],
                 ],
             ],
-        ], 'psoload');
+        ], 'loadRotaForm');
 
-    $itemKey = array_key_first($test->get('data.broadcasts'));
+    $itemKey = array_key_first($test->get('load_rota_data.broadcasts'));
 
-    $test->set("data.broadcasts.{$itemKey}.broadcast_type_id", BroadcastType::REST->value);
+    $test->set("load_rota_data.broadcasts.{$itemKey}.broadcast_type_id", BroadcastType::REST->value);
 
     $expectedUrl = 'https://'.config('psott.pso-services-api').'/api/'.(config('psott.pso-services-api-version') ? config('psott.pso-services-api-version').'/' : '').'commit/'.$environment->commit_token;
 
-    expect($test->get("data.broadcasts.{$itemKey}.url"))->toBe($expectedUrl);
+    expect($test->get("load_rota_data.broadcasts.{$itemKey}.url"))->toBe($expectedUrl);
 });
 
 it('does not overwrite a url that was already typed in', function () {
@@ -69,11 +69,11 @@ it('does not overwrite a url that was already typed in', function () {
                     'url' => 'https://example.test/manual-endpoint',
                 ],
             ],
-        ], 'psoload');
+        ], 'loadRotaForm');
 
-    $itemKey = array_key_first($test->get('data.broadcasts'));
+    $itemKey = array_key_first($test->get('load_rota_data.broadcasts'));
 
-    $test->set("data.broadcasts.{$itemKey}.allocation_type", [BroadcastAllocationType::SCHEDULE_DISPATCH_SERVICE->value]);
+    $test->set("load_rota_data.broadcasts.{$itemKey}.allocation_type", [BroadcastAllocationType::SCHEDULE_DISPATCH_SERVICE->value]);
 
-    expect($test->get("data.broadcasts.{$itemKey}.url"))->toBe('https://example.test/manual-endpoint');
+    expect($test->get("load_rota_data.broadcasts.{$itemKey}.url"))->toBe('https://example.test/manual-endpoint');
 });

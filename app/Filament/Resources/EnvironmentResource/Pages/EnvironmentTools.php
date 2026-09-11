@@ -33,8 +33,6 @@ use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Tabs;
-use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
@@ -60,7 +58,15 @@ class EnvironmentTools extends Page
 
     protected static ?string $breadcrumb = 'Tools';
 
-    public ?array $data = [];
+    public ?array $context_data = [];
+
+    public ?array $load_rota_data = [];
+
+    public ?array $system_usage_data = [];
+
+    public ?array $services_data = [];
+
+    public ?array $gateway_upload_data = [];
 
     public mixed $response = null;
 
@@ -95,16 +101,18 @@ class EnvironmentTools extends Page
         ];
     }
 
-    protected function getForms(): array
-    {
-        return ['psoload', 'form'];
-    }
-
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
         $this->setDefaults();
-        $this->psoload->fill($this->record->toArray());
+
+        $recordData = $this->record->toArray();
+
+        $this->sharedContextForm->fill($recordData);
+        $this->loadRotaForm->fill($recordData);
+        $this->systemUsageForm->fill($recordData);
+        $this->servicesForm->fill($recordData);
+        $this->gatewayUploadForm->fill($recordData);
     }
 
     private function setDefaults(): void
@@ -123,7 +131,7 @@ class EnvironmentTools extends Page
      * in setDefaults() at mount, and Livewire re-hydrates $record fresh from
      * the database on every subsequent request, losing it.
      */
-    private function commitUrl(): ?string
+    public function commitUrl(): ?string
     {
         if (blank($this->record->commit_token)) {
             return null;
@@ -141,6 +149,18 @@ class EnvironmentTools extends Page
         }
 
         return $this->record->datasets()->where('name', $datasetName)->value('rota');
+    }
+
+    /**
+     * Reads a field's live, cast-aware value from sharedContextForm. Needed
+     * by actions/callbacks that live on the other forms but need Mode/Dataset
+     * or Environment Properties fields — `Get $get` can only search its own
+     * form's root container, not a sibling form, now that each tab is an
+     * independent Livewire form rather than one shared schema/statePath.
+     */
+    private function contextValue(string $path): mixed
+    {
+        return $this->sharedContextForm->getComponentByStatePath($path)?->getState();
     }
 
     /**
@@ -187,7 +207,11 @@ class EnvironmentTools extends Page
         return in_array($type, [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true);
     }
 
-    public function psoload(Schema $form): Schema
+    /**
+     * Always-visible, above the tabs: Mode/Dataset and Environment Properties
+     * fields read by actions on several of the other forms below.
+     */
+    public function sharedContextForm(Schema $form): Schema
     {
         return $form
             ->schema([
@@ -201,9 +225,9 @@ class EnvironmentTools extends Page
                             ->live()
                             ->placeholder('Select Dataset')
                             ->options($this->record->datasets()->get()->pluck('name', 'name')->toArray())
-                            ->afterStateUpdated(function (Get $get, Set $set) {
-                                if ($get('include_arp_data')) {
-                                    $set('rota_id', $this->rotaIdForDataset($get('dataset_id')));
+                            ->afterStateUpdated(function ($state) {
+                                if ($this->loadRotaForm->getComponentByStatePath('include_arp_data')?->getState()) {
+                                    $this->loadRotaForm->getComponentByStatePath('rota_id')?->state($this->rotaIdForDataset($state));
                                 }
                             }),
                         Select::make('input_mode')
@@ -238,325 +262,332 @@ class EnvironmentTools extends Page
                             ->prefixIcon(Heroicon::OutlinedLockClosed)
                             ->password(),
                     ]),
-                Tabs::make('activity_tabs')->tabs([
-                    Tab::make('load_rota_tab')
-//                Section::make('PSO Input Reference Settings')
-                        ->schema([
-                            Toggle::make('send_to_pso')
-                                ->dehydrated(false)
-                                ->label('Send to PSO')
-                                ->live(),
-                            Toggle::make('keep_pso_data')
-                                ->dehydrated(false)
-                                ->label('Keep PSO Data')
-                                ->requiredIf('send_to_pso', true)
-                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
-                                ->disabled(static function (Get $get) {
-                                    return ! $get('send_to_pso');
-                                }),
-                            TextInput::make('dse_duration')
-                                ->dehydrated(false)
-                                ->label('DSE Duration')
-                                ->integer()
-                                ->minValue(3)
-                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
-                                ->placeholder(3)
-                                ->prefixIcon(Heroicon::OutlinedCubeTransparent),
-                            TextInput::make('appointment_window')
-                                ->dehydrated(false)
-                                ->label('Appointment Window')
-                                ->integer()
-                                ->minValue(7)
-                                ->placeholder(7)
-                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
-                                ->prefixIcon(Heroicon::OutlinedCalendarDateRange),
-                            Select::make('process_type')
-                                ->enum(ProcessType::class)
-                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
-                                ->options(ProcessType::class)
-                                ->live()
-                                ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
-                                ->prefixIcon(Heroicon::OutlinedAdjustmentsHorizontal),
-                            DateTimePicker::make('datetime')
-                                ->dehydrated(false)
-                                ->label('Input Date Time')
-                                ->live()
-                                ->prefixIcon(Heroicon::OutlinedClock),
-                            Section::make('Advanced Options')
-                                ->description('Additional PSO Input Reference options.')
-                                ->icon(Heroicon::OutlinedAdjustmentsVertical)
-                                ->collapsible()
-                                ->collapsed()
-                                ->columnSpan(2)
-                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
-                                ->columns()
-                                ->schema([
-                                    Select::make('pso_api_version')
-                                        ->dehydrated(false)
-                                        ->label('PSO API Version')
-                                        ->native(false)
-                                        ->prefixIcon(Heroicon::OutlinedCodeBracket)
-                                        ->options([
-                                            1 => 'v1 (Legacy)',
-                                            2 => 'v2 (6.15+)',
-                                        ]),
-                                    Toggle::make('include_arp_data')
-                                        ->dehydrated(false)
-                                        ->label('Include ARP Data')
-                                        ->inline(false)
-                                        ->live()
-                                        ->afterStateUpdated(function (Get $get, Set $set, ?bool $state) {
-                                            if ($state) {
-                                                $set('rota_id', $this->rotaIdForDataset($get('dataset_id')));
-                                            }
-                                        }),
-                                    TextInput::make('rota_id')
-                                        ->dehydrated(false)
-                                        ->label('Rota ID')
-                                        ->prefixIcon(Heroicon::OutlinedTag)
-                                        ->requiredIf('include_arp_data', true)
-                                        ->visible(fn (Get $get) => (bool) $get('include_arp_data')),
-                                ]),
-                            Section::make('Broadcasts')
-                                ->description('Attach Broadcast entities to communicate plans/changes to external systems (email, file, REST, web service, FTP, WCF).')
-                                ->icon(Heroicon::OutlinedMegaphone)
-                                ->collapsible()
-                                ->collapsed()
-                                ->columnSpan(2)
-                                ->visible(fn (Get $get) => $get('input_mode') === InputMode::LOAD)
-                                ->schema([
-                                    Repeater::make('broadcasts')
-                                        ->dehydrated(false)
-                                        ->hiddenLabel()
-                                        ->addActionLabel('Add Broadcast')
-                                        ->collapsible()
-                                        ->collapsed()
-                                        ->itemLabel(static function (array $state): ?string {
-                                            $type = $state['broadcast_type_id'] ?? null;
+            ])
+            ->statePath('context_data');
+    }
 
-                                            return match (true) {
-                                                $type instanceof BroadcastType => $type->getLabel(),
-                                                filled($type) => (string) $type,
-                                                default => 'New Broadcast',
-                                            };
-                                        })
-                                        ->schema([
-                                            Toggle::make('active')
-                                                ->default(true)
-                                                ->helperText('Whether the broadcast is active.'),
-                                            Select::make('broadcast_type_id')
-                                                ->label('Broadcast Type')
-                                                ->native(false)
-                                                ->required()
-                                                ->live()
-                                                ->default(BroadcastType::REST)
-                                                ->enum(BroadcastType::class)
-                                                ->options(BroadcastType::class)
-                                                ->helperText('How the plan/change is delivered to the external system, and which parameters below are required.')
-                                                ->afterStateUpdated(static function ($livewire, $component, Get $get, Set $set) {
-                                                    $livewire->validateOnly($component->getStatePath());
-                                                    $livewire->maybeAutofillCommitUrl($get, $set);
-                                                }),
-                                            Select::make('plan_type')
-                                                ->label('Plan Type')
-                                                ->native(false)
-                                                ->required()
-                                                ->live()
-                                                ->enum(BroadcastPlanType::class)
-                                                ->options(BroadcastPlanType::class)
-                                                ->helperText(static function (Get $get) {
-                                                    $planType = $get('plan_type');
+    public function loadRotaForm(Schema $form): Schema
+    {
+        return $form
+            ->schema([
+                Toggle::make('send_to_pso')
+                    ->dehydrated(false)
+                    ->label('Send to PSO')
+                    ->live(),
+                Toggle::make('keep_pso_data')
+                    ->dehydrated(false)
+                    ->label('Keep PSO Data')
+                    ->requiredIf('send_to_pso', true)
+                    ->visible(fn () => $this->contextValue('input_mode') === InputMode::LOAD)
+                    ->disabled(static function (Get $get) {
+                        return ! $get('send_to_pso');
+                    }),
+                TextInput::make('dse_duration')
+                    ->dehydrated(false)
+                    ->label('DSE Duration')
+                    ->integer()
+                    ->minValue(3)
+                    ->visible(fn () => $this->contextValue('input_mode') === InputMode::LOAD)
+                    ->placeholder(3)
+                    ->prefixIcon(Heroicon::OutlinedCubeTransparent),
+                TextInput::make('appointment_window')
+                    ->dehydrated(false)
+                    ->label('Appointment Window')
+                    ->integer()
+                    ->minValue(7)
+                    ->placeholder(7)
+                    ->visible(fn () => $this->contextValue('input_mode') === InputMode::LOAD)
+                    ->prefixIcon(Heroicon::OutlinedCalendarDateRange),
+                Select::make('process_type')
+                    ->enum(ProcessType::class)
+                    ->visible(fn () => $this->contextValue('input_mode') === InputMode::LOAD)
+                    ->options(ProcessType::class)
+                    ->live()
+                    ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath()))
+                    ->prefixIcon(Heroicon::OutlinedAdjustmentsHorizontal),
+                DateTimePicker::make('datetime')
+                    ->dehydrated(false)
+                    ->label('Input Date Time')
+                    ->live()
+                    ->prefixIcon(Heroicon::OutlinedClock),
+                Section::make('Advanced Options')
+                    ->description('Additional PSO Input Reference options.')
+                    ->icon(Heroicon::OutlinedAdjustmentsVertical)
+                    ->collapsible()
+                    ->collapsed()
+                    ->columnSpan(2)
+                    ->visible(fn () => $this->contextValue('input_mode') === InputMode::LOAD)
+                    ->columns()
+                    ->schema([
+                        Select::make('pso_api_version')
+                            ->dehydrated(false)
+                            ->label('PSO API Version')
+                            ->native(false)
+                            ->prefixIcon(Heroicon::OutlinedCodeBracket)
+                            ->options([
+                                1 => 'v1 (Legacy)',
+                                2 => 'v2 (6.15+)',
+                            ]),
+                        Toggle::make('include_arp_data')
+                            ->dehydrated(false)
+                            ->label('Include ARP Data')
+                            ->inline(false)
+                            ->live()
+                            ->afterStateUpdated(function (Set $set, ?bool $state) {
+                                if ($state) {
+                                    $set('rota_id', $this->rotaIdForDataset($this->contextValue('dataset_id')));
+                                }
+                            }),
+                        TextInput::make('rota_id')
+                            ->dehydrated(false)
+                            ->label('Rota ID')
+                            ->prefixIcon(Heroicon::OutlinedTag)
+                            ->requiredIf('include_arp_data', true)
+                            ->visible(fn (Get $get) => (bool) $get('include_arp_data')),
+                    ]),
+                Section::make('Broadcasts')
+                    ->description('Attach Broadcast entities to communicate plans/changes to external systems (email, file, REST, web service, FTP, WCF).')
+                    ->icon(Heroicon::OutlinedMegaphone)
+                    ->collapsible()
+                    ->collapsed()
+                    ->columnSpan(2)
+                    ->visible(fn () => $this->contextValue('input_mode') === InputMode::LOAD)
+                    ->schema([
+                        Repeater::make('broadcasts')
+                            ->dehydrated(false)
+                            ->hiddenLabel()
+                            ->addActionLabel('Add Broadcast')
+                            ->collapsible()
+                            ->collapsed()
+                            ->itemLabel(static function (array $state): ?string {
+                                $type = $state['broadcast_type_id'] ?? null;
 
-                                                    return $planType instanceof BroadcastPlanType ? $planType->description() : null;
-                                                })
-                                                ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
-                                            CheckboxList::make('allocation_type')
-                                                ->label('Allocation Type')
-                                                ->options(BroadcastAllocationType::class)
-                                                ->columns(2)
-                                                ->columnSpanFull()
-                                                ->live()
-                                                ->afterStateUpdated(static function ($livewire, Get $get, Set $set, ?array $state) {
-                                                    $set('description', collect($state)
-                                                        ->map(static function ($value) {
-                                                            $type = $value instanceof BroadcastAllocationType
-                                                                ? $value
-                                                                : BroadcastAllocationType::from((int) $value);
-
-                                                            return $type->getLabel();
-                                                        })
-                                                        ->implode(', '));
-
-                                                    $livewire->maybeAutofillCommitUrl($get, $set);
-                                                })
-                                                ->helperText('Restricts which scheduling engine\'s plan data this broadcast includes. Select more than one to combine them.'),
-                                            Textarea::make('description')
-                                                ->maxLength(2000)
-                                                ->columnSpanFull(),
-                                            Toggle::make('once_only')
-                                                ->helperText('If on, the plan is only broadcast once, the first time it\'s required, then discarded. STATIC schedules always broadcast once only.'),
-                                            Grid::make(3)
-                                                ->columnSpanFull()
-                                                ->schema([
-                                                    TextInput::make('minimum_plan_quality')
-                                                        ->label('Minimum Plan Quality')
-                                                        ->numeric()
-                                                        ->minValue(0)
-                                                        ->maxValue(100)
-                                                        ->suffix('%')
-                                                        ->helperText('The plan will only be broadcast when the Plan Quality is greater than or equal to this value. Defaults to 100 if left blank.'),
-                                                    TextInput::make('minimum_step_interval')
-                                                        ->label('Minimum Step Interval')
-                                                        ->integer()
-                                                        ->helperText('A broadcast will only be sent every \'x\' plans, e.g. 3 sends on every 3rd plan. Defaults to 1 if left blank.'),
-                                                    TextInput::make('minimum_visit_status')
-                                                        ->label('Minimum Visit Status')
-                                                        ->integer()
-                                                        ->helperText('Allocation rows with a visit_status below this value are removed from the broadcast.'),
-                                                    TextInput::make('maximum_frequency')
-                                                        ->label('Maximum Frequency')
-                                                        ->integer()
-                                                        ->minValue(1)
-                                                        ->suffix('minutes')
-                                                        ->helperText('Minimum time since the previous broadcast before sending an updated one.'),
-                                                    TextInput::make('maximum_wait')
-                                                        ->label('Maximum Wait')
-                                                        ->integer()
-                                                        ->minValue(1)
-                                                        ->suffix('minutes')
-                                                        ->helperText('The plan is broadcast once the minimum plan quality is met, or once this wait elapses, whichever comes first.'),
-                                                ]),
-                                            DateTimePicker::make('expiry_datetime')
-                                                ->label('Expiry Date Time')
-                                                ->helperText('If the schedule time passes this, the broadcast is skipped and no plan is generated.'),
-                                            DateTimePicker::make('time_filter_start')
-                                                ->label('Time Filter Start')
-                                                ->helperText('Activities ending at or before this time are excluded from the broadcast.'),
-                                            DateTimePicker::make('time_filter_end')
-                                                ->label('Time Filter End')
-                                                ->helperText('Activities starting at or after this time are excluded from the broadcast.'),
-                                            TextInput::make('to_address')
-                                                ->label('To Address')
-                                                ->email()
-                                                ->helperText('Email address of the broadcast recipient.')
-                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL)
-                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL),
-                                            TextInput::make('smtp_server')
-                                                ->label('SMTP Server')
-                                                ->helperText('Full SMTP server name of the recipient.')
-                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL)
-                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL),
-                                            TextInput::make('file_path')
-                                                ->label('File Path')
-                                                ->helperText('File path to output the plan. A folder path keeps each broadcast as a separate file instead of overwriting the last one.')
-                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::FILE)
-                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::FILE),
-                                            Select::make('mediatype')
-                                                ->label('Media Type')
-                                                ->native(false)
-                                                ->default('application/json')
-                                                ->helperText('The media type for the content of the request and response message.')
-                                                ->options([
-                                                    'application/json' => 'application/json',
-                                                    'text/json' => 'text/json',
-                                                    'application/xml' => 'application/xml',
-                                                    'text/xml' => 'text/xml',
-                                                    'application/octet-stream' => 'application/octet-stream',
-                                                ])
-                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::REST)
-                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::REST),
-                                            TextInput::make('url')
-                                                ->label('URL')
-                                                ->url()
-                                                ->helperText('Path to the FTP site, web service, or REST endpoint.')
-                                                ->hint(function (Get $get) {
-                                                    return static::broadcastAllocationIncludesSds($get('allocation_type'))
-                                                        ? 'For Schedule Dispatch Service: use this environment\'s Commit Broadcast URL (Services tab)'
-                                                        : null;
-                                                })
-                                                ->hintIcon(Heroicon::OutlinedInformationCircle)
-                                                ->visible(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true))
-                                                ->required(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true))
-                                                ->columnSpan(2),
-                                            TextInput::make('wsid')
-                                                ->label('Web Service ID')
-                                                ->helperText('The defined id for the webservice data to be sent back to.')
-                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WEBSERVICE)
-                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WEBSERVICE),
-                                            TextInput::make('address')
-                                                ->label('Address')
-                                                ->helperText('Path to the WCF receiving service.')
-                                                ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WCF)
-                                                ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WCF),
-                                            TextInput::make('application_type_id')
-                                                ->label('Application Type ID')
-                                                ->helperText('The application type this admin broadcast is for.')
-                                                ->visible(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN)
-                                                ->required(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN),
-                                            TextInput::make('check_in_expired_time')
-                                                ->label('Check-In Expired Time')
-                                                ->helperText('Amount of time to have expired since the application last checked in before this broadcast is sent. IFS docs don\'t specify a unit/format for this field.')
-                                                ->visible(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN)
-                                                ->required(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN),
-                                        ])
-                                        ->columns(2),
-                                ]),
-                            Actions::make([Action::make('push_it')->slideOver()
-                                ->action(function (Get $get) {
-                                    //                                $set('excerpt', str($get('content'))->words(45, end: ''));
-                                    // the update status thingy
-                                    $this->initPSO($get);
-
-                                })
-                                ->label(function () {
-                                    return $this->data['input_mode'] === InputMode::LOAD->value ? 'Send Initial Load' : 'Update Rota';
-                                }),
-
-                            ])->columnSpan(2),
-                        ])->columns()
-                        ->icon(Heroicon::OutlinedArrowUpOnSquare)
-                        ->label('Initial Load and Rota'),
-
-                    Tab::make('system_usage_tab')
-                        ->schema([
-                            DateTimePicker::make('usage_min_date')
-                                ->dehydrated(false)
-                                ->label('Min Date Time')
-                                ->helperText('Optional. Must be provided together with Max Date Time, or leave both blank.'),
-                            DateTimePicker::make('usage_max_date')
-                                ->dehydrated(false)
-                                ->label('Max Date Time')
-                                ->helperText('Optional. Must be provided together with Min Date Time, or leave both blank.'),
-                            Actions::make([
-                                Action::make('fetch_system_usage')
-                                    ->label('Get System Usage')
-                                    ->icon(Heroicon::OutlinedArrowPath)
-                                    ->action(function (Get $get) {
-                                        $this->fetchSystemUsage($get);
+                                return match (true) {
+                                    $type instanceof BroadcastType => $type->getLabel(),
+                                    filled($type) => (string) $type,
+                                    default => 'New Broadcast',
+                                };
+                            })
+                            ->schema([
+                                Toggle::make('active')
+                                    ->default(true)
+                                    ->helperText('Whether the broadcast is active.'),
+                                Select::make('broadcast_type_id')
+                                    ->label('Broadcast Type')
+                                    ->native(false)
+                                    ->required()
+                                    ->live()
+                                    ->default(BroadcastType::REST)
+                                    ->enum(BroadcastType::class)
+                                    ->options(BroadcastType::class)
+                                    ->helperText('How the plan/change is delivered to the external system, and which parameters below are required.')
+                                    ->afterStateUpdated(static function ($livewire, $component, Get $get, Set $set) {
+                                        $livewire->validateOnly($component->getStatePath());
+                                        $livewire->maybeAutofillCommitUrl($get, $set);
                                     }),
-                            ])->columnSpanFull(),
-                            View::make('filament.resources.environment-resource.pages.partials.system-usage-stats')
-                                ->viewData(fn (): array => ['groups' => $this->systemUsageGroups])
-                                ->columnSpanFull(),
-                        ])
-                        ->columns()
-                        ->icon(Heroicon::OutlinedCog)
-                        ->label('System Usage'),
-                    Tab::make('services_tab')
-                        ->schema([
-                            TextInput::make('commit_url')
-                                ->label('Commit Broadcast URL (SDS)')
-                                ->hint('Ask for  more details')
-                                ->disabled()
-                                ->suffixAction(
-                                    Action::make('copy')
-                                        ->icon(Heroicon::OutlinedClipboard)
-                                        ->action(function ($livewire, $state) {
-                                            $livewire->dispatch('copy-to-clipboard', text: $state);
-                                        })
-                                )
-                                ->extraAttributes([
-                                    'x-data' => "{
+                                Select::make('plan_type')
+                                    ->label('Plan Type')
+                                    ->native(false)
+                                    ->required()
+                                    ->live()
+                                    ->enum(BroadcastPlanType::class)
+                                    ->options(BroadcastPlanType::class)
+                                    ->helperText(static function (Get $get) {
+                                        $planType = $get('plan_type');
+
+                                        return $planType instanceof BroadcastPlanType ? $planType->description() : null;
+                                    })
+                                    ->afterStateUpdated(static fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                                CheckboxList::make('allocation_type')
+                                    ->label('Allocation Type')
+                                    ->options(BroadcastAllocationType::class)
+                                    ->columns(2)
+                                    ->columnSpanFull()
+                                    ->live()
+                                    ->afterStateUpdated(static function ($livewire, Get $get, Set $set, ?array $state) {
+                                        $set('description', collect($state)
+                                            ->map(static function ($value) {
+                                                $type = $value instanceof BroadcastAllocationType
+                                                    ? $value
+                                                    : BroadcastAllocationType::from((int) $value);
+
+                                                return $type->getLabel();
+                                            })
+                                            ->implode(', '));
+
+                                        $livewire->maybeAutofillCommitUrl($get, $set);
+                                    })
+                                    ->helperText('Restricts which scheduling engine\'s plan data this broadcast includes. Select more than one to combine them.'),
+                                Textarea::make('description')
+                                    ->maxLength(2000)
+                                    ->columnSpanFull(),
+                                Toggle::make('once_only')
+                                    ->helperText('If on, the plan is only broadcast once, the first time it\'s required, then discarded. STATIC schedules always broadcast once only.'),
+                                Grid::make(3)
+                                    ->columnSpanFull()
+                                    ->schema([
+                                        TextInput::make('minimum_plan_quality')
+                                            ->label('Minimum Plan Quality')
+                                            ->numeric()
+                                            ->minValue(0)
+                                            ->maxValue(100)
+                                            ->suffix('%')
+                                            ->helperText('The plan will only be broadcast when the Plan Quality is greater than or equal to this value. Defaults to 100 if left blank.'),
+                                        TextInput::make('minimum_step_interval')
+                                            ->label('Minimum Step Interval')
+                                            ->integer()
+                                            ->helperText('A broadcast will only be sent every \'x\' plans, e.g. 3 sends on every 3rd plan. Defaults to 1 if left blank.'),
+                                        TextInput::make('minimum_visit_status')
+                                            ->label('Minimum Visit Status')
+                                            ->integer()
+                                            ->helperText('Allocation rows with a visit_status below this value are removed from the broadcast.'),
+                                        TextInput::make('maximum_frequency')
+                                            ->label('Maximum Frequency')
+                                            ->integer()
+                                            ->minValue(1)
+                                            ->suffix('minutes')
+                                            ->helperText('Minimum time since the previous broadcast before sending an updated one.'),
+                                        TextInput::make('maximum_wait')
+                                            ->label('Maximum Wait')
+                                            ->integer()
+                                            ->minValue(1)
+                                            ->suffix('minutes')
+                                            ->helperText('The plan is broadcast once the minimum plan quality is met, or once this wait elapses, whichever comes first.'),
+                                    ]),
+                                DateTimePicker::make('expiry_datetime')
+                                    ->label('Expiry Date Time')
+                                    ->helperText('If the schedule time passes this, the broadcast is skipped and no plan is generated.'),
+                                DateTimePicker::make('time_filter_start')
+                                    ->label('Time Filter Start')
+                                    ->helperText('Activities ending at or before this time are excluded from the broadcast.'),
+                                DateTimePicker::make('time_filter_end')
+                                    ->label('Time Filter End')
+                                    ->helperText('Activities starting at or after this time are excluded from the broadcast.'),
+                                TextInput::make('to_address')
+                                    ->label('To Address')
+                                    ->email()
+                                    ->helperText('Email address of the broadcast recipient.')
+                                    ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL)
+                                    ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL),
+                                TextInput::make('smtp_server')
+                                    ->label('SMTP Server')
+                                    ->helperText('Full SMTP server name of the recipient.')
+                                    ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL)
+                                    ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::EMAIL),
+                                TextInput::make('file_path')
+                                    ->label('File Path')
+                                    ->helperText('File path to output the plan. A folder path keeps each broadcast as a separate file instead of overwriting the last one.')
+                                    ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::FILE)
+                                    ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::FILE),
+                                Select::make('mediatype')
+                                    ->label('Media Type')
+                                    ->native(false)
+                                    ->default('application/json')
+                                    ->helperText('The media type for the content of the request and response message.')
+                                    ->options([
+                                        'application/json' => 'application/json',
+                                        'text/json' => 'text/json',
+                                        'application/xml' => 'application/xml',
+                                        'text/xml' => 'text/xml',
+                                        'application/octet-stream' => 'application/octet-stream',
+                                    ])
+                                    ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::REST)
+                                    ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::REST),
+                                TextInput::make('url')
+                                    ->label('URL')
+                                    ->url()
+                                    ->helperText('Path to the FTP site, web service, or REST endpoint.')
+                                    ->hint(function (Get $get) {
+                                        return static::broadcastAllocationIncludesSds($get('allocation_type'))
+                                            ? 'For Schedule Dispatch Service: use this environment\'s Commit Broadcast URL (Services tab)'
+                                            : null;
+                                    })
+                                    ->hintIcon(Heroicon::OutlinedInformationCircle)
+                                    ->visible(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true))
+                                    ->required(fn (Get $get) => in_array($get('broadcast_type_id'), [BroadcastType::REST, BroadcastType::WEBSERVICE, BroadcastType::FTP], true))
+                                    ->columnSpan(2),
+                                TextInput::make('wsid')
+                                    ->label('Web Service ID')
+                                    ->helperText('The defined id for the webservice data to be sent back to.')
+                                    ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WEBSERVICE)
+                                    ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WEBSERVICE),
+                                TextInput::make('address')
+                                    ->label('Address')
+                                    ->helperText('Path to the WCF receiving service.')
+                                    ->visible(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WCF)
+                                    ->required(fn (Get $get) => $get('broadcast_type_id') === BroadcastType::WCF),
+                                TextInput::make('application_type_id')
+                                    ->label('Application Type ID')
+                                    ->helperText('The application type this admin broadcast is for.')
+                                    ->visible(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN)
+                                    ->required(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN),
+                                TextInput::make('check_in_expired_time')
+                                    ->label('Check-In Expired Time')
+                                    ->helperText('Amount of time to have expired since the application last checked in before this broadcast is sent. IFS docs don\'t specify a unit/format for this field.')
+                                    ->visible(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN)
+                                    ->required(fn (Get $get) => $get('plan_type') === BroadcastPlanType::ADMIN),
+                            ])
+                            ->columns(2),
+                    ]),
+                Actions::make([Action::make('push_it')->slideOver()
+                    ->action(function () {
+                        $this->initPSO();
+                    })
+                    ->label(function () {
+                        return $this->contextValue('input_mode') === InputMode::LOAD ? 'Send Initial Load' : 'Update Rota';
+                    }),
+
+                ])->columnSpan(2),
+            ])
+            ->columns()
+            ->statePath('load_rota_data');
+    }
+
+    public function systemUsageForm(Schema $form): Schema
+    {
+        return $form
+            ->schema([
+                DateTimePicker::make('usage_min_date')
+                    ->dehydrated(false)
+                    ->label('Min Date Time')
+                    ->helperText('Optional. Must be provided together with Max Date Time, or leave both blank.'),
+                DateTimePicker::make('usage_max_date')
+                    ->dehydrated(false)
+                    ->label('Max Date Time')
+                    ->helperText('Optional. Must be provided together with Min Date Time, or leave both blank.'),
+                Actions::make([
+                    Action::make('fetch_system_usage')
+                        ->label('Get System Usage')
+                        ->icon(Heroicon::OutlinedArrowPath)
+                        ->action(function (Get $get) {
+                            $this->fetchSystemUsage($get);
+                        }),
+                ])->columnSpanFull(),
+                View::make('filament.resources.environment-resource.pages.partials.system-usage-stats')
+                    ->viewData(fn (): array => ['groups' => $this->systemUsageGroups])
+                    ->columnSpanFull(),
+            ])
+            ->columns()
+            ->statePath('system_usage_data');
+    }
+
+    public function servicesForm(Schema $form): Schema
+    {
+        return $form
+            ->schema([
+                TextInput::make('commit_url')
+                    ->label('Commit Broadcast URL (SDS)')
+                    ->hint('Ask for  more details')
+                    ->disabled()
+                    ->suffixAction(
+                        Action::make('copy')
+                            ->icon(Heroicon::OutlinedClipboard)
+                            ->action(function ($livewire, $state) {
+                                $livewire->dispatch('copy-to-clipboard', text: $state);
+                            })
+                    )
+                    ->extraAttributes([
+                        'x-data' => "{
             copyToClipboard(text) {
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     navigator.clipboard.writeText(text).then(() => {
@@ -581,92 +612,101 @@ class EnvironmentTools extends Page
                 }
             }
         }",
-                                    'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
-                                ]),
-                        ])
-                        ->icon(Heroicon::OutlinedCog)
-                        ->label('Services'),
+                        'x-on:copy-to-clipboard.window' => 'copyToClipboard($event.detail.text)',
+                    ]),
+            ])
+            ->statePath('services_data');
+    }
 
-                    Tab::make('gateway_upload_tab')
-                        ->schema([
-                            FileUpload::make('gateway_upload_file')
-                                ->label('Schedule Data File')
-                                ->helperText('Upload a dsScheduleData .json/.xml file, or a .zip containing one.')
-                                ->disk('r2')
-                                ->directory('gateway-uploads')
-                                ->acceptedFileTypes([
-                                    'application/json',
-                                    'text/json',
-                                    'application/xml',
-                                    'text/xml',
-                                    'application/zip',
-                                    'application/x-zip-compressed',
-                                ])
-                                ->maxSize(self::GATEWAY_UPLOAD_MAX_KILOBYTES)
-                                // Client-supplied paths are only ever honoured
-                                // if they match the shape this field itself
-                                // writes; submitGatewayUpload() applies the
-                                // same guard, since this one rides on the
-                                // schema validation that this tab skips.
-                                ->preventFilePathTampering(allowFilePathUsing: static fn (string $file): bool => GatewayUploadPath::isAllowed($file))
-                                ->disabled(fn (): bool => $this->gatewayUploadInProgress())
-                                ->live()
-                                ->afterStateUpdated(function (Set $set, $state) {
-                                    if ($state instanceof TemporaryUploadedFile) {
-                                        $set('gateway_upload_original_filename', $state->getClientOriginalName());
-                                    }
-                                })
-                                // Deliberately not ->required(): this is a schema-wide validation
-                                // rule that would fire whenever ANY action calls $this->psoload->getState()
-                                // on the full schema (e.g. the "Initial Load and Rota" tab's push_it
-                                // action via initPSO()), not just when this tab's own submit action
-                                // runs — blocking unrelated tabs with an unfilled file field. The
-                                // "file is required" check is instead done manually in
-                                // submitGatewayUpload(), scoped to only this tab's own submission.
-                                ->columnSpanFull(),
-                            Hidden::make('gateway_upload_original_filename')
-                                ->dehydrated(false),
-                            Actions::make([
-                                Action::make('submit_gateway_upload')
-                                    ->label('Upload to PSO')
-                                    ->icon(Heroicon::OutlinedArrowUpOnSquare)
-                                    ->disabled(fn (): bool => $this->gatewayUploadInProgress())
-                                    ->action(function (Get $get, Set $set) {
-                                        $this->submitGatewayUpload($get, $set);
-                                    }),
-                            ])->columnSpanFull(),
-                            View::make('filament.resources.environment-resource.pages.partials.gateway-upload-status')
-                                ->viewData(fn (): array => [
-                                    'upload' => $this->currentGatewayUpload(),
-                                    'history' => $this->gatewayUploadHistory(),
-                                ])
-                                ->columnSpanFull(),
-                        ])
-                        ->columns()
+    public function gatewayUploadForm(Schema $form): Schema
+    {
+        return $form
+            ->schema([
+                FileUpload::make('gateway_upload_file')
+                    ->label('Schedule Data File')
+                    ->helperText('Upload a dsScheduleData .json/.xml file, or a .zip containing one.')
+                    ->disk('r2')
+                    ->directory('gateway-uploads')
+                    ->acceptedFileTypes([
+                        'application/json',
+                        'text/json',
+                        'application/xml',
+                        'text/xml',
+                        'application/zip',
+                        'application/x-zip-compressed',
+                    ])
+                    ->maxSize(self::GATEWAY_UPLOAD_MAX_KILOBYTES)
+                    // Client-supplied paths are only ever honoured
+                    // if they match the shape this field itself
+                    // writes; submitGatewayUpload() applies the
+                    // same guard, since a directly-set string (see
+                    // its own comment) never goes through this
+                    // field's own upload-time validation at all.
+                    ->preventFilePathTampering(allowFilePathUsing: static fn (string $file): bool => GatewayUploadPath::isAllowed($file))
+                    ->disabled(fn (): bool => $this->gatewayUploadInProgress())
+                    ->live()
+                    ->afterStateUpdated(function (Set $set, $state) {
+                        if ($state instanceof TemporaryUploadedFile) {
+                            $set('gateway_upload_original_filename', $state->getClientOriginalName());
+                        }
+                    })
+                    // Deliberately not ->required(): Filament's file-upload
+                    // validation (required/acceptedFileTypes/maxSize) only
+                    // ever runs against a real uploaded file at upload time.
+                    // The crafted-path test scenarios in GatewayUploadTabTest
+                    // set this field directly to a plain string, bypassing
+                    // the upload widget entirely — schema validation would
+                    // never see those. submitGatewayUpload() re-checks
+                    // required/type/size manually so both paths are covered.
+                    ->columnSpanFull(),
+                Hidden::make('gateway_upload_original_filename')
+                    ->dehydrated(false),
+                Actions::make([
+                    Action::make('submit_gateway_upload')
+                        ->label('Upload to PSO')
                         ->icon(Heroicon::OutlinedArrowUpOnSquare)
-                        ->label('Load from File'),
-
-                ]),
-
-            ])->statePath('data');
+                        ->disabled(fn (): bool => $this->gatewayUploadInProgress())
+                        ->action(function (Get $get, Set $set) {
+                            $this->submitGatewayUpload($get, $set);
+                        }),
+                ])->columnSpanFull(),
+                View::make('filament.resources.environment-resource.pages.partials.gateway-upload-status')
+                    ->viewData(fn (): array => [
+                        'upload' => $this->currentGatewayUpload(),
+                        'history' => $this->gatewayUploadHistory(),
+                    ])
+                    ->columnSpanFull(),
+            ])
+            ->columns()
+            ->statePath('gateway_upload_data');
     }
 
     /**
      * @throws JsonException
      */
-    public function initPSO($data): void
+    public function initPSO(): void
     {
         $this->response = null;
 
-        foreach ($this->getForms() as $form) {
-            $this->{$form}->getState();
-        }
+        // Validated for their side effect only — dehydrated(false) fields'
+        // actual values are read below via $data(), not this return value.
+        $this->sharedContextForm->getState();
+        $this->loadRotaForm->getState();
+
+        $sharedContextForm = $this->sharedContextForm;
+        $loadRotaForm = $this->loadRotaForm;
+
+        $data = function (string $path) use ($sharedContextForm, $loadRotaForm) {
+            $component = $loadRotaForm->getComponentByStatePath($path) ?? $sharedContextForm->getComponentByStatePath($path);
+
+            return $component?->getState();
+        };
 
         $inputMode = $data('input_mode');
         $segment = $inputMode === InputMode::LOAD ? InputMode::LOAD->getSegment() : InputMode::CHANGE->getSegment();
         $method = $inputMode === InputMode::LOAD ? HttpMethod::POST : HttpMethod::PATCH;
 
-        $sendToPso = data_get($this->data, 'send_to_pso');
+        $sendToPso = data_get($this->load_rota_data, 'send_to_pso');
 
         $payload = $this->buildLoadRotaPayload($data);
 
@@ -699,11 +739,11 @@ class EnvironmentTools extends Page
             return;
         }
 
-        $baseUrl = $get('base_url');
-        $accountId = $get('account_id');
-        $username = $get('username');
-        $password = $get('password');
-        $datasetId = $get('dataset_id');
+        $baseUrl = $this->contextValue('base_url');
+        $accountId = $this->contextValue('account_id');
+        $username = $this->contextValue('username');
+        $password = $this->contextValue('password');
+        $datasetId = $this->contextValue('dataset_id');
 
         if (blank($baseUrl) || blank($accountId) || blank($username) || blank($password)) {
             $this->notifyPayloadSent('System Usage Failed', 'Base URL, Account ID, Username and Password are all required (see Environment Properties above).', false);
@@ -745,14 +785,15 @@ class EnvironmentTools extends Page
     {
         // `Get::__invoke()` only calls `getState()` on the individual field
         // component it resolves, not the whole schema — this is what lets us
-        // avoid `$this->psoload->getState()` (and its unrelated `dataset_id`
-        // validation) elsewhere in this method. But that also means a
+        // avoid re-validating this form's own dataset_id-style required
+        // fields (it no longer has any shared with other tabs, but the
+        // pattern still applies to any future ones). But that also means a
         // FileUpload's raw state is never routed through the schema-level
         // dehydration pipeline that normally moves the upload from Livewire's
         // temporary disk onto its configured disk/directory. So we trigger
         // that move ourselves, scoped to just this one component, before
         // reading its state.
-        $fileUploadComponent = $this->psoload->getComponentByStatePath('gateway_upload_file');
+        $fileUploadComponent = $this->gatewayUploadForm->getComponentByStatePath('gateway_upload_file');
 
         if ($fileUploadComponent instanceof FileUpload) {
             $fileUploadComponent->saveUploadedFiles();
@@ -767,12 +808,12 @@ class EnvironmentTools extends Page
             return;
         }
 
-        // `data.gateway_upload_file` is part of the public `$data` Livewire
-        // property, so this string is whatever the browser sent — and this tab
-        // deliberately never runs schema validation (see the field's comment).
-        // It is used as an r2 key to read from and later delete, so it is
-        // constrained to the shape this field itself produces before any of
-        // that happens.
+        // `gateway_upload_data.gateway_upload_file` is a public Livewire
+        // property, so this string is whatever the browser sent, and a
+        // directly-set value never goes through Filament's own file-upload
+        // validation (see the field's comment). It is used as an r2 key to
+        // read from and later delete, so it is constrained to the shape this
+        // field itself produces before any of that happens.
         if (! GatewayUploadPath::isAllowed($storedPath)) {
             Log::warning('Rejected a gateway upload with an unexpected stored path', [
                 'user_id' => auth()->id(),
@@ -790,9 +831,9 @@ class EnvironmentTools extends Page
 
         $originalFilename = filled($originalFilename) ? (string) $originalFilename : basename((string) $storedPath);
 
-        // Filament's own `acceptedFileTypes()`/`maxSize()` are validation
-        // rules, and this tab never runs schema validation — so the file type
-        // and size are re-checked here, server-side.
+        // Filament's own `acceptedFileTypes()`/`maxSize()` only validate a
+        // real uploaded file at upload time, not a directly-set string state
+        // — so the file type and size are re-checked here, server-side.
         if (! in_array(strtolower(pathinfo($originalFilename, PATHINFO_EXTENSION)), self::GATEWAY_UPLOAD_EXTENSIONS, true)) {
             $this->notifyPayloadSent('Upload Failed', 'Only .json, .xml and .zip schedule data files can be uploaded.', false);
 
@@ -807,10 +848,10 @@ class EnvironmentTools extends Page
             return;
         }
 
-        $baseUrl = $get('base_url');
-        $accountId = $get('account_id');
-        $username = $get('username');
-        $password = $get('password');
+        $baseUrl = $this->contextValue('base_url');
+        $accountId = $this->contextValue('account_id');
+        $username = $this->contextValue('username');
+        $password = $this->contextValue('password');
 
         if (blank($baseUrl) || blank($accountId) || blank($username) || blank($password)) {
             $this->notifyPayloadSent('Upload Failed', 'Base URL, Account ID, Username and Password are all required (see Environment Properties above).', false);

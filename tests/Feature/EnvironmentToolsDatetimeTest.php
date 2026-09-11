@@ -23,12 +23,12 @@ it('sends the user-picked datetime to PSO, not the current time', function () {
     $chosenDatetime = now()->subDays(10)->startOfMinute();
 
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->fillForm(['dataset_id' => 'ds-1'], 'sharedContextForm')
         ->fillForm([
-            'dataset_id' => 'ds-1',
             'send_to_pso' => false,
             'datetime' => $chosenDatetime->format('Y-m-d H:i:s'),
-        ], 'psoload')
-        ->callAction(TestAction::make('push_it')->schemaComponent(true, 'psoload'));
+        ], 'loadRotaForm')
+        ->callAction(TestAction::make('push_it')->schemaComponent(true, 'loadRotaForm'));
 
     Http::assertSent(function ($request) use ($chosenDatetime) {
         $sentDatetime = data_get($request->data(), 'data.inputDatetime');
