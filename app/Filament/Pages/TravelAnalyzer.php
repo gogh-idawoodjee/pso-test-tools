@@ -50,6 +50,7 @@ class TravelAnalyzer extends Page
     public function mount(): void
     {
         $this->environments = Environment::with('datasets')->get();
+        $this->isAuthenticationRequired = true;
         $this->env_form->fill();
     }
 
