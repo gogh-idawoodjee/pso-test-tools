@@ -48,6 +48,15 @@ return [
             'use_path_style_endpoint' => true,
         ],
 
+        // Private scratch space for the PSO Sys File Compare tool (customer data).
+        'sys-compare' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/sys-compare'),
+            'visibility' => 'private',
+            'throw' => true,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),

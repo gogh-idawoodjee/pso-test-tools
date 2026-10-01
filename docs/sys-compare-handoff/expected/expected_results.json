@@ -1,0 +1,115 @@
+{
+  "_readme": "Golden results from the four reference exports (prod, acc, stg, tst) with PROD as baseline. These were produced by Compare-PsoSysFiles.ps1 and verified against the Python reference. The sample XML files are NOT in this package (customer data) - Ish keeps them locally.",
+  "baseline": "PROD",
+  "environments": [
+    "PROD",
+    "ACC",
+    "STG",
+    "TST"
+  ],
+  "tally": {
+    "Parameters": {
+      "compared": 49,
+      "ACC": 21,
+      "STG": 11,
+      "TST": 28,
+      "notIdenticalAcrossAll": 34
+    },
+    "Exception Types": {
+      "compared": 111,
+      "ACC": 6,
+      "STG": 10,
+      "TST": 46,
+      "notIdenticalAcrossAll": 56
+    },
+    "Group Permissions": {
+      "compared": 478,
+      "ACC": 137,
+      "STG": 229,
+      "TST": 228,
+      "notIdenticalAcrossAll": 289
+    },
+    "Groups": {
+      "compared": 76,
+      "ACC": 29,
+      "STG": 32,
+      "TST": 26,
+      "notIdenticalAcrossAll": 39
+    },
+    "Org Permissions": {
+      "compared": 12,
+      "ACC": 2,
+      "STG": 3,
+      "TST": 6,
+      "notIdenticalAcrossAll": 8
+    },
+    "Lists": {
+      "compared": 82,
+      "ACC": 10,
+      "STG": 7,
+      "TST": 38,
+      "notIdenticalAcrossAll": 41
+    },
+    "Travel": {
+      "compared": 17,
+      "ACC": 12,
+      "STG": 7,
+      "TST": 14,
+      "notIdenticalAcrossAll": 16
+    },
+    "Profiles & Other": {
+      "compared": 12,
+      "ACC": 1,
+      "STG": 2,
+      "TST": 3,
+      "notIdenticalAcrossAll": 5
+    },
+    "Total": {
+      "compared": 837,
+      "ACC": 218,
+      "STG": 301,
+      "TST": 389,
+      "notIdenticalAcrossAll": 488
+    }
+  },
+  "versions": {
+    "allEnvironmentsOn": "6.16.0.41",
+    "mismatch": false,
+    "lastUpgradeUtc": {
+      "TST": "2025-10-17 00:31",
+      "ACC": "2026-02-03 03:02",
+      "STG": "2026-02-07 19:43",
+      "PROD": "2026-05-03 21:47"
+    },
+    "upgradedFromTo": "6.15.0 -> 6.16.0 in all four",
+    "lastPatch": {
+      "TST": "6.16.0.41 on 2025-11-04 02:37",
+      "ACC": "6.16.0.41 on 2026-02-03 03:02",
+      "STG": "6.16.0.41 on 2026-02-07 19:43",
+      "PROD": "6.16.0.41 on 2026-05-03 21:47"
+    },
+    "historyRowsTotal": 72
+  },
+  "spotChecks": [
+    "Parameters: AllowSplitTravel = True in PROD; (absent) in ACC, STG, TST",
+    "Parameters: CommitToAllocatedShift = False / True / False / True (PROD / ACC / STG / TST)",
+    "Parameters: SortValuePrecedenceMaximumStatus = 40 in PROD and STG; (absent) in ACC and TST",
+    "Parameters: ImplicitBreaksOnOffEventsRequired = True in PROD; (absent) ACC and STG; False in TST",
+    "Parameters: RoutingApiKey is shown as [API key set] everywhere; the actual key value is identical in every environment and must never appear in any output",
+    "Parameters: DEFAULT/ActivityBaseLabel in STG starts with a space; it must be shown with the visible whitespace marker U+2423",
+    "Exception Types: DEFAULT type 90 attention = 10 / 2 / 10 / 2",
+    "Groups: ST_Ops_Mgr (PROD, ACC) and ST_Ops_MGR (STG, TST) are ONE merged group (19 distinct groups across all four) and the spelling difference is flagged",
+    "Group Permissions: PROD has 341 rows, 241 of them explicit denies (allow=false). PROD ST_Dispatch / Administrator is allow=false, allow_edit=true -> displayed 'F / T'",
+    "Travel: ACC has 343 polygons and 1 travel-time weighting row (time zone America/Regina); PROD has 2 polygons; STG and TST have none",
+    "Table counts: Users rows = 147 / 262 / 99 / 129 (PROD / ACC / STG / TST) - shown in counts but never compared",
+    "Distinct parameter_ids across the four files = 41 and every one has a definition"
+  ],
+  "mutationTests": [
+    "Change TST latest version rows to 6.16.0.33 -> red banner, 'Same release (6.16), different patch builds', TST BEHIND",
+    "Change STG to a 6.15.x latest version -> red banner, 'Different RELEASES', STG BEHIND",
+    "6.13.0.9 must sort as OLDER than 6.13.0.67 (numeric version compare, never string compare)",
+    "Remove System_Version from one file -> warning, version unknown, no false green banner",
+    "Upload a file with an unknown parameter -> row shows '(no definition yet)' and appears in the missing-definitions template",
+    "Two uploads given the same name, no baseline selected, or two baselines selected -> blocked in the UI with a clear message"
+  ]
+}
