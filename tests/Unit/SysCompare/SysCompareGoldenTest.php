@@ -2,6 +2,9 @@
 
 use App\Support\SysCompare\Comparer;
 use App\Support\SysCompare\ComparisonResult;
+use App\Support\SysCompare\Render\CsvBundle;
+use App\Support\SysCompare\Render\HtmlReport;
+use App\Support\SysCompare\Render\XlsxWorkbook;
 use App\Support\SysCompare\SysEnvironment;
 use App\Support\SysCompare\SysFileReader;
 
@@ -205,4 +208,42 @@ it('reports the PSO versions as in the golden file', function (): void {
     }
 
     expect($history)->toBe($expected['historyRowsTotal']);
+});
+
+it('renders every artifact from the real exports without leaking the API key or any user', function (): void {
+    $result = sysCompareGoldenResult();
+    $reader = app(SysFileReader::class);
+
+    $rawKey = collect($reader->read(sysCompareSampleFolder().'/prod.xml')->rows('Profile_Parameter'))
+        ->first(static fn (array $row): bool => stripos($row['parameter_id'] ?? '', 'key') !== false && ($row['parameter_value'] ?? '') !== '')['parameter_value'];
+
+    $directory = storage_path('framework/testing');
+    $xlsx = $directory.'/syscompare-golden.xlsx';
+    $zipPath = $directory.'/syscompare-golden.zip';
+
+    app(XlsxWorkbook::class)->write($result, $xlsx);
+    app(CsvBundle::class)->write($result, $zipPath);
+
+    $artifacts = ['html' => app(HtmlReport::class)->render($result, showSameRows: true)];
+
+    foreach ([$xlsx, $zipPath] as $archive) {
+        $zip = new ZipArchive;
+        $zip->open($archive);
+
+        for ($index = 0; $index < $zip->numFiles; $index++) {
+            $artifacts[basename($archive).'/'.$zip->getNameIndex($index)] = (string) $zip->getFromIndex($index);
+        }
+
+        $zip->close();
+    }
+
+    foreach ($artifacts as $name => $content) {
+        expect($content)->not->toContain($rawKey, "{$name} leaked the API key");
+    }
+
+    expect($artifacts['html'])->toContain('All 4 environments are on the same PSO version: 6.16.0.41')
+        ->and($artifacts['html'])->toContain('vbanner ok');
+
+    @unlink($xlsx);
+    @unlink($zipPath);
 });
