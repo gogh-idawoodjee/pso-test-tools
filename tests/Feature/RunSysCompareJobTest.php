@@ -4,6 +4,7 @@ use App\Jobs\RunSysCompareJob;
 use App\Support\SysCompare\RunSummary;
 use App\Support\SysCompare\Storage\SysCompareStorage;
 use App\Support\SysCompare\SysCompareArtifact;
+use Carbon\CarbonInterface;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
@@ -138,7 +139,7 @@ it('explains when an upload has expired', function (): void {
     runJob($files, 'PROD');
 
     expect(Cache::get('sys-compare-job:job-1:status'))->toBe('failed')
-        ->and(Cache::get('sys-compare-job:job-1:message'))->toContain('tst.xml')->toContain('no longer available');
+        ->and(Cache::get('sys-compare-job:job-1:message'))->toContain('tst.xml')->toContain('could not be found')->toContain('queue worker');
 });
 
 it('reports a bad definitions file by name', function (): void {
@@ -158,4 +159,20 @@ it('fails clearly when the comparison itself is invalid', function (): void {
 
     expect(Cache::get('sys-compare-job:job-1:status'))->toBe('failed')
         ->and(Cache::get('sys-compare-job:job-1:message'))->toContain('more than once');
+});
+
+it('still compares when tidying old files fails', function (): void {
+    $this->app->bind(SysCompareStorage::class, fn () => new class extends SysCompareStorage
+    {
+        public function purgeExpired(?CarbonInterface $now = null): int
+        {
+            throw new RuntimeException('simulated: the folder is not readable by this user');
+        }
+    });
+
+    $files = [jobUpload('PROD', jobBuilder('6.16.0.41'), 'prod.xml'), jobUpload('TST', jobBuilder('6.16.0.41'), 'tst.xml')];
+
+    runJob($files, 'PROD');
+
+    expect(Cache::get('sys-compare-job:job-1:status'))->toBe('complete');
 });

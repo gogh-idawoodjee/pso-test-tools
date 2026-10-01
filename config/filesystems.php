@@ -53,6 +53,14 @@ return [
             'driver' => 'local',
             'root' => storage_path('app/private/sys-compare'),
             'visibility' => 'private',
+            // Written by the web process (PHP-FPM) and read, deleted or written by the queue
+            // worker, which can be different users: share through the group rather than the
+            // owner-only 0600/0700 default. The sys-compare folder also needs the setgid bit
+            // (chmod g+s) so folders created by either user keep the shared group.
+            'permissions' => [
+                'file' => ['public' => 0664, 'private' => 0660],
+                'dir' => ['public' => 0775, 'private' => 0770],
+            ],
             'throw' => true,
             'report' => false,
         ],
