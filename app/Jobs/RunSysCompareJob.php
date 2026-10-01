@@ -65,7 +65,7 @@ class RunSysCompareJob implements ShouldQueue
         $this->report('processing', 5);
 
         try {
-            $storage->purgeExpired();
+            $this->purgeExpired($storage);
 
             $environments = $this->readEnvironments($storage, $reader);
             $this->report('processing', 50);
@@ -76,10 +76,14 @@ class RunSysCompareJob implements ShouldQueue
             $storage->putRunFile($this->userId, $this->runId, SysCompareArtifact::Report->fileName(), app(HtmlReport::class)->render($result));
             $this->report('processing', 70);
 
-            app(CsvBundle::class)->write($result, $storage->runFilePathForWriting($this->userId, $this->runId, SysCompareArtifact::Csv->fileName()));
+            $csvPath = $storage->runFilePathForWriting($this->userId, $this->runId, SysCompareArtifact::Csv->fileName());
+            app(CsvBundle::class)->write($result, $csvPath);
+            $storage->shareWithGroup($csvPath);
             $this->report('processing', 80);
 
-            app(XlsxWorkbook::class)->write($result, $storage->runFilePathForWriting($this->userId, $this->runId, SysCompareArtifact::Xlsx->fileName()));
+            $xlsxPath = $storage->runFilePathForWriting($this->userId, $this->runId, SysCompareArtifact::Xlsx->fileName());
+            app(XlsxWorkbook::class)->write($result, $xlsxPath);
+            $storage->shareWithGroup($xlsxPath);
             $this->report('processing', 92);
 
             $template = DefinitionsTemplate::csv($result);
@@ -118,7 +122,9 @@ class RunSysCompareJob implements ShouldQueue
             $path = $storage->uploadPath($this->userId, $file['id']);
 
             if ($path === null) {
-                throw new InvalidSysFile("{$file['fileName']}: the upload is no longer available (uploads are removed after ".config('sys-compare.upload_ttl_minutes').' minutes). Please add the file again.');
+                $this->logMissingUpload($storage, $file['id']);
+
+                throw new InvalidSysFile("{$file['fileName']}: the upload could not be found (uploads are removed after ".config('sys-compare.upload_ttl_minutes', 120).' minutes). Please add the file again. If this happens straight after adding it, the queue worker may need a restart or access to the upload folder.');
             }
 
             $environments[] = new SysEnvironment($file['name'], $reader->read($path, $file['fileName']));
@@ -143,6 +149,35 @@ class RunSysCompareJob implements ShouldQueue
         }
 
         return $definitions->withUserDefinitions(DefinitionsCsv::parse($path, $this->definitions['fileName']));
+    }
+
+    /**
+     * Tidying old files is best-effort: it must never stop a comparison from running.
+     */
+    private function purgeExpired(SysCompareStorage $storage): void
+    {
+        try {
+            $storage->purgeExpired();
+        } catch (Throwable $exception) {
+            Log::warning('PSO Sys File Compare could not purge expired files', ['exception' => $exception::class]);
+        }
+    }
+
+    /**
+     * Says why a worker may not see an upload that the web request just stored, without
+     * recording anything from the file itself.
+     */
+    private function logMissingUpload(SysCompareStorage $storage, string $uploadId): void
+    {
+        $root = $storage->disk()->path('');
+
+        Log::warning('PSO Sys File Compare: the worker could not find an upload', [
+            'uploadId' => $uploadId,
+            'workerUser' => function_exists('posix_geteuid') ? (posix_getpwuid(posix_geteuid())['name'] ?? 'unknown') : 'unknown',
+            'diskRootReadable' => is_readable($root),
+            'diskRootTraversable' => is_executable($root),
+            'diskConfigured' => config('filesystems.disks.'.config('sys-compare.disk', 'sys-compare')) !== null,
+        ]);
     }
 
     private function deleteUploads(SysCompareStorage $storage): void

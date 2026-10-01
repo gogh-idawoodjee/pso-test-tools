@@ -75,3 +75,37 @@ it('is scheduled to purge every ten minutes', function (): void {
 it('purges from the console command', function (): void {
     $this->artisan('sys-compare:purge')->expectsOutputToContain('Removed 0 expired item(s).')->assertSuccessful();
 });
+
+it('writes uploads and results group-readable and group-writable whatever the process umask is', function (): void {
+    // Storage::fake() ignores the configured permissions, so point the tool at a disk built from the real config.
+    $root = storage_path('framework/testing/sys-compare-permissions-'.bin2hex(random_bytes(4)));
+    config([
+        'filesystems.disks.sys-compare-real' => [...config('filesystems.disks.sys-compare'), 'root' => $root],
+        'sys-compare.disk' => 'sys-compare-real',
+    ]);
+
+    $previousUmask = umask(0022);
+
+    try {
+        $storage = app(SysCompareStorage::class);
+        $stored = $storage->storeUpload(1, fakeSysUpload());
+        $run = SysCompareStorage::newId();
+        $storage->putRunFile(1, $run, 'summary.json', '{}');
+        $zipPath = $storage->runFilePathForWriting(1, $run, 'bundle.zip');
+        file_put_contents($zipPath, 'zip');
+        $storage->shareWithGroup($zipPath);
+    } finally {
+        umask($previousUmask);
+    }
+
+    $mode = static fn (string $path): int => fileperms($path) & 0777;
+
+    expect($mode((string) $storage->uploadPath(1, $stored->id)))->toBe(0660)
+        ->and($mode($root.'/uploads/1'))->toBe(0770)
+        ->and($mode($root."/runs/1/{$run}"))->toBe(0770)
+        ->and($mode($root."/runs/1/{$run}/summary.json"))->toBe(0660)
+        ->and($mode($zipPath))->toBe(0660);
+
+    Storage::disk('sys-compare-real')->deleteDirectory('');
+    @rmdir($root);
+});

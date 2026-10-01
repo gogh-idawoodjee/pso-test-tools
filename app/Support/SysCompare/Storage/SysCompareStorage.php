@@ -43,7 +43,7 @@ class SysCompareStorage
     {
         $id = self::newId();
 
-        $this->disk()->putFileAs($this->uploadDirectory($userId), $file, $id.'.'.$extension);
+        $this->withSharedUmask(fn () => $this->disk()->putFileAs($this->uploadDirectory($userId), $file, $id.'.'.$extension));
 
         return new StoredUpload($id, $file->getClientOriginalName(), (int) $file->getSize());
     }
@@ -96,7 +96,7 @@ class SysCompareStorage
      */
     public function putRunFile(int $userId, string $runId, string $fileName, string $contents): void
     {
-        $this->disk()->put($this->runDirectory($userId, $runId).'/'.$fileName, $contents);
+        $this->withSharedUmask(fn () => $this->disk()->put($this->runDirectory($userId, $runId).'/'.$fileName, $contents));
     }
 
     /**
@@ -105,7 +105,7 @@ class SysCompareStorage
     public function runFilePathForWriting(int $userId, string $runId, string $fileName): string
     {
         $directory = $this->runDirectory($userId, $runId);
-        $this->disk()->makeDirectory($directory);
+        $this->withSharedUmask(fn () => $this->disk()->makeDirectory($directory));
 
         return $this->disk()->path($directory.'/'.$fileName);
     }
@@ -183,6 +183,31 @@ class SysCompareStorage
         }
 
         return max(array_map(fn (string $file): int => $this->disk()->lastModified($file), $files));
+    }
+
+    /**
+     * Makes a file written outside the disk API (a zip or workbook written straight to a path)
+     * readable and writable by the group, as the disk does for its own files.
+     */
+    public function shareWithGroup(string $path): void
+    {
+        @chmod($path, 0660);
+    }
+
+    /**
+     * The web process and the queue worker can be different users that share a group, so
+     * everything written here must be group-writable. A normal umask (022) would strip that
+     * from new folders, and the worker could then read an upload but not delete it.
+     */
+    private function withSharedUmask(callable $callback): mixed
+    {
+        $previous = umask(0007);
+
+        try {
+            return $callback();
+        } finally {
+            umask($previous);
+        }
     }
 
     private function uploadDirectory(int $userId): string
