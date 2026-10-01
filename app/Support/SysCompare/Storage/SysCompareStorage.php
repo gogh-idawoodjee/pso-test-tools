@@ -126,7 +126,24 @@ class SysCompareStorage
     {
         $path = $this->runFile($userId, $runId, $fileName);
 
-        return $path !== null ? (string) file_get_contents($path) : null;
+        if ($path === null) {
+            return null;
+        }
+
+        $contents = @file_get_contents($path);
+
+        return $contents === false ? null : $contents;
+    }
+
+    /**
+     * Whether a run file is there but this process may not read it (the web process and the queue
+     * worker running as different users without a shared group).
+     */
+    public function runFileIsUnreadable(int $userId, string $runId, string $fileName): bool
+    {
+        $path = $this->runFile($userId, $runId, $fileName);
+
+        return $path !== null && ! is_readable($path);
     }
 
     public function deleteRun(int $userId, string $runId): void

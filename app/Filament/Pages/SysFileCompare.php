@@ -24,9 +24,11 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
+use Throwable;
 use UnitEnum;
 
 /**
@@ -270,6 +272,26 @@ class SysFileCompare extends Page
             return;
         }
 
+        try {
+            $this->pollJob();
+        } catch (Throwable $exception) {
+            // Whatever went wrong, report it once and stop polling: otherwise every poll would
+            // fail the same way and show another toast every 1.5 seconds. Class and location
+            // only: a message could quote content from the files.
+            Log::error('PSO Sys File Compare could not read the status of a comparison', [
+                'exception' => $exception::class,
+                'where' => basename($exception->getFile()).':'.$exception->getLine(),
+            ]);
+
+            $this->failureMessage = 'Something went wrong while checking the comparison. Please try again; if it keeps happening, ask an administrator to check the server log.';
+            $this->notifyDanger('Comparison failed', $this->failureMessage);
+            $this->resetForm();
+            $this->resetJobState();
+        }
+    }
+
+    private function pollJob(): void
+    {
         $this->progress = $this->getJobProgress();
         $this->status = $this->getJobStatus();
 
@@ -397,12 +419,15 @@ class SysFileCompare extends Page
 
     private function handleCompletion(): void
     {
-        $contents = app(SysCompareStorage::class)->readRunFile($this->userId(), (string) $this->runId, SysCompareStorage::SUMMARY_FILE);
+        $storage = app(SysCompareStorage::class);
+        $contents = $storage->readRunFile($this->userId(), (string) $this->runId, SysCompareStorage::SUMMARY_FILE);
 
         $this->summary = $contents !== null ? json_decode($contents, true) : null;
 
         if ($this->summary === null) {
-            $this->failureMessage = 'The results are no longer available. Please run the comparison again.';
+            $this->failureMessage = $storage->runFileIsUnreadable($this->userId(), (string) $this->runId, SysCompareStorage::SUMMARY_FILE)
+                ? 'The comparison finished, but this page is not allowed to read the results. The web server and the queue worker are probably running as different users without a shared group; see the PSO Sys File Compare section of the README.'
+                : 'The results are no longer available. Please run the comparison again.';
             $this->notifyDanger('Comparison failed', $this->failureMessage);
         } else {
             $this->notifySuccess('Comparison complete', 'The report, CSV bundle and Excel workbook are ready below.');
