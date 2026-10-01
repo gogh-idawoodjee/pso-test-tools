@@ -68,6 +68,13 @@ class SysCompareStorage
         return null;
     }
 
+    public function uploadSize(int $userId, string $id): int
+    {
+        $path = $this->uploadPath($userId, $id);
+
+        return $path !== null ? (int) filesize($path) : 0;
+    }
+
     public function deleteUpload(int $userId, string $id): void
     {
         if (! self::isValidId($id)) {
