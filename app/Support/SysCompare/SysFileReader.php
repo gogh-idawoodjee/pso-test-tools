@@ -29,6 +29,40 @@ class SysFileReader
         'System_Version',
     ];
 
+    /**
+     * Cheap check that a file is a DsSystemData export: reads only as far as the root element.
+     *
+     * @throws InvalidSysFile
+     */
+    public function assertSysFile(string $path, ?string $displayName = null): void
+    {
+        $fileName = $displayName ?? basename($path);
+        $previousErrorSetting = libxml_use_internal_errors(true);
+        $reader = app(XMLReader::class);
+
+        try {
+            if (! is_file($path) || ! $reader->open($path, null, LIBXML_NONET | LIBXML_COMPACT)) {
+                throw InvalidSysFile::unreadable($fileName);
+            }
+
+            while (@$reader->read()) {
+                if ($reader->nodeType === XMLReader::ELEMENT) {
+                    if ($reader->localName !== self::ROOT_ELEMENT) {
+                        throw InvalidSysFile::notDsSystemData($fileName);
+                    }
+
+                    return;
+                }
+            }
+
+            throw InvalidSysFile::unreadable($fileName);
+        } finally {
+            $reader->close();
+            libxml_clear_errors();
+            libxml_use_internal_errors($previousErrorSetting);
+        }
+    }
+
     public function read(string $path, ?string $displayName = null): SysFile
     {
         $fileName = $displayName ?? basename($path);

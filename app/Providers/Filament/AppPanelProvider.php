@@ -6,6 +6,8 @@ use App\Filament\Pages\Backups;
 use App\Filament\Pages\HealthCheckResults;
 use App\Filament\Widgets\QuickLaunch;
 use App\Filament\Widgets\StatsOverview;
+use App\Http\Controllers\SysCompare\SysCompareDownloadController;
+use App\Http\Controllers\SysCompare\SysCompareUploadController;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -22,6 +24,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use pxlrbt\FilamentEnvironmentIndicator\EnvironmentIndicatorPlugin;
 use ShuvroRoy\FilamentSpatieLaravelBackup\FilamentSpatieLaravelBackupPlugin;
@@ -80,7 +83,16 @@ class AppPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->authenticatedRoutes(function (): void {
+                // PSO Sys File Compare: sys files hold customer data, so they bypass Livewire's
+                // R2-backed temporary uploads and go to a private local disk instead.
+                Route::post('sys-compare/uploads', SysCompareUploadController::class)
+                    ->middleware('throttle:60,1')
+                    ->name('sys-compare.uploads.store');
+                Route::get('sys-compare/runs/{run}/{artifact}', SysCompareDownloadController::class)
+                    ->name('sys-compare.runs.download');
+            });
     }
 
     public function register(): void
