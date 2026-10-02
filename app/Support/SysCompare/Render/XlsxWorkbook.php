@@ -176,6 +176,7 @@ class XlsxWorkbook
     private function scopeLines(ComparisonResult $result): array
     {
         $lines = [
+            ...($result->catalogVersionWarning() !== null ? ['CHECK THE PARAMETER DEFAULTS: '.$result->catalogVersionWarning()] : []),
             ...($result->defaultsApplied ? [] : ['PARAMETER DEFAULTS WERE NOT APPLIED: the parameter catalog was not available, so unset parameters show as (absent) and may simply be using their default. Parameter differences are raw and overstate the real differences.']),
             '•  Compared: profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.',
             '•  Not compared: Users and all per-user tables - saved filters, screen settings, list layouts, and which groups, permissions and parameters are assigned to each user. The set of users differs between environments, so comparing them would mostly be noise. Group membership (who is in which group) is therefore not compared, only what each group is allowed to do.',

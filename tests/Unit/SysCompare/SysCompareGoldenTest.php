@@ -297,3 +297,11 @@ it('renders every artifact from the real exports without leaking the API key or 
     @unlink($xlsx);
     @unlink($zipPath);
 });
+
+it('warns that the 6.14 catalog does not match the 6.16 reference environments', function (): void {
+    $result = sysCompareGoldenResult();
+
+    expect($result->catalogVersion)->toBe('6.14')
+        ->and($result->catalogVersionMismatches)->toBe(['PROD' => '6.16', 'ACC' => '6.16', 'STG' => '6.16', 'TST' => '6.16'])
+        ->and(app(HtmlReport::class)->render($result))->toContain('Parameter defaults may not match these PSO versions');
+});

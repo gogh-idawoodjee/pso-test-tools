@@ -61,6 +61,8 @@ class Comparer
 
         $tabs = $this->inReportOrder($tabs);
 
+        $versions = app(VersionAnalyzer::class)->analyze($environments, $now);
+
         return new ComparisonResult(
             environments: array_map(
                 static fn (SysEnvironment $environment): EnvironmentSummary => new EnvironmentSummary(
@@ -74,13 +76,38 @@ class Comparer
             tabs: $tabs,
             tableCounts: $this->tableCounts($environments),
             tally: $this->tally($tabs, $context),
-            versions: app(VersionAnalyzer::class)->analyze($environments, $now),
+            versions: $versions,
             apiKeyValuesDiffer: $context->apiKeyValuesDiffer(),
             defaultsApplied: ! $catalog->isEmpty(),
+            catalogVersion: $catalog->psoVersion,
+            catalogVersionMismatches: $this->catalogVersionMismatches($catalog, $versions),
             definitionTemplate: $this->definitionTemplate($tabs, $context),
             quickRead: $this->quickRead($tabs, $context),
             generatedAt: $now,
         );
+    }
+
+    /**
+     * Environments whose PSO release is not the one the catalog's defaults are for.
+     *
+     * @return array<string, string> environment name => release
+     */
+    private function catalogVersionMismatches(ParameterCatalog $catalog, VersionReport $versions): array
+    {
+        if ($catalog->isEmpty() || $catalog->psoVersion === null) {
+            return [];
+        }
+
+        $catalogRelease = VersionAnalyzer::releaseOf($catalog->psoVersion);
+        $mismatches = [];
+
+        foreach ($versions->environments as $version) {
+            if ($version->hasData && $version->release !== $catalogRelease) {
+                $mismatches[$version->name] = $version->release;
+            }
+        }
+
+        return $mismatches;
     }
 
     /**

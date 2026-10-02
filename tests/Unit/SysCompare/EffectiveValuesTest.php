@@ -33,13 +33,13 @@ afterEach(function (): void {
     }
 });
 
-function effectiveCatalog(): ParameterCatalog
+function effectiveCatalog(?string $psoVersion = null): ParameterCatalog
 {
     $path = storage_path('framework/testing/syscompare-catalog-'.bin2hex(random_bytes(4)).'.csv');
     @mkdir(dirname($path), 0775, true);
     file_put_contents($path, "\xEF\xBB\xBF".CATALOG_CSV);
 
-    return ParameterCatalog::fromCsv($path);
+    return ParameterCatalog::fromCsv($path, $psoVersion);
 }
 
 /**
@@ -362,4 +362,71 @@ it('resolves the travel parameters as effective values too', function (): void {
 
     expect($row->cellValues)->toBe(['True', '(default: True)'])
         ->and($row->status)->toBe('Same (default)');
+});
+
+function withVersion(SysFileBuilder $builder, string $latest): SysFileBuilder
+{
+    return $builder
+        ->version('6.14.0', 'Upgrade from 6.13.0', '2024-12-02T02:39:11+00:00', 'ifs')
+        ->version($latest, 'Update data', '2025-01-02T02:39:20+00:00', 'ifs');
+}
+
+it('records the PSO release the shipped catalog is for', function (): void {
+    expect(ParameterCatalog::builtIn()->psoVersion)->toBe('6.14');
+});
+
+it('warns when an environment is on a different PSO release than the catalog, naming it', function (): void {
+    $result = compareEffective([
+        'PROD' => withVersion(SysFileBuilder::make()->parameter('DEFAULT', 'Flag', 'false', 'DSE'), '6.16.0.41'),
+        'ACC' => withVersion(SysFileBuilder::make()->profile('DEFAULT'), '6.14.0.38'),
+        'TST' => SysFileBuilder::make()->profile('DEFAULT'),
+    ], effectiveCatalog('6.14'));
+
+    $warning = (string) $result->catalogVersionWarning();
+
+    expect($result->hasCatalogVersionMismatch())->toBeTrue()
+        ->and($result->catalogVersion)->toBe('6.14')
+        ->and($result->catalogVersionMismatches)->toBe(['PROD' => '6.16'])
+        ->and($warning)->toContain('PSO 6.14')->toContain('PROD is on 6.16')->not->toContain('ACC')->not->toContain('TST')
+        ->and($warning)->toContain('Same (default)');
+
+    $html = app(HtmlReport::class)->render($result);
+
+    expect($html)->toContain('Parameter defaults may not match these PSO versions')
+        ->and($html)->toContain('Check the defaults:')
+        ->and(RunSummary::fromResult($result)->notes)->toContain($warning);
+
+    $path = storage_path('framework/testing/syscompare-versionwarning.xlsx');
+    app(XlsxWorkbook::class)->write($result, $path);
+    $zip = new ZipArchive;
+    $zip->open($path);
+
+    expect((string) $zip->getFromName('xl/worksheets/sheet1.xml'))->toContain('CHECK THE PARAMETER DEFAULTS');
+
+    $zip->close();
+});
+
+it('stays quiet when every environment is on the catalog release', function (): void {
+    $result = compareEffective([
+        'PROD' => withVersion(SysFileBuilder::make()->profile('DEFAULT'), '6.14.0.56'),
+        'TST' => withVersion(SysFileBuilder::make()->profile('DEFAULT'), '6.14.0.38'),
+    ], effectiveCatalog('6.14'));
+
+    expect($result->hasCatalogVersionMismatch())->toBeFalse()
+        ->and($result->catalogVersionWarning())->toBeNull()
+        ->and(app(HtmlReport::class)->render($result))->not->toContain('may not match these PSO versions');
+});
+
+it('does not warn when the catalog release is unknown or there is no catalog', function (): void {
+    $builders = [
+        'PROD' => withVersion(SysFileBuilder::make()->profile('DEFAULT'), '6.16.0.41'),
+        'TST' => withVersion(SysFileBuilder::make()->profile('DEFAULT'), '6.16.0.41'),
+    ];
+
+    $unknown = compareEffective($builders, effectiveCatalog());
+    $none = compareEffective($builders, ParameterCatalog::empty());
+
+    expect($unknown->catalogVersionWarning())->toBeNull()
+        ->and($none->catalogVersionWarning())->toBeNull()
+        ->and($none->defaultsApplied)->toBeFalse();
 });

@@ -14,16 +14,20 @@ class ParameterCatalog
 {
     public const string BUILT_IN_FILE = __DIR__.'/Data/pso_parameters_reference.csv';
 
+    /** The PSO release the shipped catalog's defaults were taken from. */
+    public const string BUILT_IN_PSO_VERSION = '6.14';
+
     private static ?self $builtIn = null;
 
     /**
      * @param  array<string, list<CatalogEntry>>  $entries  by lower-cased parameter id
+     * @param  string|null  $psoVersion  the PSO release the defaults are for (e.g. "6.14"), when known
      */
-    public function __construct(private readonly array $entries = []) {}
+    public function __construct(private readonly array $entries = [], public readonly ?string $psoVersion = null) {}
 
     public static function builtIn(): static
     {
-        return static::$builtIn ??= static::fromCsv(self::BUILT_IN_FILE);
+        return static::$builtIn ??= static::fromCsv(self::BUILT_IN_FILE, self::BUILT_IN_PSO_VERSION);
     }
 
     /**
@@ -34,7 +38,7 @@ class ParameterCatalog
         return new static;
     }
 
-    public static function fromCsv(string $path): static
+    public static function fromCsv(string $path, ?string $psoVersion = null): static
     {
         $handle = @fopen($path, 'rb');
 
@@ -77,7 +81,7 @@ class ParameterCatalog
                 );
             }
 
-            return new static($entries);
+            return new static($entries, $psoVersion);
         } finally {
             fclose($handle);
         }
