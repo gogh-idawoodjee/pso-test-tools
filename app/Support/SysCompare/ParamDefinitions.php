@@ -5,27 +5,42 @@ namespace App\Support\SysCompare;
 use JsonException;
 
 /**
- * Plain-English parameter definitions: exact parameter_id lookup (case-insensitive),
- * then name-pattern fallbacks. User-supplied definitions override the built-in ones.
+ * Plain-English parameter definitions.
+ *
+ * The official description in the parameter catalog IS the definition. ParamDefinitions.csv
+ * adds to it: a non-empty Definition replaces the official text (parameters the catalog does
+ * not cover, or an override), and a Note is appended after it as "... Note: <note>". Lookup is
+ * by parameter id, case-insensitive. When neither exists, name patterns give a hint, else there
+ * is no definition. A user's rows replace the built-in row for the same parameter.
  */
 class ParamDefinitions
 {
     public const string USER_BASIS = 'User-supplied';
 
-    /** @var array<string, ParamDefinition> keyed by lower-cased parameter name */
+    public const string BUILT_IN_DEFINITIONS = __DIR__.'/Data/ParamDefinitions.csv';
+
+    public const string BUILT_IN_PATTERNS = __DIR__.'/Data/definition_patterns.json';
+
+    private static ?self $builtIn = null;
+
+    /** @var array<string, array{definition: string, note: string, basis: string}> keyed by lower-cased parameter name */
     private array $definitions = [];
 
     /** @var list<array{pattern: string, definition: ParamDefinition}> */
     private array $patterns = [];
 
     /**
-     * @param  array<string, array{text: string, basis: string}>  $definitions
+     * @param  array<string, array{definition?: string, note?: string, basis?: string}>  $definitions
      * @param  list<array{pattern: string, text: string, basis: string}>  $patterns
      */
     public function __construct(array $definitions = [], array $patterns = [])
     {
-        foreach ($definitions as $parameter => $definition) {
-            $this->definitions[strtolower($parameter)] = new ParamDefinition($definition['text'], $definition['basis']);
+        foreach ($definitions as $parameter => $row) {
+            $this->definitions[strtolower((string) $parameter)] = [
+                'definition' => $row['definition'] ?? '',
+                'note' => $row['note'] ?? '',
+                'basis' => $row['basis'] ?? '',
+            ];
         }
 
         foreach ($patterns as $pattern) {
@@ -37,27 +52,52 @@ class ParamDefinitions
     }
 
     /**
-     * The definitions shipped with the app (Data/param_definitions.json).
+     * The definitions shipped with the app (Data/ParamDefinitions.csv and Data/definition_patterns.json).
      */
     public static function builtIn(): static
     {
-        $path = __DIR__.'/Data/param_definitions.json';
-
-        try {
-            /** @var array{definitions: array<string, array{text: string, basis: string}>, patterns: list<array{pattern: string, text: string, basis: string}>} $data */
-            $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
-            $data = ['definitions' => [], 'patterns' => []];
+        if (static::$builtIn !== null) {
+            return static::$builtIn;
         }
 
-        return new static($data['definitions'], $data['patterns']);
+        $definitions = [];
+
+        foreach (self::readBuiltInRows() as $row) {
+            $parameter = trim($row['Parameter']);
+
+            if ($parameter !== '' && (trim($row['Definition']) !== '' || trim($row['Note']) !== '')) {
+                $definitions[$parameter] = ['definition' => $row['Definition'], 'note' => $row['Note'], 'basis' => $row['Basis']];
+            }
+        }
+
+        try {
+            /** @var array{patterns: list<array{pattern: string, text: string, basis: string}>} $patterns */
+            $patterns = json_decode((string) file_get_contents(self::BUILT_IN_PATTERNS), true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            $patterns = ['patterns' => []];
+        }
+
+        return static::$builtIn = new static($definitions, $patterns['patterns']);
     }
 
     /**
-     * A copy with user definitions applied on top. Each row needs a parameter and a
-     * definition; the basis defaults to "User-supplied".
+     * @return list<array{Parameter: string, Definition: string, Note: string, Basis: string}>
+     */
+    private static function readBuiltInRows(): array
+    {
+        try {
+            return DefinitionsCsv::parse(self::BUILT_IN_DEFINITIONS, 'ParamDefinitions.csv');
+        } catch (\RuntimeException) {
+            return [];
+        }
+    }
+
+    /**
+     * A copy with the user's rows applied. A row replaces the built-in row for the same
+     * parameter; it needs a parameter and a Definition or a Note, and the basis defaults to
+     * "User-supplied".
      *
-     * @param  list<array{Parameter?: string, Definition?: string, Basis?: string}>  $userRows
+     * @param  list<array{Parameter?: string, Definition?: string, Note?: string, Basis?: string}>  $userRows
      */
     public function withUserDefinitions(array $userRows): static
     {
@@ -66,32 +106,45 @@ class ParamDefinitions
         foreach ($userRows as $userRow) {
             $parameter = trim($userRow['Parameter'] ?? '');
             $definition = $userRow['Definition'] ?? '';
+            $note = $userRow['Note'] ?? '';
 
-            if ($parameter === '' || trim($definition) === '') {
+            if ($parameter === '' || (trim($definition) === '' && trim($note) === '')) {
                 continue;
             }
 
-            $basis = trim($userRow['Basis'] ?? '') !== '' ? $userRow['Basis'] : self::USER_BASIS;
-            $copy->definitions[strtolower($parameter)] = new ParamDefinition($definition, $basis);
+            $copy->definitions[strtolower($parameter)] = [
+                'definition' => $definition,
+                'note' => $note,
+                'basis' => trim($userRow['Basis'] ?? '') !== '' ? $userRow['Basis'] : self::USER_BASIS,
+            ];
         }
 
         return $copy;
     }
 
     /**
-     * Whether the parameter has its own definition (a name-pattern hint does not count).
+     * The definition to show for a parameter:
+     *  1. a Definition from ParamDefinitions.csv (plus its Note);
+     *  2. the catalog's official description (plus the Note, appended);
+     *  3. a name-pattern hint.
      */
-    public function hasSpecific(string $parameter): bool
+    public function find(string $parameter, string $application = '', ?ParameterCatalog $catalog = null): ?ParamDefinition
     {
-        return isset($this->definitions[strtolower($parameter)]);
-    }
+        $row = $this->definitions[strtolower($parameter)] ?? null;
 
-    public function find(string $parameter): ?ParamDefinition
-    {
-        $specific = $this->definitions[strtolower($parameter)] ?? null;
+        if ($row !== null && trim($row['definition']) !== '') {
+            return new ParamDefinition($this->withNote($row['definition'], $row['note'], false), $row['basis']);
+        }
 
-        if ($specific !== null) {
-            return $specific;
+        $entry = $catalog?->entry($parameter, $application);
+
+        if ($entry !== null && trim($entry->description) !== '') {
+            $hasNote = $row !== null && trim($row['note']) !== '';
+
+            return new ParamDefinition(
+                $this->withNote(trim($entry->description), $row['note'] ?? '', true),
+                $hasNote ? ParamDefinition::SCHEMA_REFERENCE.' + '.$row['basis'] : ParamDefinition::SCHEMA_REFERENCE,
+            );
         }
 
         foreach ($this->patterns as $pattern) {
@@ -101,5 +154,33 @@ class ParamDefinitions
         }
 
         return null;
+    }
+
+    /**
+     * Whether the parameter still needs a definition, and if so the best hint to start from
+     * ('' when there is none). Null when it already has a real definition.
+     */
+    public function templateHint(string $parameter, string $application = '', ?ParameterCatalog $catalog = null): ?string
+    {
+        $definition = $this->find($parameter, $application, $catalog);
+
+        return match (true) {
+            $definition === null => '',
+            $definition->basis === ParamDefinition::NAME_PATTERN_BASIS => $definition->text,
+            default => null,
+        };
+    }
+
+    private function withNote(string $text, string $note, bool $closeSentence): string
+    {
+        if (trim($note) === '') {
+            return $text;
+        }
+
+        if ($closeSentence && ! str_ends_with($text, '.')) {
+            $text .= '.';
+        }
+
+        return $text.' Note: '.$note;
     }
 }

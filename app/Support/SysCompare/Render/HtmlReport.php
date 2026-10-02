@@ -6,6 +6,7 @@ use App\Support\SysCompare\Cells;
 use App\Support\SysCompare\ComparisonResult;
 use App\Support\SysCompare\ComparisonRow;
 use App\Support\SysCompare\ComparisonTab;
+use App\Support\SysCompare\EffectiveParameterResolver;
 use App\Support\SysCompare\EnvironmentVersion;
 use App\Support\SysCompare\VersionReport;
 
@@ -87,6 +88,7 @@ JS;
             '</style></head><body>',
             '<h1>PSO system data comparison</h1>',
             '<div class="meta">Generated '.$this->e($result->generatedAt->format('Y-m-d H:i')).' UTC | Baseline: '.$this->e($result->baselineName()).' | Amber cell = differs from baseline | Click a column header to sort</div>',
+            $this->defaultsWarning($result),
             $this->versionSection($result),
             $this->environmentsSection($result),
             $this->scopeSection(),
@@ -112,6 +114,23 @@ JS;
         $html[] = '</script></body></html>';
 
         return implode("\n", $html)."\n";
+    }
+
+    /**
+     * Without the parameter catalog, unset parameters cannot be matched to their defaults and the
+     * parameter comparison is raw. That must be impossible to miss.
+     */
+    private function defaultsWarning(ComparisonResult $result): string
+    {
+        if ($result->defaultsApplied) {
+            $mismatch = $result->catalogVersionWarning();
+
+            return $mismatch === null
+                ? ''
+                : '<div class="vbanner warn">Parameter defaults may not match these PSO versions<small>'.$this->e($mismatch).'</small></div>';
+        }
+
+        return '<div class="vbanner warn">Parameter defaults were NOT applied<small>The parameter catalog (pso_parameters_reference.csv) was not available, so unset parameters show as (absent) and may simply be using their default. Parameter differences below are raw and overstate the real differences.</small></div>';
     }
 
     private function versionSection(ComparisonResult $result): string
@@ -204,10 +223,19 @@ JS;
 
     private function scopeSection(): string
     {
-        return '<h2>Scope</h2><div class="note">Compared: profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.<br>'
-            .'Not compared: Users and all per-user tables. System_Version is not row-compared either; it is summarised in the PSO version section instead. Per-user tables hold data tied to individual user accounts - each person\'s saved filters, screen settings and list layouts, plus which groups, permissions and parameters are assigned to each user. They are left out because the set of users differs between environments, so comparing them would mostly show noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.<br>'
-            .'List and polygon IDs are GUIDs that differ per environment, so lists are matched on content and polygons are summarised by count. Group names differing only by case are treated as one group. API key values are masked. Comparison is case- and whitespace-sensitive; a leading or trailing space is shown with a visible marker.<br>'
-            .'Group permission rows include explicit denies (allow = false), so a count of rows is not a count of permissions granted. Permissions show allow / allow_edit as T / F.</div>';
+        $items = [
+            '<b>Compared:</b> profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.',
+            '<b>Not compared:</b> Users and all per-user tables - saved filters, screen settings, list layouts, and which groups, permissions and parameters are assigned to each user. The set of users differs between environments, so comparing them would mostly be noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.',
+            '<b>System_Version:</b> not compared row by row; it is summarised in the PSO version section instead.',
+            '<b>Parameters:</b> a parameter missing from the export is using its default. The default comes from the parameter catalog and is shown as (default: x), and it counts as equal to an explicit value that matches it. Rows that differ only because of defaults are marked Same (default) and are hidden. Profiles do not inherit from each other: a parameter unset in any profile uses its default.',
+            '<b>Group permissions:</b> rows include explicit denies (allow = false), so a count of rows is not a count of permissions granted. Permissions show allow / allow_edit as T / F.',
+            '<b>Lists and polygons:</b> IDs are GUIDs that differ per environment, so lists are matched on content and polygons are summarised by count.',
+            '<b>Groups:</b> names that differ only by case are treated as one group.',
+            '<b>Matching:</b> case- and whitespace-sensitive. A leading or trailing space is shown with a visible marker.',
+            '<b>Secrets:</b> API key values are masked.',
+        ];
+
+        return '<h2>Scope</h2><div class="note"><ul><li>'.implode("</li>\n<li>", $items).'</li></ul></div>';
     }
 
     private function tallySection(ComparisonResult $result): string
@@ -258,8 +286,23 @@ JS;
             $items[] = '<li><b>PSO versions differ between environments</b> (highest '.$this->e($result->versions->highestVersion).'). See the PSO version section at the top.</li>';
         }
 
-        $items[] = '<li>'.$quickRead->differingParameterRows.' parameter rows are not identical across all environments ('
-            .$quickRead->parametersWithDifferentValues.' with different values, '.$quickRead->parametersPresentInSomeOnly.' set in some environments and absent in others).</li>';
+        $items[] = '<li>'.$quickRead->differingParameterRows.' parameter rows have different effective values across the environments (a parameter that is unset counts as its default value).</li>';
+
+        if ($quickRead->defaultedParameterRows > 0) {
+            $shown = array_slice($quickRead->defaultedParameterNames, 0, 6);
+            $more = count($quickRead->defaultedParameterNames) > 6 ? ', ...' : '';
+
+            $items[] = '<li>'.$quickRead->defaultedParameterRows.' more parameter rows only look different in the export because one environment leaves the parameter unset and uses the default (hidden above): '
+                .$this->e(implode(', ', $shown).$more).'.</li>';
+        }
+
+        if ($result->catalogVersionWarning() !== null) {
+            $items[] = '<li><b>Check the defaults:</b> '.$this->e((string) $result->catalogVersionWarning()).'</li>';
+        }
+
+        if (! $result->defaultsApplied) {
+            $items[] = '<li><b>Parameter defaults were NOT applied</b> because the parameter catalog was not available; unset parameters show as (absent) and may simply be using their default.</li>';
+        }
 
         if ($quickRead->groupsNotPresentEverywhere !== []) {
             $items[] = '<li>Groups not present everywhere: '.$this->e(implode('; ', $quickRead->groupsNotPresentEverywhere)).'.</li>';
@@ -339,7 +382,7 @@ JS;
     {
         $classes = [];
 
-        if (in_array($value, [Cells::ABSENT, Cells::NULL_TEXT, Cells::NONE], true)) {
+        if (in_array($value, [Cells::ABSENT, Cells::NULL_TEXT, Cells::NONE, EffectiveParameterResolver::NO_PROFILE], true) || str_starts_with($value, EffectiveParameterResolver::DEFAULT_PREFIX)) {
             $classes[] = 'muted';
         }
 

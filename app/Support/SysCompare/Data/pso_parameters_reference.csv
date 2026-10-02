@@ -1,0 +1,737 @@
+application,parameter_id,access,data_type,group,class,default_value,description
+ABE,AppointmentFallbackProfileId,LOADUPDATE,STRING,TRAVEL,ORG,,Profile to use for travel calculation during appointment booking when a travel has not previously been calculated
+ABE,CheckForChangesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,1,How often the ABE checks for changes on datasets it is already processing.
+ABE,CheckForDatasetsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency of ABE checks for new datasets.
+ABE,CheckForOutputChangesSeconds,LOADUPDATE,INTEGER,ADMIN,SYS,5,The frequency to check for output updates.
+ABE,DoNotPutActivitiesInJeopardy,LOADUPDATE,BOOLEAN,CONFIG,ORG,false,"If set to true, appointments will not be offered if they cause other activities to be moved into jeopardy."
+ABE,MaxDisplaceableActivityPriority,LOADUPDATE,INTEGER,CONFIG,ORG,-1,ABE Maximum Displaceable Activity Priority
+ABE,MaximumInvalidPositionsInRoute,LOADUPDATE,INTEGER,CONFIG,ORG,20,The maximum failed insertion attempts for a single route.
+ABE,MaximumLinkedCallAttempts,LOADUPDATE,INTEGER,CONFIG,ORG,3,The maximum number of attempts used to allocate any linked calls for each position tried for the main call.
+ABE,MaximumThreadsPerDataset,LOADUPDATE,STRING,ADMIN,SYS,(P/D)+1,Maximum number of threads to create for each dataset the ABE is processing.
+ABE,MaximumVisitCostReliefProportion,LOADUPDATE,DOUBLE,CONFIG,ORG,0.5,The maximum visit cost relief applicable due to low priority activities
+ABE,MinimumAppointmentSlotsPerThread,LOADUPDATE,INTEGER,ADMIN,SYS,1,Minimum appointment slots per thread when processing appointments in parallel.
+ABE,MinimumNumberOfNearbyResourcesToConsider,LOADUPDATE,INTEGER,CONFIG,ORG,5,The ABE will only consider allocating to this min. number of nearby resources.
+ABE,OptimiserDiagnosticOptions,LOADUPDATE,STRING,ADMIN,SYS,,A filename in which to hold optimiser diagnostic information.
+ABE,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1365,The port to use for remoting.
+ABE,PreloadHTMRoutingAreas,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,"When HTM routing is enabled, this will preload the routing areas around each scheduled location to improve performance when processing appointments."
+ABE,RefreshTravelCacheInterval,LOADUPDATE,TIMESPAN,ADMIN,SYS,P7D,Determines how often unnecessary travels are removed from the travel cache
+ABE,TravelTimeToAllow,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT10M,Only allocate to routes which have sufficient time + this travel time.
+ADM,ApplicationInstanceStatusRetentionSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,7200,Age of Application instance statuses to retain in seconds.
+ADM,ARPSystemDataRetention,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,P7D,Determines how long system data records are kept before being deleted.
+ADM,AutoReload,LOADUPDATE,BOOLEAN,AUTOMATION,ORG,False,Automatic reload option.
+ADM,AutoReloadTimeOfDay,LOADUPDATE,TIMESPAN,AUTOMATION,ORG,PT0H,Automatic reload time of day.
+ADM,AutoRestartServices,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,Scheduling Administration Service automatically restarts selected services
+ADM,CheckForChangesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,10,The frequency of Scheduling Administration Service checks for changes to datasets
+ADM,CheckForDatasetsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency of Scheduling Administration Service checks for new datasets
+ADM,CheckForEventsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,600,The frequency of Scheduling Administration Service checks for system changes to the database
+ADM,CheckForNewApplicationsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,20,The frequency of Scheduling Administration Service checks for new applications to monitor
+ADM,CheckForOldFilesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,1800,The frequency of Scheduling Administration Service checks for old files to delete
+ADM,CheckForUserXmlSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,60,The frequency the Scheduling Administration Service checks for new User XML entries.
+ADM,CheckInExpiredTime,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT5M,Defines the amount of time that must have passed since a service has checked in for the service to be deemed inactive
+ADM,CheckLicenceFrequency,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT1H,Frequency of licence limit checks
+ADM,CheckRequiredServices,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,false,Check that the required services are active.
+ADM,CheckRequiredServicesFrequency,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT10M,The frequency at which the service check will run.
+ADM,DailyCheckTimeOfDay,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,PT3H,The time of day for the admin service to carry out any daily checks.
+ADM,DeleteDatasetStatusSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,3600,Dataset_Status records older than this will be deleted
+ADM,DeleteFileMask,DYNAMICUPDATE,STRING,ADMIN,SYS,,Comma separated list of masks for deletion.
+ADM,DeleteFolderList,DYNAMICUPDATE,STRING,ADMIN,SYS,,Comma separated list of directories with full UNC path names.
+ADM,DeleteInactiveOrganisationsPeriod,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,P14610D,Amount of time before deleting inactive organisations
+ADM,DeleteOrganisationGracePeriod,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT1H,The grace period after an organisation has been marked for deletion before which deletion will not commence.
+ADM,DeleteStatisticsAfter,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT1H,Delete monitoring statistics after this time
+ADM,ExpiredDatasetRetentionSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,172800,Datasets expired for longer than this are deleted
+ADM,ExpirePausedDatasetSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,86400,Datasets paused for longer than this are expired
+ADM,FailLoadingInputSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,300,Inputs loading for longer than this are failed
+ADM,FailLoadingPlanSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,300,Plans loading for longer than this are failed
+ADM,FileRetentionDays,RESTARTUPDATE,INTEGER,ADMIN,SYS,30,Files older than this number of days will be deleted.
+ADM,InactiveSessionLogoutSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,3600,The Scheduling Administration Service logs out Sessions that have not been accessed for longer than this
+ADM,InputRetentionSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,86400,Age of input (before latest initial load) to retain.
+ADM,LicenceNotificationEmailAddresses,DYNAMICUPDATE,STRING,SECURITY,ORG,,Comma-separated list of email addresses for licence limit notifications
+ADM,LicenceNotificationEmails,DYNAMICUPDATE,BOOLEAN,SECURITY,ORG,false,Email notifications sent when licence limits are exceeded
+ADM,LicenceNotificationLanguageId,DYNAMICUPDATE,STRING,SECURITY,ORG,en,The language used when sending licence email notifications
+ADM,LicenceNotificationSMTPAddress,DYNAMICUPDATE,STRING,SECURITY,ORG,,SMTP client address for licence notifications
+ADM,LicenceNotificationSMTPHost,DYNAMICUPDATE,STRING,SECURITY,ORG,,SMTP host server for licence notifications
+ADM,LicenceNotificationSMTPName,DYNAMICUPDATE,STRING,SECURITY,ORG,,SMTP client name for licence notifications
+ADM,LicenceNotificationSMTPPassword,DYNAMICUPDATE,MASKED,SECURITY,ORG,,SMTP password for licence notifications
+ADM,LicenceNotificationSMTPUserId,DYNAMICUPDATE,STRING,SECURITY,ORG,,SMTP user id for licence notifications
+ADM,LogAdditionalEvents,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,Admin service logs additional diagnostic events if true
+ADM,OutputRetentionSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,86400,Age of output (before latest complete plan) to retain.
+ADM,PauseInactiveDatasetSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,86400,Datasets inactive for longer than this are paused
+ADM,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1372,The port to use for remoting.
+ADM,RowsPerDeleteTransaction,DYNAMICUPDATE,INTEGER,ADMIN,SYS,10000,Maximum number of rows to delete from a table in one transaction
+ADM,RunSystemTest,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,False,Determines whether a regular system test should be run by the Scheduling Administration Service.
+ADM,RunSystemTestSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,3600,Determines the frequency with which the system test will be run.
+ADM,ServerRequestRetentionSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,604800,Age of Server_Request row to retain.
+ADM,SessionRetentionSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,86400,The Scheduling Administration Service deletes logged-out Sessions older than this
+ADM,SMSAddress,RESTARTUPDATE,STRING,ADMIN,SYS,http://{0}:8001/ThreeSixty.ServiceManagement/ServiceManager/,The Scheduling Service Manager address to use when restarting services.
+ADM,SMSBinding,RESTARTUPDATE,STRING,ADMIN,SYS,BINDING_WS_HTTP_SECURITY_NONE,The Scheduling Service Manager binding to use when restarting services.
+ADM,SystemAccessHistoryRetention,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,P6M,Determines how long system access history records are kept before being deleted.
+ADM,SystemDataCacheRetention,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,P7D,Determines how long system data cache records are kept before being deleted.
+ADM,SystemEventRetentionSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,604800,Age of System_Event row to retain.
+ADM,SystemHistoryRetentionSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,604800,Age of system history data row to retain.
+ADM,SystemStatusEventWindow,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,PT10M,Determines the window to include system events from (before the current time) when broadcasting system status and system events.
+ADM,SystemStatusRetentionSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,86400,Determines how long system status records are kept before being deleted.
+ADM,SystemTestAllocationTypes,DYNAMICUPDATE,INTEGER,ADMIN,SYS,27,The allocation types to expect output for
+ADM,SystemTestDatasetId,DYNAMICUPDATE,STRING,ADMIN,SYS,SystemSmokeTest,The dataset ID to run the system test against.
+ADM,SystemTestTimeLimit,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT2M,The maximum time to allow for the system test to complete with all broadcasts received.
+ADM,UnregisterApplicationOnFailCount,RESTARTUPDATE,INTEGER,ADMIN,SYS,3,Number of consecutive ping failures before unregistering monitored apps
+ADM,UsageCounterRetentionDays,RESTARTUPDATE,INTEGER,ADMIN,SYS,50,The number of days after which individual usage counter rows should be deleted.
+ADM,UserXmlFolder,DYNAMICUPDATE,STRING,ADMIN,SYS,,Folder to write User XML entries out to.
+ALL,ActiveDirectoryDomain,DYNAMICUPDATE,STRING,ADMIN,SYS,,If specified Active Directory is used to authenticate accounts for this domain.
+ALL,AddSLTravelToNode,LOADUPDATE,BOOLEAN,TRAVEL,ORG,True,Add Straight Line travel from location to node to database travel.
+ALL,AllowAuthenticationGateway,DYNAMICUPDATE,BOOLEAN,SECURITY,ORG,False,Authentication gateway allowed flag
+ALL,AllowLocationlessActivities,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,Whether to allow locationless activities that are not fixed to a specific resource.
+ALL,BulkInsert,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,True,A folder on the database server in which bulk insert files may be created.
+ALL,CapabilityUpdateFrequency,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT10M,Frequency for updating the capability of an instance
+ALL,CapabilityUpdateLeeway,DYNAMICUPDATE,DOUBLE,ADMIN,SYS,0.05,Percentage leeway when updating an instance capability
+ALL,CheckForSoftRestartSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,10,Frequency for checking for soft restart requests
+ALL,CloseMetresAbsolute,LOADUPDATE,DOUBLE,TRAVEL,ORG,0,DB/SL comparison allowed metre difference.
+ALL,CloseMetresRatio,LOADUPDATE,DOUBLE,TRAVEL,ORG,0.25,DB/SL comparison allowed metre difference in ratio to SL distance.
+ALL,CloseSecondsAbsolute,LOADUPDATE,DOUBLE,TRAVEL,ORG,0,DB/SL comparison allowed seconds difference.
+ALL,CloseSecondsRatio,LOADUPDATE,DOUBLE,TRAVEL,ORG,0.05,DB/SL comparison allowed seconds difference in ratio to SL time.
+ALL,DatabaseAccessMethod,RESTARTUPDATE,INTEGER,ADMIN,SYS,2,"Whether triggers, views and procedures are to be used to access the database."
+ALL,DatasetAvailability,DYNAMICUPDATE,INTEGER,ADMIN,SYS,1,The target dataset availability when load balancing.
+ALL,DefaultBroadcastAuthentication,LOADUPDATE,STRING,SECURITY,ORG,Basic,Defines the default broadcast authentication type
+ALL,EstimateMissingTravels,LOADUPDATE,BOOLEAN,TRAVEL,ORG,False,If true then missing travels are estimated as the crow flies.
+ALL,EventLogThrottle,LOADUPDATE,INTEGER,ADMIN,SYS,10,Limit for the number of events of the same type that are logged within a minute.
+ALL,EventPublishApiId,DYNAMICUPDATE,STRING,ADMIN,SYS,,The Azure Log Analytics Workspace identifier. This defines where Event Logs are published when EventPublishMode is AzureMonitor.
+ALL,EventPublishApiKey,DYNAMICUPDATE,STRING,ADMIN,SYS,,The Azure Log Analytics Workspace primary key. This defines where Event Logs are published when EventPublishMode is AzureMonitor.
+ALL,EventPublishLoggingLevel,DYNAMICUPDATE,STRING,ADMIN,SYS,Warning,Defines the minimum severity of system Events to publish
+ALL,EventPublishMode,DYNAMICUPDATE,STRING,ADMIN,SYS,WindowsEventLog,Defines the location that log events are published to
+ALL,HashingMethod,RESTARTUPDATE,INTEGER,ADMIN,SYS,4,Hashing method for new password.
+ALL,HierarchicalDatabaseMatrixId,LOADUPDATE,STRING,TRAVEL,ORG,,The identifier of the matrix you wish to use
+ALL,HTMDiagnosticsPath,RESTARTUPDATE,STRING,ADMIN,SYS,,Hierarchal Travel Matrix diagnostics path
+ALL,HTMTimingDiagsPath,LOADUPDATE,STRING,ADMIN,SYS,,Hierarchical Travel Matrix timings diagnostics path
+ALL,IgnoreSpatialKeyLevel,LOADUPDATE,INTEGER,TRAVEL,ORG,11,The SpatialKeyLevel at which snapping stops.
+ALL,InitialSpatialKeyLevel,LOADUPDATE,INTEGER,TRAVEL,ORG,5,SpatialKeyLevel at which the snap algorithm starts.
+ALL,InitialWindiness,LOADUPDATE,DOUBLE,TRAVEL,ORG,1.5,Windiness to apply at MaxWindinesMetres
+ALL,KeepCacheRatio,LOADUPDATE,DOUBLE,TRAVEL,ORG,4.5,Ratio of new/additional travels to add to the current cache
+ALL,LicenceKey,RESTARTUPDATE,STRING,SECURITY,ORG,,Scheduling Products licence key
+ALL,LoadBalancingExclusionEnd,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT0H,The time of day (based on server time) after which load balancing may resume.
+ALL,LoadBalancingExclusionStart,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT0H,The time of day (based on server time) from which no load balancing will take place.
+ALL,LoadBalancingSensitivityFactor,DYNAMICUPDATE,DOUBLE,ADMIN,SYS,1.3,Higher values will discourage datasets from being moved for load balancing purposes.
+ALL,LoadBalancingWaitingOverloadFactor,DYNAMICUPDATE,DOUBLE,ADMIN,SYS,2.2,"Used in the Schedule Distribution Service when determining whether a WAITING dataset should be set to RUNNING, to limit how much each DSE can be overloaded. Use -1 to turn off waiting functionality."
+ALL,LocationAddTime,LOADUPDATE,TIMESPAN,TRAVEL,ORG,PT0S,All travel times between different locations have this buffer added
+ALL,LogStatistics,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,False,Log system and service statistics
+ALL,LogStatisticsFrequency,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT5M,Set how often statistics are logged.
+ALL,LoseCacheRatio,LOADUPDATE,DOUBLE,TRAVEL,ORG,1.5,Ratio of lost/additional travels to replace the current cache
+ALL,MachineIdFormat,RESTARTUPDATE,INTEGER,ADMIN,SYS,0,The machine id format to use when registering and in remoting strings.
+ALL,MaxCacheSizeForAdvanceGetTravels,LOADUPDATE,INTEGER,TRAVEL,ORG,-1,"Sets a maximum number of travels to be stored in the travel cache when fetching HTM travels in advance. When the limit is reached, travels will instead be fetched on demand."
+ALL,MaxDistanceMetres,LOADUPDATE,DOUBLE,TRAVEL,ORG,600,Maximum distance for short (crow flies) travel calculation. Max distance for high density hierarchy levels are adjusted automatically.
+ALL,MaxLogonFailures,DYNAMICUPDATE,INTEGER,SECURITY,ORG,5,Number of consecutive logon failures before user disabled.
+ALL,MaxPossibleSpeedMPS,LOADUPDATE,DOUBLE,TRAVEL,ORG,40,Maximum possible speed in metres per second. Used when accessing if a resource could be sent to an activity.
+ALL,MaxRetainedPasswords,DYNAMICUPDATE,INTEGER,SECURITY,ORG,0,Maximum number of old passwords to retain.
+ALL,MaxSpeedMPS,RESTARTUPDATE,DOUBLE,TRAVEL,ORG,26,Maximum speed in metres per second. Used when calculating the duration of a travel.
+ALL,MaxUserSessions,DYNAMICUPDATE,INTEGER,CONFIG,ORG,-1,The maximum allowed sessions per user before existing sessions are closed; both Workbench and Gateway sessions count towards this value. -1 means unlimited.
+ALL,MaxWindinessMetres,LOADUPDATE,DOUBLE,TRAVEL,ORG,2000,Distance where InitialWindiness applies
+ALL,MinimumTravelSeconds,LOADUPDATE,DOUBLE,TRAVEL,ORG,0,Minimum travel time in seconds.
+ALL,MinimumWindiness,LOADUPDATE,DOUBLE,TRAVEL,ORG,1.178,Minimum windiness to apply
+ALL,MinPasswordCharacterCategories,DYNAMICUPDATE,INTEGER,SECURITY,ORG,3,Minimum number of character categories in a new password.
+ALL,MinPasswordLength,DYNAMICUPDATE,INTEGER,SECURITY,ORG,8,Minimum number of characters in a new password.
+ALL,MinSpeedMPS,LOADUPDATE,DOUBLE,TRAVEL,ORG,12.35,Initial speed for Straight Line travel.
+ALL,OldPasswordRetention,DYNAMICUPDATE,TIMESPAN,SECURITY,ORG,P0D,Duration to retain old passwords.
+ALL,OpenIdAuthority,DYNAMICUPDATE,STRING,CONFIG,ORG,,OpenID Connect Authority URI
+ALL,OpenIdAuthorityThumbprint,DYNAMICUPDATE,STRING,CONFIG,ORG,,OpenID Connect Authority certificate thumbprint
+ALL,OpenIdCacheDuration,DYNAMICUPDATE,TIMESPAN,CONFIG,ORG,PT10M,The length of time to keep OpenId parameters cached before fetching again
+ALL,OpenIdClientId,DYNAMICUPDATE,STRING,CONFIG,ORG,,OpenID Connect registered Client ID
+ALL,OpenIdClientSecret,DYNAMICUPDATE,STRING,CONFIG,ORG,,OpenID Client Secret
+ALL,OpenIdResourceId,DYNAMICUPDATE,STRING,CONFIG,ORG,,OpenID Connect registered Resource ID
+ALL,OpenIdScope,DYNAMICUPDATE,STRING,CONFIG,ORG,openid,OpenID Connect Scope
+ALL,ParameterUpdateFrequency,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT1M,Frequency for updating the parameters in a service
+ALL,PasswordCannotContainId,DYNAMICUPDATE,BOOLEAN,SECURITY,ORG,False,Password cannot contain user id flag.
+ALL,PasswordCannotContainNamePart,DYNAMICUPDATE,BOOLEAN,SECURITY,ORG,False,Password cannot contain 3 consecutive characters from user name flag.
+ALL,PasswordExpiryWarningPeriod,DYNAMICUPDATE,TIMESPAN,SECURITY,ORG,P0D,Duration before password expiry when logon returns warning.
+ALL,PasswordValidityPeriod,DYNAMICUPDATE,TIMESPAN,SECURITY,ORG,P0D,Duration before password expires.
+ALL,PickupPartsAtEndOfActivity,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,Determines whether or not a part pickup should occur at the end of an activity or at the start.
+ALL,RateOfSpeedIncrease,LOADUPDATE,DOUBLE,TRAVEL,ORG,0.0000188,Straight Line speed increase over distance.
+ALL,RealTimeTravelAvoidHighways,LOADUPDATE,BOOLEAN,TRAVEL,ORG,False,Specify whether to avoid highways
+ALL,RealTimeTravelAvoidTolls,LOADUPDATE,BOOLEAN,TRAVEL,ORG,False,Specify whether to avoid tolls
+ALL,RealTimeTravelMaxCallsPerSecond,LOADUPDATE,INTEGER,CONFIG,ORG,5,Maximum number of calls per second for Real Time Travel calculations
+ALL,RealTimeTravelProvider,LOADUPDATE,STRING,TRAVEL,ORG,NONE,Specifies the provider for RealTimeTravel
+ALL,RealTimeTravelRefreshCacheFrequency,LOADUPDATE,TIMESPAN,TRAVEL,ORG,PT10M,Rate at which the cache of real time travels is refreshed
+ALL,ReportTravelStatistics,LOADUPDATE,BOOLEAN,TRAVEL,ORG,False,Diagnostic use only.
+ALL,RoundTravelsToSecondAndMetre,LOADUPDATE,BOOLEAN,TRAVEL,ORG,true,Whether or not to round travel values to the nearest metre and second.
+ALL,RoutingApiKey,LOADUPDATE,STRING,TRAVEL,ORG,,The Api key required for making routing calls
+ALL,RoutingCalculator,LOADUPDATE,STRING,ADMIN,SYS,TravelAnalyser,Routing travel calculator
+ALL,RoutingMaximumDistanceMeters,LOADUPDATE,DOUBLE,SUPPORT,ORG,4000,Only change this when advised to do so by IFS.
+ALL,RoutingMaximumSearchMetersMultiplier,LOADUPDATE,DOUBLE,SUPPORT,ORG,2.0,Only change this when advised to do so by IFS.
+ALL,RoutingRestrictedPenaltySeconds,LOADUPDATE,INTEGER,CONFIG,ORG,1800,Amount of penalty for entering a restricted road
+ALL,SecurityProtocol,RESTARTUPDATE,INTEGER,ADMIN,SYS,3072,Security protocols offered by HTTPS
+ALL,ServiceCheckInTime,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT1M,"Defines how often a service checks in with the database, updating last_checked_in in the Application_Instance table"
+ALL,SortValuePrecedenceMaximumStatus,LOADUPDATE,INTEGER,CONFIG,ORG,30,The maximum status for which commit sort value takes precedence over status on committed calls
+ALL,SpeedFactor,LOADUPDATE,DOUBLE,TRAVEL,ORG,1,All travel times are multiplied by this factor.
+ALL,StraightLineOnError,LOADUPDATE,BOOLEAN,TRAVEL,ORG,False,If true then StraightLine estimate is used if error detected.
+ALL,TokenMaximumAge,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,P1D,Maximum age of an OpenID token
+ALL,TokenSkew,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,PT2M,Allowed leeway in Token time comparisons
+ALL,TracingSources,DYNAMICUPDATE,STRING,ADMIN,SYS,,The sources captured when tracing
+ALL,TracingZipkinEndpoint,DYNAMICUPDATE,STRING,ADMIN,SYS,,The Zipkin endpoint used for tracing
+ALL,TravelCalculationOption,LOADUPDATE,STRING,TRAVEL,ORG,StraightLine,The method of computing travel times and distances.
+ALL,TravelClientDiagnosticsPath,LOADUPDATE,STRING,ADMIN,SYS,,Travel Client diagnostics path
+ALL,TravelHierarchyLevelsToUse,LOADUPDATE,STRING,TRAVEL,ORG,,Do not change this parameter unless IFS advise you to do so.
+ALL,TravelQueriesRunInParallel,LOADUPDATE,BOOLEAN,ADMIN,SYS,true,Whether or not to run travel database queries in parallel
+ALL,TravelRegionHierarchyLevelThresholds,LOADUPDATE,STRING,TRAVEL,ORG,"3,500;5,5000;10,30000;20,75000;30,500000;16,30000;34,75000;73,500000","Travel threshold in metres for each hierarchy level when creating a travel region. String format is: ""hierarchy level, max distance"" with a semicolon separator if more hierarchy levels specified."
+ALL,TravelTimeProfileId,LOADUPDATE,STRING,TRAVEL,ORG,DEFAULT,Time-dependent weightings to apply to travel times.
+ALL,UpdatesCheckLockTimeLimit,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT15M,Sets the time limit for an update check to run for before automated service recovery is triggered.
+ALL,UserIgnorePrefix,DYNAMICUPDATE,STRING,CONFIG,ORG,,Prefix to remove from User claim value
+ALL,UserIgnoreSuffix,DYNAMICUPDATE,STRING,CONFIG,ORG,,Suffix to remove from User claim value
+ALL,UserNameClaim,DYNAMICUPDATE,STRING,CONFIG,ORG,unique_name,OpenID Claim used to identify the User
+ALL,WaitingStatusForUnknownDatasets,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,False,Determines whether to set the state of new datasets to Waiting
+ALL,WarnOnMissingTravel,LOADUPDATE,BOOLEAN,TRAVEL,ORG,True,Determines whether a warning will be reported if travels cannot be found.
+ALL,WindinessDecrease,LOADUPDATE,DOUBLE,TRAVEL,ORG,0.0005,Windiness reduction per metre
+ARC,ArchiveDefaultTimeZone,RESTARTUPDATE,STRING,CONFIG,ORG,,Default time zone.
+ARC,ArchiveStandardLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{description},Standard Label Format
+ARC,AuditRetentionDays,RESTARTUPDATE,INTEGER,ADMIN,SYS,30,The number of days audits are retained by the Schedule Archiving Service before they are deleted.
+ARC,AutomatedSnapshotExpiryPeriod,DYNAMICUPDATE,TIMESPAN,AUTOMATION,ORG,P7D,The expiry period to use when automated snapshots are generated.
+ARC,CheckForChangesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,300,How often the Schedule Archiving Service checks for changes on datasets it is already processing.
+ARC,CheckForDatasetsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency of Schedule Archiving Service checks for new datasets.
+ARC,CheckForExpiredSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,600,How often the Schedule Archiving Service checks for expired snapshots.
+ARC,CheckForRequestsSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,60,How often the Schedule Archiving Service checks to see if a snapshot is needed.
+ARC,CheckForSnapshotSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,60,How often the Schedule Archiving Service checks to see if a snapshot is needed.
+ARC,CheckForUpdateSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,600,How often the Schedule Archiving Service checks for changes to the snapshot schedule.
+ARC,DeleteExpiredAuditsBatchSize,RESTARTUPDATE,INTEGER,ADMIN,SYS,1000,The maximum number of rows to delete in a single batch.
+ARC,DeleteExpiredReportingBatchSize,DYNAMICUPDATE,INTEGER,ADMIN,SYS,500,The maximum number of rows to delete in a single batch.
+ARC,DeleteExpiredSnapshotsBatchSize,RESTARTUPDATE,INTEGER,ADMIN,SYS,50,The maximum number of rows to delete in a single batch.
+ARC,LocationDescriptionFormat,DYNAMICUPDATE,STRING,CONFIG,ORG,{Location.name} [{Location.id}],The description format of a ARC_Location row based on columns from Location table in the Scheduling Database.
+ARC,LogAdditionalEvents,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,Schedule Archiving Service logs additional diagnostic events if true
+ARC,MinimumNumberOfSamplesForActivityDurationEstimate,DYNAMICUPDATE,INTEGER,CONFIG,ORG,25,Minimum number of samples for activity duration estimate to be calculated
+ARC,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,8745,The port to use for remoting.
+ARC,ReportingRetentionDays,DYNAMICUPDATE,INTEGER,ADMIN,SYS,90,The number of days reporting data is retained before it is deleted.
+ARC,ResourceDescriptionFormat,DYNAMICUPDATE,STRING,CONFIG,ORG,{Resources.first_name} {Resources.surname} [{Resources.id}],The description format of a ARC_Resource row based on columns from Resources table in the Scheduling Database.
+DSE,AllowAllocateBeforeCommitted,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,"Permit activities to be scheduled before a committed activity, if possible"
+DSE,AllowAllocateWithParallelCommits,LOADUPDATE,BOOLEAN,CONFIG,ORG,true,Whether schedulable activities may be scheduled in parallel with committed activities (to a parallel resource).
+DSE,AllowPartiallyCommittedBucketRoutes,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,Determines whether or not the DSE may schedule further activities into a bucket shift that already contains committed activities.
+DSE,AllowSplitTravel,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,Whether or not travel to an activity can be split either side of a break or PA.
+DSE,AlwaysRaiseUnallocatedException,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,Should unallocated exceptions be raised if unallocation is expected
+DSE,AutoProcessToQuality,LOADUPDATE,DOUBLE,AUTOMATION,ORG,100,The DSE will process any data until it achieves this plan quality.
+DSE,BackgroundOptimiseAppointmentWindow,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,"When using an appointment window, once the DSE has met all broadcast targets it will also optimise the schedule in the appointment window."
+DSE,BackgroundProcessReactiveTasks,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,True,If true the DSE will continue to process REACTIVE tasks even after all targets have been reached if it would otherwise be idle.
+DSE,CheckForChangesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,1,How often the DSE checks for changes on datasets it is already processing.
+DSE,CheckForDatasetsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency of DSE checks for new datasets.
+DSE,CheckLicenceKeyOnServiceStart,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,True,Whether or not to check the scheduling licence key when the DSE service starts.
+DSE,CommittedActivitiesConstraintsOption,LOADUPDATE,INTEGER,CONFIG,ORG,1,Determines which constraints are applied to committed activities.
+DSE,CommittedActivitiesProfileId,RESTARTUPDATE,STRING,CONFIG,ORG,,The profile id to be used for committed activities
+DSE,CommittedActivitiesProfileThreshold,RESTARTUPDATE,TIMESPAN,CONFIG,ORG,PT12H,"Timespan over which the CommittedActivitiesProfile is used, measured from the start of the scheduling window"
+DSE,CommittedForcedDoOnLocationIncentive,LOADUPDATE,INTEGER,CONFIG,ORG,10000,Incentive for scheduling an activity with either a hard do on location or do in locality constraint immediately after a committed activity at the same location or locality.
+DSE,DatasetTypesToProcess,DYNAMICUPDATE,STRING,ADMIN,SYS,COMPLETE,Whether to process complete or segmented datasets.
+DSE,DeferAffectedRouteRebuild,LOADUPDATE,BOOLEAN,CONFIG,ORG,false,"If set to true, the rebuilding of routes after a change is deferred to the optimisation algorithm."
+DSE,DelayActivityIncrement,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT5M,The increment that is used when attempting to delay an activity
+DSE,DoOnLocationAllowRevisits,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,Can a forced do on location activity be scheduled later when the first visit is unsuitable?
+DSE,DoOnLocationCheckSingleLocation,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,Determines whether the DSE will check the single route location exception condition when applying hard do on location constraints.
+DSE,DSEDiagnosticOptions,RESTARTUPDATE,STRING,ADMIN,SYS,QUALITY=10,"DSE diagnostic options. Set to TEXTPLAN=text plans,QUALITY=10."
+DSE,EarlySLABenefit,LOADUPDATE,DOUBLE,CONFIG,ORG,0,Prefer to schedule a call early (if using SLAs)
+DSE,EmptyRoutesExceptionStart,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT12H,The period before the start of a shift which will generate empty route exceptions
+DSE,EnforceConstraintsOnCallEnd,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,"Determines whether time constraints should be applied to the activity end time. Applies to activity availabilities, not to SLAs"
+DSE,FilterAllocationAttemptsOnUpdate,LOADUPDATE,BOOLEAN,SUPPORT,ORG,True,Only change this when advised to do so by IFS.
+DSE,GpsFrequency,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT0H5M0S,Minimum time between GPS fixes.
+DSE,ImplicitBreaksOnOffEventsRequired,DYNAMICUPDATE,BOOLEAN,CONFIG,ORG,False,If set to true then break on and break off events must be sent to indicate that implicit breaks are being taken. Otherwise the DSE will assume that a break is being taken when the resource is idle in the break window.
+DSE,LogonMaxAdvance,LOADUPDATE,TIMESPAN,CONFIG,ORG,P1D,Limits the lead time the shift start can be moved if early logon.
+DSE,MaximumIndirectActivityLinksToProcess,DYNAMICUPDATE,INTEGER,SUPPORT,ORG,50,Only change this when advised to do so by IFS.
+DSE,MaximumLoadBalancingDelay,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,PT30S,Small or 100% quality datasets may not be suspended for longer than this
+DSE,MaximumThreadsPerDataset,LOADUPDATE,STRING,ADMIN,SYS,P*F,Maximum number of threads to create for each dataset the DSE is processing.
+DSE,MaxTravelAppliesToAllJourneys,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,Whether to apply max travel constraint to individual journeys.
+DSE,MinimumClustersPerActivity,LOADUPDATE,INTEGER,SUPPORT,SYS,3,Only change this when advised to do so by IFS.
+DSE,MinimumStepInterval,LOADUPDATE,TIMESPAN,ADMIN,SYS,PT0H1M0S,Minimum interval between writing plans to database.
+DSE,NotLoggedOnDelayPeriod,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT0M,Not Logged On Delay Period
+DSE,OptimisationAlgorithm,LOADUPDATE,INTEGER,CONFIG,ORG,0,The algorithm to be used for scheduling. Zero means the DSE chooses.
+DSE,OptimiserAdvancedOptions,LOADUPDATE,INTEGER,SUPPORT,ORG,6,Only change this when advised to do so by IFS.
+DSE,OptimiserAllocateMoveWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserAllocationWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserAPMCheckForNearbyHotSpotsRadius,LOADUPDATE,DOUBLE,SUPPORT,ORG,5,Only change this when advised to do so by IFS.
+DSE,OptimiserAPMHotSpotRadius,LOADUPDATE,INTEGER,SUPPORT,ORG,5,Only change this when advised to do so by IFS.
+DSE,OptimiserAPMHotSpotsToReturn,LOADUPDATE,INTEGER,SUPPORT,ORG,100,Only change this when advised to do so by IFS.
+DSE,OptimiserAPMMaxAgentsToAddPerCycle,LOADUPDATE,INTEGER,SUPPORT,ORG,100,Only change this when advised to do so by IFS.
+DSE,OptimiserAPMMaxAgentsToRemovePerCycle,LOADUPDATE,INTEGER,SUPPORT,ORG,10,Only change this when advised to do so by IFS.
+DSE,OptimiserAPMMetresPerHotspotGridPoint,LOADUPDATE,DOUBLE,SUPPORT,ORG,10000,Only change this when advised to do so by IFS.
+DSE,OptimiserAPMMinHotspotGridPoints,LOADUPDATE,INTEGER,SUPPORT,ORG,50,Only change this when advised to do so by IFS.
+DSE,OptimiserAPMPlanQuality,LOADUPDATE,DOUBLE,CONFIG,ORG,70,The plan quality to wait for from the scheduling algorithm when using the WISE or Cyclic Scheduling.
+DSE,OptimiserAPMRandomnessProportionChoosingAgentType,LOADUPDATE,DOUBLE,SUPPORT,ORG,0.2,Only change this when advised to do so by IFS.
+DSE,OptimiserAPMTimeLimit,LOADUPDATE,TIMESPAN,CONFIG,ORG,P7D,The default maximum time to wait for a WISE cycle or Cyclic Scheduling schedule to complete.
+DSE,OptimiserBeesMistakeRate,LOADUPDATE,DOUBLE,SUPPORT,ORG,0.01,Only change this when advised to do so by IFS.
+DSE,OptimiserBeesUnconvincedRate,LOADUPDATE,DOUBLE,SUPPORT,ORG,0.1,Only change this when advised to do so by IFS.
+DSE,OptimiserChangeDepotVisitWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserChangesSampleLength,LOADUPDATE,INTEGER,SUPPORT,ORG,100,Only change this when advised to do so by IFS.
+DSE,OptimiserChangeWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,1000,Only change this when advised to do so by IFS.
+DSE,OptimiserClusterAllocationWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserClusteringMethod,LOADUPDATE,INTEGER,CONFIG,ORG,0,The method used to create clusters.
+DSE,OptimiserClusteringOptions,LOADUPDATE,INTEGER,SUPPORT,ORG,15,Only change this when advised to do so by IFS.
+DSE,OptimiserClusterReallocationWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,2000,Only change this when advised to do so by IFS.
+DSE,OptimiserClusterSizeIncreaseQualityThreshold,LOADUPDATE,DOUBLE,SUPPORT,ORG,40,Only change this when advised to do so by IFS.
+DSE,OptimiserCombinedTrySplitLargeClusters,LOADUPDATE,BOOLEAN,SUPPORT,ORG,True,Only change this when advised to do so by IFS.
+DSE,OptimiserCoolingRate,LOADUPDATE,DOUBLE,SUPPORT,ORG,0.99,Only change this when advised to do so by IFS.
+DSE,OptimiserDeallocationWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,50,Only change this when advised to do so by IFS.
+DSE,OptimiserDefaultIntelligenceFactor,LOADUPDATE,DOUBLE,SUPPORT,ORG,2.5,Only change this when advised to do so by IFS.
+DSE,OptimiserDelayOperationWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserDelayVisitWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserDeleteriousChangesThreshold,LOADUPDATE,INTEGER,SUPPORT,ORG,200,Only change this when advised to do so by IFS.
+DSE,OptimiserDiagnosticOptions,LOADUPDATE,STRING,ADMIN,SYS,,A filename in which to hold optimiser diagnostic information. Blank=none.
+DSE,OptimiserFillRouteByPreferredTimeWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,0,Only change this when advised to do so by IFS.
+DSE,OptimiserFillRouteWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserFlexibleChangeDetails,LOADUPDATE,STRING,SUPPORT,ORG,,Configurable details of the Flexible change type. Only change this when advised to do so by IFS.
+DSE,OptimiserFlexibleChangeWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,0,Only change this when advised to do so by IFS.
+DSE,OptimiserForcedDeallocationWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,10,Only change this when advised to do so by IFS.
+DSE,OptimiserForcedMaxCallsForForcedUnallocation,LOADUPDATE,DOUBLE,SUPPORT,ORG,10,Only change this when advised to do so by IFS.
+DSE,OptimiserForcedRouteClearWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,10,Only change this when advised to do so by IFS.
+DSE,OptimiserForcedStickyDeallocationStickiness,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserForcedStickyDeallocationWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,10,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticCallBombWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,20,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticChangeProbability,LOADUPDATE,DOUBLE,SUPPORT,ORG,0.5,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticCrossOverWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,20,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticMaxBombSize,LOADUPDATE,INTEGER,SUPPORT,ORG,40,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticMaxRoutesToClear,LOADUPDATE,INTEGER,SUPPORT,ORG,12,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticMinimumPopulation,LOADUPDATE,INTEGER,SUPPORT,ORG,6,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticNearbyRouteClearWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,10,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticPartialRouteClearWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,10,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticRouteClearWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,10,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticThreshold,LOADUPDATE,INTEGER,SUPPORT,ORG,10,Only change this when advised to do so by IFS.
+DSE,OptimiserGeneticTimeBombWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,20,Only change this when advised to do so by IFS.
+DSE,OptimiserGeographicSwapWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,2000,Only change this when advised to do so by IFS.
+DSE,OptimiserImproveParallelOptimisationsWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserInitialResourcesPerCluster,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserIntelligentAllocationWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,2000,Only change this when advised to do so by IFS.
+DSE,OptimiserInterRouteSwapWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,1000,Only change this when advised to do so by IFS.
+DSE,OptimiserIntraRouteSwapWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,1000,Only change this when advised to do so by IFS.
+DSE,OptimiserIterationsPerStep,LOADUPDATE,INTEGER,SUPPORT,ORG,3000,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumAllocateMoves,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumAllocations,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumChanges,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumClustersPerActivity,LOADUPDATE,INTEGER,SUPPORT,ORG,3,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumGeographicSwaps,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumImproveParallelOptimisations,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumIntelligentAllocations,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumInterRouteSwaps,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumIntraRouteSwaps,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumMoveChunks,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumMoveEarliests,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumMovesWithinBlock,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumMovesWithinRoute,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumPushes,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumResourcesPerCluster,LOADUPDATE,INTEGER,SUPPORT,ORG,15,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumReversals,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumSameRouteMoves,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumSimpleMoves,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumTargetActivitiesPerCluster,LOADUPDATE,INTEGER,SUPPORT,ORG,3000,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumTransfers,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumTravelWithAllocations,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumUnallocations,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaximumUncrossRoutes,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMaxNumberOfRoutesToClear,LOADUPDATE,DOUBLE,SUPPORT,ORG,6,Only change this when advised to do so by IFS.
+DSE,OptimiserMaxProportionOfRoutesToClear,LOADUPDATE,DOUBLE,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserMinimumTargetActivitiesPerCluster,LOADUPDATE,INTEGER,SUPPORT,ORG,25,Only change this when advised to do so by IFS.
+DSE,OptimiserMoveChunkWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,3000,Only change this when advised to do so by IFS.
+DSE,OptimiserMoveDepotVisitsWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,100,Only change this when advised to do so by IFS.
+DSE,OptimiserMoveEarliestWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserMoveToEarlierRouteWeight,LOADUPDATE,INTEGER,CONFIG,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserMoveWithinBlockWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserMoveWithinRouteWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,1000,Only change this when advised to do so by IFS.
+DSE,OptimiserNumberOfChangesPerIteration,LOADUPDATE,INTEGER,SUPPORT,ORG,2,Only change this when advised to do so by IFS.
+DSE,OptimiserPreCoReqAvoidPush,LOADUPDATE,BOOLEAN,SUPPORT,ORG,True,Only change this when advised to do so by IFS.
+DSE,OptimiserPreCoReqMaxPreviousPositionFailures,LOADUPDATE,INTEGER,SUPPORT,ORG,5,Only change this when advised to do so by IFS.
+DSE,OptimiserPreCoReqMaxResourceAttempts,LOADUPDATE,INTEGER,SUPPORT,ORG,5,Only change this when advised to do so by IFS.
+DSE,OptimiserPreCoReqMaxRouteAttempts,LOADUPDATE,INTEGER,SUPPORT,ORG,2,Only change this when advised to do so by IFS.
+DSE,OptimiserPreCoReqMaxTotalAttempts,LOADUPDATE,INTEGER,SUPPORT,ORG,8,Only change this when advised to do so by IFS.
+DSE,OptimiserPredictiveLazinessThreshold,LOADUPDATE,INTEGER,SUPPORT,ORG,1000,Only change this when advised to do so by IFS.
+DSE,OptimiserProbabilisticMaxRangeMinAttempts,LOADUPDATE,INTEGER,SUPPORT,ORG,10000,Only change this when advised to do so by IFS.
+DSE,OptimiserProbabilisticMaxRangeMultiplier,LOADUPDATE,DOUBLE,SUPPORT,ORG,3,Only change this when advised to do so by IFS.
+DSE,OptimiserProbabilisticSuccessToScoreWeighting,LOADUPDATE,DOUBLE,SUPPORT,ORG,2,Only change this when advised to do so by IFS.
+DSE,OptimiserPushWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,3000,Only change this when advised to do so by IFS.
+DSE,OptimiserRegionSizeMultiplier,LOADUPDATE,DOUBLE,SUPPORT,ORG,1.2,Only change this when advised to do so by IFS.
+DSE,OptimiserReverseWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,1000,Only change this when advised to do so by IFS.
+DSE,OptimiserSameRouteMoveWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,1000,Only change this when advised to do so by IFS.
+DSE,OptimiserSecondaryAlgorithm,LOADUPDATE,INTEGER,CONFIG,ORG,0,A secondary algorithm to be used by some primary algorithms.
+DSE,OptimiserSecondaryClusteringMethods,LOADUPDATE,INTEGER,CONFIG,ORG,7,The permitted secondary clustering methods when using combined clustering.
+DSE,OptimiserSelectiveRouteClearMaxWindow,LOADUPDATE,TIMESPAN,SUPPORT,ORG,P2D,Only change this when advised to do so by IFS.
+DSE,OptimiserSelectiveRouteClearWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,0,Only change this when advised to do so by IFS.
+DSE,OptimiserShuffleRoutesWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserSimpleMoveWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,1000,Only change this when advised to do so by IFS.
+DSE,OptimiserStartCallsInRouteProportionForRouteClear,LOADUPDATE,DOUBLE,SUPPORT,ORG,-1,Only change this when advised to do so by IFS.
+DSE,OptimiserStarterAlgorithm,LOADUPDATE,INTEGER,CONFIG,ORG,15,An algorithm to use to create a quick initial schedule before optimising.
+DSE,OptimiserStarterMultipleAttempts,LOADUPDATE,INTEGER,SUPPORT,ORG,1,Only change this when advised to do so by IFS.
+DSE,OptimiserStarterProblemType,LOADUPDATE,INTEGER,CONFIG,ORG,0,The type of scheduling problem. Used by the starter algorithm.
+DSE,OptimiserStarterResourcingLevel,LOADUPDATE,INTEGER,CONFIG,ORG,0,The resourcing level of the scheduling problem. Used by the starter algorithm.
+DSE,OptimiserStarterTargetResourcesPerCluster,LOADUPDATE,INTEGER,SUPPORT,ORG,50,Only change this when advised to do so by IFS.
+DSE,OptimiserTemporalClusterOverlapThreshold,LOADUPDATE,DOUBLE,SUPPORT,ORG,0.9,Only change this when advised to do so by IFS.
+DSE,OptimiserTransferWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,500,Only change this when advised to do so by IFS.
+DSE,OptimiserTravelWithAllocationWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,200,Only change this when advised to do so by IFS.
+DSE,OptimiserUncrossRoutesWeight,LOADUPDATE,INTEGER,SUPPORT,ORG,2000,Only change this when advised to do so by IFS.
+DSE,OptmiserApptLongAvailabilityThreshold,LOADUPDATE,TIMESPAN,CONFIG,ORG,P10D,Activities with availability longer than the threshold are initially scheduled using a standard starter algorithm instead of the appointment algorithm.
+DSE,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1362,The port to use for remoting.
+DSE,RecordDatasetStatus,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,Whether or not to record scheduling progress in the Dataset_Status table
+DSE,ReloadLastPlan,LOADUPDATE,BOOLEAN,CONFIG,ORG_INHERIT,False,"On restart, the schedule will be seeded from the last known plan, if present"
+DSE,ReloadLastPlanSinceLoad,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,Whether to restart processing from the latest saved plan since the last LOAD
+DSE,ScheduleCommittedActivitiesInActiveShift,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,If true then committed activities will only be placed in their 'active' shift.
+DSE,ScheduleExceptionUseActivationDateTime,DYNAMICUPDATE,BOOLEAN,CONFIG,ORG,True,"If set to true, the DSE will set the activation_datetime instead of the value on any Schedule_Exception_Data records which record an amount of time."
+DSE,SchedulingWindowEndsAtMidnight,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,Whether to truncate the scheduling window at midnight on the final day.
+DSE,SchedulingWindowLength,LOADUPDATE,TIMESPAN,CONFIG,ORG,P2D,Specifies the size of the scheduling window.
+DSE,TraceFolder,RESTARTUPDATE,STRING,ADMIN,SYS,,Specifies trace folder when recording or replaying traces
+DSE,TraceOption,RESTARTUPDATE,STRING,ADMIN,SYS,none,Specifies trace recording and/or replaying
+DSE,TravelToAndFromChargeable,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,Whether first/last travel is chargeable if travel before/after shift permitted.
+DSE,TravelWithSkillsInherited,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,"If true, the main resource inherits the skills of travelling with resources"
+DSE,TryDelayingActivities,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,Determines whether the DSE should attempt to delay activities
+DSE,UnloadReactiveDatasetsAfter,LOADUPDATE,TIMESPAN,ADMIN,SYS,PT5M,"REACTIVE datasets will be unloaded from the DSE after this time, if no updates have been received."
+DSE,UpdateDatasetFootprint,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,True,Should the DSE update the dataset footprint after saving a plan?
+DSE,UseLateAsPossibleScheduling,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,Determines whether late as possible scheduling should be used (only applies to relevant activities when on)
+DSE,UseLatestUpdateForStatusTime,DYNAMICUPDATE,BOOLEAN,CONFIG,ORG,False,"If several activity travelling or on site status updates are sent consecutively for the same activity and status, then this parameter determines whether the first or most recent update is used to set the status start time."
+DSP,CheckForChangesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency of Schedule Dispatch Service checks for changes on datasets it is already processing.
+DSP,CheckForDatasetsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency of Schedule Dispatch Service checks for new datasets.
+DSP,ConfirmationTime,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT15M,The Schedule Dispatch Service expects its decisions to be acted on within this time.
+DSP,MaximumDecisionFrequency,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT30S,The Schedule Dispatch Service will not make commit decisions more frequently than this.
+DSP,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1371,The port to use for remoting.
+DSP,SDSDiagnosticOptions,RESTARTUPDATE,STRING,ADMIN,SYS,,Schedule Dispatch Service diagnostic options. For future use.
+DSP,UncommitIgnoreFutureShifts,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,If true then any activities specifically committed to future shifts will be ignored when suggesting activities to uncommit.
+DST,AggregationInitialRequiredQuality,LOADUPDATE,DOUBLE,CONFIG,ORG,80,"When aggregating, the initial DSE plan quality required before updating the aggregation."
+DST,AggregationMaximumActivityDuration,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT2H,The maximum duration of aggregated activities.
+DST,AggregationMaximumMergeDistanceMetres,LOADUPDATE,INTEGER,CONFIG,ORG,2000,The maximum distance in metres between activities to be merged into the same aggregated activity.
+DST,AggregationTargetActivityCount,LOADUPDATE,INTEGER,CONFIG,ORG,10000,The target number of activities in the segment dataset when using aggregation.
+DST,CheckForChangesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,1,How often the Schedule Distribution Service checks for changes on datasets it is already processing.
+DST,CheckForDatasetsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency of Schedule Distribution Service checks for new datasets.
+DST,FeedActivitiesMultiplier,LOADUPDATE,DOUBLE,CONFIG,ORG,0.5,Number of activities to include in active dataset multiplier
+DST,FeedActivityInJeopardyThreshold,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT4H,Activity SLA jeopardy threshold
+DST,FeedDynamicDatasetOption,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,Enables the static data feeding of the dynamic dataset.
+DST,FeederActivityValueImportanceWeighting,LOADUPDATE,DOUBLE,CONFIG,ORG,1,The weighting applied to the maximum possible value of an activity in determining its importance.
+DST,FeederInternalBroadcastPlanQuality,LOADUPDATE,INTEGER,CONFIG,ORG,50,The internal plan quality used when reviewing which activities to feed.
+DST,FeederMaximumInitialActivities,LOADUPDATE,INTEGER,CONFIG,ORG,10000,Limits the maximum number of activities initially included in the feeder dataset.
+DST,FeederMechanism,LOADUPDATE,INTEGER,CONFIG,ORG,1,The mechanism to use to feed activities to the DSE.
+DST,FeederMinimumActivities,LOADUPDATE,INTEGER,CONFIG,ORG,1000,Minimum number of activities in schedule to start filtering out.
+DST,FeederProximityImportanceWeighting,LOADUPDATE,DOUBLE,CONFIG,ORG,1,The weighting applied to the proximity of an activity to other allocated activities in determining its importance.
+DST,FeederValuePerHourImportanceWeighting,LOADUPDATE,DOUBLE,CONFIG,ORG,1,The weighting applied to the value per hour of an activity in determining its importance.
+DST,PermittedSegmentation,RESTARTUPDATE,INTEGER,CONFIG,ORG,15,The types of segmentation to be considered.
+DST,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1369,The port to use for remoting.
+DST,RaiseExceptionsForNonReactiveActivities,LOADUPDATE,BOOLEAN,CONFIG,ORG,True,Raise an exception for each non-reactive activity not considered for scheduling.
+DST,ResegmentationFactor,LOADUPDATE,INTEGER,CONFIG,ORG,50,The percentage change in dataset size necessary to trigger re-segmentation.
+DST,SegmentDatasetOption,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,Enables segmenting datasets.
+DST,SegmentDatasetSizeThreshold,LOADUPDATE,DOUBLE,CONFIG,ORG,1.4,Used in combination with the TargetSegmentSize to determine a preferred maximum cluster size.
+DST,SegmentMinimumActivities,LOADUPDATE,INTEGER,CONFIG,ORG,50,Defines the minimum number of calls for a segment dataset.
+DST,TargetSegmentSize,RESTARTUPDATE,INTEGER,ADMIN,SYS,10000,The approximate number of activities per segment dataset.
+GWY,AppointmentRequestPollingTimeout,DYNAMICUPDATE,TIMESPAN,CONFIG,ORG,PT30S,"The maximum time to wait for an appointment, when using Gateway with polling for appointment requests"
+GWY,OpenIdAllowLegacyAuthentication,DYNAMICUPDATE,BOOLEAN,SECURITY,ORG,False,"If OpenID enabled, allow username and password authentication flag"
+GWY,PermittedBroadcastTypes,DYNAMICUPDATE,STRING,ADMIN,SYS,ALL,The permitted broadcast types that the Gateway will allow through in input data
+GWY,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,8744,The port to use for remoting.
+GWY,ScheduleQualityCalculationMode,RESTARTUPDATE,STRING,ADMIN,SYS,RECOMMENDED,The mode to use when determining the required schedule quality
+GWY,ScheduleQualitySetValue,RESTARTUPDATE,DOUBLE,ADMIN,SYS,80,The schedule quality value to use if calculation mode is SETVALUE
+GWY,TransportProtocol,RESTARTUPDATE,STRING,ADMIN,SYS,HTTP,The method to use for remoting.
+PSW,ActivityBaseLabel,DYNAMICUPDATE,STRING,LABEL,ORG,{Activity.id},The label used to identify an activity without reference to the allocation of the activity.
+PSW,AddHstsHeader,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,False,Use HTTP Strict Transport Security
+PSW,AnonymousAndWindowsAuthentication,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,False,Set true if IIS is configured to allow both Anonymous and Windows Authentication (Active Directory Login)
+PSW,ARPActivityTemplateLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{description|id},Label format for activity templates
+PSW,ARPActivityTypeLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{description|id},Label format for activity types
+PSW,ARPCapacityLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{description|id},Label format for capacities
+PSW,ARPDivisionLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{description|id},Label format for divisions
+PSW,ARPLocationLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{name|id},Label format for locations
+PSW,ARPPartLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{description|id},Label format for parts
+PSW,ARPPositionLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{description|id},Label format for positions
+PSW,ARPResourceLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{first_name|surname|id},Label format for resources
+PSW,ARPRuleLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{description|id},Label format for rules
+PSW,ARPShiftTemplateLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{description|id},Label format for shift templates
+PSW,BaseHref,DYNAMICUPDATE,STRING,ADMIN,SYS,,The base href used when loading workbench assets
+PSW,BookmarkMenuBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#3b5059,Defines the bookmark menu background colour
+PSW,BookmarkMenuBorderColour,DYNAMICUPDATE,STRING,THEME,ORG,#4b6571,Defines the bookmark menu border colour
+PSW,BookmarkMenuHoverColour,DYNAMICUPDATE,STRING,THEME,ORG,#0d709a,Defines the bookmark menu hover colour
+PSW,BookmarkMenuIconColour,DYNAMICUPDATE,STRING,THEME,ORG,#e6f3f9,Defines the bookmark menu icon colour
+PSW,BrowserTabIcon,DYNAMICUPDATE,STRING,THEME,ORG,,Defines the browser tab icon
+PSW,BrowserTabName,DYNAMICUPDATE,STRING,THEME,ORG,,Defines the browser tab name
+PSW,CustomURLsSingleDefaultWindow,DYNAMICUPDATE,BOOLEAN,CONFIG,ORG,False,"If true, all custom urls that do not specify a 'navigable target name' will open in the same window."
+PSW,DataGridBodyRowHoverColour,DYNAMICUPDATE,STRING,THEME,ORG,#F5F5F5,Defines the datagrid body row hover colour
+PSW,DataGridBodyRowSelectedColour,DYNAMICUPDATE,STRING,THEME,ORG,#EBEBEB,Defines the datagrid body row selected colour
+PSW,DataGridBodyTextColour,DYNAMICUPDATE,STRING,THEME,ORG,#333333,Defines the datagrid body text colour
+PSW,DataGridHeaderBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#F5F5F5,Defines the data grid header background colour
+PSW,DataGridHeaderDivideColour,DYNAMICUPDATE,STRING,THEME,ORG,#CCCCCC,Defines the data grid header divide colour
+PSW,DataGridHeaderDivideHoverColour,DYNAMICUPDATE,STRING,THEME,ORG,#0087C1,Defines the data grid header divide hover colour
+PSW,DataGridHeaderHoverColour,DYNAMICUPDATE,STRING,THEME,ORG,#EBEBEB,Defines the data grid header hover colour
+PSW,DataGridHeaderTextColour,DYNAMICUPDATE,STRING,THEME,ORG,#333333,Defines the data grid text colour
+PSW,DefaultLoginAccount,DYNAMICUPDATE,STRING,ADMIN,SYS,Default,Default Login Account
+PSW,DefaultPlanningWindowDays,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,28,The default planning window length for the rota selector
+PSW,DragAndDropDraggedBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#EBEBEB,Defines the drag and drop background colour
+PSW,ErrorStatusBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#FFECEC,Defines the error status background colour
+PSW,ErrorStatusBackgroundSelectedColour,DYNAMICUPDATE,STRING,THEME,ORG,#F9CDC9,Defines the error status background selected colour
+PSW,ErrorStatusBorderColour,DYNAMICUPDATE,STRING,THEME,ORG,#F29A93,Defines the error status border colour
+PSW,ErrorStatusColour,DYNAMICUPDATE,STRING,THEME,ORG,#E53527,Defines the error status colour
+PSW,ErrorStatusIconColour,DYNAMICUPDATE,STRING,THEME,ORG,#AC281D,Defines the error status icon colour
+PSW,ErrorStatusTextColour,DYNAMICUPDATE,STRING,THEME,ORG,#AC281D,Defines the error status text colour
+PSW,GanttDragOverlayBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#FFFFFF,Defines the gantt drag overlay background colour
+PSW,GanttDragOverlayBodyBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#0087C1,Defines the gantt drag overlay body background colour
+PSW,GanttHeaderBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#F5F5F5,Defines the gantt header background colour
+PSW,GanttHeaderBorderColour,DYNAMICUPDATE,STRING,THEME,ORG,#CCCCCC,Defines the gantt header border colour
+PSW,GanttHeaderTextColour,DYNAMICUPDATE,STRING,THEME,ORG,#333333,Defines the gantt header text colour
+PSW,GanttRowAltBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#FFFFFF,Defines the gantt row alt background colour
+PSW,GanttRowBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#FFFFFF,Defines the gantt row background colour
+PSW,GanttRowHoverBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#F5F5F5,Defines the gantt row hover background colour
+PSW,GanttRowSelectedBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#EBEBEB,Defines the gantt row selected background colour
+PSW,GanttShowRegions,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,False,Whether or not to show regions on the gantt
+PSW,HistoricalPlanningDataThreshold,DYNAMICUPDATE,TIMESPAN,CONFIG,ORG,P0D,Duration to fetch the old rota data before current day
+PSW,HstsIncludeSubdomains,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,False,HSTS Include Subdomains flag
+PSW,HstsMaxAge,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,P30D,HSTS Maximum Age
+PSW,HstsPreload,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,False,HSTS Preload flag
+PSW,InfoStatusBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#E6F3F9,Defines the info status background colour
+PSW,InfoStatusBackgroundSelectedColour,DYNAMICUPDATE,STRING,THEME,ORG,#BFE1F0,Defines the info status background selected colour
+PSW,InfoStatusBorderColour,DYNAMICUPDATE,STRING,THEME,ORG,#80C3E0,Defines the info status border colour
+PSW,InfoStatusColour,DYNAMICUPDATE,STRING,THEME,ORG,#0087C1,Defines the info status colour
+PSW,InfoStatusIconColour,DYNAMICUPDATE,STRING,THEME,ORG,#006591,Defines the info status icon colour
+PSW,InfoStatusTextColour,DYNAMICUPDATE,STRING,THEME,ORG,#006591,Defines the info status text colour
+PSW,InstallId,DYNAMICUPDATE,STRING,ADMIN,SYS,,Set on first install.
+PSW,IsochroneCompareStraight,DYNAMICUPDATE,BOOLEAN,CONFIG,ORG,False,Show straight line isochrones compared to real isochrones
+PSW,JwtExpiryDays,DYNAMICUPDATE,DOUBLE,ADMIN,SYS,1.0,Number of days before a PSO Workbench token expires
+PSW,JwtLogoutHours,DYNAMICUPDATE,DOUBLE,ADMIN,SYS,2.0,Leeway to allow expired tokens to logout
+PSW,LayerNavigationActiveColour,DYNAMICUPDATE,STRING,THEME,ORG,#156181,Defines the layer navigation active colour
+PSW,LayerNavigationBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#2b3a41,Defines the layer navigation background colour
+PSW,LayerNavigationButtonBorderColour,DYNAMICUPDATE,STRING,THEME,ORG,#002230,Defines the layer navigation button border colour
+PSW,LayerNavigationHoverColour,DYNAMICUPDATE,STRING,THEME,ORG,#0d709a,Defines the layer navigation hover colour
+PSW,LayerNavigationScrollbarThumbColour,DYNAMICUPDATE,STRING,THEME,ORG,#0d709a,Defines the layer navigation scrollbar thumb colour
+PSW,LayerNavigationScrollbarTrackColour,DYNAMICUPDATE,STRING,THEME,ORG,#E6F3F9,Defines the layer navigation scrollbar track colour
+PSW,LayerNavigationTextColour,DYNAMICUPDATE,STRING,THEME,ORG,#E6F3F9,Defines the layer navigation text colour
+PSW,LoginScreenApplicationName,DYNAMICUPDATE,STRING,THEME,ORG,,Defines the application name
+PSW,LoginScreenIcon,DYNAMICUPDATE,STRING,THEME,ORG,,Defines the login screen icon
+PSW,LoginScreenImage,DYNAMICUPDATE,STRING,THEME,ORG,,Defines the login screen image
+PSW,MinimumScreenWidthForMenu,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,900,The minimum screen width for which the navigation menu will stay open by default.
+PSW,NewResourceTimeZone,DYNAMICUPDATE,STRING,CONFIG,ORG,,The time zone for a new resource created by the Scheduling Simulation Service.
+PSW,OpenIdRedirectRoot,DYNAMICUPDATE,STRING,ADMIN,SYS,,Root URI for PSO Workbench
+PSW,PartsPickupColour,DYNAMICUPDATE,STRING,THEME,ORG,#fec2c2,Defines the colour to display picked up parts on the parts usage graph
+PSW,PartsReusableUsageColour,DYNAMICUPDATE,STRING,THEME,ORG,#777777,Defines the colour to display usage of reusable parts on the parts usage graph
+PSW,PartsTotalStockColour,DYNAMICUPDATE,STRING,THEME,ORG,#77d9f5,Defines the colour to display total part stock on the parts usage graph
+PSW,PartsUsedColour,DYNAMICUPDATE,STRING,THEME,ORG,#bdf7bd,Defines the colour to display used parts on the parts usage graph
+PSW,PendingChangeExpiryPeriod,DYNAMICUPDATE,TIMESPAN,CONFIG,ORG,PT5M,"The elapsed schedule time from which pending manual changes will stop being shown on the workbench, even if the change does not appear to have been confirmed."
+PSW,PendingExternalChangeIconColour,DYNAMICUPDATE,STRING,THEME,ORG,#cccccc,Sets the colour of the pending external change icon.
+PSW,PendingManualChangeIconColour,DYNAMICUPDATE,STRING,THEME,ORG,#f7ac00,Sets the colour of the pending manual change icon.
+PSW,PreviewChangesIconColour,DYNAMICUPDATE,STRING,THEME,ORG,#fbd680,Sets the colour of the preview changes icon.
+PSW,PreviewManualChanges,DYNAMICUPDATE,BOOLEAN,CONFIG,ORG,True,If this is set then the workbench will show a preview of the schedule with the manual changes incorporated while the changes are still pending.
+PSW,PSWActivityAcceptedColour1,DYNAMICUPDATE,STRING,THEME,ORG,#369B30,Primary colour for accepted activities.
+PSW,PSWActivityAcceptedColour2,DYNAMICUPDATE,STRING,THEME,ORG,#ebf5ea,Secondary colour for accepted activities.
+PSW,PSWActivityAllocatedColour1,DYNAMICUPDATE,STRING,THEME,ORG,#0087C1,Primary colour for allocated activities.
+PSW,PSWActivityAllocatedColour2,DYNAMICUPDATE,STRING,THEME,ORG,#e6f3f9,Secondary colour for allocated activities.
+PSW,PSWActivityCommittedColour1,DYNAMICUPDATE,STRING,THEME,ORG,#369B30,Primary colour for committed activities.
+PSW,PSWActivityCommittedColour2,DYNAMICUPDATE,STRING,THEME,ORG,#ebf5ea,Secondary colour for committed activities.
+PSW,PSWActivityCompletedColour1,DYNAMICUPDATE,STRING,THEME,ORG,#873E8D,Primary colour for completed activities.
+PSW,PSWActivityCompletedColour2,DYNAMICUPDATE,STRING,THEME,ORG,#f3ecf4,Secondary colour for completed activities.
+PSW,PSWActivityDoNotScheduleColour1,DYNAMICUPDATE,STRING,THEME,ORG,#333333,Primary colour for do not schedule activities.
+PSW,PSWActivityDoNotScheduleColour2,DYNAMICUPDATE,STRING,THEME,ORG,#cccccc,Secondary colour for do not schedule activities.
+PSW,PSWActivityDownloadedColour1,DYNAMICUPDATE,STRING,THEME,ORG,#369B30,Primary colour for downloaded activities.
+PSW,PSWActivityDownloadedColour2,DYNAMICUPDATE,STRING,THEME,ORG,#ebf5ea,Secondary colour for downloaded activities.
+PSW,PSWActivityFollowOnColour1,DYNAMICUPDATE,STRING,THEME,ORG,#0087C1,Primary colour for follow-on activities.
+PSW,PSWActivityFollowOnColour2,DYNAMICUPDATE,STRING,THEME,ORG,#e6f3f9,Secondary colour for follow-on activities.
+PSW,PSWActivityIncompleteColour1,DYNAMICUPDATE,STRING,THEME,ORG,#873E8D,Primary colour for incomplete activities.
+PSW,PSWActivityIncompleteColour2,DYNAMICUPDATE,STRING,THEME,ORG,#F9CDC9,Secondary colour for incomplete activities.
+PSW,PSWActivityOnSiteColour1,DYNAMICUPDATE,STRING,THEME,ORG,#C20069,Primary colour for on-site activities.
+PSW,PSWActivityOnSiteColour2,DYNAMICUPDATE,STRING,THEME,ORG,#f9e6f0,Secondary colour for on-site activities.
+PSW,PSWActivityPendingCompletionColour1,DYNAMICUPDATE,STRING,THEME,ORG,C20069,Primary colour for pending completion activities.
+PSW,PSWActivityPendingCompletionColour2,DYNAMICUPDATE,STRING,THEME,ORG,#f9e6f0,Secondary colour for pending completion activities.
+PSW,PSWActivitySentColour1,DYNAMICUPDATE,STRING,THEME,ORG,#369B30,Primary colour for sent activities.
+PSW,PSWActivitySentColour2,DYNAMICUPDATE,STRING,THEME,ORG,#ebf5ea,Secondary colour for sent activities.
+PSW,PSWActivityTravellingColour1,DYNAMICUPDATE,STRING,THEME,ORG,#F7AC00,Primary colour for travelling activities.
+PSW,PSWActivityTravellingColour2,DYNAMICUPDATE,STRING,THEME,ORG,#fef7e6,Secondary colour for travelling activities.
+PSW,PSWActivityUnallocatedColour1,DYNAMICUPDATE,STRING,THEME,ORG,#E53527,Primary colour for unallocated activities.
+PSW,PSWActivityUnallocatedColour2,DYNAMICUPDATE,STRING,THEME,ORG,#fcebe9,Secondary colour for unallocated activities.
+PSW,PSWActivityVisitCompleteColour1,DYNAMICUPDATE,STRING,THEME,ORG,#873E8D,Primary colour for visit complete activities.
+PSW,PSWActivityVisitCompleteColour2,DYNAMICUPDATE,STRING,THEME,ORG,#f3ecf4,Secondary colour for visit complete activities.
+PSW,PSWActivityWaitingColour1,DYNAMICUPDATE,STRING,THEME,ORG,#F7AC00,Primary colour for waiting activities.
+PSW,PSWActivityWaitingColour2,DYNAMICUPDATE,STRING,THEME,ORG,#fef7e6,Secondary colour for waiting activities.
+PSW,PSWBucketCommittedColour,DYNAMICUPDATE,STRING,THEME,ORG,#369B30,Colour for a Committed Bucket
+PSW,PSWBucketCompletedColour,DYNAMICUPDATE,STRING,THEME,ORG,#873E8D,Colour for a Completed Bucket
+PSW,PSWBucketDefaultColour,DYNAMICUPDATE,STRING,THEME,ORG,#0087C1,Default Colour for a Bucket
+PSW,ScenarioVisualizerCustomers,DYNAMICUPDATE,STRING,CONFIG,ORG,ACME|Globex,A parameter to configure customers for OSV
+PSW,ScenarioVisualizerMapCentre,DYNAMICUPDATE,STRING,CONFIG,ORG,52.9594|-1.3085,A parameter to configure the centre of the OSV map. Enter Latitude|Longitude
+PSW,ScenarioVisualizerPartLabel,DYNAMICUPDATE,STRING,LABEL,ORG,Widget,A parameter to configure the name of a part for OSV
+PSW,ScenarioVisualizerRegions,DYNAMICUPDATE,STRING,CONFIG,ORG,North West|North East|South East|South West,"A parameter to configure regions for OSV. Enter up to 4 values for 'Top Left', 'Top Right', 'Bottom Right', and 'Bottom Left' respectively, each separated by '|'."
+PSW,ScenarioVisualizerSkills,DYNAMICUPDATE,STRING,CONFIG,ORG,Electrician|Plumber,"A parameter to configure skills for OSV. Enter up to 5 skills only, each separated by '|'."
+PSW,ScenarioVisualizerTravelPartLabel,RESTARTUPDATE,STRING,LABEL,ORG,Vehicle Range (Km),The description for the travel part used in the Operational Scenario Visualizer (OSV)
+PSW,SelectableCommittedActStatuses,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,3,Specifies which activity status an activity can be returned to after it has been committed.
+PSW,ShiftImportCheckExistingCharacter,DYNAMICUPDATE,STRING,WORKBENCH,ORG,*,Defines the character used to request keeping existing shifts in an Excel rota import.
+PSW,ShiftImportColumnsStart,DYNAMICUPDATE,STRING,WORKBENCH,ORG,C,Defines the column to begin reading shift data from in an Excel rota import.
+PSW,ShiftImportDatesRow,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,1,Defines the row containing the dates in an Excel rota import.
+PSW,ShiftImportDivisionIdColumn,DYNAMICUPDATE,STRING,WORKBENCH,ORG,B,Defines the column containing the division ids in an Excel rota import.
+PSW,ShiftImportResourceIdColumn,DYNAMICUPDATE,STRING,WORKBENCH,ORG,A,Defines the column containing the resource ids in an Excel rota import.
+PSW,ShiftImportRowsStart,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,2,Defines the row to begin reading shift data from in an Excel rota import.
+PSW,ShiftImportSeparatorCharacter,DYNAMICUPDATE,STRING,WORKBENCH,ORG,",",Defines the character used to seperate items in a list in an Excel rota import.
+PSW,ShiftImportSheetName,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,Defines the sheet name containing the shift data in an Excel rota import.
+PSW,ShowExternalPendingStatusChanges,RESTARTUPDATE,BOOLEAN,CONFIG,ORG,False,"If true, the user will be shown pending status changes that have entered the system but have not yet been included in the latest plan."
+PSW,StandardSendScheduleAttentionChange,DYNAMICUPDATE,BOOLEAN,CONFIG,ORG,false,Should the workbench send changes for resource attention directly to PSO even if a WORKBENCH broadcast type is specified
+PSW,SuccessStatusBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#EBF5EA,Defines the success status background colour
+PSW,SuccessStatusBackgroundSelectedColour,DYNAMICUPDATE,STRING,THEME,ORG,#CDE6CB,Defines the success status background selected colour
+PSW,SuccessStatusBorderColour,DYNAMICUPDATE,STRING,THEME,ORG,#9BCD98,Defines the success status border colour
+PSW,SuccessStatusColour,DYNAMICUPDATE,STRING,THEME,ORG,#369B30,Defines the success status colour
+PSW,SuccessStatusIconColour,DYNAMICUPDATE,STRING,THEME,ORG,#297424,Defines the success status icon colour
+PSW,SuccessStatusTextColour,DYNAMICUPDATE,STRING,THEME,ORG,#297424,Defines the success status text colour
+PSW,TopNavigationActiveColour,DYNAMICUPDATE,STRING,THEME,ORG,#D2D2D2,Defines the top navigation active colour
+PSW,TopNavigationBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#FAFAFA,Defines the top navigation background colour
+PSW,TopNavigationHoverColour,DYNAMICUPDATE,STRING,THEME,ORG,#D2D2D2,Defines the top navigation hover colour
+PSW,TopNavigationTextColour,DYNAMICUPDATE,STRING,THEME,ORG,#2B363C,Defines the top navigation text colour
+PSW,TopNavigatorIcon,DYNAMICUPDATE,STRING,THEME,ORG,,Defines the top navigator icon
+PSW,TranslateLabelFormats,DYNAMICUPDATE,BOOLEAN,LABEL,ORG,True,View and edit label formats in the current language
+PSW,UseTranslatedHelpIfAvailable,DYNAMICUPDATE,BOOLEAN,CONFIG,ORG,False,"Determines if the help documentation on the workbench will be shown in the user language (provided it is available in that language), or in English."
+PSW,WarningStatusBackgroundColour,DYNAMICUPDATE,STRING,THEME,ORG,#FEF7E6,Defines the warning status background colour
+PSW,WarningStatusBackgroundSelectedColour,DYNAMICUPDATE,STRING,THEME,ORG,#FDEABF,Defines the warning status background selected colour
+PSW,WarningStatusBorderColour,DYNAMICUPDATE,STRING,THEME,ORG,#FBD680,Defines the warning status border colour
+PSW,WarningStatusColour,DYNAMICUPDATE,STRING,THEME,ORG,#F7AC00,Defines the warning status colour
+PSW,WarningStatusIconColour,DYNAMICUPDATE,STRING,THEME,ORG,#B98100,Defines the warning status icon colour
+PSW,WarningStatusTextColour,DYNAMICUPDATE,STRING,THEME,ORG,#B98100,Defines the warning status text colour
+PSW,WorkbenchHostURL,DYNAMICUPDATE,STRING,ADMIN,SYS,,Space separated list of host servers which are allowed to embed PSO Workbench in a frame.
+RPL,AdditionalEventLogging,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,If true the Resource Planning Service will output additional event information to the logs.
+RPL,ARPAccessHistoryRetention,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,P6M,Determines how long ARP access history records are kept before being deleted.
+RPL,BackgroundRotaGenerationDays,LOADUPDATE,INTEGER,CONFIG,ORG,28,The number of days into the future for which shifts should be generated when background rota generation is enabled.
+RPL,BroadcastARPDataContinuously,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,"Should the Resource Planning Service broadcast updated data each time it detects a change, or once per day?"
+RPL,BroadcastARPDataOptions,LOADUPDATE,STRING,CONFIG,ORG,NONE,The method to use when sending the current ARP data to an external source
+RPL,BroadcastARPDataTimeOfDay,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT3H,The time of day to broadcast the latest ARP data (if not broadcasting continuously).
+RPL,BroadcastARPDataType,LOADUPDATE,STRING,CONFIG,ORG,COMPLETE,The type of data to be broadcast
+RPL,BroadcastDirectory,LOADUPDATE,STRING,CONFIG,ORG,,The folder to use when writing ARP data to a file.
+RPL,CancelRoleOverrides,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,If true then the service will regularly check for role overrides that are no longer required and remove them.
+RPL,CheckForChangesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,1,How often the Resource Planning Service checks for changes on datasets it is already processing.
+RPL,CheckForDatasetsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency the Resource Planning Service checks for new datasets.
+RPL,CheckForRequestsSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,1,How often the Resource Planning Service checks for work to do
+RPL,CheckForUpdatesSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,5,Frequency of Resource Planning Service checks for updates to the Resource Planning database.
+RPL,ClearRotaOnRetentionUpdate,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,"If set to true, the Resource Planning Service will automatically check for updates to resource retentions and clear the rota where the resource is no longer retained."
+RPL,DeleteDataBatchSize,LOADUPDATE,INTEGER,ADMIN,SYS,10000,The maximum number of rows to delete in a single batch.
+RPL,ExcessResourcesConsidered,RESTARTUPDATE,INTEGER,CONFIG,ORG,2,The number of excess resources to consider planning automatically
+RPL,ExternalDbName,LOADUPDATE,STRING,CONFIG,ORG,,Connection Name for External Database
+RPL,ExternalParameterType,LOADUPDATE,STRING,CONFIG,ORG,XML,Parameter type for data to External Procedure
+RPL,ExternalProcedureName,LOADUPDATE,STRING,CONFIG,ORG,SetARPXml,Procedure Name to execute in External Database
+RPL,InactivePlanningDatasetPeriod,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,P1D,Amount of time before inactive planning datasets are unloaded
+RPL,KeepDeletedARPDataHours,RESTARTUPDATE,INTEGER,ADMIN,SYS,168,"Hours to keep deleted ARP data before removing, default is 168 hours (1 Week)"
+RPL,KeepHistoricalARPDataHours,RESTARTUPDATE,INTEGER,ADMIN,SYS,4320,"Hours to keep historical rota data before removing, default is 4320 hours (180 days)"
+RPL,ManageARPDataOptions,RESTARTUPDATE,INTEGER,ADMIN,SYS,1,ARP clearing out rota data options.
+RPL,ManageARPDataTimeOfDay,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,PT4H,Time of day to manage old or deleted ARP data.
+RPL,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1375,The port to use for remoting.
+RPL,UpdateTransferredResources,LOADUPDATE,BOOLEAN,CONFIG,ORG,False,If true all updates made to resources in their original dataset will be copied through to datasets they have been transferred to.
+RPL,WebServiceID,LOADUPDATE,STRING,CONFIG,ORG,,The web service ID (WSID) to use when sending ARP data to a web service.
+RPL,WebServicePassword,LOADUPDATE,MASKED,SECURITY,ORG,,The password to use when sending ARP data to a web service.
+RPL,WebServiceURL,LOADUPDATE,STRING,CONFIG,ORG,,The url to use when sending ARP data to a web service.
+RPL,WebServiceUsername,LOADUPDATE,STRING,SECURITY,ORG,,The user name to use when sending ARP data to a web service.
+SBM,CheckForChangesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,1,How often the Schedule Broadcast Manager checks for changes on datasets it is already processing.
+SBM,CheckForDatasetsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency of Schedule Broadcast Manager checks for new datasets.
+SBM,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1364,The port to use for remoting.
+SBM,ProcessOnceOnlyBroadcastsOnRestart,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,True,Whether existing once only broadcasts should be processed on Schedule Broadcast Manager start.
+SES,ExplanationCacheDeleteAfter,LOADUPDATE,TIMESPAN,CONFIG,ORG,PT10M,The amount of time to keep an unused schedule in the cache.
+SIM,ARPBreakPriority,DYNAMICUPDATE,INTEGER,CONFIG,ORG,-1,Sets the value of the priority attribute on breaks created within the ARP.
+SIM,AutoDurationConfidenceLevelThreshold,DYNAMICUPDATE,INTEGER,AUTOMATION,ORG,80,Threshold of confidence level for using duration estimate as auto duration
+SIM,AutoDurationEnabledByDefault,DYNAMICUPDATE,BOOLEAN,AUTOMATION,ORG,False,Should activity auto durations be used by default.
+SIM,AutoDurationReloadEstimatesPeriod,DYNAMICUPDATE,TIMESPAN,AUTOMATION,ORG,P1DT1H,How often duration estimates are reloaded when using auto durations.
+SIM,AutoUpdateInputDateTime,LOADUPDATE,BOOLEAN,AUTOMATION,ORG,False,Should the Schedule Input Manager periodically send Input References with the datetime advanced. This functionality is deprecated.
+SIM,AutoUpdateInputFrequency,LOADUPDATE,TIMESPAN,AUTOMATION,ORG,PT1M,"If auto-updating, frequency of update"
+SIM,BroadcastToFileLocation,RESTARTUPDATE,STRING,ADMIN,SYS,,A file location to which the output plan should be broadcast
+SIM,DefaultDatasetId,RESTARTUPDATE,STRING,ADMIN,SYS,Default,Default dataset id to be used when dataset is not specified
+SIM,ErrorDirectoryName,RESTARTUPDATE,STRING,ADMIN,SYS,Errors,The subdirectory to write files to if there is an error
+SIM,HomeDirectory,RESTARTUPDATE,STRING,ADMIN,SYS,C:\IFS\Scheduling,The location of the Schedule Input Manager home directory.
+SIM,InputDirectoryName,RESTARTUPDATE,STRING,ADMIN,SYS,Input,The subfolder from which to pick input files up.
+SIM,InputHistoryDirectoryName,RESTARTUPDATE,STRING,ADMIN,SYS,Input History,The subfolder to copy input files up to after processing
+SIM,InputHistoryUseDatasetSubfolders,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,If true the input history will be written to subfolders named after the dataset
+SIM,InputTriggerFileName,RESTARTUPDATE,STRING,ADMIN,SYS,,A trigger file to look for before processing new data.
+SIM,MaximumPooledTasks,RESTARTUPDATE,INTEGER,ADMIN,SYS,5,A positive value limits the number of tasks (updates) that the Schedule Input Manager will process simultaneously.
+SIM,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1368,The port to use for remoting.
+SIM,RemotingWaitTimeout,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT30S,The maximum time to wait for data to be processed on a remoting call
+SIM,SetDatasetsToReactiveOnInput,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,false,Determines if dynamic scheduling datasets are set to reactive on input
+SIM,StandbyEnabled,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,"If true, Schedule Input Manager sends data to StandbyHost"
+SIM,StandbyHostRemotingString,RESTARTUPDATE,STRING,ADMIN,SYS,,Secondary Schedule Input Manager for standby/failover
+SIM,SynchronousMode,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,Whether to ensure synchronicity when running the Schedule Input Manager
+SIM,UpdateFootprintOnLoad,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,True,Should the Schedule Input Manager update the dataset footprint when processing a LOAD?
+SIM,WriteInputHistoryToDisk,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,True,"Whether, or not, the Schedule Input Manager should write the input history to a file on the host machine disk"
+SML,CheckForRequestsSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,1,How often the Scheduling Simulation Service checks for work to do.
+SML,KeepDeletedSimulationDataHours,RESTARTUPDATE,INTEGER,ADMIN,SYS,168,"Hours to keep deleted simulation data before removing, default is 168 hours (1 Week)."
+SML,ManageSimulationDataTimeOfDay,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,PT4H,Time of day to manage old or deleted simulation data.
+SML,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1376,The port to use for remoting.
+SMM,AutoScale,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,Determines whether to set auto-scale for the deployment
+SMM,CheckForRequestsSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,10,The frequency to check for new requests
+SMM,DatabaseScaleTimeout,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,PT1H,Timeout period for scaling the database performance level
+SMM,DbDTUScaleDownThreshold,RESTARTUPDATE,DOUBLE,ADMIN,SYS,0.2,Threshold DTU usage to scale down the database
+SMM,DbDTUScaleUpThreshold,RESTARTUPDATE,DOUBLE,ADMIN,SYS,0.8,Threshold DTU usage to scale up the database
+SMM,DbStorageScaleDownThreshold,RESTARTUPDATE,DOUBLE,ADMIN,SYS,0.2,Threshold storage usage to scale down the database
+SMM,DbStorageScaleUpThreshold,RESTARTUPDATE,DOUBLE,ADMIN,SYS,0.8,Threshold storage usage to scale up the database
+SMM,DbUsageCheckPeriod,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,PT10M,Time period to check database usage over
+SMM,DeploymentMode,RESTARTUPDATE,STRING,ADMIN,SYS,standard,"The deployment mode being used, e.g. standard, portal, multi role"
+SMM,InstanceBootTimeoutPeriod,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT10M,Instance bootup timeout period
+SMM,InstanceManagementHandlingMethod,RESTARTUPDATE,STRING,ADMIN,SYS,None,The method to use to add or remove server instances
+SMM,InterfaceToDSERatio,DYNAMICUPDATE,DOUBLE,ADMIN,SYS,0.5,Ratio of Interface machines to DSE machines
+SMM,ManageWorkloadFrequency,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,PT1M,Frequency for workload management and auto-scaling checks
+SMM,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,8746,Scheduling Machine Manager port
+SQM,AllowMultipleInstancesPerDataset,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,True,Allow multiple Schedule Query Manager instances to process the same dataset.
+SQM,CheckForChangesSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,1,How often the Schedule Query Manager checks for changes on datasets it is already processing.
+SQM,CheckForDatasetsSeconds,DYNAMICUPDATE,INTEGER,ADMIN,SYS,5,The frequency of Schedule Query Manager checks for new datasets.
+SQM,OnDemandScheduleCacheDeleteAfter,LOADUPDATE,TIMESPAN,ADMIN,SYS,PT10M,The amount of time to keep an unused on demand schedule in the cache.
+SQM,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,8733,The port to use for remoting.
+SQM,ScheduleCacheDeleteAfter,RESTARTUPDATE,TIMESPAN,ADMIN,SYS,PT1H,The amount of time to keep an unused schedule in the cache.
+SQM,ScheduleCacheMaxRows,RESTARTUPDATE,INTEGER,ADMIN,SYS,3000000,The maximum number of rows to keep in the schedule cache.
+SRG,BaseHref,RESTARTUPDATE,STRING,ADMIN,SYS,,The base href used when loading gateway assets
+SRG,EnableSwaggerUI,DYNAMICUPDATE,BOOLEAN,ADMIN,SYS,False,Enables the Swagger UI for the Scheduling RESTful Gateway
+SRG,GetUsageLegacyResponse,DYNAMICUPDATE,BOOLEAN,CONFIG,ORG,False,If set to true the Usage endpoint will return an old structured response. This can be used for backwards compatability.
+SRG,MaximumODataRecords,DYNAMICUPDATE,INTEGER,ADMIN,SYS,100000,The maximum number of records to return from the OData APIs
+SSM,CheckForRequestsSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,10,Frequency for checking for requests
+SSM,CheckServiceResilienceSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,20,Relates to stop/start of required services to ensure that a Role configuration is satisfied
+SSM,DeploymentMode,RESTARTUPDATE,STRING,ADMIN,SYS,standard,The deployment mode for the system
+SSM,MonitorServiceResilience,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,"Whether, or not, to monitor the role configuration for the deployment and take action if required (e.g. stop/starting services to satisfy resiliency checks)"
+SSM,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,8001,Scheduling Service Manager port number
+SSM,ReassignRoleIfRequiredSeconds,RESTARTUPDATE,INTEGER,ADMIN,SYS,60,How often to check if role reassignment is required
+SSM,RoleBasedDeployment,RESTARTUPDATE,BOOLEAN,ADMIN,SYS,False,Indicates whether role-based deployment of applications is in use
+SWB,ActivityAvailabilityLeeway,DYNAMICUPDATE,TIMESPAN,WORKBENCH,ORG,PT12H,The amount of leeway when deciding if an activity is available.
+SWB,ActivityLabel,DYNAMICUPDATE,STRING,LABEL,ORG,{Activity.#label},The label used to identify allocations.
+SWB,ActivitySubtext,DYNAMICUPDATE,STRING,LABEL,ORG,{#status},The text to show in the second line on activities in the Scheduling Workbench gantt
+SWB,ActivityText,DYNAMICUPDATE,STRING,LABEL,ORG,{#label},The text to show on activities in the Scheduling Workbench Gantt.
+SWB,AllowCompleteWithoutOnSite,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,False,Allow activity status to be set Completed without first setting on site.
+SWB,AppointmentOffersRetentionPeriodSeconds,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,180,Appointment booking offers retention period in seconds
+SWB,ARPAppointmentTemplateItemLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{AppointmentTemplate.#label} {slot_start_time}-{slot_end_time},Label format for appointment template items
+SWB,ARPAttributeAllowedValueLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{Attribute.#label} {description},Label format for attribute allowed values
+SWB,ARPCapacityPartLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{Capacity.#label} {Part.#label},Label format for capacity parts
+SWB,ARPShiftTemplateSetItemLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{ShiftTemplateSet.#label} {ShiftTemplate.#label},Label format for shift template set items
+SWB,ARPTravelPenaltyLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{TravelCostModel.#label} {TravelPenaltyType.#label},Label format for travel penalties
+SWB,ARPUtilisationTemplateItemLabelFormat,DYNAMICUPDATE,STRING,LABEL,ORG,{UtilisationTemplate.#label} {applicable_from},Label format for utilisation template items
+SWB,AutoResultsDisplay,DYNAMICUPDATE,INTEGER,AUTOMATION,ORG,1,"Controls whether to do nothing (0), prompt the user (1) or automatically display (2) automatic results"
+SWB,CommitToAllocatedShift,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,False,Determines whether activities should be kept in the shift they are allocated in when manually committing
+SWB,CSVseparator,DYNAMICUPDATE,STRING,WORKBENCH,ORG,",",The single character used to separate values in a CSV file.
+SWB,DefaultCost_km,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,0.25,The default cost per kilometre's travel for a new resource
+SWB,DefaultCost_ph,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,20,The default cost per hour for a new resource
+SWB,DefaultCost_ph_ot,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,30,The default cost per hour's overtime for a new resource
+SWB,DefaultHireCost,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,4000,The default cost of hiring a resource
+SWB,DefaultReleaseCost,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,-1,The default cost of releasing a resource
+SWB,DefaultRelocationCost,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,2000,The default cost of relocating a resource
+SWB,DefaultShiftDurationHours,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,8,The default duration of a new shift
+SWB,DefaultShiftPatternIncludeWeekends,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,False,Whether new shift patterns should include weekends by default
+SWB,DefaultShiftStartHour,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,9,The default start hour of a new shift
+SWB,DefaultUtilisation,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,100,The default utilisation of a new resource
+SWB,DragAndDropCommitOption,DYNAMICUPDATE,STRING,WORKBENCH,ORG,OpenManualChanges,Defines activity scheduling options via drag and drop
+SWB,EnableDragDrop,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,False,Enables drag and drop on the Scheduling Workbench
+SWB,ExternalSystemAccountId,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,The account id for an external system that is being used to remotely run scheduling calculations
+SWB,ExternalSystemGatewayURL,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,The URL for contacting a Gateway that resides on an external system
+SWB,ExternalSystemOrganisationId,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,1,The Organisation ID used when contacting an external system
+SWB,ExternalSystemRemotingType,DYNAMICUPDATE,STRING,WORKBENCH,ORG,BINDING_WS_HTTP_SECURITY_NONE,The remoting type used for external system binding
+SWB,ExternalSystemUserId,DYNAMICUPDATE,STRING,SECURITY,ORG,,The User ID used when contacting an external system
+SWB,ExternalSystemUserPassword,DYNAMICUPDATE,MASKED,SECURITY,ORG,,Password for an external user
+SWB,GanttColourDataTableRowBackgroundHighlight,DYNAMICUPDATE,STRING,THEME,ORG,FFFFC080,The gantt data table row highlight background colour
+SWB,GanttHideUninterestingTimes,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,True,Whether or not to collapse unused time on the gantt
+SWB,GanttInitialDisplayDuration,DYNAMICUPDATE,TIMESPAN,WORKBENCH,ORG,P1D,The approximate schedule duration displayed initially
+SWB,IgnoreZeroLengthShifts,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,True,If true then any zero length shifts found in a shift template will be ignored.
+SWB,IsochroneTravelTimes,DYNAMICUPDATE,STRING,WORKBENCH,ORG,"30,60,120",Default values for isochrone travel times.
+SWB,iSWBDistanceUnit,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,0,The units of distance displayed within the Scheduling Workbench
+SWB,iSWBMapKey,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,The key used for viewing maps on the ISWB
+SWB,iSWBMapType,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,The map type used when viewing maps on the ISWB
+SWB,LocationLabel,DYNAMICUPDATE,STRING,LABEL,ORG,{Location.name} {Location.id},The label used to identify locations.
+SWB,ManualSnapshotExpiryPeriod,DYNAMICUPDATE,TIMESPAN,WORKBENCH,ORG,P7D,The expiry period to use when manually creating a snapshot on the data capture screen.
+SWB,MassFixActivityStatuses,DYNAMICUPDATE,STRING,WORKBENCH,ORG,"10,30,32,35,40",Specifies which activity statuses are affected by mass fixing.
+SWB,MassUnfixActivityStatuses,DYNAMICUPDATE,STRING,WORKBENCH,ORG,"30,32,35,40",Specifies which activity statuses are affected by mass unfixing.
+SWB,MaximumSavedSchedules,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,10,The maximum number of schedules a user can save.
+SWB,NoActivityChangesFromStatus,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,Manual changes are not allowed to an activity when it has reached this status.
+SWB,NoStatusChangesFromStatus,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,Manual changes are not allowed to an activity's status when it has reached this status.
+SWB,PrivateActivityLabel,DYNAMICUPDATE,STRING,LABEL,ORG,{Activity.description},The label used to identify private activities.
+SWB,PrivateActivityText,DYNAMICUPDATE,STRING,LABEL,ORG,{Activity.description},The text to show on private activities.
+SWB,ReasonRequired,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,False,Whether to ask for a reason when making SWB changes to activities.
+SWB,ResourceAvailabilityLeeway,DYNAMICUPDATE,TIMESPAN,WORKBENCH,ORG,PT30M,The amount of leeway when deciding if a resource is available for work.
+SWB,ResourceLabel,DYNAMICUPDATE,STRING,LABEL,ORG,{Resources.first_name} {Resources.surname} [{Resources.id}] {time_zone_if_offset},The label used to identify resources.
+SWB,ResourceSubtext,DYNAMICUPDATE,STRING,LABEL,ORG,{Resource.first_name} {Resource.surname},The subtext to show in the vcard for the Scheduling Workbench resources gantt
+SWB,ResourceText,DYNAMICUPDATE,STRING,LABEL,ORG,{id} {time_zone_if_offset},The main text to show in the vcard for the Scheduling Workbench resources gantt
+SWB,SelectableActivityStatuses,DYNAMICUPDATE,STRING,WORKBENCH,ORG,"-1,0,10,30,32,35,40,50,55,60,65,70,80",Specifies which activity statuses can be selected for manual changes.
+SWB,ShowOvertime,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,True,Whether or not to show shift overtime on the Scheduling Workbench.
+SWB,ShowSeparationConstraints,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,False,Whether or not to show activity separation constraints on the Scheduling Workbench.
+SWB,ShowSnapTime,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,True,Whether or not to show shift snap time on the Scheduling Workbench.
+SWB,ShowUnusedDetailsTabs,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,False,Show unused tabs on Activity and Resource Details
+SWB,SLAActivityAgeingFactor,DYNAMICUPDATE,INTEGER,WORKBENCH,ORG,3,SLA activity ageing factor
+SWB,StandardSendScheduleExceptionAccepts,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,false,Should the SWB send accepts for schedule exceptions directly to PSO even if a WORKBENCH broadcast type is specified
+SWB,TargetImportance,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,33,The importance given to meeting targets when running tests
+SWB,TargetImportanceSoftMultiplier,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,0.5,The multiplier for the importance of soft constraints in relation to hard constraints
+SWB,ThemeProfileID,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,Profile used for applying theme parameters
+SWB,TrafficLight_AmberMinutes,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,3,Number of minutes before the traffic light goes amber.
+SWB,TrafficLight_RedMinutes,DYNAMICUPDATE,DOUBLE,WORKBENCH,ORG,5,Number of minutes before the traffic light goes red.
+SWB,TreatMembershipWithNoCategoryAsUtilised,DYNAMICUPDATE,BOOLEAN,WORKBENCH,ORG,True,"If this is set to false, then the utilisation bar on the resource pool display will only show rota membership as utilised if it is associated to a membership category."
+SWB,TurnByTurnDirectionsKey,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,The access key corresponding to the provider used to fetch turn-by-turn directions
+SWB,TurnByTurnDirectionsProvider,DYNAMICUPDATE,STRING,WORKBENCH,ORG,,The provider used to fetch turn-by-turn directions
+SWB,UpdateFrequency,DYNAMICUPDATE,TIMESPAN,WORKBENCH,ORG,PT30S,How often to refresh the schedule on the Scheduling Workbench.
+TRA,EnvelopMaxDistanceLarge,RESTARTUPDATE,DOUBLE,TRAVEL,ORG,4000,Large max distance to look for the next point of the envelope.
+TRA,EnvelopMaxDistanceSmall,RESTARTUPDATE,DOUBLE,TRAVEL,ORG,3000,Small max distance to look for the next point of the envelope.
+TRA,GridMetresForSLTravel,LOADUPDATE,DOUBLE,TRAVEL,ORG,1000,Default value for grid size(in metres) when using SL calculation.
+TRA,MaxIsochroneCalculationThreads,RESTARTUPDATE,INTEGER,ADMIN,SYS,1,Maximum number of threads to calculate isochrones.
+TRA,Port,RESTARTUPDATE,INTEGER,ADMIN,SYS,1374,The port to use for remoting.
+TRA,PostProcessEnvelopeMetres,RESTARTUPDATE,DOUBLE,TRAVEL,ORG,300,Distance (in metres) to move a node when splitting it.
+TRA,RoutingCacheExpiryDuration,DYNAMICUPDATE,TIMESPAN,ADMIN,SYS,P1DT12H,Period after which an area in the routing cache will be removed if not used.
+TRA,TravelAnalysisDiagnosticsPath,LOADUPDATE,STRING,ADMIN,SYS,,Scheduling Travel Analyser Diagnostics Path.

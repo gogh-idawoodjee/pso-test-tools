@@ -141,7 +141,7 @@
             @if ($isSys)
                 .xml files, up to {{ $maxFiles }} files and {{ $maxMegabytes }} MB each. They are kept on a private disk and deleted as soon as the comparison finishes.
             @else
-                A .csv file with the columns Parameter, Definition and (optionally) Basis.
+                A .csv file with the columns Parameter, Definition, Note and Basis.
             @endif
         </span>
 

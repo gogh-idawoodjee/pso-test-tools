@@ -1,0 +1,80 @@
+{
+  "_readme": "Regexes (case-insensitive) used ONLY when a parameter has no definition from ParamDefinitions.csv or the parameter catalog. basis is always 'Inference (name pattern)' (render with an [Inferred] prefix, greyed).",
+  "patterns": [
+    {
+      "pattern": "^PSW\\w*Colou?r$",
+      "text": "Workbench colour setting for a Gantt or UI element (the name says which). Not individually described in the KB.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^ShiftImport",
+      "text": "Setting for the Resource Planner Excel shift import mapping (rows, columns, sheet, characters). See the Import Shift Data section of the planning UI guide.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^RealTimeTravel",
+      "text": "Real-time travel (online routing service) setting. See the Real Time Travel section of the travel guide.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^Routing",
+      "text": "Routing calculation setting. The KB says not to alter routing parameters unless advised by IFS product development.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^Password",
+      "text": "Password policy setting for PSO user logins.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^OpenId|Claim$",
+      "text": "OpenID Connect single sign-on setting.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^Feed",
+      "text": "Feeder setting for dynamic datasets (large datasets). Consult IFS before changing.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^Aggregation",
+      "text": "Activity aggregation setting for very large datasets.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^Licen[cs]e",
+      "text": "Licence checking or notification setting.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^(RunSystemTest|SystemTest)",
+      "text": "System smoke test setting.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^AutoDuration",
+      "text": "Automatic activity duration estimation setting (SIM / archive).",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^LoadBalancing",
+      "text": "Dataset load balancing setting.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^Gateway|^OData",
+      "text": "RESTful Gateway setting.",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "^TurnByTurn|^iSWBMap",
+      "text": "Workbench map / turn-by-turn provider setting (billable provider keys).",
+      "basis": "Inference (name pattern)"
+    },
+    {
+      "pattern": "Seconds$|Minutes$|Hours$|Days$|Period$",
+      "text": "A time setting (interval, retention or timeout); the name gives the unit. Not individually described in the KB.",
+      "basis": "Inference (name pattern)"
+    }
+  ]
+}

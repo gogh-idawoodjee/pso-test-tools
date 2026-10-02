@@ -45,11 +45,13 @@ class Comparer
         string $baselineName,
         ?ParamDefinitions $definitions = null,
         ?DateTimeImmutable $now = null,
+        ?ParameterCatalog $catalog = null,
     ): ComparisonResult {
         $baselineIndex = $this->validate($environments, $baselineName);
         $now ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
-        $context = new ComparisonContext($environments, $baselineIndex, $definitions ?? ParamDefinitions::builtIn());
+        $catalog ??= ParameterCatalog::builtIn();
+        $context = new ComparisonContext($environments, $baselineIndex, $definitions ?? ParamDefinitions::builtIn(), $catalog);
 
         $tabs = [];
 
@@ -58,6 +60,8 @@ class Comparer
         }
 
         $tabs = $this->inReportOrder($tabs);
+
+        $versions = app(VersionAnalyzer::class)->analyze($environments, $now);
 
         return new ComparisonResult(
             environments: array_map(
@@ -72,12 +76,38 @@ class Comparer
             tabs: $tabs,
             tableCounts: $this->tableCounts($environments),
             tally: $this->tally($tabs, $context),
-            versions: app(VersionAnalyzer::class)->analyze($environments, $now),
+            versions: $versions,
             apiKeyValuesDiffer: $context->apiKeyValuesDiffer(),
+            defaultsApplied: ! $catalog->isEmpty(),
+            catalogVersion: $catalog->psoVersion,
+            catalogVersionMismatches: $this->catalogVersionMismatches($catalog, $versions),
             definitionTemplate: $this->definitionTemplate($tabs, $context),
             quickRead: $this->quickRead($tabs, $context),
             generatedAt: $now,
         );
+    }
+
+    /**
+     * Environments whose PSO release is not the one the catalog's defaults are for.
+     *
+     * @return array<string, string> environment name => release
+     */
+    private function catalogVersionMismatches(ParameterCatalog $catalog, VersionReport $versions): array
+    {
+        if ($catalog->isEmpty() || $catalog->psoVersion === null) {
+            return [];
+        }
+
+        $catalogRelease = VersionAnalyzer::releaseOf($catalog->psoVersion);
+        $mismatches = [];
+
+        foreach ($versions->environments as $version) {
+            if ($version->hasData && $version->release !== $catalogRelease) {
+                $mismatches[$version->name] = $version->release;
+            }
+        }
+
+        return $mismatches;
     }
 
     /**
@@ -181,7 +211,7 @@ class Comparer
     }
 
     /**
-     * Parameters with no specific definition, with the name-pattern hint (if any) as a starting point.
+     * Parameters that still need a definition, with the name-pattern hint (if any) as a starting point.
      *
      * @param  list<ComparisonTab>  $tabs
      * @return array<string, string>
@@ -193,8 +223,14 @@ class Comparer
         foreach ($this->tab($tabs, 'Parameters')->rows() as $row) {
             $parameter = $row->keyValues[1];
 
-            if (! $context->definitions->hasSpecific($parameter) && ! isset($template[$parameter])) {
-                $template[$parameter] = $context->definitions->find($parameter)?->text ?? '';
+            if (isset($template[$parameter])) {
+                continue;
+            }
+
+            $hint = $context->definitions->templateHint($parameter, $row->keyValues[2], $context->catalog);
+
+            if ($hint !== null) {
+                $template[$parameter] = $hint;
             }
         }
 
@@ -210,15 +246,11 @@ class Comparer
     {
         $names = $context->names();
 
-        $differingParameters = $this->tab($tabs, 'Parameters')->differingRows();
-        $presenceDifferences = 0;
+        $parameters = $this->tab($tabs, 'Parameters');
+        $differingParameters = $parameters->differingRows();
         $withoutDefinition = [];
 
         foreach ($differingParameters as $row) {
-            if (in_array(Cells::ABSENT, $row->cellValues, true)) {
-                $presenceDifferences++;
-            }
-
             if (($row->extra['Definition'] ?? '') === '') {
                 $withoutDefinition[$row->keyValues[1]] = true;
             }
@@ -226,6 +258,15 @@ class Comparer
 
         $withoutDefinition = array_map('strval', array_keys($withoutDefinition));
         usort($withoutDefinition, Cells::compareText(...));
+
+        $defaultedNames = [];
+
+        foreach ($parameters->defaultedRows() as $row) {
+            $defaultedNames[$row->keyValues[1]] = true;
+        }
+
+        $defaultedNames = array_map('strval', array_keys($defaultedNames));
+        usort($defaultedNames, Cells::compareText(...));
 
         $groupsNotEverywhere = [];
 
@@ -259,8 +300,8 @@ class Comparer
 
         return new QuickRead(
             differingParameterRows: count($differingParameters),
-            parametersWithDifferentValues: count($differingParameters) - $presenceDifferences,
-            parametersPresentInSomeOnly: $presenceDifferences,
+            defaultedParameterRows: count($parameters->defaultedRows()),
+            defaultedParameterNames: $defaultedNames,
             differingParametersWithoutDefinition: $withoutDefinition,
             groupsNotPresentEverywhere: $groupsNotEverywhere,
             exceptionTypesInOnlyOneEnvironment: $onlyInOne,

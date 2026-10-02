@@ -101,11 +101,61 @@ function sysCompareRowValues(string $tabTitle, array $keyValues): array
     return $row->cellValues;
 }
 
-it('reports the parameter spot checks from the golden file', function (): void {
-    expect(sysCompareRowValues('Parameters', ['DEFAULT', 'AllowSplitTravel']))->toBe(['True', '(absent)', '(absent)', '(absent)'])
-        ->and(sysCompareRowValues('Parameters', ['DEFAULT', 'CommitToAllocatedShift']))->toBe(['False', 'True', 'False', 'True'])
-        ->and(sysCompareRowValues('Parameters', ['DEFAULT', 'SortValuePrecedenceMaximumStatus']))->toBe(['40', '(absent)', '40', '(absent)'])
-        ->and(sysCompareRowValues('Parameters', ['DEFAULT', 'ImplicitBreaksOnOffEventsRequired']))->toBe(['True', '(absent)', '(absent)', 'False']);
+/**
+ * @return array{0: string, 1: list<string>}
+ */
+function sysCompareParameterRow(string $profile, string $parameter): array
+{
+    $row = collect(sysCompareGoldenResult()->tab('Parameters')->rows())
+        ->first(static fn ($candidate): bool => $candidate->keyValues[0] === $profile && $candidate->keyValues[1] === $parameter);
+
+    expect($row)->not->toBeNull("Parameter row not found: {$profile} / {$parameter}");
+
+    return [$row->status, $row->cellValues];
+}
+
+it('applies parameter defaults as the reference describes', function (): void {
+    // unset = default: not a difference
+    expect(sysCompareParameterRow('DEFAULT', 'AllowSplitTravel'))->toBe(['Same (default)', ['True', '(default: True)', '(default: True)', '(default: True)']])
+        ->and(sysCompareParameterRow('DEFAULT', 'CommittedActivitiesConstraintsOption'))->toBe(['Same (default)', ['(default: 1)', '1', '1', '1']])
+        ->and(sysCompareParameterRow('DEFAULT', 'RealTimeTravelProvider'))->toBe(['Same (default)', ['NONE', '(default: NONE)', 'NONE', '(default: NONE)']])
+        // TIMESPAN: PT5M = PT0H5M0S
+        ->and(sysCompareParameterRow('DEFAULT', 'GpsFrequency'))->toBe(['Same (default)', ['(default: PT0H5M0S)', 'PT5M', '(default: PT0H5M0S)', '(default: PT0H5M0S)']])
+        ->and(sysCompareParameterRow('DEFAULT', 'SchedulingWindowLength')[0])->toBe('Same (default)');
+});
+
+it('still reports real parameter differences once defaults are applied', function (): void {
+    expect(sysCompareParameterRow('DEFAULT', 'CommitToAllocatedShift'))->toBe(['DIFF', ['False', 'True', 'False', 'True']])
+        ->and(sysCompareParameterRow('DEFAULT', 'ImplicitBreaksOnOffEventsRequired'))->toBe(['DIFF', ['True', '(default: False)', '(default: False)', 'False']])
+        ->and(sysCompareParameterRow('DEFAULT', 'SortValuePrecedenceMaximumStatus'))->toBe(['DIFF', ['40', '(default: 30)', '40', '(default: 30)']])
+        // BOOLEAN is case-insensitive, so ACC's 'False' equals the default 'false'; only TST's True differs
+        ->and(sysCompareParameterRow('DEFAULT', 'StandardSendScheduleExceptionAccepts'))->toBe(['DIFF', ['(default: false)', 'False', '(default: false)', 'True']])
+        // STRING stays case-sensitive: ACC's 'Default' is not the default 'DEFAULT'
+        ->and(sysCompareParameterRow('DEFAULT', 'TravelTimeProfileId'))->toBe(['DIFF', ['(default: DEFAULT)', 'Default', '(default: DEFAULT)', 'DEFAULT']]);
+});
+
+it('does not let profiles inherit from each other', function (): void {
+    // PROD's STRAIGHTLINE profile sets nothing: it shows the catalog default, never the DEFAULT profile's value,
+    // and it equals TST's explicit StraightLine. ACC and STG have no such profile at all.
+    expect(sysCompareParameterRow('STRAIGHTLINE', 'TravelCalculationOption')[1])->toBe(['(default: StraightLine)', '(no profile)', '(no profile)', 'StraightLine']);
+
+    $travel = collect(sysCompareGoldenResult()->tab('Travel')->rows())->first(static fn ($row): bool => $row->keyValues[0] === 'Param: STRAIGHTLINE / TravelCalculationOption');
+    $straightLine = $travel->compareValues;
+
+    expect($straightLine[0])->toBe($straightLine[3]);
+});
+
+it('splits the parameter rows into the golden status counts', function (): void {
+    $counts = collect(sysCompareGoldenResult()->tab('Parameters')->rows())->countBy(static fn ($row): string => $row->status)->all();
+
+    expect($counts)->toEqualCanonicalizing(sysCompareExpected()['tally']['Parameters']['statusCounts']);
+});
+
+it('shows the catalog default and description on the parameter rows', function (): void {
+    $row = collect(sysCompareGoldenResult()->tab('Parameters')->rows())->first(static fn ($candidate): bool => $candidate->keyValues[1] === 'GpsFrequency');
+
+    expect($row->extra['Default'])->toBe('PT0H5M0S')
+        ->and($row->extra['Definition'])->not->toBe('');
 });
 
 it('shows leading whitespace with the visible marker', function (): void {
@@ -127,13 +177,13 @@ it('masks the routing API key everywhere and keeps its value out of every cell',
         ->values();
 
     expect(sysCompareRowValues('Parameters', ['CommittedActivitiesProfile', 'RoutingApiKey']))->toBe(array_fill(0, 4, '[API key set]'))
-        ->and(sysCompareRowValues('Parameters', ['DEFAULT', 'RoutingApiKey']))->toBe(['(absent)', '(absent)', '[API key set]', '[API key set]'])
+        ->and(sysCompareRowValues('Parameters', ['DEFAULT', 'RoutingApiKey']))->toBe(['(default: blank)', '(default: blank)', '[API key set]', '[API key set]'])
         ->and($rawKeys)->toHaveCount(1)
         ->and($result->apiKeyValuesDiffer)->toBeFalse();
 
     foreach ($result->tabs as $tab) {
         foreach ($tab->rows() as $row) {
-            foreach ([...$row->keyValues, ...$row->cellValues, ...$row->extra] as $value) {
+            foreach ([...$row->keyValues, ...$row->cellValues, ...$row->compareValues, ...$row->extra] as $value) {
                 expect($value)->not->toContain($rawKeys[0]);
             }
         }
@@ -246,4 +296,12 @@ it('renders every artifact from the real exports without leaking the API key or 
 
     @unlink($xlsx);
     @unlink($zipPath);
+});
+
+it('warns that the 6.14 catalog does not match the 6.16 reference environments', function (): void {
+    $result = sysCompareGoldenResult();
+
+    expect($result->catalogVersion)->toBe('6.14')
+        ->and($result->catalogVersionMismatches)->toBe(['PROD' => '6.16', 'ACC' => '6.16', 'STG' => '6.16', 'TST' => '6.16'])
+        ->and(app(HtmlReport::class)->render($result))->toContain('Parameter defaults may not match these PSO versions');
 });

@@ -6,6 +6,11 @@ final readonly class ParamDefinition
 {
     public const string INFERRED_PREFIX = '[Inferred] ';
 
+    /** Basis of a definition built from the parameter catalog's official description. */
+    public const string SCHEMA_REFERENCE = 'Schema reference';
+
+    public const string NAME_PATTERN_BASIS = 'Inference (name pattern)';
+
     public function __construct(
         public string $text,
         public string $basis,

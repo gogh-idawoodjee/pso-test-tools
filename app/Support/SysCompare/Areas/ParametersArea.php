@@ -7,8 +7,14 @@ use App\Support\SysCompare\ComparisonContext;
 use App\Support\SysCompare\ComparisonTab;
 
 /**
- * Profile_Parameter, keyed by profile + parameter id + application type.
- * Any parameter whose id contains "key" and has a value is masked.
+ * Profile_Parameter, keyed by profile + parameter id + application type, compared as
+ * EFFECTIVE values: an explicit value, else the catalog default (the export lists only the
+ * parameters that were set, so an absent parameter is using its default), else "(absent)"
+ * when the parameter is not in the catalog. Profiles do not inherit from each other.
+ *
+ * A row's status is "Same" (identical as shown), "Same (default)" (differs as shown only
+ * because of defaults) or "DIFF" (effective values differ). Any parameter whose id contains
+ * "key" is masked.
  */
 class ParametersArea implements Area
 {
@@ -16,32 +22,20 @@ class ParametersArea implements Area
 
     public function build(ComparisonContext $context): array
     {
-        $valueMaps = [];
+        $environmentIndexes = array_keys($context->environments);
+        $explicitKeys = [];
 
-        foreach (array_keys($context->environments) as $environmentIndex) {
-            $map = [];
+        foreach ($environmentIndexes as $environmentIndex) {
+            foreach ($context->parameters($environmentIndex)->explicit as $key => $value) {
+                $explicitKeys[(string) $key] = true;
 
-            foreach ($context->rows($environmentIndex, 'Profile_Parameter') as $row) {
-                $parameterId = $row['parameter_id'] ?? '';
-                $key = implode(Cells::KEY_SEPARATOR, [
-                    $row['profile_id'] ?? '',
-                    $parameterId,
-                    $row['parameter_application_type_id'] ?? '',
-                ]);
-                $value = $row['parameter_value'] ?? null;
-
-                if (stripos($parameterId, 'key') !== false && $value !== null && $value !== '') {
+                if (stripos(explode(Cells::KEY_SEPARATOR, (string) $key)[1], 'key') !== false && $value !== null && $value !== '') {
                     $context->noteApiKeyValue($value);
-                    $map[$key] = self::MASKED_KEY;
-                } else {
-                    $map[$key] = Cells::format($value);
                 }
             }
-
-            $valueMaps[] = $map;
         }
 
-        $keys = ComparisonContext::unionKeys($valueMaps);
+        $keys = array_map('strval', array_keys($explicitKeys));
 
         usort($keys, static function (string $left, string $right): int {
             [$leftProfile, $leftParameter, $leftType] = explode(Cells::KEY_SEPARATOR, $left);
@@ -53,15 +47,28 @@ class ParametersArea implements Area
                 ?: Cells::compareText($leftType, $rightType);
         });
 
-        $tab = new ComparisonTab('Parameters', '01_Parameters.csv', ['Profile', 'Parameter', 'AppType'], ['Definition']);
+        $tab = new ComparisonTab('Parameters', '01_Parameters.csv', ['Profile', 'Parameter', 'AppType'], ['Default', 'Definition']);
 
         foreach ($keys as $key) {
-            [$profile, $parameter, $applicationType] = explode(Cells::KEY_SEPARATOR, $key);
+            [$profile, $parameter, $application] = explode(Cells::KEY_SEPARATOR, $key);
+
+            $shown = [];
+            $compared = [];
+
+            foreach ($environmentIndexes as $environmentIndex) {
+                $effective = $context->resolver->resolve($context->parameters($environmentIndex), $profile, $parameter, $application);
+                $shown[] = $effective->display;
+                $compared[] = $effective->compare;
+            }
 
             $tab->addRow(
-                [$profile, $parameter, $applicationType],
-                ComparisonContext::valuesFor($valueMaps, $key),
-                ['Definition' => $context->definitions->find($parameter)?->displayText() ?? ''],
+                [$profile, $parameter, $application],
+                $shown,
+                [
+                    'Default' => $context->resolver->defaultLabel($parameter, $application),
+                    'Definition' => $context->definitions->find($parameter, $application, $context->catalog)?->displayText() ?? '',
+                ],
+                $compared,
             );
         }
 

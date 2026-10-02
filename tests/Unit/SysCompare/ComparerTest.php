@@ -4,6 +4,7 @@ use App\Support\SysCompare\Comparer;
 use App\Support\SysCompare\ComparisonResult;
 use App\Support\SysCompare\Exceptions\InvalidComparison;
 use App\Support\SysCompare\ParamDefinitions;
+use App\Support\SysCompare\ParameterCatalog;
 use App\Support\SysCompare\SysEnvironment;
 use App\Support\SysCompare\SysFileReader;
 use Tests\Support\SysFileBuilder;
@@ -204,9 +205,9 @@ it('survives a table that one environment does not have', function (): void {
     expect($row->cellValues)->toBe(['active=true', '(absent)']);
 });
 
-it('adds parameters with no specific definition to the template, and marks inferred ones', function (): void {
+it('adds parameters with no definition to the template, and marks inferred ones', function (): void {
     $definitions = new ParamDefinitions(
-        ['Known' => ['text' => 'A known parameter.', 'basis' => 'KB: example']],
+        ['Known' => ['definition' => 'A known parameter.', 'basis' => 'KB: example']],
         [['pattern' => 'Seconds$', 'text' => 'A time setting.', 'basis' => 'Inference (name pattern)']],
     );
 
@@ -224,25 +225,28 @@ it('adds parameters with no specific definition to the template, and marks infer
         ->and($result->quickRead->differingParametersWithoutDefinition)->toBe(['Mystery']);
 });
 
-it('lets user-supplied definitions override the built-in ones', function (): void {
-    $definitions = (new ParamDefinitions(['Known' => ['text' => 'Built in.', 'basis' => 'KB: example']]))->withUserDefinitions([
-        ['Parameter' => 'known', 'Definition' => 'Mine.', 'Basis' => ''],
-        ['Parameter' => 'Mystery', 'Definition' => 'Also mine.', 'Basis' => 'Inference (my guess)'],
-        ['Parameter' => 'Blank', 'Definition' => '  ', 'Basis' => ''],
+it('lets a user row replace the built-in row for the same parameter', function (): void {
+    $definitions = (new ParamDefinitions(['Known' => ['definition' => 'Built in.', 'note' => 'Built-in note.', 'basis' => 'KB: example']]))->withUserDefinitions([
+        ['Parameter' => 'known', 'Definition' => 'Mine.', 'Note' => '', 'Basis' => ''],
+        ['Parameter' => 'Mystery', 'Definition' => 'Also mine.', 'Note' => '', 'Basis' => 'Inference (my guess)'],
+        ['Parameter' => 'OnlyANote', 'Definition' => '', 'Note' => 'A note.', 'Basis' => ''],
+        ['Parameter' => 'Blank', 'Definition' => '  ', 'Note' => '', 'Basis' => ''],
     ]);
 
     expect($definitions->find('Known')->text)->toBe('Mine.')
         ->and($definitions->find('Known')->basis)->toBe('User-supplied')
         ->and($definitions->find('Mystery')->displayText())->toBe('[Inferred] Also mine.')
+        ->and($definitions->find('OnlyANote'))->toBeNull()
         ->and($definitions->find('Blank'))->toBeNull();
 });
 
 it('looks definitions up by parameter name regardless of case', function (): void {
     $definitions = ParamDefinitions::builtIn();
+    $catalog = ParameterCatalog::builtIn();
 
-    expect($definitions->find('allowsplittravel') ?? $definitions->find('ActivityText'))->not->toBeNull()
-        ->and($definitions->find('ActivityText')?->text)->toBe($definitions->find('activitytext')?->text)
-        ->and($definitions->find('PSWGanttBarColour'))->not->toBeNull();
+    expect($definitions->find('activitytext', '', $catalog)?->text)->toBe($definitions->find('ActivityText', '', $catalog)?->text)
+        ->and($definitions->find('ActivityText', '', $catalog))->not->toBeNull()
+        ->and($definitions->find('PSWGanttBarColour', '', $catalog))->not->toBeNull();
 });
 
 it('rejects an invalid comparison with a plain-English reason', function (array $names, string $baseline, string $message): void {

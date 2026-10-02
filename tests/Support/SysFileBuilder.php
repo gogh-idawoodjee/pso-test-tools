@@ -14,6 +14,9 @@ class SysFileBuilder
 
     private bool $withNamespace = true;
 
+    /** @var array<string, true> profiles already declared in the Profile table */
+    private array $profiles = [];
+
     public static function make(): static
     {
         return new static;
@@ -36,8 +39,24 @@ class SysFileBuilder
         return $this;
     }
 
+    /**
+     * Declares a profile. parameter() does this automatically, as a real export always lists
+     * the profiles whose parameters it carries.
+     */
+    public function profile(string $id): static
+    {
+        if (! isset($this->profiles[$id])) {
+            $this->profiles[$id] = true;
+            $this->row('Profile', ['id' => $id, 'profile_type' => 'ORG']);
+        }
+
+        return $this;
+    }
+
     public function parameter(string $profile, string $parameter, ?string $value, string $applicationType = 'ALL'): static
     {
+        $this->profile($profile);
+
         return $this->row('Profile_Parameter', array_filter([
             'profile_id' => $profile,
             'parameter_id' => $parameter,
