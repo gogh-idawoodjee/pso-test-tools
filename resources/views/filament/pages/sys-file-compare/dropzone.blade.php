@@ -15,6 +15,7 @@
     x-data="{
         dragging: false,
         uploads: [],
+        nextUploadId: 0,
         kind: @js($kind),
         url: @js(route('filament.app.sys-compare.uploads.store')),
         extension: @js($extension),
@@ -35,7 +36,7 @@
                 const problem = this.problemWith(file)
 
                 if (problem) {
-                    this.uploads.push({ name: file.name, percent: 0, error: problem })
+                    this.uploads.push({ id: ++this.nextUploadId, name: file.name, percent: 0, error: problem })
 
                     continue
                 }
@@ -66,8 +67,12 @@
 
         send(file) {
             return new Promise((resolve) => {
-                const upload = { name: file.name, percent: 0, error: null }
-                this.uploads.push(upload)
+                // Alpine hands array items back as reactive proxies, so the plain object pushed here is
+                // not the item in the list: look the item up by id and change that one, or the progress
+                // never updates and a finished upload can never be taken out of the list again.
+                const id = ++this.nextUploadId
+                this.uploads.push({ id, name: file.name, percent: 0, error: null })
+                const upload = this.uploads.find((item) => item.id === id)
 
                 const body = new FormData()
                 body.append('file', file)
@@ -95,7 +100,7 @@
 
                     if (request.status === 201 && response.id) {
                         await $wire.addUploadedFile(this.kind, response.id, response.name ?? file.name)
-                        this.uploads = this.uploads.filter((item) => item !== upload)
+                        this.remove(id)
                     } else if (request.status === 413) {
                         upload.error = file.name + ': the file is larger than the server allows.'
                     } else {
@@ -114,8 +119,8 @@
             })
         },
 
-        dismiss(upload) {
-            this.uploads = this.uploads.filter((item) => item !== upload)
+        remove(id) {
+            this.uploads = this.uploads.filter((item) => item.id !== id)
         },
     }"
     class="space-y-3"
@@ -159,13 +164,15 @@
         <template x-if="$wire.formData?.definitions">
             <div class="flex items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg bg-gray-50 dark:bg-white/5">
                 <span x-text="$wire.formData.definitions.fileName"></span>
-                <button type="button" class="text-danger-600 hover:underline" x-on:click="$wire.removeDefinitions()">Remove</button>
+                <x-filament::button type="button" size="xs" color="danger" outlined class="shrink-0" x-on:click="$wire.removeDefinitions()">
+                    Remove
+                </x-filament::button>
             </div>
         </template>
     @endunless
 
     <ul class="space-y-2" x-show="uploads.length > 0" x-cloak>
-        <template x-for="upload in uploads" x-bind:key="upload.name + upload.percent + (upload.error ?? '')">
+        <template x-for="upload in uploads" x-bind:key="upload.id">
             <li class="text-sm">
                 <template x-if="! upload.error">
                     <div>
@@ -182,7 +189,9 @@
                 <template x-if="upload.error">
                     <div class="flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-danger-50 text-danger-700 dark:bg-danger-500/10 dark:text-danger-400">
                         <span x-text="upload.error"></span>
-                        <button type="button" class="shrink-0 hover:underline" x-on:click="dismiss(upload)">Dismiss</button>
+                        <x-filament::button type="button" size="xs" color="danger" outlined class="shrink-0" x-on:click="remove(upload.id)">
+                            Dismiss
+                        </x-filament::button>
                     </div>
                 </template>
             </li>
