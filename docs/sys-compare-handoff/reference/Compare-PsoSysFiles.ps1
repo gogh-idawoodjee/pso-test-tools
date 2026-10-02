@@ -35,9 +35,10 @@
     are marked Same (default). Profiles do not inherit from each other: a parameter unset in any
     profile uses its default.
 
-    Parameters are described in plain English from a built-in table (about 190 entries taken
-    from the PSO knowledge base). Add your own via ParamDefinitions.csv (Parameter,Definition,
-    Basis) next to the script. ParamDefinitions_Template.csv lists what is still undocumented.
+    Parameters are described in plain English using the official descriptions in
+    pso_parameters_reference.csv, plus the extra notes and the definitions for parameters the
+    reference does not cover in ParamDefinitions.csv (Parameter,Definition,Note,Basis), which
+    sits next to the script. ParamDefinitions_Template.csv lists what is still undocumented.
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\Compare-PsoSysFiles.ps1
@@ -82,204 +83,17 @@ if ([string]::IsNullOrEmpty($ScriptDir)) { $ScriptDir = (Get-Location).Path }
 
 # ---------------------------------------------------------------------------
 # Parameter definitions (plain English)
-# Basis (not shown as a column): "KB: <file>" = documented in the project knowledge base,
-# "Release notes", or "Inference (...)" = only the parameter name to go on (unverified).
-# Inferred definitions are marked with a leading [Inferred] in the output.
-# Add or edit entries below, or (easier) drop a ParamDefinitions.csv next to this script
-# with the columns Parameter,Definition,Basis. Entries in the CSV override the ones here.
-# The run also writes ParamDefinitions_Template.csv listing every parameter that still
-# lacks a specific definition, ready to fill in.
+# The official description of every parameter comes from pso_parameters_reference.csv.
+# ParamDefinitions.csv (next to this script) adds to it:
+#   - Definition: used as the full text for parameters the reference does not cover
+#                 (or to override the official text);
+#   - Note:       extra knowledge appended after the official text (KB / field experience);
+#   - Basis:      where it came from ("KB: <file>", "Release notes", "Inference ..." = unverified,
+#                 shown with a leading [Inferred]).
+# Add rows to ParamDefinitions.csv to document more parameters. Save it as CSV UTF-8.
+# Each run also writes ParamDefinitions_Template.csv listing parameters that still need a definition.
 # ---------------------------------------------------------------------------
-$Defs = @{
-    'ActivityText'                                        = @{ Text = 'Text shown on each activity bar on the Gantt. Built from an expression such as {Table.Field}; fields starting with # are derived values.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'ActivitySubtext'                                     = @{ Text = 'Secondary line of text shown under the main activity text. Same {Table.Field} expression syntax.'; Basis = 'Inference (not in KB)' }
-    'ActivityBaseLabel'                                   = @{ Text = 'Label format for activities, apparently the base/default label the other activity label settings build on. Confirm on the Parameters screen.'; Basis = 'Inference (not in KB)' }
-    'PrivateActivityText'                                 = @{ Text = 'Text shown on private activities (unavailability blocks such as holiday, sickness, training) on the Gantt.'; Basis = 'Inference (not in KB)' }
-    'PrivateActivityLabel'                                = @{ Text = 'Label shown for private activities outside the Gantt, by analogy with ActivityLabel.'; Basis = 'Inference (not in KB)' }
-    'ResourceLabel'                                       = @{ Text = 'How a resource is named outside the Gantt, e.g. {First name} {Surname} [{Id}] shows "Charles Ollivon [T1001]". Anything outside { } (spaces, brackets) is shown as typed, so a trailing space is cosmetic only.'; Basis = 'KB: 18-pso-workbench-administration, 27-workbench-wise-simulation' }
-    'ResourceText'                                        = @{ Text = 'Main text shown for each resource row on the Gantt, by analogy with ActivityText.'; Basis = 'Inference (not in KB)' }
-    'ResourceSubtext'                                     = @{ Text = 'Secondary line shown under the resource name (here the employer).'; Basis = 'Inference (not in KB)' }
-    'ResourceDescriptionFormat'                           = @{ Text = 'Format of the resource description string, e.g. in lists and tooltips.'; Basis = 'Inference (not in KB)' }
-    'ARPResourceLabelFormat'                              = @{ Text = 'How a resource is labelled in the Advanced Resource Planner (ARP).'; Basis = 'Inference (not in KB)' }
-    'AllowSplitTravel'                                    = @{ Text = 'By name, lets the scheduler split a travel leg (for example around a break or a shift boundary). NOT documented in the KB, and the KB currently says there is no separate travel-splitting toggle (it follows split_allowed on the destination activity type), so this needs confirming with IFS.'; Basis = 'Inference (not in KB)' }
-    'CommitToAllocatedShift'                              = @{ Text = 'When someone manually commits an activity, keep it in the shift it is already allocated to. If it is on together with CommitToAvailabilityWindow, whichever has the later start wins.'; Basis = 'KB: 25-workbench-scheduling-ui' }
-    'CommittedActivitiesConstraintsOption'                = @{ Text = '1 = committed activities (status 30-40) have their time constraints obeyed, so the start may be pushed to a valid time; 0 = constraints are not enforced. Field reality: only Activity_Availabilities are enforced, not SLA windows. No effect once the resource is Travelling (50).'; Basis = 'KB: 06-tasks, 14-extended-patterns, 16-constraints-and-preferences' }
-    'CommittedActivitiesProfileId'                        = @{ Text = 'Points the DEFAULT profile at the profile to use for committed (imminent) activities. This is step 2 of the real-time travel setup; without it the committed-activities profile is not picked up.'; Basis = 'KB: 17-travel' }
-    'TravelCalculationOption'                             = @{ Text = 'How travel time is worked out: HierarchicalTravelMatrix (the HTM travel database), StraightLine (as the crow flies, with a speed factor), or RealTimeTravel (live routing service, meant for committed/imminent activities and layered on top of HTM or straight line).'; Basis = 'KB: 17-travel, 10-appointment-booking' }
-    'TravelTimeProfileId'                                 = @{ Text = 'Which travel-time profile (time-of-day and area weightings, barriers) adjusts journey times. It is the last fallback after Shift, Resource and Resource Type. The system ships with an empty DEFAULT profile.'; Basis = 'KB: 17-travel, 00-property-inheritance' }
-    'HierarchicalDatabaseMatrixId'                        = @{ Text = 'Which HTM (travel matrix) to use. Set per profile, this is how multiple HTM connections are supported.'; Basis = 'KB: 17-travel, 18-pso-workbench-administration' }
-    'RealTimeTravelProvider'                              = @{ Text = 'Which online routing service supplies real-time travel: NONE or TOMTOM.'; Basis = 'KB: 17-travel' }
-    'RoutingApiKey'                                       = @{ Text = 'API key for the online routing service; required for real-time travel. (Masked in this output.)'; Basis = 'KB: 17-travel' }
-    'IsochroneCompareStraight'                            = @{ Text = 'Used with the Travel Analyser isochrone preview to compare against a straight-line disc when the preview looks very different from the real isochrone.'; Basis = 'KB: 17-travel' }
-    'ImplicitBreaksOnOffEventsRequired'                   = @{ Text = 'Controls when PSO assumes an implicit break has been taken: whether it waits for the resource break on/off events or assumes the break happens as planned. Added in 6.5.0.25; a fix in 6.16.0.79 made it apply during appointment booking. The True/False meaning is inferred from the name.'; Basis = 'Release notes' }
-    'MaxDisplaceableActivityPriority'                     = @{ Text = 'Appointment booking: low-priority activities up to this priority are ignored when building an offer (no attempt to reallocate them). -1 = off; e.g. 2 ignores priority 1-2. Never applies to committed-or-later or fully fixed activities.'; Basis = 'KB: 10-appointment-booking' }
-    'SortValuePrecedenceMaximumStatus'                    = @{ Text = 'Order of committed activities. Default 30 sorts by status first (Accepted before Downloaded before Sent before Committed), then commit_sort_value. Setting 40 makes commit_sort_value the main key with status as tie-breaker. Each activity needs a unique status + sort value + date_time_status combination.'; Basis = 'KB: 06-tasks' }
-    'StandardSendScheduleExceptionAccepts'                = @{ Text = 'When true, schedule-exception acknowledgements are handled in the standard way and the separate Schedule_Exception_Response broadcast is bypassed.'; Basis = 'KB: 22-pso-restful-gateway' }
-    'OpenIdAuthority'                                     = @{ Text = 'Issuer URL of the identity provider used for single sign-on (OpenID Connect). Expected to differ per environment. If it is wrong, logins fail; the packaged "Reset OpenIdAuthority.xml" restores password login.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'MaxUserSessions'                                     = @{ Text = 'By name, the cap on concurrent sessions per user; -1 presumably means unlimited.'; Basis = 'Inference (not in KB)' }
-    'GpsFrequency'                                        = @{ Text = 'By name, how often GPS positions are expected or used (PT5M = every 5 minutes).'; Basis = 'Inference (not in KB)' }
-    'SLAActivityAgeingFactor'                             = @{ Text = 'By name, a multiplier on how SLA-related activity age is calculated or displayed. Confirm before relying on it.'; Basis = 'Inference (not in KB)' }
-    'SchedulingWindowLength'                              = @{ Text = 'By name, how far ahead the scheduler plans (P2D = 2 days). Related to the dataset Scheduling Work Days, but the parameter itself is not documented in the KB.'; Basis = 'Inference (not in KB)' }
-    'ActivityLabel'                                       = @{ Text = 'Activity label shown outside the Gantt (elsewhere in the workspace). The #label field in expressions uses this parameter.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'LocationLabel'                                       = @{ Text = 'Location label shown outside the Gantt. The #label field on Location uses this parameter.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'AllowAllocateBeforeCommitted'                        = @{ Text = 'Default false. Whether other activities can be scheduled before a committed activity in a route (true also allows emergency allocation when the Gantt is already full of committed jobs). Confirmed by IFS R&D: an activity with date_time_fixed populated counts as fixed-time even if fixed=false and is always scheduled at that time, whatever this parameter says.'; Basis = 'KB: 16-constraints-and-preferences, 24-open-questions-for-ifs' }
-    'AllowAuthenticationGateway'                          = @{ Text = 'If true on an OIDC-enabled system, standard username/password login is still accepted by adding ?authGateway=true to the Workbench login URL (case-sensitive). A fallback if single sign-on breaks.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'AllowLocationlessActivities'                         = @{ Text = 'Must be true to allow activities that have no location (locationless activities).'; Basis = 'KB: 06-tasks' }
-    'CascadeSchedulingObjectDeletions'                    = @{ Text = 'By name, whether deleting a scheduling object also deletes the objects that depend on it. Not documented in the KB.'; Basis = 'Inference (not in KB)' }
-    'JsonFormatVersion'                                   = @{ Text = 'JSON format used by the RESTful Gateway and Schedule Broadcast Manager. The format changed in PSO 6.15; set to "Version 1" to revert to the pre-6.15 format.'; Basis = 'KB: 22-pso-restful-gateway' }
-    'NoActivityChangesFromStatus'                         = @{ Text = 'Status at or above which NO manual changes are allowed to an activity (fields are greyed out).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'NoStatusChangesFromStatus'                           = @{ Text = 'Status at or above which only non-status, non-resource changes are allowed. Note: the KB spells this NoStatusChangeFromStatus (singular Change); the parameter ID in these sys files is NoStatusChangesFromStatus.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'NoStatusChangeFromStatus'                            = @{ Text = 'KB spelling of NoStatusChangesFromStatus (see that entry): status at or above which only non-status, non-resource changes are allowed.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'OpenIdAllowLegacyAuthentication'                     = @{ Text = 'If true, Gateway calls can still use a PSO user and password instead of an OIDC token.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'OpenIdClientId'                                      = @{ Text = 'Client ID registered for the PSO Workbench app with the identity provider (OpenID Connect).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'OpenIdResourceId'                                    = @{ Text = 'Optional. Client ID for a registered Web API in the identity provider.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'UserNameClaim'                                       = @{ Text = 'Which OpenID Connect claim maps to the PSO user ID.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'iSWBDistanceUnit'                                    = @{ Text = 'By name, the distance unit shown in the Workbench (km or miles), by analogy with the other iSWB display settings. Not documented in the KB.'; Basis = 'Inference (not in KB)' }
-    'ScheduleCommittedActivitiesInActiveShift'            = @{ Text = 'When false, committed activities that do not fit the active shift can be moved to later shifts. When true (the default) they stay in the active shift regardless.'; Basis = 'KB: 06-tasks' }
-    'UseLatestUpdateForStatusTime'                        = @{ Text = 'By default the FIRST on-site status date is used as the activity start when a resource sends several on-site updates. Set to true to always use the most recent one.'; Basis = 'KB: 06-tasks' }
-    'FixedActivityAfterShiftBuffer'                       = @{ Text = 'A fixed-time activity starting shortly after shift end (within this buffer, default 1 hour) is assumed to belong to the previous shift, so the resource travels from the last shift activity.'; Basis = 'KB: 06-tasks' }
-    'AllowAllocateWithParallelCommits'                    = @{ Text = 'Boolean. By default uncommitted activities can be scheduled in parallel with the last committed activity in a shift (never earlier). When false they must be scheduled strictly after all committed activities finish.'; Basis = 'KB: 20-resource-capacity-management' }
-    'AllowPartiallyCommittedBucketRoutes'                 = @{ Text = 'Default false. False: once a bucket shift has a committed activity, no more uncommitted activities can be added to it. True: DSE can keep adding uncommitted activities alongside committed ones (this raises a Partially Committed Bucket Route exception).'; Basis = 'KB: 20-resource-capacity-management, 08-pso-advanced' }
-    'EnforceConstraintsOnCallEnd'                         = @{ Text = 'By default only the start of an activity is checked against availability constraints (start-based). Setting this parameter switches to checking the full duration.'; Basis = 'KB: 16-constraints-and-preferences' }
-    'TimeHorizon'                                         = @{ Text = 'Suggested Dispatch commit rule (default 30 min): an activity is only committed if the resource is due to start travelling within this time.'; Basis = 'KB: 08-pso-advanced, 06-tasks' }
-    'MaximumCommittedActivities'                          = @{ Text = 'Suggested Dispatch commit rule (default 1): maximum activities at committed status or above (and below completed) for a resource at any one time.'; Basis = 'KB: 08-pso-advanced' }
-    'CommitBreaks'                                        = @{ Text = 'Suggested Dispatch: whether breaks are committed (default true).'; Basis = 'KB: 08-pso-advanced' }
-    'CountBreaks'                                         = @{ Text = 'Whether committed breaks count toward MaximumCommittedActivities (default true).'; Basis = 'KB: 08-pso-advanced' }
-    'IgnoreBreakTime'                                     = @{ Text = 'If true, break time is excluded from the TimeHorizon calculation. Discrepancy: the KB default is false, but the PSO Scheduling Schema Technical Guide says True. Not yet confirmed with IFS R&D, so check your dataset.'; Basis = 'KB: 08-pso-advanced, 24-open-questions-for-ifs' }
-    'SendExternalCommitsMode'                             = @{ Text = 'When Suggested_Dispatch records are written for activities committed outside SDS. NONE (default) = normal behaviour only; ALL = whenever any activity is committed or uncommitted that SDS did not suggest; MANUAL = only for activities committed manually in the Scheduling Workbench.'; Basis = 'KB: 08-pso-advanced' }
-    'LogonRequired'                                       = @{ Text = 'Suggested Dispatch (default true): activities are only committed when the resource is logged on.'; Basis = 'KB: 08-pso-advanced' }
-    'NextDayCommit'                                       = @{ Text = 'Suggested Dispatch (default false): allow commit suggestions for the next shift.'; Basis = 'KB: 08-pso-advanced' }
-    'TimeBeforeShiftStart'                                = @{ Text = 'Suggested Dispatch (default 30 min): how far before a shift starts SDS begins making suggestions for it.'; Basis = 'KB: 08-pso-advanced' }
-    'LogoffUncommit'                                      = @{ Text = 'Default 30. A status threshold, not a yes/no: when a resource logs off, activities at this status or lower are uncommitted (30 = Committed, so Accepted jobs at 40 survive). 0 disables.'; Basis = 'KB: 08-pso-advanced' }
-    'EndShiftHorizon'                                     = @{ Text = 'Default 1 hour. If the resource has not logged off this long after shift end, the shift is treated as finished and LogoffUncommit is applied.'; Basis = 'KB: 08-pso-advanced' }
-    'NextDayCommitBuffer'                                 = @{ Text = 'Default 0 hours. Start committing the next shift activities this long before the current shift ends.'; Basis = 'KB: 08-pso-advanced' }
-    'ShiftsInFuture'                                      = @{ Text = 'Default 0. Number of future shifts, beyond the current one, to make commit suggestions for.'; Basis = 'KB: 08-pso-advanced' }
-    'CommitToAvailabilityWindow'                          = @{ Text = 'When true and SDS suggests committing an activity inside an availability window, date_time_earliest is set to the window start (or shift start, whichever is later), so the activity cannot be scheduled before the window opens.'; Basis = 'KB: 08-pso-advanced, 25-workbench-scheduling-ui' }
-    'MaximumVisitCostReliefProportion'                    = @{ Text = 'Appointment booking, basic displacement (default 0.5): slightly inflates the offer value to account for the low-priority activities that were near the appointed activity in the route. 0 disables the adjustment.'; Basis = 'KB: 10-appointment-booking' }
-    'MinimumAppointmentSlotsPerThread'                    = @{ Text = 'Parallelism for non-blocking appointment requests. Default -1 = auto-determine thread count; 0 forces strictly sequential processing.'; Basis = 'KB: 10-appointment-booking' }
-    'MaximumLinkedCallAttempts'                           = @{ Text = 'Default and recommended 3. How hard appointment booking tries to allocate all linked calls together; higher finds more offers but is slower per offer.'; Basis = 'KB: 10-appointment-booking' }
-    'AppointmentFallbackProfileId'                        = @{ Text = 'Set on the dataset active profile (e.g. DEFAULT) to point at a fallback profile, typically StraightLine travel, used in the appointment offer phase to speed up very high frequency booking.'; Basis = 'KB: 10-appointment-booking' }
-    'UseFallbackProfileForAppointmentSummary'             = @{ Text = 'Default false. Whether the appointment summary/confirmation step also uses the fallback profile. False means the summary validates against real HTM travel.'; Basis = 'KB: 10-appointment-booking' }
-    'ScheduleWindowStartBuffer'                           = @{ Text = 'New in 6.17.0.102. Mitigates offered appointments becoming unavailable because time elapsed between the offer and its acceptance.'; Basis = 'Release notes: 28-release-notes-watchlist' }
-    'TravelCalculationMethod'                             = @{ Text = 'KB name for the HTM vs Straight Line choice. The parameter ID actually used in these sys files is TravelCalculationOption (see that entry).'; Basis = 'KB: 17-travel' }
-    'LocationAddTime'                                     = @{ Text = 'Extra time added on arrival at a location before work can start (e.g. parking, walking to the site). Can also be set on a Location or Location Type.'; Basis = 'KB: 17-travel' }
-    'SpeedFactor'                                         = @{ Text = 'Multiplier on journey time, e.g. 1.5 makes expected journeys 50% longer. Set on Resource or Resource Type; the parameter is the final fallback (there is no shift-level override).'; Basis = 'KB: 17-travel, 00-property-inheritance' }
-    'RoutingMaximumDistanceMeters'                        = @{ Text = 'Default 4000 m. If the straight-line distance between two points is within this, a routing calculation is attempted. 0 disables routing. Do not alter unless advised by IFS product development.'; Basis = 'KB: 17-travel' }
-    'RoutingMaximumSearchMetersMultiplier'                = @{ Text = 'Default 2 (= 8000 m). The routing calculation aborts and falls back to HTM if the destination is not reached within this distance. Do not alter unless advised by IFS.'; Basis = 'KB: 17-travel' }
-    'RoutingCalculator'                                   = @{ Text = 'Default TravelAnalyser. InProcess = each service loads its own routing data (reloaded on every LOAD); TravelAnalyser = the Travel Analyser service centralises routing data and shares it across LOADs and datasets. Do not alter unless advised by IFS.'; Basis = 'KB: 17-travel' }
-    'CommittedActivitiesProfileThreshold'                 = @{ Text = 'Maximum time window (from current schedule time) in which the committed-activities profile applies. Beyond it, activities revert to the default travel method. Keep it tight: real-time travel for distant activities wastes performance.'; Basis = 'KB: 17-travel' }
-    'RealTimeTravelRefreshCacheFrequency'                 = @{ Text = 'How often real-time travel information refreshes. Lower = fresher data but more calls to the routing service.'; Basis = 'KB: 17-travel' }
-    'RealTimeTravelAvoidTolls'                            = @{ Text = 'Avoid tolls in real-time routes (can combine with RealTimeTravelAvoidHighways).'; Basis = 'KB: 17-travel' }
-    'RealTimeTravelAvoidHighways'                         = @{ Text = 'Avoid highways/motorways in real-time routes.'; Basis = 'KB: 17-travel' }
-    'RealTimeTravelMaxCallsPerSecond'                     = @{ Text = 'Throttle on calls to the real-time routing service; use it to stop TomTom 403 errors.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'IsochroneTravelTimes'                                = @{ Text = 'Which travel-time bands are available for isochrones (added or removed via the UI).'; Basis = 'KB: 17-travel' }
-    'MaxSpeedMPS'                                         = @{ Text = 'One of three speed settings (with MinSpeedMPS and RateOfSpeedIncrease) to check when the Travel Analyser isochrone preview disc looks very different from the real isochrone.'; Basis = 'KB: 17-travel' }
-    'MinSpeedMPS'                                         = @{ Text = 'See MaxSpeedMPS: speed setting behind the isochrone preview disc.'; Basis = 'KB: 17-travel' }
-    'RateOfSpeedIncrease'                                 = @{ Text = 'See MaxSpeedMPS: speed setting behind the isochrone preview disc.'; Basis = 'KB: 17-travel' }
-    'UseOutlinedIsochrones'                               = @{ Text = 'Switches isochrones from filled/translucent to outlined (the in-panel checkbox does the same).'; Basis = 'KB: 25-workbench-scheduling-ui' }
-    'MinPasswordLength'                                   = @{ Text = 'Default 8. Minimum password length.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'MinPasswordCharacterCategories'                      = @{ Text = 'Required number of character categories (upper, lower, numeric, symbolic, titlecase) in a password.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'PasswordCannotContainId'                             = @{ Text = 'Default false. Password may not contain the user ID.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'PasswordCannotContainNamePart'                       = @{ Text = 'Default false. Password may not contain part of the user name.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'PasswordValidityPeriod'                              = @{ Text = 'Default 0 (never expires). Maximum password age.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'PasswordExpiryWarningPeriod'                         = @{ Text = 'Default 0 (no warning). How long before expiry the user is warned.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'MaxRetainedPasswords'                                = @{ Text = 'Default 0. Number of prior passwords checked for reuse. Both this and OldPasswordRetention must be above 0 for reuse checks to work.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'OldPasswordRetention'                                = @{ Text = 'Default 0. How long old passwords are kept for reuse checks. Both this and MaxRetainedPasswords must be above 0 for reuse checks to work.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'ActiveDirectoryDomain'                               = @{ Text = 'Set to the Active Directory domain to enable AD login (part of the AD setup steps).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'JwtExpiryDays'                                       = @{ Text = 'Default 1 day. Workbench login token expiry; consider raising for long WISE simulation runs. In a child organisation it must be changed at head-organisation level.'; Basis = 'KB: 27-workbench-wise-simulation' }
-    'JwtLogoutHours'                                      = @{ Text = 'Default 2 hours. Workbench session logout time; consider raising for long WISE simulation runs. In a child organisation it must be changed at head-organisation level.'; Basis = 'KB: 27-workbench-wise-simulation' }
-    'EnableSwaggerUI'                                     = @{ Text = 'Shows the interactive Swagger UI on the RESTful Gateway (hidden by default).'; Basis = 'KB: 22-pso-restful-gateway' }
-    'WorkbenchHostURL'                                    = @{ Text = 'Allow-list of calling host URLs for embedded Workbench use (head organisation only, once per hosting server). Multiple URLs space-separated; * wildcards allowed. For IFS Cloud it holds the callback URL.'; Basis = 'KB: 22-pso-restful-gateway, 11-dispatch-console, 13-admin-troubleshooting' }
-    'DefaultDatasetId'                                    = @{ Text = 'Dataset used by the RESTful Gateway when Input_Reference has no dataset_id (default "Default").'; Basis = 'KB: 22-pso-restful-gateway' }
-    'MaximumODataRecords'                                 = @{ Text = 'Default 100,000. Maximum rows returned by an OData query ($top); hitting it returns an @odata.nextLink for paging.'; Basis = 'KB: 22-pso-restful-gateway' }
-    'LogStatistics'                                       = @{ Text = 'Shows CPU and memory per server in the System view. Off by default because it has a performance cost.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'AutoScale'                                           = @{ Text = 'Reflects the install configuration for information only. Changing it does not affect scaling (edit the Helm values instead).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'DatasetAvailability'                                 = @{ Text = 'Dataset high availability: 0 = no draining (test or single-instance only); 1 (default) = new instance is ready before the old one stops; 2 or more = HA mode with N-1 replicas alongside the primary (needs proportionally more hardware).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'AutoReload'                                          = @{ Text = 'Enables the automatic daily reload: a fresh initial LOAD (FULL source extraction) at AutoReloadTimeOfDay for datasets whose Source_Data is tagged source_extraction_method=AUTOMATIC.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'AutoReloadTimeOfDay'                                 = @{ Text = 'Time of day for the automatic reload (default midnight).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'InactiveSessionLogoutSeconds'                        = @{ Text = 'Default 1 hour. Inactivity period before a session is ended.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'SessionRetentionSeconds'                             = @{ Text = 'Default 1 week. How long ended-session data is kept.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'CheckForEventsSeconds'                               = @{ Text = 'Default 10 min. Poll frequency for session and other checks; also governs how often organisation-deletion readiness is checked.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'RunSystemTest'                                       = @{ Text = 'Default false. Enables the periodic system smoke test (needs an Admin Service restart).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'RunSystemTestSeconds'                                = @{ Text = 'Default 3600 (1 hour). How often the system test runs.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'SystemTestDatasetId'                                 = @{ Text = 'Default SystemSmokeTest. Dataset used by the system test.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'SystemTestTimeLimit'                                 = @{ Text = 'Default 2 min. Maximum time allowed for the system test.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'SystemTestAllocationTypes'                           = @{ Text = 'Default 27 (all: DSE + appointment + dispatch + travel). Adjust down if a component is not in use, e.g. 11 if there is no Travel Analyser.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'CheckLicenceFrequency'                               = @{ Text = 'Default hourly. How often the licence is checked (Default organisation only; all other licence parameters are per organisation).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'LicenceNotificationEmails'                           = @{ Text = 'Default false. Enables licence notification emails.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'LicenceNotificationEmailAddresses'                   = @{ Text = 'Comma-separated recipients for licence notifications (empty by default).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'LicenceNotificationLanguageId'                       = @{ Text = 'Language for licence notifications (empty by default).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'SetDatasetsToReactiveOnInput'                        = @{ Text = 'Converts DYNAMIC and APPOINTMENT datasets to REACTIVE on LOAD (used with auto-scaling so DSE can scale to zero).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'BackgroundProcessReactiveTasks'                      = @{ Text = 'Must be false to allow DSE scale-to-zero when REACTIVE datasets exist (the installer sets it when auto-scaling is enabled).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'LoadBalancingSensitivityFactor'                      = @{ Text = 'Load balancing between instances: higher = a dataset is less likely to move.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'LoadBalancingExclusionStart'                         = @{ Text = 'Start of the period when load balancing is disabled (pairs with LoadBalancingExclusionEnd).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'LoadBalancingExclusionEnd'                           = @{ Text = 'End of the period when load balancing is disabled (pairs with LoadBalancingExclusionStart).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'UnregisterApplicationOnFailCount'                    = @{ Text = 'Default 3. Failed pings before a component is unregistered from the system DB.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'CheckRequiredServices'                               = @{ Text = 'Compares active services against expected roles and logs an event on mismatch. On by default for Multi-Role Azure; on-prem needs true.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'CheckRequiredServicesFrequency'                      = @{ Text = 'Default 10 min. How often the required-service check runs (restart the Admin Service after changing).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'AutoRestartServices'                                 = @{ Text = 'With an SSM installed on every server, lets the Admin Service ask SSM to restart unresponsive services.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'CheckForNewApplicationsSeconds'                      = @{ Text = 'Default 20 s. How often system status data is refreshed.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'SystemStatusEventWindow'                             = @{ Text = 'Default 10 min. Recording window for system status events.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'DeleteOrganisationGracePeriod'                       = @{ Text = 'Default 1 hour. Child organisations marked for deletion are removed after this period (cascades through all databases).'; Basis = 'KB: 18-pso-workbench-administration' }
-    'EmptyRoutesExceptionStart'                           = @{ Text = 'Default 12 hours. Empty Route exception only considers shifts intersecting the timeline or starting within this window.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'DoOnLocationAllowRevisits'                           = @{ Text = 'The KB only mentions it as the condition for the Location Partially Allocated exception (relevant when false). By name, whether a do-on-location location can be revisited.'; Basis = 'Inference (not in KB)' }
-    'ActivityAvailabilityLeeway'                          = @{ Text = 'Leeway applied when the #available field is worked out for an activity.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'ResourceAvailabilityLeeWayMinutes'                   = @{ Text = 'Leeway (minutes) applied when the #available field is worked out for a resource.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'AuditRetentionDays'                                  = @{ Text = 'Default 30 days. How long audit rows are kept before the Schedule Archiving Service purges them.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'ReportingRetentionDays'                              = @{ Text = 'Default 90 days. How long reporting data is kept in the archive.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'InputRetentionSeconds'                               = @{ Text = 'Default 1 day. Resource data ages out of the Scheduling DB this long after it stops appearing in input data.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'OutputRetentionSeconds'                              = @{ Text = 'Default 1 day. Output data retention in the Scheduling DB.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'KeepDeletedARPDataHours'                             = @{ Text = 'Default 7 days. ARP soft-deletes first, then permanently purges after this period.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'ManageARPDataTimeOfDay'                              = @{ Text = 'Time of day at which ARP data is managed and purged.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'ManageARPDataOptions'                                = @{ Text = 'Controls how ARP data is managed and purged.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'ARPAccessHistoryRetention'                           = @{ Text = 'New in 6.14.0.27. By name, how long ARP access history is retained.'; Basis = 'Inference (not in KB)' }
-    'AutomatedSnapshotExpiryPeriod'                       = @{ Text = 'Default 7 days. Automated snapshots expire after this period.'; Basis = 'KB: 19-schedule-archive' }
-    'CheckForChangesSeconds'                              = @{ Text = 'Default every 5 minutes. How often reporting dimension and fact data updates as scheduling datasets change.'; Basis = 'KB: 19-schedule-archive' }
-    'CheckForUpdateSeconds'                               = @{ Text = 'Archive (ARC) parameter, default 10 minutes. How often ARC picks up timetable and timetable-usage changes.'; Basis = 'KB: 19-schedule-archive' }
-    'AutoDurationEnabledByDefault'                        = @{ Text = 'SIM parameter. Default value of auto_duration_enabled when it is not specified on the activity or activity type.'; Basis = 'KB: 19-schedule-archive' }
-    'MinimumNumberOfSamplesForActivityDurationEstimate'   = @{ Text = 'Archiving Service. Minimum sample count before a grouping gets a duration estimate. Recommended 10 or more.'; Basis = 'KB: 19-schedule-archive' }
-    'AutoDurationConfidenceLevelThreshold'                = @{ Text = 'SIM parameter. Minimum confidence required before an estimated duration is applied.'; Basis = 'KB: 19-schedule-archive' }
-    'AutoDurationReloadEstimatesPeriod'                   = @{ Text = 'SIM parameter. How often SIM reloads the estimate table.'; Basis = 'KB: 19-schedule-archive' }
-    'DatasetTypesToProcess'                               = @{ Text = 'DSE parameter. Must be SEGMENT to use distributed scheduling (DST).'; Basis = 'KB: 23-architecture-and-sizing' }
-    'SegmentDatasetOption'                                = @{ Text = 'Set true to enable segmented datasets. Typically needs multiple DSE instances even for one logical dataset.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'ResegmentationFactor'                                = @{ Text = 'Default 50%. Re-segmentation triggers when schedulable activity volume changes by more than this (or the current segmentation becomes invalid).'; Basis = 'KB: 23-architecture-and-sizing' }
-    'BackgroundOptimiseAppointmentWindow'                 = @{ Text = 'DSE keeps optimising the appointment-window portion as a background task once broadcast targets are met and there is no pending input; set false to switch that off.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'FeedDynamicDatasetOption'                            = @{ Text = 'Set true to feed a dynamic dataset from a larger pool (with FeederMechanism).'; Basis = 'KB: 23-architecture-and-sizing' }
-    'FeederMechanism'                                     = @{ Text = 'Default EXCLUSION. How activities are selected to feed the DSE dataset.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'FeederMinimumActivities'                             = @{ Text = 'Default 1,000. The feeder only activates above this number of activities.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'FeedActivityInJeopardyThreshold'                     = @{ Text = 'Activities whose jeopardy deadline is within this threshold must be sent to the DSE dataset.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'FeedActivitiesMultiplier'                            = @{ Text = 'Default 0.5. Target ratio of unallocated to allocated activities in the DSE dataset (8,000 allocated targets 4,000 unallocated).'; Basis = 'KB: 23-architecture-and-sizing' }
-    'FeederMaximumInitialActivities'                      = @{ Text = 'Default 10,000. Caps the first batch sent. Recommended: set close to the expected final DSE dataset size.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'FeederActivityValueImportanceWeighting'              = @{ Text = 'Advanced tuning weight for the feeder (activity value). Consult IFS before changing.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'FeederValuePerHourImportanceWeighting'               = @{ Text = 'Advanced tuning weight for the feeder (value per hour). Consult IFS before changing.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'FeederProximityImportanceWeighting'                  = @{ Text = 'Advanced tuning weight for the feeder (proximity). Consult IFS before changing.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'AggregationTargetActivityCount'                      = @{ Text = 'Default 10,000. Activity aggregation applies when the dataset is at least this large.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'AggregationMaximumMergeDistanceMetres'               = @{ Text = 'Default 2,000 m. Activities are only merged if within this distance of each other.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'AggregationMaximumActivityDuration'                  = @{ Text = 'Default 2 hours. Aggregated duration may not exceed this.'; Basis = 'KB: 23-architecture-and-sizing' }
-    'GanttShowRegions'                                    = @{ Text = 'Sets the organisation default for showing the regions tree on the resource Gantt.'; Basis = 'KB: 25-workbench-scheduling-ui' }
-    'DragAndDropCommitOption'                             = @{ Text = 'What a Gantt drag and drop does: 1 Commit To Resource (validates first unless ManChaNoValidation), 2 Open Manual Changes (pre-fills the panel), 3 Validate and Commit To Resource (always validates). Drag and drop is not enabled by default.'; Basis = 'KB: 25-workbench-scheduling-ui' }
-    'TreatMembershipWithNoCategoryAsUtilised'             = @{ Text = 'Whether a resource membership with no category counts as utilised or shows as free time in the Resource Planner (also affects the utilisation search slider).'; Basis = 'KB: 26-workbench-planning-ui' }
-    'PSWBucketDefaultColour'                              = @{ Text = 'Gantt colour of a bucket shift where all activities are allocated (uncommitted).'; Basis = 'KB: 20-resource-capacity-management' }
-    'PSWBucketCommittedColour'                            = @{ Text = 'Gantt colour of a bucket shift where all activities are committed or higher.'; Basis = 'KB: 20-resource-capacity-management' }
-    'PSWBucketCompletedColour'                            = @{ Text = 'Gantt colour of a bucket shift for completed work.'; Basis = 'KB: 20-resource-capacity-management' }
-    'PSWBreakDefaultColourExplicit'                       = @{ Text = 'Gantt colour of explicit breaks.'; Basis = 'KB: 25-workbench-scheduling-ui' }
-    'PSWCommittedBreakColour'                             = @{ Text = 'Break colour by event status when Colour by Status is on: committed break.'; Basis = 'KB: 25-workbench-scheduling-ui' }
-    'PSWBreakOnColour'                                    = @{ Text = 'Break colour by event status when Colour by Status is on: break on.'; Basis = 'KB: 25-workbench-scheduling-ui' }
-    'PSWBreakOffColour'                                   = @{ Text = 'Break colour by event status when Colour by Status is on: break off.'; Basis = 'KB: 25-workbench-scheduling-ui' }
-    'ShiftImportDatesRow'                                 = @{ Text = 'Excel shift import: the row that holds the dates.'; Basis = 'KB: 26-workbench-planning-ui' }
-    'ShiftImportResourceIdColumn'                         = @{ Text = 'Excel shift import: the column that holds resource IDs.'; Basis = 'KB: 26-workbench-planning-ui' }
-    'ShiftImportDivisionIdColumn'                         = @{ Text = 'Excel shift import: optional column that holds division IDs.'; Basis = 'KB: 26-workbench-planning-ui' }
-    'ShiftImportRowsStart'                                = @{ Text = 'Excel shift import: first data row; import stops at the first row with no resource id.'; Basis = 'KB: 26-workbench-planning-ui' }
-    'ShiftImportColumnsStart'                             = @{ Text = 'Excel shift import: first data column; import stops at the first column with no date.'; Basis = 'KB: 26-workbench-planning-ui' }
-    'ShiftImportSheetName'                                = @{ Text = 'Excel shift import: worksheet name (optional, defaults to the first worksheet).'; Basis = 'KB: 26-workbench-planning-ui' }
-    'ShiftImportCheckExistingCharacter'                   = @{ Text = 'Excel shift import: character used in a cell to check against an existing shift (default *).'; Basis = 'KB: 26-workbench-planning-ui' }
-    'WISEAutoGenerateResourceTypes'                       = @{ Text = 'Default off. If on, WISE auto-creates resource types around the most common skill combinations (up to 6 distinct skills; with more skills, or none, one resource type holding every skill).'; Basis = 'KB: 27-workbench-wise-simulation' }
-    'TranslateLabelFormats'                               = @{ Text = 'Translates the {} expressions inside label formats for display and editing (free text is not translated), so a filter written in one language works in another.'; Basis = 'KB: 27-workbench-wise-simulation' }
-    'iSWBMapType'                                         = @{ Text = 'Map provider for the Workbench, in caps (e.g. BING, HERE). Also called MapProvider.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'iSWBMapKey'                                          = @{ Text = 'Map provider key; billable transactions are charged to it, so group users appropriately. Also called MapKey.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'TurnByTurnDirectionsProvider'                        = @{ Text = 'Turn-by-turn provider (currently BING or HERE only). Each request is a separate billable transaction.'; Basis = 'KB: 18-pso-workbench-administration' }
-    'TurnByTurnDirectionsKey'                             = @{ Text = 'Key for the turn-by-turn provider (billable per request).'; Basis = 'KB: 18-pso-workbench-administration' }
-}
+$Defs = @{}
 
 # Name-pattern hints, used ONLY when a parameter has no specific definition above.
 $DefPatterns = @(
@@ -301,16 +115,18 @@ $DefPatterns = @(
 )
 foreach ($dp in $DefPatterns) { $dp['Basis'] = 'Inference (name pattern)' }
 
-# Optional user-maintained definitions (overrides the table above).
+# Definitions file (see above).
 $UserDefsFile = Join-Path $ScriptDir 'ParamDefinitions.csv'
+$DefsFileLoaded = $false
 if (Test-Path -LiteralPath $UserDefsFile) {
-    foreach ($ud in (Import-Csv -LiteralPath $UserDefsFile)) {
-        if (-not [string]::IsNullOrWhiteSpace($ud.Parameter) -and -not [string]::IsNullOrWhiteSpace($ud.Definition)) {
-            $ub = 'User-supplied'
-            if (-not [string]::IsNullOrWhiteSpace($ud.Basis)) { $ub = $ud.Basis }
-            $Defs[$ud.Parameter.Trim()] = @{ Text = $ud.Definition; Basis = $ub }
-        }
+    foreach ($ud in (Import-Csv -LiteralPath $UserDefsFile -Encoding UTF8)) {
+        if ([string]::IsNullOrWhiteSpace($ud.Parameter)) { continue }
+        if ([string]::IsNullOrWhiteSpace($ud.Definition) -and [string]::IsNullOrWhiteSpace($ud.Note)) { continue }
+        $ub = 'User-supplied'
+        if (-not [string]::IsNullOrWhiteSpace($ud.Basis)) { $ub = $ud.Basis }
+        $Defs[$ud.Parameter.Trim()] = @{ Text = [string]$ud.Definition; Note = [string]$ud.Note; Basis = $ub }
     }
+    $DefsFileLoaded = $true
 }
 
 # Tables we read row-by-row (everything else is only counted).
@@ -365,15 +181,28 @@ function Get-RefEntry([string]$pn, [string]$app) {
     return $lst[0]
 }
 
-# Definition order: your ParamDefinitions.csv / built-in KB-backed text, then the schema reference
-# description, then built-in inferred text, then name patterns.
+# Definition = official description from the reference, plus any Note from ParamDefinitions.csv.
+# A Definition in ParamDefinitions.csv replaces the official text (used for parameters the
+# reference does not cover). Falls back to the name patterns, then to nothing.
 function Get-ParamDef([string]$name, [string]$app) {
     $d = $null
     if ($Defs.ContainsKey($name)) { $d = $Defs[$name] }
-    if ($null -ne $d -and ($d.Basis -like 'KB*' -or $d.Basis -like 'User-supplied*')) { return $d }
+    if ($null -ne $d -and -not [string]::IsNullOrWhiteSpace($d.Text)) {
+        $t = $d.Text
+        if (-not [string]::IsNullOrWhiteSpace($d.Note)) { $t = $t + ' Note: ' + $d.Note }
+        return @{ Text = $t; Basis = $d.Basis }
+    }
     $ent = Get-RefEntry $name $app
-    if ($null -ne $ent -and -not [string]::IsNullOrWhiteSpace($ent.Desc)) { return @{ Text = $ent.Desc; Basis = 'Schema reference' } }
-    if ($null -ne $d) { return $d }
+    if ($null -ne $ent -and -not [string]::IsNullOrWhiteSpace($ent.Desc)) {
+        $t = $ent.Desc.Trim()
+        $bs = 'Schema reference'
+        if ($null -ne $d -and -not [string]::IsNullOrWhiteSpace($d.Note)) {
+            if (-not $t.EndsWith('.')) { $t = $t + '.' }
+            $t = $t + ' Note: ' + $d.Note
+            $bs = 'Schema reference + ' + $d.Basis
+        }
+        return @{ Text = $t; Basis = $bs }
+    }
     foreach ($dp in $DefPatterns) {
         if ($name -match $dp.Pattern) { return @{ Text = $dp.Text; Basis = $dp.Basis } }
     }
@@ -606,6 +435,7 @@ if (Test-Path -LiteralPath $RefPath) {
     }
     $RefLoaded = ($ParamRef.Count -gt 0)
 }
+if (-not $DefsFileLoaded) { Write-Colored 'ParamDefinitions.csv not found next to the script: using the official reference descriptions only.' 'DarkGray' }
 if ($RefLoaded) {
     Write-Colored 'Parameter defaults: ' 'DarkGray' -NoNewline
     Write-Colored ('{0} parameters loaded from {1}' -f $ParamRef.Count, (Split-Path -Leaf $RefPath)) 'Gray'
@@ -1126,7 +956,7 @@ $Tabs = @($TabParams, $TabExc, $TabGP, $TabGroups, $TabOrgPerm, $TabLists, $TabT
 # Table counts
 # ---------------------------------------------------------------------------
 $ScopeMap = @{
-    'Users' = 'Not compared - user accounts (excluded per request)'
+    'Users' = 'Not compared - user accounts'
     'System_Version' = 'Reported separately - see the PSO version section (not row-compared)'
     'Application_Data' = 'Not compared - per-user saved filters and screen settings'
     'User_Application_Data' = 'Not compared - links users to their saved filters and settings'
@@ -1438,7 +1268,16 @@ foreach ($en in $EnvNames) {
 }
 [void]$sb.AppendLine('</tbody></table>')
 
-[void]$sb.AppendLine('<h2>Scope</h2><div class="note">Compared: profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.<br>Not compared: Users (as requested) and all per-user tables. System_Version is not row-compared either; it is summarised in the PSO version section instead. Per-user tables hold data tied to individual user accounts - each person''s saved filters, screen settings and list layouts, plus which groups, permissions and parameters are assigned to each user. They are left out because the set of users differs between environments, so comparing them would mostly show noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.<br>Parameters: a parameter missing from the export is using its default value, so the comparison fills in the default from pso_parameters_reference.csv (shown as (default: x)) and treats it as equal to an explicit value that matches it. Rows that differ only because of defaults are marked Same (default) and are hidden. Profiles do not inherit from each other: a parameter unset in any profile uses its default.<br>List and polygon IDs are GUIDs that differ per environment, so lists are matched on content and polygons are summarised by count. Group names differing only by case are treated as one group. API key values are masked. Comparison is case- and whitespace-sensitive; a leading or trailing space is shown with a visible marker.</div>')
+[void]$sb.AppendLine('<h2>Scope</h2><div class="note"><ul>')
+[void]$sb.AppendLine('<li><b>Compared:</b> profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.</li>')
+[void]$sb.AppendLine('<li><b>Not compared:</b> Users and all per-user tables - saved filters, screen settings, list layouts, and which groups, permissions and parameters are assigned to each user. The set of users differs between environments, so comparing them would mostly be noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.</li>')
+[void]$sb.AppendLine('<li><b>System_Version:</b> not compared row by row; it is summarised in the PSO version section instead.</li>')
+[void]$sb.AppendLine('<li><b>Parameters:</b> a parameter missing from the export is using its default. The default comes from pso_parameters_reference.csv and is shown as (default: x), and it counts as equal to an explicit value that matches it. Rows that differ only because of defaults are marked Same (default) and are hidden. Profiles do not inherit from each other: a parameter unset in any profile uses its default.</li>')
+[void]$sb.AppendLine('<li><b>Lists and polygons:</b> IDs are GUIDs that differ per environment, so lists are matched on content and polygons are summarised by count.</li>')
+[void]$sb.AppendLine('<li><b>Groups:</b> names that differ only by case are treated as one group.</li>')
+[void]$sb.AppendLine('<li><b>Matching:</b> case- and whitespace-sensitive. A leading or trailing space is shown with a visible marker.</li>')
+[void]$sb.AppendLine('<li><b>Secrets:</b> API key values are masked.</li>')
+[void]$sb.AppendLine('</ul></div>')
 
 [void]$sb.AppendLine('<h2>Rows that differ from ' + (Get-HtmlText $BaseName) + '</h2><table class="tally"><thead><tr><th>Area</th><th>Rows compared</th>')
 foreach ($en in $EnvNames) { if ($en -ne $BaseName) { [void]$sb.AppendLine('<th>' + (Get-HtmlText $en) + '</th>') } }

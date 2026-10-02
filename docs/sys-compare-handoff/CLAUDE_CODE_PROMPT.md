@@ -38,10 +38,11 @@ Do NOT start coding yet.
 | Path | What it is | How to use it |
 |---|---|---|
 | `reference/Compare-PsoSysFiles.ps1` | The working PowerShell implementation (~1,400 lines) | **Source of truth for comparison logic, output formats and wording.** If this prompt and the script disagree, stop and ask me. |
-| `reference/workbook_builder_reference.py` | Python that generates the Excel workbook | Reference for sheet layout, formulas, conditional formatting. Throwaway code (hardcoded paths, old 29-entry definitions) - port the ideas, not the file. |
+| `reference/workbook_builder_reference.py` | Python that generates the Excel workbook | Reference for sheet layout, formulas, conditional formatting. Throwaway code (hardcoded paths) - port the ideas, not the file. |
 | `reference/sys_loader_reference.py` | Tiny XML loader used by the Python reference | Loads whole file into memory. Production code should stream (see "Parsing"). |
 | `data/pso_parameters_reference.csv` | IFS parameter catalog (736 parameters: application, data type, default value, official description) | **Required input for the comparison.** Supplies defaults so "unset" can be compared with "explicitly set to the default" (see "Unset parameters = default"), and official descriptions. Ship it as data. Defaults can change between PSO versions - see the open questions. |
-| `data/param_definitions.json` | 188 plain-English parameter definitions + 15 name-pattern fallbacks, extracted from the script | Ship this as data, not code. Must be user-extensible. |
+| `data/ParamDefinitions.csv` | 60 rows: full definitions for the 28 parameters the catalog does not cover, plus short **Notes** (KB / field knowledge) appended to the official description of 32 others | Ship as data. Columns `Parameter,Definition,Note,Basis`. Must be user-extensible. |
+| `data/definition_patterns.json` | 15 case-insensitive name patterns used only when nothing else describes a parameter | Ship as data. |
 | `reference/effective_values_reference.py` | Small Python implementation of the effective-value (default) logic | Reference for the algorithm and normalisation; the script is still the source of truth. |
 | `expected/expected_results.json` | Golden numbers, spot checks and mutation tests | Turn into automated tests. |
 | `expected/PSO_environment_comparison.reference.xlsx` | The workbook the Python reference produced from the four sample files | Visual and structural reference for the Excel export. |
@@ -116,14 +117,16 @@ from the baseline per area, per environment, plus "not identical across all".
   If the key value differs between environments, show a warning (the values stay masked).
 - **Baseline:** exactly one. Amber highlight = differs from baseline. Tally is relative to it.
   Column order = the order the user gives, with the baseline marked "(baseline)".
-- **Parameter definitions:** exact `parameter_id` lookup (case-insensitive), then name-pattern
-  fallbacks, else "(no definition yet)". Definitions whose basis starts with "Inference" are
-  shown with a leading `[Inferred]` and greyed. No separate "Basis" column.
-  Users can upload a `ParamDefinitions.csv` (`Parameter,Definition,Basis`) that overrides
-  the built-ins, and the app offers a downloadable `ParamDefinitions_Template.csv` listing
-  every parameter found that has no specific definition. Definition order: user-supplied, then
-  the built-in KB-backed definition, then the **official catalog description**, then built-in
-  inferred text, then name patterns. The Parameters CSV/HTML also gets a **Default** column.
+- **Parameter definitions:** the **official description from the parameter catalog is the
+  definition** (it is more accurate than anything hand-written). `ParamDefinitions.csv` adds to it:
+  a non-empty `Definition` replaces the official text (used for parameters the catalog does not
+  cover, or as a user override); a `Note` is appended after the official text as
+  `... Note: <note>`. Lookup is by parameter_id, case-insensitive. If neither exists, try the name
+  patterns (`data/definition_patterns.json`), else show "(no definition yet)". Definitions whose
+  basis starts with "Inference" are shown with a leading `[Inferred]` and greyed. No separate
+  "Basis" column. Users can upload their own `ParamDefinitions.csv` (same columns; their rows
+  win), and the app offers a downloadable `ParamDefinitions_Template.csv` listing every parameter
+  found that has no definition. The Parameters CSV/HTML also gets a **Default** column.
 
 ### PSO version section (from `System_Version`)
 
@@ -241,7 +244,7 @@ the script agree on the golden numbers; otherwise rely on the golden file.
   permission defaults.
 - Dataset-level parameter overrides and resource/shift travel-profile links (not in the sys
   file).
-- A definitions editor UI (for now: upload a CSV, or edit the JSON in the repo).
+- A definitions editor UI (for now: upload a CSV, or edit `ParamDefinitions.csv` in the repo).
 
 ## Open questions - ask me these first
 

@@ -1,0 +1,61 @@
+Parameter,Definition,Note,Basis
+AllowAllocateBeforeCommitted,,"An activity with date_time_fixed populated counts as fixed-time even if fixed=false and is always scheduled at that time, whatever this parameter says (confirmed by IFS R&D). True also allows emergency allocation when the Gantt is full of committed jobs.","KB: 16-constraints-and-preferences, 24-open-questions-for-ifs"
+AllowAuthenticationGateway,,Adding ?authGateway=true (case-sensitive) to the Workbench login URL gives a username/password fallback if single sign-on breaks.,KB: 18-pso-workbench-administration
+AllowPartiallyCommittedBucketRoutes,,True raises a Partially Committed Bucket Route exception.,"KB: 20-resource-capacity-management, 08-pso-advanced"
+AppointmentFallbackProfileId,,"Set on the dataset active profile to point at a fallback profile, typically StraightLine travel, to speed up very high frequency booking.",KB: 10-appointment-booking
+BackgroundProcessReactiveTasks,,Must be false for DSE scale-to-zero when REACTIVE datasets exist; the installer sets it when auto-scaling is enabled.,KB: 18-pso-workbench-administration
+CascadeSchedulingObjectDeletions,"By name, whether deleting a scheduling object also deletes the objects that depend on it. Not documented in the KB.",,Inference (not in KB)
+CommitBreaks,Suggested Dispatch: whether breaks are committed (default true).,,KB: 08-pso-advanced
+CommittedActivitiesConstraintsOption,,"Applies only to status 30 (Committed) to 40 (Accepted); no effect once the resource is Travelling (50). Field-tested: only Activity_Availabilities are enforced, SLA windows are NOT.","KB: 06-tasks, 14-extended-patterns"
+CommittedActivitiesProfileId,,Step 2 of the real-time travel setup: the committed-activities profile (RealTimeTravel + TOMTOM + key) is only used when this points at it.,KB: 17-travel
+CommittedActivitiesProfileThreshold,,Keep it tight: real-time travel for distant activities wastes performance.,KB: 17-travel
+CommitToAllocatedShift,,"Applies to manual commits in the Workbench. If it is on together with CommitToAvailabilityWindow, whichever gives the later start wins.",KB: 25-workbench-scheduling-ui
+CommitToAvailabilityWindow,"When true and SDS suggests committing an activity inside an availability window, date_time_earliest is set to the window start (or shift start, whichever is later), so the activity cannot be scheduled before the window opens.",,"KB: 08-pso-advanced, 25-workbench-scheduling-ui"
+CountBreaks,Whether committed breaks count toward MaximumCommittedActivities (default true).,,KB: 08-pso-advanced
+DatasetAvailability,,0 = no draining (test or single-instance only); 1 = new instance is ready before the old one stops; 2 or more = HA mode with N-1 replicas alongside the primary (needs proportionally more hardware).,KB: 18-pso-workbench-administration
+DatasetTypesToProcess,,Must be SEGMENT to use distributed scheduling (DST).,KB: 23-architecture-and-sizing
+DragAndDropCommitOption,,"1 = Commit To Resource (validates first unless ManChaNoValidation), 2 = Open Manual Changes (pre-fills the panel), 3 = Validate and Commit To Resource (always validates). Drag and drop is not enabled by default.",KB: 25-workbench-scheduling-ui
+EndShiftHorizon,"Default 1 hour. If the resource has not logged off this long after shift end, the shift is treated as finished and LogoffUncommit is applied.",,KB: 08-pso-advanced
+FixedActivityAfterShiftBuffer,"A fixed-time activity starting shortly after shift end (within this buffer, default 1 hour) is assumed to belong to the previous shift, so the resource travels from the last shift activity.",,KB: 06-tasks
+HierarchicalDatabaseMatrixId,,Set per profile; this is how multiple HTM connections are supported.,"KB: 17-travel, 18-pso-workbench-administration"
+IgnoreBreakTime,"If true, break time is excluded from the TimeHorizon calculation. Discrepancy: the KB default is false, but the PSO Scheduling Schema Technical Guide says True. Not yet confirmed with IFS R&D, so check your dataset.",,"KB: 08-pso-advanced, 24-open-questions-for-ifs"
+ImplicitBreaksOnOffEventsRequired,,Added in 6.5.0.25; a fix in 6.16.0.79 made it apply during appointment booking.,Release notes
+iSWBMapKey,,"Billable transactions are charged to this key, so group users appropriately. Also called MapKey.",KB: 18-pso-workbench-administration
+JsonFormatVersion,"JSON format used by the RESTful Gateway and Schedule Broadcast Manager. The format changed in PSO 6.15; set to ""Version 1"" to revert to the pre-6.15 format.",,KB: 22-pso-restful-gateway
+JwtExpiryDays,,Consider raising for long WISE simulation runs. In a child organisation it must be changed at head-organisation level.,KB: 27-workbench-wise-simulation
+JwtLogoutHours,,Consider raising for long WISE simulation runs. In a child organisation it must be changed at head-organisation level.,KB: 27-workbench-wise-simulation
+LogoffUncommit,"Default 30. A status threshold, not a yes/no: when a resource logs off, activities at this status or lower are uncommitted (30 = Committed, so Accepted jobs at 40 survive). 0 disables.",,KB: 08-pso-advanced
+LogonRequired,Suggested Dispatch (default true): activities are only committed when the resource is logged on.,,KB: 08-pso-advanced
+MaxDisplaceableActivityPriority,,-1 = off. Example: 2 ignores priority 1-2 when building an offer. Never applies to committed-or-later or fully fixed activities.,KB: 10-appointment-booking
+MaximumCommittedActivities,Suggested Dispatch commit rule (default 1): maximum activities at committed status or above (and below completed) for a resource at any one time.,,KB: 08-pso-advanced
+MaxRetainedPasswords,,Both this and OldPasswordRetention must be above 0 for reuse checks to work.,KB: 18-pso-workbench-administration
+NextDayCommit,Suggested Dispatch (default false): allow commit suggestions for the next shift.,,KB: 08-pso-advanced
+NextDayCommitBuffer,Default 0 hours. Start committing the next shift activities this long before the current shift ends.,,KB: 08-pso-advanced
+NoStatusChangeFromStatus,"KB spelling of NoStatusChangesFromStatus (see that entry): status at or above which only non-status, non-resource changes are allowed.",,KB: 18-pso-workbench-administration
+NoStatusChangesFromStatus,,The KB spells this NoStatusChangeFromStatus (singular Change); the parameter ID in the sys files has the extra s.,KB: 18-pso-workbench-administration
+OldPasswordRetention,,Both this and MaxRetainedPasswords must be above 0 for reuse checks to work.,KB: 18-pso-workbench-administration
+OpenIdAuthority,,"Expected to differ per environment. If it is wrong, logins fail; the packaged Reset OpenIdAuthority.xml restores password login.",KB: 18-pso-workbench-administration
+PSWBreakDefaultColourExplicit,Gantt colour of explicit breaks.,,KB: 25-workbench-scheduling-ui
+PSWBreakOffColour,Break colour by event status when Colour by Status is on: break off.,,KB: 25-workbench-scheduling-ui
+PSWBreakOnColour,Break colour by event status when Colour by Status is on: break on.,,KB: 25-workbench-scheduling-ui
+PSWCommittedBreakColour,Break colour by event status when Colour by Status is on: committed break.,,KB: 25-workbench-scheduling-ui
+ResourceAvailabilityLeeWayMinutes,Leeway (minutes) applied when the #available field is worked out for a resource.,,KB: 18-pso-workbench-administration
+RoutingCalculator,,InProcess = each service loads its own routing data (reloaded on every LOAD); TravelAnalyser = the Travel Analyser service shares it across LOADs and datasets. Do not alter unless advised by IFS.,KB: 17-travel
+RoutingMaximumDistanceMeters,,Do not alter unless advised by IFS product development.,KB: 17-travel
+RoutingMaximumSearchMetersMultiplier,,Do not alter unless advised by IFS product development.,KB: 17-travel
+ScheduleWindowStartBuffer,New in 6.17.0.102. Mitigates offered appointments becoming unavailable because time elapsed between the offer and its acceptance.,,Release notes: 28-release-notes-watchlist
+SendExternalCommitsMode,When Suggested_Dispatch records are written for activities committed outside SDS. NONE (default) = normal behaviour only; ALL = whenever any activity is committed or uncommitted that SDS did not suggest; MANUAL = only for activities committed manually in the Scheduling Workbench.,,KB: 08-pso-advanced
+ShiftsInFuture,"Default 0. Number of future shifts, beyond the current one, to make commit suggestions for.",,KB: 08-pso-advanced
+SortValuePrecedenceMaximumStatus,,"At the default 30 the order is by status first (Accepted, Downloaded, Sent, Committed), then commit_sort_value; at 40 commit_sort_value is the main key. Anything already Travelling or beyond stays ahead. Each activity needs a unique status + commit_sort_value + date_time_status combination or the order is undefined.",KB: 06-tasks
+SpeedFactor,,Set on Resource or Resource Type; the parameter is the final fallback (there is no shift-level override). E.g. 1.5 makes expected journeys 50% longer.,"KB: 17-travel, 00-property-inheritance"
+TimeBeforeShiftStart,Suggested Dispatch (default 30 min): how far before a shift starts SDS begins making suggestions for it.,,KB: 08-pso-advanced
+TimeHorizon,Suggested Dispatch commit rule (default 30 min): an activity is only committed if the resource is due to start travelling within this time.,,"KB: 08-pso-advanced, 06-tasks"
+TravelCalculationMethod,KB name for the HTM vs Straight Line choice. The parameter ID actually used in these sys files is TravelCalculationOption (see that entry).,,KB: 17-travel
+TravelCalculationOption,,RealTimeTravel is meant for committed/imminent activities and is layered on top of HierarchicalTravelMatrix or StraightLine.,"KB: 17-travel, 10-appointment-booking"
+TravelTimeProfileId,,"Last in the lookup order: Shift, then Resource, then Resource Type are checked first (profile_id_travel), then this parameter on the active profile.","KB: 17-travel, 00-property-inheritance"
+TurnByTurnDirectionsKey,,Billable per request.,KB: 18-pso-workbench-administration
+TurnByTurnDirectionsProvider,,Currently BING or HERE only. Each request is a separate billable transaction.,KB: 18-pso-workbench-administration
+UseFallbackProfileForAppointmentSummary,Default false. Whether the appointment summary/confirmation step also uses the fallback profile. False means the summary validates against real HTM travel.,,KB: 10-appointment-booking
+UseOutlinedIsochrones,Switches isochrones from filled/translucent to outlined (the in-panel checkbox does the same).,,KB: 25-workbench-scheduling-ui
+WISEAutoGenerateResourceTypes,"Default off. If on, WISE auto-creates resource types around the most common skill combinations (up to 6 distinct skills; with more skills, or none, one resource type holding every skill).",,KB: 27-workbench-wise-simulation
+WorkbenchHostURL,,"Head organisation only, once per hosting server. Multiple URLs space-separated; * wildcards allowed. For IFS Cloud it holds the callback URL.","KB: 22-pso-restful-gateway, 11-dispatch-console, 13-admin-troubleshooting"

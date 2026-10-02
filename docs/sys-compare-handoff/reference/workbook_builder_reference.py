@@ -29,14 +29,22 @@ import re as _re, json as _json
 sys.path.insert(0,'/home/claude')
 from effective import load_catalog, resolve, env_model, entry
 CAT=load_catalog('/mnt/project/pso_parameters_reference.csv')
-_dj=_json.load(open('/mnt/user-data/outputs/pso-sys-compare-handoff/data/param_definitions.json'))
-JDEFS={k.lower():v for k,v in _dj['definitions'].items()}; JPATS=_dj['patterns']
+import csv as _csv
+JDEFS={r['Parameter'].strip().lower():r for r in _csv.DictReader(open('/mnt/user-data/outputs/ParamDefinitions.csv',encoding='utf-8',newline=''))}
+JPATS=_json.load(open('/mnt/user-data/outputs/pso-sys-compare-handoff/data/definition_patterns.json'))['patterns']
 def pdef(name,app):
     d=JDEFS.get(name.lower())
-    if d and (d['basis'].startswith('KB') or d['basis'].startswith('User')): return d['text'],d['basis']
+    if d and d['Definition'].strip():
+        t=d['Definition']
+        if d['Note'].strip(): t+=' Note: '+d['Note']
+        return t,d['Basis']
     en=entry(CAT,name,app or '')
-    if en and en['desc'].strip(): return en['desc'],'Schema reference'
-    if d: return d['text'],d['basis']
+    if en and en['desc'].strip():
+        t=en['desc'].strip(); bs='Schema reference'
+        if d and d['Note'].strip():
+            if not t.endswith('.'): t+='.'
+            t+=' Note: '+d['Note']; bs='Schema reference + '+d['Basis']
+        return t,bs
     for p in JPATS:
         if _re.search(p['pattern'],name,flags=_re.I): return p['text'],p['basis']
     return None
@@ -288,7 +296,7 @@ ws_c=wb.create_sheet('Table Counts')
 hdr=['Table']+[LBL[e] for e in ENVS]+['Scope']
 for i,h in enumerate(hdr,1):
     c=ws_c.cell(1,i,h); c.font=f_hdr; c.fill=fill_hdr; c.border=border
-scope={'Users':'Not compared - user accounts (excluded per request)','System_Version':'Not compared - version history (excluded per request)','Application_Data':'Not compared - per-user saved filters and screen settings','User_Application_Data':'Not compared - links users to their saved filters and settings','User_Custom_List':'Not compared - per-user custom list layouts','User_External_Task':'Not compared - external tasks linked to individual users','User_Group':'Not compared - which users belong to which groups','User_List':'Not compared - per-user list/column layouts','User_Object':'Not compared - objects linked to individual users','User_Parameter':'Not compared - per-user parameter values','User_Permission':'Not compared - per-user permission overrides'}
+scope={'Users':'Not compared - user accounts','System_Version':'Reported separately - see the Versions tab (not row-compared)','Application_Data':'Not compared - per-user saved filters and screen settings','User_Application_Data':'Not compared - links users to their saved filters and settings','User_Custom_List':'Not compared - per-user custom list layouts','User_External_Task':'Not compared - external tasks linked to individual users','User_Group':'Not compared - which users belong to which groups','User_List':'Not compared - per-user list/column layouts','User_Object':'Not compared - objects linked to individual users','User_Parameter':'Not compared - per-user parameter values','User_Permission':'Not compared - per-user permission overrides'}
 comp={'Profile_Parameter':'Parameters','Org_Schedule_Exception_Type':'Exception Types','Group_Permission':'Group Permissions','Groups':'Groups','Organisation_Permission':'Org Permissions','Organisation_List':'Lists','List':'Lists (org defaults only)','List_Entry':'Lists (org defaults only)','Entry':'Lists (org defaults only)','Travel_Time_Profile':'Travel','Travel_Time_Weighting':'Travel','Travel_Time_Polygon':'Travel','Polygon':'Travel','Profile':'Profiles & Other','Terminology_Organisation':'Profiles & Other','Org_Schedule_Exc_Type_Data':'Profiles & Other','Organisation':'Profiles & Other'}
 tabs=sorted(set().union(*[set(e) for e in E.values()]))
 for r,t in enumerate(tabs,2):
@@ -394,19 +402,20 @@ r=4
 put(r,1,'Scope',f_bold,fill_sub); 
 for c in range(2,7): ws.cell(r,c).fill=fill_sub
 scope_lines=[
- 'Compared: profile parameters, schedule exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology.',
- 'Not compared: Users and System_Version (as requested), and all per-user tables. Per-user tables hold data tied to individual user accounts: each person’s saved filters, screen settings and list layouts, plus which groups, permissions and parameters are assigned to each user. They are left out because the set of users differs between environments, so comparing them would mostly show noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.',
- 'List, entry and polygon IDs are GUIDs that differ per environment, so lists are matched on content and travel polygons are summarised by count.',
- 'ST_Ops_Mgr / ST_Ops_MGR are treated as the same group (case differs by environment); the Groups tab flags the spelling difference.',
- 'AST environment: not available (credentials failed), so not included.',
+ '•  Compared: profile parameters, schedule exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology.',
+ '•  Not compared: Users and all per-user tables - saved filters, screen settings, list layouts, and which groups, permissions and parameters are assigned to each user. The set of users differs between environments, so comparing them would mostly be noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.',
+ '•  System_Version: not compared row by row; it is summarised on the Versions tab instead.',
+ '•  Parameters: an unset parameter uses its default, so it is compared by its default value (shown as (default: x); data from pso_parameters_reference.csv). Rows that differ only because of defaults are marked Same (default). Profiles do not inherit from each other: a parameter unset in any profile uses its default.',
+ '•  Lists and polygons: IDs are GUIDs that differ per environment, so lists are matched on content and travel polygons are summarised by count.',
+ '•  Groups: ST_Ops_Mgr / ST_Ops_MGR are treated as the same group (case differs by environment); the Groups tab flags the spelling difference.',
+ '•  Environments: PROD, ACC (UAT), STG and TST. AST is not in this workbook.',
 ]
-if apikey_same: scope_lines.append('Routing API key values are masked as [API key set]; the key value is identical everywhere it is set.')
-else: scope_lines.append('Routing API key values are masked as [API key set]; the key VALUES differ between environments.')
-scope_lines.append('Parameters: an unset parameter uses its default, so unset parameters are compared by their default value (shown as (default: x); data from pso_parameters_reference.csv). Rows that differ only because of defaults are marked Same (default). Profiles do not inherit from each other: a parameter unset in any profile uses its default.')
-scope_lines.append('Parameter definitions come from the PSO schema reference and the project knowledge base; ones marked [Inferred] rest only on the parameter name and general PSO knowledge, so treat them as unverified.')
-scope_lines.append('Legend: amber cell = differs from PROD; “DIFF” = not identical across all four; ␣ marks a leading/trailing space in a value; permissions show allow / allow_edit (T/F).')
+if apikey_same: scope_lines.append('•  Secrets: routing API key values are masked as [API key set]; the key value is identical everywhere it is set.')
+else: scope_lines.append('•  Secrets: routing API key values are masked as [API key set]; the key VALUES differ between environments.')
+scope_lines.append('•  Parameter definitions come from the PSO schema reference and the project knowledge base; ones marked [Inferred] rest only on the parameter name and general PSO knowledge, so treat them as unverified.')
+scope_lines.append('•  Legend: amber cell = differs from PROD; "DIFF" = not identical across all four; ␣ marks a leading/trailing space in a value; permissions show allow / allow_edit (T/F).')
 for t in scope_lines:
-    r+=1; put(r,1,t,al=wrap); ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6); ws.row_dimensions[r].height=28
+    r+=1; put(r,1,t,al=wrap); ws.merge_cells(start_row=r,start_column=1,end_row=r,end_column=6); ws.row_dimensions[r].height=max(16,14*(-(-len(t)//165))+3)
 r+=2
 put(r,1,'Rows that differ from PROD',f_bold,fill_sub)
 for c,h in zip(range(2,6),['Rows compared','ACC (UAT)','STG','TST']): put(r,c,h,f_bold,fill_sub,Alignment(horizontal='center'))
