@@ -177,15 +177,19 @@ class XlsxWorkbook
     {
         $lines = [
             ...($result->defaultsApplied ? [] : ['PARAMETER DEFAULTS WERE NOT APPLIED: the parameter catalog was not available, so unset parameters show as (absent) and may simply be using their default. Parameter differences are raw and overstate the real differences.']),
-            'Compared: profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.',
-            'Not compared: Users and all per-user tables. They hold data tied to individual user accounts (saved filters, screen settings, list layouts, and which groups, permissions and parameters each user has), and the set of users differs between environments, so comparing them would mostly show noise. Group membership (who is in which group) is therefore not compared, only what each group is allowed to do.',
-            'List and polygon IDs are GUIDs that differ per environment, so lists are matched on content and travel polygons are summarised by count. Group names that differ only by case are treated as one group, and the spelling difference is flagged.',
-            'Group permission rows include explicit denies (allow = false), so a row count is not a count of permissions granted. Permissions show allow / allow_edit as T / F.',
+            '•  Compared: profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.',
+            '•  Not compared: Users and all per-user tables - saved filters, screen settings, list layouts, and which groups, permissions and parameters are assigned to each user. The set of users differs between environments, so comparing them would mostly be noise. Group membership (who is in which group) is therefore not compared, only what each group is allowed to do.',
+            '•  System_Version: not compared row by row; it is summarised on the Versions tab instead.',
+            '•  Parameters: an unset parameter uses its default, so it is compared by its default value (shown as (default: x); from the parameter catalog). Rows that differ only because of defaults are marked "Same (default)" and are not counted. Profiles do not inherit from each other.',
+            '•  Group permissions: rows include explicit denies (allow = false), so a row count is not a count of permissions granted. Permissions show allow / allow_edit as T / F.',
+            '•  Lists and polygons: IDs are GUIDs that differ per environment, so lists are matched on content and travel polygons are summarised by count.',
+            '•  Groups: names that differ only by case are treated as one group, and the spelling difference is flagged.',
+            '•  Environments: '.implode(', ', $result->environmentNames()).'.',
             $result->apiKeyValuesDiffer
-                ? 'Routing API key values are masked as [API key set]. The key VALUES differ between environments.'
-                : 'Routing API key values are masked as [API key set].',
-            'Parameters are compared as effective values: a parameter missing from the export uses its catalog default (shown as (default: x)), and rows that differ only because of defaults are marked "Same (default)" and are not counted. Profiles do not inherit from each other.',
-            'Comparison is case- and whitespace-sensitive. A leading or trailing space is shown with the visible marker '.Cells::SPACE_MARK.'. Amber cell = differs from '.$result->baselineName().'; DIFF = effective values differ across the environments.',
+                ? '•  Secrets: routing API key values are masked as [API key set]. The key VALUES differ between environments.'
+                : '•  Secrets: routing API key values are masked as [API key set].',
+            '•  Parameter definitions come from the official parameter catalog, plus notes from the project knowledge base; ones marked [Inferred] rest only on the parameter name, so treat them as unverified.',
+            '•  Legend: amber cell = differs from '.$result->baselineName().'; DIFF = effective values differ across the environments; '.Cells::SPACE_MARK.' marks a leading or trailing space in a value.',
         ];
 
         return $lines;

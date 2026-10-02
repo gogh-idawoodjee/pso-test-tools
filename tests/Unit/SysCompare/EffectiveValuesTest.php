@@ -280,25 +280,62 @@ it('writes the Default column and the Same (default) status to the CSV and the w
     expect($sheet)->toContain('Same (default)')->toContain('>Default<')->toContain('(default: false)');
 });
 
-it('orders definitions: user, built-in knowledge base, catalog description, inferred text, name pattern', function (): void {
-    $definitions = (new ParamDefinitions(
+it('builds a definition from the official description, a Definition and a Note', function (): void {
+    $definitions = new ParamDefinitions(
         [
-            'Flag' => ['text' => 'KB text.', 'basis' => 'KB: example'],
-            'Count' => ['text' => 'Inferred text.', 'basis' => 'Inference (not in KB)'],
-            'Mine' => ['text' => 'Built-in for Mine.', 'basis' => 'KB: example'],
+            // a Definition replaces the official text (and takes its own Note)
+            'Flag' => ['definition' => 'My own flag text.', 'note' => 'Careful.', 'basis' => 'KB: example'],
+            // a Note is appended to the official description
+            'Count' => ['note' => 'Confirmed by IFS.', 'basis' => 'KB: example'],
+            // a Note on a parameter the catalog does not know is ignored: there is nothing to append it to
+            'Unlisted' => ['note' => 'Orphan note.', 'basis' => 'KB: example'],
+            'Guess' => ['definition' => 'Probably this.', 'basis' => 'Inference (not in KB)'],
         ],
         [['pattern' => 'Seconds$', 'text' => 'A time setting.', 'basis' => 'Inference (name pattern)']],
-    ))->withUserDefinitions([['Parameter' => 'Mine', 'Definition' => 'My own.', 'Basis' => 'Inference (my guess)']]);
+    );
 
     $catalog = effectiveCatalog();
 
-    expect($definitions->find('Mine', 'DSE', $catalog)->text)->toBe('My own.')
-        ->and($definitions->find('Flag', 'DSE', $catalog)->text)->toBe('KB text.')
-        ->and($definitions->find('Count', 'DSE', $catalog)->text)->toBe('How many.')
-        ->and($definitions->find('Count', 'DSE', $catalog)->displayText())->toBe('How many.')
-        ->and($definitions->find('Count', 'DSE', null)->displayText())->toBe('[Inferred] Inferred text.')
+    expect($definitions->find('Flag', 'DSE', $catalog)->text)->toBe('My own flag text. Note: Careful.')
+        ->and($definitions->find('Flag', 'DSE', $catalog)->basis)->toBe('KB: example')
+        ->and($definitions->find('Count', 'DSE', $catalog)->text)->toBe('How many. Note: Confirmed by IFS.')
+        ->and($definitions->find('Count', 'DSE', $catalog)->basis)->toBe('Schema reference + KB: example')
+        ->and($definitions->find('Count', 'DSE', $catalog)->displayText())->toBe('How many. Note: Confirmed by IFS.')
+        ->and($definitions->find('Interval', 'DSE', $catalog)->text)->toBe('How often it runs.')
+        ->and($definitions->find('Interval', 'DSE', $catalog)->basis)->toBe('Schema reference')
+        ->and($definitions->find('Unlisted', 'DSE', $catalog))->toBeNull()
+        ->and($definitions->find('Guess', 'DSE', $catalog)->displayText())->toBe('[Inferred] Probably this.')
         ->and($definitions->find('RetrySeconds', 'DSE', $catalog)->basis)->toBe('Inference (name pattern)')
         ->and($definitions->find('Nothing', 'DSE', $catalog))->toBeNull();
+});
+
+it('closes the official sentence before appending a note', function (): void {
+    $definitions = new ParamDefinitions(['Blank' => ['note' => 'A note.', 'basis' => 'KB: example']]);
+
+    expect($definitions->find('Blank', 'DSE', effectiveCatalog())->text)->toBe('Defaults to nothing. Note: A note.');
+
+    $withoutPeriod = new ParamDefinitions(['Flag' => ['note' => 'Later.', 'basis' => 'KB: example']]);
+    $path = storage_path('framework/testing/syscompare-period-'.bin2hex(random_bytes(4)).'.csv');
+    file_put_contents($path, "application,parameter_id,access,data_type,group,class,default_value,description\nDSE,Flag,LOADUPDATE,BOOLEAN,X,ORG,false,Turns it on\n");
+
+    expect($withoutPeriod->find('Flag', 'DSE', ParameterCatalog::fromCsv($path))->text)->toBe('Turns it on. Note: Later.');
+});
+
+it('ships the built-in definitions and name patterns', function (): void {
+    $definitions = ParamDefinitions::builtIn();
+    $catalog = ParameterCatalog::builtIn();
+
+    // 28 parameters the catalog does not cover get a full Definition ...
+    $definitionOnly = $definitions->find('CascadeSchedulingObjectDeletions', '', $catalog);
+    // ... and 32 catalog parameters get a Note appended to the official description
+    $withNote = $definitions->find('AllowAllocateBeforeCommitted', '', $catalog);
+
+    expect($catalog->entry('CascadeSchedulingObjectDeletions'))->toBeNull()
+        ->and($definitionOnly->text)->not->toBe('')
+        ->and($definitionOnly->displayText())->toStartWith('[Inferred] ')
+        ->and($withNote->text)->toContain(' Note: ')
+        ->and($withNote->basis)->toStartWith('Schema reference + KB')
+        ->and($definitions->find('PSWGanttBarColour', '', $catalog)->basis)->toBe('Inference (name pattern)');
 });
 
 it('only puts parameters in the template when nothing but a name-pattern guess (or nothing) describes them', function (): void {

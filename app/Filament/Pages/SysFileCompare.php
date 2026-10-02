@@ -139,7 +139,7 @@ class SysFileCompare extends Page
                             ->visible(fn (): bool => $this->environmentItems() !== []),
                     ]),
                 Section::make('Parameter definitions (optional)')
-                    ->description('Upload a ParamDefinitions.csv (columns Parameter, Definition, Basis) to describe parameters in plain English. Your definitions override the built-in ones. A template listing the parameters that still have no definition is offered with the results.')
+                    ->description('Parameters are described using the official PSO descriptions. Upload a ParamDefinitions.csv (columns Parameter, Definition, Note, Basis) to add to them: a Definition replaces the official text, and a Note is added after it. Your rows replace the built-in row for the same parameter. A template listing the parameters that still have no definition is offered with the results.')
                     ->schema([
                         View::make('filament.pages.sys-file-compare.dropzone')
                             ->viewData(['kind' => 'definitions'])

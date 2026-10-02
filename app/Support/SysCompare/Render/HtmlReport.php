@@ -219,11 +219,19 @@ JS;
 
     private function scopeSection(): string
     {
-        return '<h2>Scope</h2><div class="note">Compared: profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.<br>'
-            .'Not compared: Users and all per-user tables. System_Version is not row-compared either; it is summarised in the PSO version section instead. Per-user tables hold data tied to individual user accounts - each person\'s saved filters, screen settings and list layouts, plus which groups, permissions and parameters are assigned to each user. They are left out because the set of users differs between environments, so comparing them would mostly show noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.<br>'
-            .'Parameters: a parameter missing from the export is using its default value, so the comparison fills in the default from the parameter catalog (shown as (default: x)) and treats it as equal to an explicit value that matches it. Rows that differ only because of defaults are marked Same (default) and are hidden. Profiles do not inherit from each other: a parameter unset in any profile uses its default.<br>'
-            .'List and polygon IDs are GUIDs that differ per environment, so lists are matched on content and polygons are summarised by count. Group names differing only by case are treated as one group. API key values are masked. Comparison is case- and whitespace-sensitive; a leading or trailing space is shown with a visible marker.<br>'
-            .'Group permission rows include explicit denies (allow = false), so a count of rows is not a count of permissions granted. Permissions show allow / allow_edit as T / F.</div>';
+        $items = [
+            '<b>Compared:</b> profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.',
+            '<b>Not compared:</b> Users and all per-user tables - saved filters, screen settings, list layouts, and which groups, permissions and parameters are assigned to each user. The set of users differs between environments, so comparing them would mostly be noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.',
+            '<b>System_Version:</b> not compared row by row; it is summarised in the PSO version section instead.',
+            '<b>Parameters:</b> a parameter missing from the export is using its default. The default comes from the parameter catalog and is shown as (default: x), and it counts as equal to an explicit value that matches it. Rows that differ only because of defaults are marked Same (default) and are hidden. Profiles do not inherit from each other: a parameter unset in any profile uses its default.',
+            '<b>Group permissions:</b> rows include explicit denies (allow = false), so a count of rows is not a count of permissions granted. Permissions show allow / allow_edit as T / F.',
+            '<b>Lists and polygons:</b> IDs are GUIDs that differ per environment, so lists are matched on content and polygons are summarised by count.',
+            '<b>Groups:</b> names that differ only by case are treated as one group.',
+            '<b>Matching:</b> case- and whitespace-sensitive. A leading or trailing space is shown with a visible marker.',
+            '<b>Secrets:</b> API key values are masked.',
+        ];
+
+        return '<h2>Scope</h2><div class="note"><ul><li>'.implode("</li>\n<li>", $items).'</li></ul></div>';
     }
 
     private function tallySection(ComparisonResult $result): string
