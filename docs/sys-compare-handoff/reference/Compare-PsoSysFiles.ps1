@@ -28,6 +28,13 @@
 
     Routing/API key values are masked in all output.
 
+    Unset parameters: a parameter that is not in the export is using its default. The default,
+    data type and official description come from pso_parameters_reference.csv (keep it next to
+    the script). Values are compared as effective values, so an explicit value equal to the
+    default (e.g. 1 vs unset with default 1, PT5M vs PT0H5M0S) is NOT a difference; those rows
+    are marked Same (default). Profiles do not inherit from each other: a parameter unset in any
+    profile uses its default.
+
     Parameters are described in plain English from a built-in table (about 190 entries taken
     from the PSO knowledge base). Add your own via ParamDefinitions.csv (Parameter,Definition,
     Basis) next to the script. ParamDefinitions_Template.csv lists what is still undocumented.
@@ -63,7 +70,9 @@ param(
     [switch]$ShowSameRowsInHtml,
     [switch]$OpenReport,
     # Turn off coloured console output.
-    [switch]$NoColor
+    [switch]$NoColor,
+    # Parameter reference (defaults, data types, official descriptions). Unset parameters use their default.
+    [string]$ParametersReference = '.\pso_parameters_reference.csv'
     # ================================================================
 )
 
@@ -347,12 +356,99 @@ function Get-Field($row, [string]$name) {
     return $null
 }
 
-function Get-ParamDef([string]$name) {
-    if ($Defs.ContainsKey($name)) { return $Defs[$name] }
+function Get-RefEntry([string]$pn, [string]$app) {
+    if ([string]::IsNullOrEmpty($pn)) { return $null }
+    $lk = $pn.ToLowerInvariant()
+    if (-not $ParamRef.ContainsKey($lk)) { return $null }
+    $lst = $ParamRef[$lk]
+    foreach ($e in $lst) { if ($e.App -ceq $app) { return $e } }
+    return $lst[0]
+}
+
+# Definition order: your ParamDefinitions.csv / built-in KB-backed text, then the schema reference
+# description, then built-in inferred text, then name patterns.
+function Get-ParamDef([string]$name, [string]$app) {
+    $d = $null
+    if ($Defs.ContainsKey($name)) { $d = $Defs[$name] }
+    if ($null -ne $d -and ($d.Basis -like 'KB*' -or $d.Basis -like 'User-supplied*')) { return $d }
+    $ent = Get-RefEntry $name $app
+    if ($null -ne $ent -and -not [string]::IsNullOrWhiteSpace($ent.Desc)) { return @{ Text = $ent.Desc; Basis = 'Schema reference' } }
+    if ($null -ne $d) { return $d }
     foreach ($dp in $DefPatterns) {
         if ($name -match $dp.Pattern) { return @{ Text = $dp.Text; Basis = $dp.Basis } }
     }
     return $null
+}
+
+# ISO-8601 duration (PT5M, PT0H5M0S, P2D ...) -> total seconds, or $null if it is not one
+function ConvertFrom-IsoDuration([string]$s) {
+    $m = [regex]::Match($s.Trim(), '^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$')
+    if (-not $m.Success) { return $null }
+    $any = $false
+    $tot = 0.0
+    $mult = @(86400.0, 3600.0, 60.0, 1.0)
+    for ($i = 1; $i -le 4; $i++) {
+        if ($m.Groups[$i].Success) {
+            $any = $true
+            $tot += ([double]::Parse($m.Groups[$i].Value, $Inv) * $mult[$i - 1])
+        }
+    }
+    if (-not $any) { return $null }
+    return $tot
+}
+
+# Canonical form used ONLY to decide whether two values are the same (PT5M = PT0H5M0S, True = true, 1 = 1.0)
+function ConvertTo-CanonValue($v, [string]$type) {
+    if ($null -eq $v) { return '' }
+    $s = [string]$v
+    switch ($type.ToUpperInvariant()) {
+        'BOOLEAN' { return $s.Trim().ToLowerInvariant() }
+        'INTEGER' {
+            $n = [long]0
+            if ([long]::TryParse($s.Trim(), [System.Globalization.NumberStyles]::Integer, $Inv, [ref]$n)) { return $n.ToString($Inv) }
+            return $s
+        }
+        'DOUBLE' {
+            $dv = [double]0
+            if ([double]::TryParse($s.Trim(), [System.Globalization.NumberStyles]::Float, $Inv, [ref]$dv)) { return $dv.ToString('R', $Inv) }
+            return $s
+        }
+        'TIMESPAN' {
+            $secs = ConvertFrom-IsoDuration $s
+            if ($null -ne $secs) { return ('dur:' + $secs.ToString('R', $Inv)) }
+            return $s
+        }
+        default { return $s }
+    }
+}
+
+function Show-ParamValue($v, [bool]$mask) {
+    if ($null -eq $v -or ([string]$v).Length -eq 0) { return $NullText }
+    if ($mask) { return '[API key set]' }
+    return (Format-Text $v)
+}
+
+# What value does this environment really use for a profile parameter?
+#   explicit value -> reference default -> (absent). Profiles do NOT inherit from each other:
+#   a parameter unset in any profile uses its default.
+function Get-EffectiveParam([string]$en, [string]$prof, [string]$pn, [string]$app) {
+    $mask = ($pn -match '(?i)key')
+    if (-not $ProfilesByEnv[$en].ContainsKey($prof)) { return @{ Display = '(no profile)'; Canon = '(no profile)' } }
+    $ent = Get-RefEntry $pn $app
+    $type = ''
+    if ($null -ne $ent) { $type = $ent.Type }
+    $k = $prof + [char]31 + $pn + [char]31 + $app
+    if ($RawParams[$en].ContainsKey($k)) {
+        $v = $RawParams[$en][$k]
+        return @{ Display = (Show-ParamValue $v $mask); Canon = (ConvertTo-CanonValue $v $type) }
+    }
+    if ($null -ne $ent) {
+        $dflt = $ent.Default
+        $dd = 'blank'
+        if (-not [string]::IsNullOrEmpty($dflt)) { if ($mask) { $dd = '[API key set]' } else { $dd = $dflt } }
+        return @{ Display = ('(default: ' + $dd + ')'); Canon = (ConvertTo-CanonValue $dflt $type) }
+    }
+    return @{ Display = $Absent; Canon = $Absent }
 }
 
 function Format-Text($s) {
@@ -365,9 +461,14 @@ function Format-Text($s) {
     return (($SpMark * $lead) + $s.Trim(' ') + ($SpMark * $trail))
 }
 
-function Get-Status($vals) {
+# DIFF = effective values differ; Same (default) = shown values differ only because one side uses a default
+function Get-Status($vals, $cmp) {
+    if ($null -eq $cmp) { $cmp = $vals }
+    for ($i = 1; $i -lt $cmp.Count; $i++) {
+        if ($cmp[$i] -cne $cmp[0]) { return 'DIFF' }
+    }
     for ($i = 1; $i -lt $vals.Count; $i++) {
-        if ($vals[$i] -cne $vals[0]) { return 'DIFF' }
+        if ($vals[$i] -cne $vals[0]) { return 'Same (default)' }
     }
     return 'Same'
 }
@@ -413,8 +514,9 @@ function New-Tab([string]$title, [string]$file, [string[]]$keyHeaders, [string[]
     }
 }
 
-function Add-TabRow($tab, [string[]]$keyVals, [string[]]$cellVals, $extra) {
-    $row = @{ KeyVals = $keyVals; CellVals = $cellVals; Extra = $extra; Status = (Get-Status $cellVals) }
+function Add-TabRow($tab, [string[]]$keyVals, [string[]]$cellVals, $extra, [string[]]$cmpVals = $null) {
+    if ($null -eq $cmpVals) { $cmpVals = $cellVals }
+    $row = @{ KeyVals = $keyVals; CellVals = $cellVals; CmpVals = $cmpVals; Extra = $extra; Status = (Get-Status $cellVals $cmpVals) }
     [void]$tab.Rows.Add($row)
 }
 
@@ -485,6 +587,30 @@ Write-Colored ($EnvNames -join ', ') 'Gray'
 if ($Skipped.Count -gt 0) {
     Write-Colored 'Skipped:   ' 'DarkGray' -NoNewline
     Write-Colored ($Skipped -join ', ') 'Yellow'
+}
+
+# ---------------------------------------------------------------------------
+# Parameter reference: defaults, data types, official descriptions.
+# A parameter that is not in the export is using its default, so defaults are
+# needed to tell "same value" from "really different".
+# ---------------------------------------------------------------------------
+$ParamRef = New-CsMap
+$RefLoaded = $false
+$RefPath = Resolve-InputPath $ParametersReference
+if (Test-Path -LiteralPath $RefPath) {
+    foreach ($rr in (Import-Csv -LiteralPath $RefPath -Encoding UTF8)) {
+        $lk = ([string]$rr.parameter_id).ToLowerInvariant()
+        if ([string]::IsNullOrEmpty($lk)) { continue }
+        if (-not $ParamRef.ContainsKey($lk)) { $ParamRef[$lk] = New-Object System.Collections.ArrayList }
+        [void]$ParamRef[$lk].Add(@{ App = [string]$rr.application; Type = [string]$rr.data_type; Default = [string]$rr.default_value; Desc = [string]$rr.description })
+    }
+    $RefLoaded = ($ParamRef.Count -gt 0)
+}
+if ($RefLoaded) {
+    Write-Colored 'Parameter defaults: ' 'DarkGray' -NoNewline
+    Write-Colored ('{0} parameters loaded from {1}' -f $ParamRef.Count, (Split-Path -Leaf $RefPath)) 'Gray'
+} else {
+    Write-Warning ('Parameter reference not found or empty ({0}): unset parameters will be shown as (absent) and NOT matched to their defaults.' -f $RefPath)
 }
 
 # ---------------------------------------------------------------------------
@@ -603,26 +729,29 @@ Write-VersionConsole
 # 1. Parameters
 # ---------------------------------------------------------------------------
 $ApiKeyValues = New-CsMap
-$P = @{}
+$RawParams = @{}          # env -> map "profile|parameter|apptype" -> raw value
+$ProfilesByEnv = @{}      # env -> map profile id -> $true
+$AppByParam = New-CsMap   # parameter id -> application type (first one seen)
 foreach ($en in $EnvNames) {
     $m = New-CsMap
     foreach ($r in (Get-Rows $en 'Profile_Parameter')) {
         $pid_ = Get-Field $r 'parameter_id'
-        $k = (Get-Field $r 'profile_id') + [char]31 + $pid_ + [char]31 + (Get-Field $r 'parameter_application_type_id')
+        $app_ = Get-Field $r 'parameter_application_type_id'
+        $k = (Get-Field $r 'profile_id') + [char]31 + $pid_ + [char]31 + $app_
         $v = Get-Field $r 'parameter_value'
-        if ($pid_ -match '(?i)key' -and -not [string]::IsNullOrEmpty($v)) {
-            $ApiKeyValues[$v] = $true
-            $m[$k] = '[API key set]'
-        } else {
-            $m[$k] = Format-Text $v
-        }
+        if ($pid_ -match '(?i)key' -and -not [string]::IsNullOrEmpty($v)) { $ApiKeyValues[$v] = $true }
+        $m[$k] = $v
+        if (-not $AppByParam.ContainsKey($pid_)) { $AppByParam[$pid_] = [string]$app_ }
     }
-    $P[$en] = $m
+    $RawParams[$en] = $m
+    $pf = New-CsMap
+    foreach ($r in (Get-Rows $en 'Profile')) { $pf[(Get-Field $r 'id')] = $true }
+    $ProfilesByEnv[$en] = $pf
 }
 $keySeen = New-CsMap
 $keyList = New-Object System.Collections.ArrayList
 foreach ($en in $EnvNames) {
-    foreach ($k in $P[$en].Keys) {
+    foreach ($k in $RawParams[$en].Keys) {
         if (-not $keySeen.ContainsKey($k)) { $keySeen[$k] = $true; [void]$keyList.Add($k) }
     }
 }
@@ -631,21 +760,31 @@ $sortedKeys = @($keyList | Sort-Object `
     @{ Expression = { $_.Split([char]31)[0] } }, `
     @{ Expression = { $_.Split([char]31)[1] } })
 
-$TabParams = New-Tab 'Parameters' '01_Parameters.csv' @('Profile', 'Parameter', 'AppType') @('Definition')
+$TabParams = New-Tab 'Parameters' '01_Parameters.csv' @('Profile', 'Parameter', 'AppType') @('Default', 'Definition')
 foreach ($k in $sortedKeys) {
     $parts = $k.Split([char]31)
-    $vals = @()
+    $disp = @()
+    $cmp = @()
     foreach ($en in $EnvNames) {
-        if ($P[$en].ContainsKey($k)) { $vals += $P[$en][$k] } else { $vals += $Absent }
+        $ef = Get-EffectiveParam $en ($parts[0]) ($parts[1]) ($parts[2])
+        $disp += $ef.Display
+        $cmp += $ef.Canon
     }
-    $extra = @{ Definition = '' }
-    $pdef = Get-ParamDef ($parts[1])
+    $ent = Get-RefEntry ($parts[1]) ($parts[2])
+    $dflt = ''
+    if ($null -ne $ent) {
+        if ($ent.Default -eq '') { $dflt = '(blank)' }
+        elseif ($parts[1] -match '(?i)key') { $dflt = '[API key set]' }
+        else { $dflt = $ent.Default }
+    }
+    $extra = @{ Default = $dflt; Definition = '' }
+    $pdef = Get-ParamDef ($parts[1]) ($parts[2])
     if ($null -ne $pdef) {
         $dtext = $pdef.Text
         if ($pdef.Basis -like 'Inference*') { $dtext = '[Inferred] ' + $dtext }
         $extra['Definition'] = $dtext
     }
-    Add-TabRow $TabParams @($parts[0], $parts[1], $parts[2]) $vals $extra
+    Add-TabRow $TabParams @($parts[0], $parts[1], $parts[2]) $disp $extra $cmp
 }
 
 # ---------------------------------------------------------------------------
@@ -863,16 +1002,17 @@ $travelParams = @(
     @('DEFAULT', 'AllowSplitTravel'), @('DEFAULT', 'HierarchicalDatabaseMatrixId')
 )
 $TravelInfo = @{}
+$TravelCmp = @{}
 foreach ($en in $EnvNames) {
-    $pm = New-CsMap
-    foreach ($r in (Get-Rows $en 'Profile_Parameter')) {
-        $pm[(Get-Field $r 'profile_id') + [char]31 + (Get-Field $r 'parameter_id')] = (Get-Field $r 'parameter_value')
-    }
     $d = [ordered]@{}
+    $cc = [ordered]@{}
     foreach ($tp in $travelParams) {
-        $key = $tp[0] + [char]31 + $tp[1]
         $label = 'Param: ' + $tp[0] + ' / ' + $tp[1]
-        if ($pm.ContainsKey($key)) { $d[$label] = (Format-Text ($pm[$key])) } else { $d[$label] = $Absent }
+        $tapp = ''
+        if ($AppByParam.ContainsKey($tp[1])) { $tapp = $AppByParam[$tp[1]] }
+        $ef = Get-EffectiveParam $en ($tp[0]) ($tp[1]) $tapp
+        $d[$label] = $ef.Display
+        $cc[$label] = $ef.Canon
     }
     $ttp  = @(Get-Rows $en 'Travel_Time_Profile')
     $tw  = @(Get-Rows $en 'Travel_Time_Weighting')
@@ -906,12 +1046,15 @@ foreach ($en in $EnvNames) {
         if ($poly.Count -gt 2) { $sample = $sample + ' ...' }
         $d['Polygon IDs (sample)'] = $sample
     } else { $d['Polygon IDs (sample)'] = '(none)' }
+    foreach ($kk in @($d.Keys)) { if (-not $cc.Contains($kk)) { $cc[$kk] = $d[$kk] } }
     $TravelInfo[$en] = $d
+    $TravelCmp[$en] = $cc
 }
 foreach ($item in @($TravelInfo[$EnvNames[0]].Keys)) {
     $vals = @()
-    foreach ($en in $EnvNames) { $vals += [string]$TravelInfo[$en][$item] }
-    Add-TabRow $TabTravel @($item) $vals $null
+    $tcmp = @()
+    foreach ($en in $EnvNames) { $vals += [string]$TravelInfo[$en][$item]; $tcmp += [string]$TravelCmp[$en][$item] }
+    Add-TabRow $TabTravel @($item) $vals $null $tcmp
 }
 
 # ---------------------------------------------------------------------------
@@ -1032,7 +1175,7 @@ foreach ($tab in $Tabs) {
     foreach ($r in $tab.Rows) {
         if ($r.Status -eq 'DIFF') { $notSame++ }
         for ($i = 0; $i -lt $EnvNames.Count; $i++) {
-            if ($i -ne $BaseIdx -and $r.CellVals[$i] -cne $r.CellVals[$BaseIdx]) { $diffs[$EnvNames[$i]]++ }
+            if ($i -ne $BaseIdx -and $r.CmpVals[$i] -cne $r.CmpVals[$BaseIdx]) { $diffs[$EnvNames[$i]]++ }
         }
     }
     $Tally += @{ Name = $tab.Title; Total = $total; Diffs = $diffs; NotSame = $notSame }
@@ -1098,12 +1241,10 @@ if ($histObjs.Count -gt 0) { Write-CsvFile (Join-Path $outPath '11_VersionHistor
 $needDef = New-CsMap
 foreach ($r in $TabParams.Rows) {
     $pn = $r.KeyVals[1]
-    if (-not $Defs.ContainsKey($pn) -and -not $needDef.ContainsKey($pn)) {
-        $hint = ''
-        $pd = Get-ParamDef $pn
-        if ($null -ne $pd) { $hint = $pd.Text }
-        $needDef[$pn] = $hint
-    }
+    if ($needDef.ContainsKey($pn)) { continue }
+    $pd = Get-ParamDef $pn ($r.KeyVals[2])
+    if ($null -eq $pd) { $needDef[$pn] = '' }
+    elseif ($pd.Basis -like 'Inference (name pattern)') { $needDef[$pn] = $pd.Text }
 }
 if ($needDef.Count -gt 0) {
     $tpl = @()
@@ -1120,8 +1261,8 @@ function Get-HtmlText($s) { return [System.Net.WebUtility]::HtmlEncode([string]$
 
 function Get-CellHtml([string]$val, [int]$idx, $row) {
     $cls = @()
-    if ($val -ceq $Absent -or $val -ceq $NullText -or $val -ceq '(none)') { $cls += 'muted' }
-    if ($idx -ne $BaseIdx -and $val -cne $row.CellVals[$BaseIdx]) { $cls += 'diff' }
+    if ($val -ceq $Absent -or $val -ceq $NullText -or $val -ceq '(none)' -or $val.StartsWith('(default:') -or $val -ceq '(no profile)') { $cls += 'muted' }
+    if ($idx -ne $BaseIdx -and $row.CmpVals[$idx] -cne $row.CmpVals[$BaseIdx]) { $cls += 'diff' }
     $c = ''
     if ($cls.Count -gt 0) { $c = ' class="' + ($cls -join ' ') + '"' }
     return ('<td' + $c + '>' + (Get-HtmlText $val) + '</td>')
@@ -1297,7 +1438,7 @@ foreach ($en in $EnvNames) {
 }
 [void]$sb.AppendLine('</tbody></table>')
 
-[void]$sb.AppendLine('<h2>Scope</h2><div class="note">Compared: profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.<br>Not compared: Users (as requested) and all per-user tables. System_Version is not row-compared either; it is summarised in the PSO version section instead. Per-user tables hold data tied to individual user accounts - each person''s saved filters, screen settings and list layouts, plus which groups, permissions and parameters are assigned to each user. They are left out because the set of users differs between environments, so comparing them would mostly show noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.<br>List and polygon IDs are GUIDs that differ per environment, so lists are matched on content and polygons are summarised by count. Group names differing only by case are treated as one group. API key values are masked. Comparison is case- and whitespace-sensitive; a leading or trailing space is shown with a visible marker.</div>')
+[void]$sb.AppendLine('<h2>Scope</h2><div class="note">Compared: profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.<br>Not compared: Users (as requested) and all per-user tables. System_Version is not row-compared either; it is summarised in the PSO version section instead. Per-user tables hold data tied to individual user accounts - each person''s saved filters, screen settings and list layouts, plus which groups, permissions and parameters are assigned to each user. They are left out because the set of users differs between environments, so comparing them would mostly show noise. This also means group membership (who is in which group) is not compared, only what each group is allowed to do.<br>Parameters: a parameter missing from the export is using its default value, so the comparison fills in the default from pso_parameters_reference.csv (shown as (default: x)) and treats it as equal to an explicit value that matches it. Rows that differ only because of defaults are marked Same (default) and are hidden. Profiles do not inherit from each other: a parameter unset in any profile uses its default.<br>List and polygon IDs are GUIDs that differ per environment, so lists are matched on content and polygons are summarised by count. Group names differing only by case are treated as one group. API key values are masked. Comparison is case- and whitespace-sensitive; a leading or trailing space is shown with a visible marker.</div>')
 
 [void]$sb.AppendLine('<h2>Rows that differ from ' + (Get-HtmlText $BaseName) + '</h2><table class="tally"><thead><tr><th>Area</th><th>Rows compared</th>')
 foreach ($en in $EnvNames) { if ($en -ne $BaseName) { [void]$sb.AppendLine('<th>' + (Get-HtmlText $en) + '</th>') } }
@@ -1325,7 +1466,15 @@ foreach ($en in $EnvNames) {
 
 [void]$sb.AppendLine('<h2>Quick read</h2><ul>')
 if ($VersionMismatch) { [void]$sb.AppendLine('<li><b>PSO versions differ between environments</b> (highest ' + (Get-HtmlText $VerMax) + '). See the PSO version section at the top.</li>') }
-[void]$sb.AppendLine('<li>' + $paramDiffs.Count + ' parameter rows are not identical across all environments (' + $valueDiffs + ' with different values, ' + $presenceDiffs + ' set in some environments and absent in others).</li>')
+[void]$sb.AppendLine('<li>' + $paramDiffs.Count + ' parameter rows have different effective values across the environments (a parameter that is unset counts as its default value).</li>')
+$paramDefaulted = @($TabParams.Rows | Where-Object { $_.Status -eq 'Same (default)' })
+if ($paramDefaulted.Count -gt 0) {
+    $dn = @($paramDefaulted | ForEach-Object { $_.KeyVals[1] } | Sort-Object -Unique)
+    $dshow = ($dn | Select-Object -First 6) -join ', '
+    if ($dn.Count -gt 6) { $dshow = $dshow + ', ...' }
+    [void]$sb.AppendLine('<li>' + $paramDefaulted.Count + ' more parameter rows only look different in the export because one environment leaves the parameter unset and uses the default (hidden above): ' + (Get-HtmlText $dshow) + '.</li>')
+}
+if (-not $RefLoaded) { [void]$sb.AppendLine('<li><b>Parameter defaults were NOT applied</b> because pso_parameters_reference.csv was not found; unset parameters show as (absent) and may simply be using their default.</li>') }
 if ($groupPresence.Count -gt 0) { [void]$sb.AppendLine('<li>Groups not present everywhere: ' + (Get-HtmlText ($groupPresence -join '; ')) + '.</li>') }
 $onlyParts = @()
 foreach ($en in $EnvNames) { if ($excOnly[$en] -gt 0) { $onlyParts += ($en + ' ' + $excOnly[$en]) } }
@@ -1400,6 +1549,10 @@ foreach ($en in $EnvNames) {
     }
 }
 Write-Host ''
+Write-Host ''
+$defaultedCount = @($TabParams.Rows | Where-Object { $_.Status -eq 'Same (default)' }).Count
+if ($RefLoaded) { Write-Colored ('Parameter defaults applied: {0} parameter row(s) differ only because of defaults and are counted as the same.' -f $defaultedCount) 'DarkGray' }
+else { Write-Colored 'Parameter defaults NOT applied (pso_parameters_reference.csv not found next to the script).' 'Yellow' }
 Write-Host ''
 Write-Colored 'Output folder: ' 'DarkGray' -NoNewline
 Write-Colored $outPath 'Green'

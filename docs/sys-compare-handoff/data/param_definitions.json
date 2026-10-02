@@ -1,5 +1,5 @@
 {
-  "_readme": "Plain-English parameter definitions used by the comparison. basis: 'KB: <file>' = documented in the PSO knowledge base, 'Release notes', or 'Inference ...' = only the parameter name to go on (render these with an [Inferred] prefix, greyed). Lookup is by exact parameter_id (case-insensitive); if no entry matches, try 'patterns' in order (regexes, case-insensitive); otherwise show '(no definition yet)'. Users must be able to add/override definitions (CSV: Parameter,Definition,Basis).",
+  "_readme": "Built-in plain-English definitions. Lookup order for a parameter: (1) user-supplied definition, (2) an entry here whose basis starts with 'KB', (3) the official description from data/pso_parameters_reference.csv, (4) any other entry here (basis 'Inference...' is shown with an [Inferred] prefix, greyed), (5) the regex 'patterns' below (case-insensitive), else '(no definition yet)'. Users must be able to add/override definitions (CSV: Parameter,Definition,Basis).",
   "definitions": {
     "ActivityText": {
       "text": "Text shown on each activity bar on the Gantt. Built from an expression such as {Table.Field}; fields starting with # are derived values.",

@@ -40,7 +40,9 @@ Do NOT start coding yet.
 | `reference/Compare-PsoSysFiles.ps1` | The working PowerShell implementation (~1,400 lines) | **Source of truth for comparison logic, output formats and wording.** If this prompt and the script disagree, stop and ask me. |
 | `reference/workbook_builder_reference.py` | Python that generates the Excel workbook | Reference for sheet layout, formulas, conditional formatting. Throwaway code (hardcoded paths, old 29-entry definitions) - port the ideas, not the file. |
 | `reference/sys_loader_reference.py` | Tiny XML loader used by the Python reference | Loads whole file into memory. Production code should stream (see "Parsing"). |
+| `data/pso_parameters_reference.csv` | IFS parameter catalog (736 parameters: application, data type, default value, official description) | **Required input for the comparison.** Supplies defaults so "unset" can be compared with "explicitly set to the default" (see "Unset parameters = default"), and official descriptions. Ship it as data. Defaults can change between PSO versions - see the open questions. |
 | `data/param_definitions.json` | 188 plain-English parameter definitions + 15 name-pattern fallbacks, extracted from the script | Ship this as data, not code. Must be user-extensible. |
+| `reference/effective_values_reference.py` | Small Python implementation of the effective-value (default) logic | Reference for the algorithm and normalisation; the script is still the source of truth. |
 | `expected/expected_results.json` | Golden numbers, spot checks and mutation tests | Turn into automated tests. |
 | `expected/PSO_environment_comparison.reference.xlsx` | The workbook the Python reference produced from the four sample files | Visual and structural reference for the Excel export. |
 
@@ -59,7 +61,7 @@ per row (details and exact formats are in the script):
 
 | Area | Source tables | Key |
 |---|---|---|
-| Parameters | `Profile_Parameter` | profile + parameter_id + application type |
+| Parameters | `Profile_Parameter` + the parameter catalog | profile + parameter_id + application type; compared as EFFECTIVE values (unset = default) |
 | Exception Types | `Org_Schedule_Exception_Type` | profile + type id; value = on/off / attn / activation |
 | Group Permissions | `Group_Permission` | group (case-insensitive) + permission; value = allow / allow_edit as T/F |
 | Groups | `Groups` (+ counts from Group_Permission) | group; attributes: present-as, parent, description, row count |
@@ -73,6 +75,28 @@ Then a **PSO version** section from `System_Version` (below) and a **tally** of 
 from the baseline per area, per environment, plus "not identical across all".
 
 ### Rules that matter (each one was learned the hard way)
+
+- **Unset parameters = default (critical).** The export lists only parameters that were
+  explicitly set; a parameter that is absent is using its default. Comparing raw presence
+  produces false differences (e.g. `CommittedActivitiesConstraintsOption` unset vs `1` when the
+  default is 1, or `AllowSplitTravel` explicit `True` vs unset when the default is True). So:
+  - Resolve each cell to an **effective value**: explicit value -> catalog default ->
+    `(absent)` when the parameter is not in the catalog. **Profiles do NOT inherit from each
+    other** (confirmed): a parameter unset in ANY profile uses its catalog default, never the
+    DEFAULT profile's value. If the profile itself does not exist in that environment show
+    `(no profile)`.
+  - Display `(default: x)` for resolved values (muted); `(default: blank)`
+    when the default is empty. Never show a masked key's default.
+  - Compare **normalised** values, only to decide sameness: BOOLEAN case-insensitive
+    (`True` = `false`-style defaults), INTEGER/DOUBLE numerically, TIMESPAN as ISO-8601
+    durations in seconds (`PT5M` = `PT0H5M0S`, `P2D`), STRING exactly (case- and
+    whitespace-sensitive). Match the catalog by parameter_id (case-insensitive) and
+    application type; if the id exists under several applications and none matches, use the first.
+  - Row status: `Same` (shown values identical), `Same (default)` (shown values differ only
+    because of defaults - hidden by default in the HTML), `DIFF` (effective values differ). Only
+    `DIFF` counts as differing in the tally and gets amber highlighting.
+  - If the catalog is not available, fall back to raw comparison and say so loudly in the UI
+    and the report.
 
 - **Case-sensitive and whitespace-sensitive** comparison. Show leading/trailing spaces with the
   visible marker U+2423. Treat an empty element and a missing element differently:
@@ -97,7 +121,9 @@ from the baseline per area, per environment, plus "not identical across all".
   shown with a leading `[Inferred]` and greyed. No separate "Basis" column.
   Users can upload a `ParamDefinitions.csv` (`Parameter,Definition,Basis`) that overrides
   the built-ins, and the app offers a downloadable `ParamDefinitions_Template.csv` listing
-  every parameter found that has no specific definition.
+  every parameter found that has no specific definition. Definition order: user-supplied, then
+  the built-in KB-backed definition, then the **official catalog description**, then built-in
+  inferred text, then name patterns. The Parameters CSV/HTML also gets a **Default** column.
 
 ### PSO version section (from `System_Version`)
 
@@ -190,9 +216,10 @@ upgrade). The Excel must open with no errors in Excel and LibreOffice.
 
 ## Tests (write the engine tests first)
 
-1. **Golden test:** with the four sample files and PROD as baseline, the tally must equal
-   `expected/expected_results.json` exactly (837 rows compared; ACC 218 / STG 301 / TST 389
-   differ; 488 not identical across all; per-area numbers are in the file).
+1. **Golden test:** with the four sample files, the catalog and PROD as baseline, the tally must
+   equal `expected/expected_results.json` exactly (837 rows compared; ACC 212 / STG 298 /
+   TST 371 differ; 473 not identical across all; per-area numbers are in the file). Parameters
+   alone: 49 rows, ACC 15 / STG 7 / TST 14, 21 DIFF, 13 `Same (default)`, 15 `Same`.
 2. **Spot checks** from the same file (AllowSplitTravel, CommitToAllocatedShift, the merged
    ST_Ops_Mgr group, the 241 deny rows, the whitespace marker, masked key, etc.).
 3. **Mutation tests** from the same file (version patch mismatch, release mismatch, numeric
@@ -227,7 +254,8 @@ the script agree on the golden numbers; otherwise rely on the golden file.
 5. Excel: values-only, formulas, or a mix (see Outputs)?
 6. Keep `Compare-PsoSysFiles.ps1` in the repo as a standalone CLI, or retire it once the
    golden tests pass?
-7. Anything in the existing app (shared UI components, logging, error handling) I should
+7. The parameter catalog is for one PSO version and defaults can change between versions. Do you want to ship one catalog, one per PSO version (selected from the detected `System_Version`), or let users upload a catalog? (My default: ship one, allow an upload override, and warn when the detected PSO version differs from the catalog version.)
+8. Anything in the existing app (shared UI components, logging, error handling) I should
    reuse instead of creating new?
 
 ## Working agreement

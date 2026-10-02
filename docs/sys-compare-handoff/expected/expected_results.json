@@ -1,5 +1,5 @@
 {
-  "_readme": "Golden results from the four reference exports (prod, acc, stg, tst) with PROD as baseline. These were produced by Compare-PsoSysFiles.ps1 and verified against the Python reference. The sample XML files are NOT in this package (customer data) - Ish keeps them locally.",
+  "_readme": "Golden results from the four reference exports (prod, acc, stg, tst) with PROD as baseline, WITH parameter defaults applied (unset = default; profiles do NOT inherit from each other). Produced by Compare-PsoSysFiles.ps1 and verified against the Python reference (effective_values_reference.py + workbook_builder_reference.py). The sample XML files are NOT in this package (customer data); Ish keeps them locally. Before defaults were applied the totals were 837 / 218 / 301 / 389 / 488 - that raw comparison overstated differences and is retired.",
   "baseline": "PROD",
   "environments": [
     "PROD",
@@ -10,10 +10,15 @@
   "tally": {
     "Parameters": {
       "compared": 49,
-      "ACC": 21,
-      "STG": 11,
-      "TST": 28,
-      "notIdenticalAcrossAll": 34
+      "ACC": 15,
+      "STG": 7,
+      "TST": 14,
+      "notIdenticalAcrossAll": 21,
+      "statusCounts": {
+        "Same": 15,
+        "Same (default)": 13,
+        "DIFF": 21
+      }
     },
     "Exception Types": {
       "compared": 111,
@@ -53,9 +58,9 @@
     "Travel": {
       "compared": 17,
       "ACC": 12,
-      "STG": 7,
-      "TST": 14,
-      "notIdenticalAcrossAll": 16
+      "STG": 8,
+      "TST": 10,
+      "notIdenticalAcrossAll": 14
     },
     "Profiles & Other": {
       "compared": 12,
@@ -66,10 +71,10 @@
     },
     "Total": {
       "compared": 837,
-      "ACC": 218,
-      "STG": 301,
-      "TST": 389,
-      "notIdenticalAcrossAll": 488
+      "ACC": 212,
+      "STG": 298,
+      "TST": 371,
+      "notIdenticalAcrossAll": 473
     }
   },
   "versions": {
@@ -91,10 +96,6 @@
     "historyRowsTotal": 72
   },
   "spotChecks": [
-    "Parameters: AllowSplitTravel = True in PROD; (absent) in ACC, STG, TST",
-    "Parameters: CommitToAllocatedShift = False / True / False / True (PROD / ACC / STG / TST)",
-    "Parameters: SortValuePrecedenceMaximumStatus = 40 in PROD and STG; (absent) in ACC and TST",
-    "Parameters: ImplicitBreaksOnOffEventsRequired = True in PROD; (absent) ACC and STG; False in TST",
     "Parameters: RoutingApiKey is shown as [API key set] everywhere; the actual key value is identical in every environment and must never appear in any output",
     "Parameters: DEFAULT/ActivityBaseLabel in STG starts with a space; it must be shown with the visible whitespace marker U+2423",
     "Exception Types: DEFAULT type 90 attention = 10 / 2 / 10 / 2",
@@ -102,7 +103,19 @@
     "Group Permissions: PROD has 341 rows, 241 of them explicit denies (allow=false). PROD ST_Dispatch / Administrator is allow=false, allow_edit=true -> displayed 'F / T'",
     "Travel: ACC has 343 polygons and 1 travel-time weighting row (time zone America/Regina); PROD has 2 polygons; STG and TST have none",
     "Table counts: Users rows = 147 / 262 / 99 / 129 (PROD / ACC / STG / TST) - shown in counts but never compared",
-    "Distinct parameter_ids across the four files = 41 and every one has a definition"
+    "Distinct parameter_ids across the four files = 41 and every one has a definition",
+    "DEFAULTS - AllowSplitTravel: PROD explicit True; ACC/STG/TST unset. Catalog default is True -> status 'Same (default)', cells show True / (default: True) ...; NOT a difference",
+    "DEFAULTS - CommittedActivitiesConstraintsOption: PROD unset, others 1; catalog default 1 -> 'Same (default)'",
+    "DEFAULTS - GpsFrequency: ACC 'PT5M' vs default 'PT0H5M0S' (TIMESPAN) -> same effective value (300 s); must be 'Same (default)'",
+    "DEFAULTS - SchedulingWindowLength: TST 'P2D' = default 'P2D' -> same",
+    "DEFAULTS - StandardSendScheduleExceptionAccepts: ACC 'False' vs default 'false' (BOOLEAN, case-insensitive) -> same as PROD/STG; TST True is the only difference",
+    "DEFAULTS - ImplicitBreaksOnOffEventsRequired: PROD True; ACC/STG unset (default False); TST False -> DIFF (PROD only)",
+    "DEFAULTS - SortValuePrecedenceMaximumStatus: PROD 40, STG 40, ACC/TST unset (default 30) -> DIFF",
+    "DEFAULTS - CommitToAllocatedShift: PROD False, STG False (= default), ACC True, TST True -> DIFF; PROD and STG are effectively equal",
+    "DEFAULTS - TravelTimeProfileId (DEFAULT profile): PROD unset -> '(default: DEFAULT)'; ACC 'Default'; TST 'DEFAULT' (case-sensitive STRING compare: ACC differs)",
+    "DEFAULTS - RealTimeTravelProvider (DEFAULT profile): NONE everywhere effectively (default NONE) -> 'Same (default)'",
+    "Parameters CSV/HTML have a Default column (catalog default, '(blank)' for empty) and the Definition column uses the catalog description unless a KB-backed built-in definition exists",
+    "NO INHERITANCE - the PROD STRAIGHTLINE profile has no parameters set: TravelCalculationOption shows '(default: StraightLine)' (the catalog default, NOT the DEFAULT profile's HierarchicalTravelMatrix); it equals TST's explicit StraightLine. ACC and STG have no STRAIGHTLINE profile -> '(no profile)'"
   ],
   "mutationTests": [
     "Change TST latest version rows to 6.16.0.33 -> red banner, 'Same release (6.16), different patch builds', TST BEHIND",
@@ -110,6 +123,10 @@
     "6.13.0.9 must sort as OLDER than 6.13.0.67 (numeric version compare, never string compare)",
     "Remove System_Version from one file -> warning, version unknown, no false green banner",
     "Upload a file with an unknown parameter -> row shows '(no definition yet)' and appears in the missing-definitions template",
-    "Two uploads given the same name, no baseline selected, or two baselines selected -> blocked in the UI with a clear message"
+    "Two uploads given the same name, no baseline selected, or two baselines selected -> blocked in the UI with a clear message",
+    "Remove pso_parameters_reference.csv -> warning, unset parameters show '(absent)', no 'Same (default)' rows, report says defaults were NOT applied",
+    "Parameter not in the catalog and unset in one environment -> '(absent)', and it counts as different from an explicit value",
+    "Same parameter_id under two application types (e.g. JsonFormatVersion in two apps) -> two rows, matched to the right catalog entry by application",
+    "A non-DEFAULT profile that leaves a parameter unset while the DEFAULT profile sets it explicitly -> the non-DEFAULT cell shows the catalog default, never the DEFAULT profile's value"
   ]
 }
