@@ -44,6 +44,7 @@ class SysCompareStorage
         $id = self::newId();
 
         $this->withSharedUmask(fn () => $this->disk()->putFileAs($this->uploadDirectory($userId), $file, $id.'.'.$extension));
+        $this->alignGroup($this->disk()->path($this->uploadDirectory($userId).'/'.$id.'.'.$extension));
 
         return new StoredUpload($id, $file->getClientOriginalName(), (int) $file->getSize());
     }
@@ -96,7 +97,10 @@ class SysCompareStorage
      */
     public function putRunFile(int $userId, string $runId, string $fileName, string $contents): void
     {
-        $this->withSharedUmask(fn () => $this->disk()->put($this->runDirectory($userId, $runId).'/'.$fileName, $contents));
+        $relative = $this->runDirectory($userId, $runId).'/'.$fileName;
+
+        $this->withSharedUmask(fn () => $this->disk()->put($relative, $contents));
+        $this->alignGroup($this->disk()->path($relative));
     }
 
     /**
@@ -105,7 +109,15 @@ class SysCompareStorage
     public function runFilePathForWriting(int $userId, string $runId, string $fileName): string
     {
         $directory = $this->runDirectory($userId, $runId);
-        $this->withSharedUmask(fn () => $this->disk()->makeDirectory($directory));
+
+        // Only create it when it is missing: makeDirectory() on an existing folder re-applies the
+        // permissions, and that chmod clears the setgid bit, so files written afterwards would get
+        // the writer's own group instead of the shared one.
+        if (! $this->disk()->exists($directory)) {
+            $this->withSharedUmask(fn () => $this->disk()->makeDirectory($directory));
+        }
+
+        $this->alignGroup($this->disk()->path($directory));
 
         return $this->disk()->path($directory.'/'.$fileName);
     }
@@ -191,7 +203,45 @@ class SysCompareStorage
      */
     public function shareWithGroup(string $path): void
     {
-        @chmod($path, 0660);
+        $this->alignGroup($path);
+    }
+
+    /**
+     * Gives a file or folder, and every folder above it up to the disk root, the same group as
+     * the disk root, group read/write (folders also keep the setgid bit).
+     *
+     * The web process and the queue worker are different users that share a group. Relying on the
+     * setgid bit alone is fragile: anything that re-applies a folder's permissions clears it, and
+     * files created afterwards silently get the creating user's own group, which the other user
+     * cannot read. So the group is set explicitly. A user may change a file's group to any group
+     * they belong to, so this works without root.
+     */
+    public function alignGroup(string $path): void
+    {
+        $root = rtrim($this->disk()->path(''), '/');
+        $group = @filegroup($root);
+
+        if ($group === false || ! str_starts_with($path, $root.'/')) {
+            return;
+        }
+
+        for ($current = $path; str_starts_with($current, $root.'/'); $current = dirname($current)) {
+            clearstatcache(true, $current);
+
+            if (! file_exists($current)) {
+                continue;
+            }
+
+            if (@filegroup($current) !== $group) {
+                @chgrp($current, $group);
+            }
+
+            $wanted = is_dir($current) ? 02770 : 0660;
+
+            if ((@fileperms($current) & 07777) !== $wanted) {
+                @chmod($current, $wanted);
+            }
+        }
     }
 
     /**

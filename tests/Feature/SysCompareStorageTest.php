@@ -109,3 +109,84 @@ it('writes uploads and results group-readable and group-writable whatever the pr
     Storage::disk('sys-compare-real')->deleteDirectory('');
     @rmdir($root);
 });
+
+/**
+ * Points the tool at a disk built from the real config (Storage::fake() ignores the configured
+ * permissions) and returns its root folder.
+ */
+function realConfigSysCompareRoot(): string
+{
+    $root = storage_path('framework/testing/sys-compare-group-'.bin2hex(random_bytes(4)));
+    config([
+        'filesystems.disks.sys-compare-real' => [...config('filesystems.disks.sys-compare'), 'root' => $root],
+        'sys-compare.disk' => 'sys-compare-real',
+    ]);
+
+    return $root;
+}
+
+function removeSysCompareTestRoot(string $root): void
+{
+    Storage::disk('sys-compare-real')->deleteDirectory('');
+    @rmdir($root);
+}
+
+it('keeps the setgid bit on a run folder when the folder is prepared again after a file was written', function (): void {
+    $root = realConfigSysCompareRoot();
+    $storage = app(SysCompareStorage::class);
+    $run = SysCompareStorage::newId();
+
+    // The job's order: the report is written first, then the zip and workbook paths are prepared.
+    // Re-applying a folder's permissions (what makeDirectory() does to an existing folder) clears
+    // setgid, and every file written afterwards gets the writer's own group.
+    $storage->putRunFile(1, $run, 'report.html', '<html/>');
+    $zipPath = $storage->runFilePathForWriting(1, $run, 'bundle.zip');
+    file_put_contents($zipPath, 'zip');
+    $storage->shareWithGroup($zipPath);
+    $storage->putRunFile(1, $run, 'summary.json', '{}');
+
+    $setgid = static fn (string $path): bool => (fileperms($path) & 02000) !== 0;
+
+    expect($setgid($root))->toBeFalse()
+        ->and($setgid($root.'/runs'))->toBeTrue()
+        ->and($setgid($root.'/runs/1'))->toBeTrue()
+        ->and($setgid($root."/runs/1/{$run}"))->toBeTrue();
+
+    removeSysCompareTestRoot($root);
+});
+
+it('gives every file and folder the disk root\'s group, whichever group the writing process has', function (): void {
+    $root = realConfigSysCompareRoot();
+    $storage = app(SysCompareStorage::class);
+
+    // Make the root's group differ from this process's primary group, as www-data / deploy do.
+    $storage->putRunFile(1, 'seed0000000000000000000000', 'seed.txt', 'x');
+    $alternateGroup = collect(posix_getgroups())->first(static fn (int $group): bool => $group !== (int) filegroup($root) && $group !== posix_getegid());
+
+    if ($alternateGroup === null) {
+        removeSysCompareTestRoot($root);
+        $this->markTestSkipped('This user belongs to no second group to share through.');
+    }
+
+    chgrp($root, $alternateGroup);
+
+    $run = SysCompareStorage::newId();
+    $storage->putRunFile(1, $run, 'report.html', '<html/>');
+    $zipPath = $storage->runFilePathForWriting(1, $run, 'bundle.zip');
+    file_put_contents($zipPath, 'zip');
+    $storage->shareWithGroup($zipPath);
+    $storage->putRunFile(1, $run, 'summary.json', '{}');
+    $stored = $storage->storeUpload(1, fakeSysUpload());
+
+    $paths = [
+        $root.'/runs', $root.'/runs/1', $root."/runs/1/{$run}", $root."/runs/1/{$run}/report.html",
+        $zipPath, $root."/runs/1/{$run}/summary.json", $root.'/uploads/1', (string) $storage->uploadPath(1, $stored->id),
+    ];
+
+    foreach ($paths as $path) {
+        clearstatcache(true, $path);
+        expect(filegroup($path))->toBe($alternateGroup, "{$path} has the wrong group");
+    }
+
+    removeSysCompareTestRoot($root);
+});
