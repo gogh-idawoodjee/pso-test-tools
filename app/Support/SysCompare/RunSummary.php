@@ -54,6 +54,10 @@ final readonly class RunSummary
 
         $notes = [];
 
+        if (! $result->defaultsApplied) {
+            $notes[] = 'Parameter defaults were NOT applied (the parameter catalog was not available), so unset parameters show as (absent) and parameter differences are overstated.';
+        }
+
         if ($result->apiKeyValuesDiffer) {
             $notes[] = 'Routing API key values differ between environments (the values are masked).';
         }

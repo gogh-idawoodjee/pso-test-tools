@@ -25,10 +25,11 @@ final class ComparisonTab
      * @param  list<string>  $keyValues
      * @param  list<string>  $cellValues
      * @param  array<string, string>  $extra
+     * @param  list<string>|null  $compareValues  canonical values that decide sameness (defaults to the shown values)
      */
-    public function addRow(array $keyValues, array $cellValues, array $extra = []): void
+    public function addRow(array $keyValues, array $cellValues, array $extra = [], ?array $compareValues = null): void
     {
-        $this->rows[] = new ComparisonRow($keyValues, $cellValues, $extra);
+        $this->rows[] = new ComparisonRow($keyValues, $cellValues, $extra, $compareValues);
     }
 
     /**
@@ -45,6 +46,14 @@ final class ComparisonTab
     public function differingRows(): array
     {
         return array_values(array_filter($this->rows, static fn (ComparisonRow $row): bool => $row->isDifferent()));
+    }
+
+    /**
+     * @return list<ComparisonRow>
+     */
+    public function defaultedRows(): array
+    {
+        return array_values(array_filter($this->rows, static fn (ComparisonRow $row): bool => $row->status === ComparisonRow::SAME_DEFAULT));
     }
 
     public function rowCount(): int

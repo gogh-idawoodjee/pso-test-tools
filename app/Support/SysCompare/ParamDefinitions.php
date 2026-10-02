@@ -72,23 +72,30 @@ class ParamDefinitions
             }
 
             $basis = trim($userRow['Basis'] ?? '') !== '' ? $userRow['Basis'] : self::USER_BASIS;
-            $copy->definitions[strtolower($parameter)] = new ParamDefinition($definition, $basis);
+            $copy->definitions[strtolower($parameter)] = new ParamDefinition($definition, $basis, userSupplied: true);
         }
 
         return $copy;
     }
 
     /**
-     * Whether the parameter has its own definition (a name-pattern hint does not count).
+     * The definition to show for a parameter, in this order: the user's own, the built-in
+     * knowledge-base text, the catalog's official description, the built-in inferred text, then
+     * a name-pattern hint.
      */
-    public function hasSpecific(string $parameter): bool
-    {
-        return isset($this->definitions[strtolower($parameter)]);
-    }
-
-    public function find(string $parameter): ?ParamDefinition
+    public function find(string $parameter, string $application = '', ?ParameterCatalog $catalog = null): ?ParamDefinition
     {
         $specific = $this->definitions[strtolower($parameter)] ?? null;
+
+        if ($specific !== null && ($specific->userSupplied || $specific->isKnowledgeBase())) {
+            return $specific;
+        }
+
+        $entry = $catalog?->entry($parameter, $application);
+
+        if ($entry !== null && trim($entry->description) !== '') {
+            return new ParamDefinition($entry->description, ParamDefinition::SCHEMA_REFERENCE);
+        }
 
         if ($specific !== null) {
             return $specific;
@@ -101,5 +108,20 @@ class ParamDefinitions
         }
 
         return null;
+    }
+
+    /**
+     * Whether the parameter still needs a definition, and if so the best hint to start from
+     * ('' when there is none). Null when it already has a real definition.
+     */
+    public function templateHint(string $parameter, string $application = '', ?ParameterCatalog $catalog = null): ?string
+    {
+        $definition = $this->find($parameter, $application, $catalog);
+
+        return match (true) {
+            $definition === null => '',
+            $definition->basis === ParamDefinition::NAME_PATTERN_BASIS => $definition->text,
+            default => null,
+        };
     }
 }

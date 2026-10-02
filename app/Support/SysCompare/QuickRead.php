@@ -8,14 +8,15 @@ namespace App\Support\SysCompare;
 final readonly class QuickRead
 {
     /**
+     * @param  list<string>  $defaultedParameterNames  parameters that only look different because of defaults
      * @param  list<string>  $differingParametersWithoutDefinition
      * @param  list<string>  $groupsNotPresentEverywhere  "Group (missing in A, B)"
      * @param  array<string, int>  $exceptionTypesInOnlyOneEnvironment  environment name => rows
      */
     public function __construct(
         public int $differingParameterRows,
-        public int $parametersWithDifferentValues,
-        public int $parametersPresentInSomeOnly,
+        public int $defaultedParameterRows,
+        public array $defaultedParameterNames,
         public array $differingParametersWithoutDefinition,
         public array $groupsNotPresentEverywhere,
         public array $exceptionTypesInOnlyOneEnvironment,

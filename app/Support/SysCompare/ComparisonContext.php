@@ -18,7 +18,23 @@ class ComparisonContext
         public readonly array $environments,
         public readonly int $baselineIndex,
         public readonly ParamDefinitions $definitions,
-    ) {}
+        public readonly ParameterCatalog $catalog,
+    ) {
+        $this->resolver = new EffectiveParameterResolver($catalog);
+    }
+
+    public readonly EffectiveParameterResolver $resolver;
+
+    /** @var array<int, EnvironmentParameters> */
+    private array $parameterModels = [];
+
+    /**
+     * The profiles and explicitly set parameters of an environment.
+     */
+    public function parameters(int $environmentIndex): EnvironmentParameters
+    {
+        return $this->parameterModels[$environmentIndex] ??= EnvironmentParameters::fromSysFile($this->environments[$environmentIndex]->sysFile);
+    }
 
     /**
      * @return list<string>

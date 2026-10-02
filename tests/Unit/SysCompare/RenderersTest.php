@@ -138,7 +138,7 @@ it('writes CSVs with a BOM, every field quoted and every row included', function
 
     $parameters = $files['01_Parameters.csv'];
 
-    expect($parameters)->toContain('"Profile","Parameter","AppType","PROD","TST","Status","Definition"')
+    expect($parameters)->toContain('"Profile","Parameter","AppType","PROD","TST","Status","Default","Definition"')
         ->and($parameters)->toContain('"DEFAULT","Same","ALL","x","x","Same"')
         ->and($parameters)->toContain('"DEFAULT","OnlyInProd","ALL","yes","(absent)","DIFF"');
 });

@@ -45,11 +45,13 @@ class Comparer
         string $baselineName,
         ?ParamDefinitions $definitions = null,
         ?DateTimeImmutable $now = null,
+        ?ParameterCatalog $catalog = null,
     ): ComparisonResult {
         $baselineIndex = $this->validate($environments, $baselineName);
         $now ??= new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
-        $context = new ComparisonContext($environments, $baselineIndex, $definitions ?? ParamDefinitions::builtIn());
+        $catalog ??= ParameterCatalog::builtIn();
+        $context = new ComparisonContext($environments, $baselineIndex, $definitions ?? ParamDefinitions::builtIn(), $catalog);
 
         $tabs = [];
 
@@ -74,6 +76,7 @@ class Comparer
             tally: $this->tally($tabs, $context),
             versions: app(VersionAnalyzer::class)->analyze($environments, $now),
             apiKeyValuesDiffer: $context->apiKeyValuesDiffer(),
+            defaultsApplied: ! $catalog->isEmpty(),
             definitionTemplate: $this->definitionTemplate($tabs, $context),
             quickRead: $this->quickRead($tabs, $context),
             generatedAt: $now,
@@ -181,7 +184,7 @@ class Comparer
     }
 
     /**
-     * Parameters with no specific definition, with the name-pattern hint (if any) as a starting point.
+     * Parameters that still need a definition, with the name-pattern hint (if any) as a starting point.
      *
      * @param  list<ComparisonTab>  $tabs
      * @return array<string, string>
@@ -193,8 +196,14 @@ class Comparer
         foreach ($this->tab($tabs, 'Parameters')->rows() as $row) {
             $parameter = $row->keyValues[1];
 
-            if (! $context->definitions->hasSpecific($parameter) && ! isset($template[$parameter])) {
-                $template[$parameter] = $context->definitions->find($parameter)?->text ?? '';
+            if (isset($template[$parameter])) {
+                continue;
+            }
+
+            $hint = $context->definitions->templateHint($parameter, $row->keyValues[2], $context->catalog);
+
+            if ($hint !== null) {
+                $template[$parameter] = $hint;
             }
         }
 
@@ -210,15 +219,11 @@ class Comparer
     {
         $names = $context->names();
 
-        $differingParameters = $this->tab($tabs, 'Parameters')->differingRows();
-        $presenceDifferences = 0;
+        $parameters = $this->tab($tabs, 'Parameters');
+        $differingParameters = $parameters->differingRows();
         $withoutDefinition = [];
 
         foreach ($differingParameters as $row) {
-            if (in_array(Cells::ABSENT, $row->cellValues, true)) {
-                $presenceDifferences++;
-            }
-
             if (($row->extra['Definition'] ?? '') === '') {
                 $withoutDefinition[$row->keyValues[1]] = true;
             }
@@ -226,6 +231,15 @@ class Comparer
 
         $withoutDefinition = array_map('strval', array_keys($withoutDefinition));
         usort($withoutDefinition, Cells::compareText(...));
+
+        $defaultedNames = [];
+
+        foreach ($parameters->defaultedRows() as $row) {
+            $defaultedNames[$row->keyValues[1]] = true;
+        }
+
+        $defaultedNames = array_map('strval', array_keys($defaultedNames));
+        usort($defaultedNames, Cells::compareText(...));
 
         $groupsNotEverywhere = [];
 
@@ -259,8 +273,8 @@ class Comparer
 
         return new QuickRead(
             differingParameterRows: count($differingParameters),
-            parametersWithDifferentValues: count($differingParameters) - $presenceDifferences,
-            parametersPresentInSomeOnly: $presenceDifferences,
+            defaultedParameterRows: count($parameters->defaultedRows()),
+            defaultedParameterNames: $defaultedNames,
             differingParametersWithoutDefinition: $withoutDefinition,
             groupsNotPresentEverywhere: $groupsNotEverywhere,
             exceptionTypesInOnlyOneEnvironment: $onlyInOne,

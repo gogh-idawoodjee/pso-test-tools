@@ -30,4 +30,6 @@ After a deploy that adds config, routes or jobs, run `php artisan optimize:clear
 
 Server prerequisites for uploads of up to 25 MB per file: PHP `upload_max_filesize` and `post_max_size` of at least 25M, and nginx `client_max_body_size` of at least 25m. Limits are configurable in `config/sys-compare.php` (`SYS_COMPARE_*` env variables).
 
+Parameters are compared as effective values: the export lists only parameters that were set explicitly, so an unset parameter uses its default, taken from the parameter catalog (`app/Support/SysCompare/Data/pso_parameters_reference.csv`, 736 rows from IFS). Rows that differ only because of a default are marked `Same (default)` and are not counted. Defaults can change between PSO versions and the catalog is for one version; if the catalog cannot be loaded the comparison falls back to raw values and the report says so.
+
 The golden tests use the four reference exports, which are not in the repo. Point `SYS_COMPARE_SAMPLES` at a folder holding `prod.xml`, `acc.xml`, `stg.xml` and `tst.xml`; the tests are skipped when they are not available.

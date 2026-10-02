@@ -5,6 +5,7 @@ namespace App\Support\SysCompare\Areas;
 use App\Support\SysCompare\Cells;
 use App\Support\SysCompare\ComparisonContext;
 use App\Support\SysCompare\ComparisonTab;
+use App\Support\SysCompare\EffectiveValue;
 
 /**
  * Travel setup: the travel parameters plus an inventory of the travel-time
@@ -26,51 +27,67 @@ class TravelArea implements Area
 
     public function build(ComparisonContext $context): array
     {
+        $applicationByParameter = $this->applicationByParameter($context);
         $inventories = [];
 
         foreach (array_keys($context->environments) as $environmentIndex) {
-            $inventories[] = $this->inventoryFor($context, $environmentIndex);
+            $inventories[] = $this->inventoryFor($context, $environmentIndex, $applicationByParameter);
         }
 
         $tab = new ComparisonTab('Travel', '07_Travel.csv', ['Item']);
 
         foreach (array_keys($inventories[0]) as $item) {
-            $tab->addRow([$item], array_map(static fn (array $inventory): string => $inventory[$item], $inventories));
+            $tab->addRow(
+                [$item],
+                array_map(static fn (array $inventory): string => $inventory[$item]->display, $inventories),
+                compareValues: array_map(static fn (array $inventory): string => $inventory[$item]->compare, $inventories),
+            );
         }
 
         return [$tab];
     }
 
     /**
+     * The application type each travel parameter is set under (the first one seen in any export),
+     * so it can be matched to its catalog default.
+     *
      * @return array<string, string>
      */
-    private function inventoryFor(ComparisonContext $context, int $environmentIndex): array
+    private function applicationByParameter(ComparisonContext $context): array
     {
-        $parameterValues = [];
+        $applications = [];
 
-        foreach ($context->rows($environmentIndex, 'Profile_Parameter') as $row) {
-            $parameterValues[($row['profile_id'] ?? '').Cells::KEY_SEPARATOR.($row['parameter_id'] ?? '')] = $row['parameter_value'] ?? null;
+        foreach (array_keys($context->environments) as $environmentIndex) {
+            foreach ($context->rows($environmentIndex, 'Profile_Parameter') as $row) {
+                $applications[$row['parameter_id'] ?? ''] ??= $row['parameter_application_type_id'] ?? '';
+            }
         }
 
+        return $applications;
+    }
+
+    /**
+     * @param  array<string, string>  $applicationByParameter
+     * @return array<string, EffectiveValue>
+     */
+    private function inventoryFor(ComparisonContext $context, int $environmentIndex, array $applicationByParameter): array
+    {
+        $parameters = $context->parameters($environmentIndex);
         $inventory = [];
 
         foreach (self::TRAVEL_PARAMETERS as [$profile, $parameter]) {
-            $key = $profile.Cells::KEY_SEPARATOR.$parameter;
-
-            $inventory["Param: {$profile} / {$parameter}"] = array_key_exists($key, $parameterValues)
-                ? Cells::format($parameterValues[$key])
-                : Cells::ABSENT;
+            $inventory["Param: {$profile} / {$parameter}"] = $context->resolver->resolve(
+                $parameters,
+                $profile,
+                $parameter,
+                $applicationByParameter[$parameter] ?? '',
+            );
         }
 
         $profiles = $context->rows($environmentIndex, 'Travel_Time_Profile');
         $weightings = $context->rows($environmentIndex, 'Travel_Time_Weighting');
         $polygonLinks = $context->rows($environmentIndex, 'Travel_Time_Polygon');
         $polygons = $context->rows($environmentIndex, 'Polygon');
-
-        $inventory['Travel time profile IDs'] = $profiles === []
-            ? Cells::NONE
-            : $this->joinSorted(array_column($profiles, 'id'), ', ');
-        $inventory['Weighting rows'] = (string) count($weightings);
 
         $zones = [];
 
@@ -79,14 +96,19 @@ class TravelArea implements Area
             $zones[$zone === '' ? Cells::NONE : $zone] = true;
         }
 
-        $inventory['Weighting time zone(s)'] = $zones === []
-            ? Cells::NONE
-            : $this->joinSorted(array_map('strval', array_keys($zones)), ', ');
+        $plain = [
+            'Travel time profile IDs' => $profiles === [] ? Cells::NONE : $this->joinSorted(array_column($profiles, 'id'), ', '),
+            'Weighting rows' => (string) count($weightings),
+            'Weighting time zone(s)' => $zones === [] ? Cells::NONE : $this->joinSorted(array_map('strval', array_keys($zones)), ', '),
+            'Polygons defined' => (string) count($polygons),
+            'Polygon-weighting links' => (string) count($polygonLinks),
+            'Polygon weighting range' => $this->weightingRange($polygonLinks),
+            'Polygon IDs (sample)' => $this->polygonSample($polygons),
+        ];
 
-        $inventory['Polygons defined'] = (string) count($polygons);
-        $inventory['Polygon-weighting links'] = (string) count($polygonLinks);
-        $inventory['Polygon weighting range'] = $this->weightingRange($polygonLinks);
-        $inventory['Polygon IDs (sample)'] = $this->polygonSample($polygons);
+        foreach ($plain as $item => $value) {
+            $inventory[$item] = new EffectiveValue($value, $value);
+        }
 
         return $inventory;
     }

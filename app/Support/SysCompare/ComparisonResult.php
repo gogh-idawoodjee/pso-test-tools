@@ -24,6 +24,7 @@ final readonly class ComparisonResult
         public array $tally,
         public VersionReport $versions,
         public bool $apiKeyValuesDiffer,
+        public bool $defaultsApplied,
         public array $definitionTemplate,
         public QuickRead $quickRead,
         public DateTimeImmutable $generatedAt,

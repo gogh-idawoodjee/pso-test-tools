@@ -6,6 +6,7 @@ use App\Support\SysCompare\Cells;
 use App\Support\SysCompare\ComparisonResult;
 use App\Support\SysCompare\ComparisonRow;
 use App\Support\SysCompare\ComparisonTab;
+use App\Support\SysCompare\EffectiveParameterResolver;
 use App\Support\SysCompare\EnvironmentVersion;
 use App\Support\SysCompare\VersionReport;
 use OpenSpout\Common\Entity\Cell;
@@ -175,6 +176,7 @@ class XlsxWorkbook
     private function scopeLines(ComparisonResult $result): array
     {
         $lines = [
+            ...($result->defaultsApplied ? [] : ['PARAMETER DEFAULTS WERE NOT APPLIED: the parameter catalog was not available, so unset parameters show as (absent) and may simply be using their default. Parameter differences are raw and overstate the real differences.']),
             'Compared: profile parameters, exception types, groups and group permissions, organisation permissions, org-default list layouts, travel-time setup, profiles, terminology, exception type data, organisation record.',
             'Not compared: Users and all per-user tables. They hold data tied to individual user accounts (saved filters, screen settings, list layouts, and which groups, permissions and parameters each user has), and the set of users differs between environments, so comparing them would mostly show noise. Group membership (who is in which group) is therefore not compared, only what each group is allowed to do.',
             'List and polygon IDs are GUIDs that differ per environment, so lists are matched on content and travel polygons are summarised by count. Group names that differ only by case are treated as one group, and the spelling difference is flagged.',
@@ -182,7 +184,8 @@ class XlsxWorkbook
             $result->apiKeyValuesDiffer
                 ? 'Routing API key values are masked as [API key set]. The key VALUES differ between environments.'
                 : 'Routing API key values are masked as [API key set].',
-            'Comparison is case- and whitespace-sensitive. A leading or trailing space is shown with the visible marker '.Cells::SPACE_MARK.'. Amber cell = differs from '.$result->baselineName().'; DIFF = not identical across all environments.',
+            'Parameters are compared as effective values: a parameter missing from the export uses its catalog default (shown as (default: x)), and rows that differ only because of defaults are marked "Same (default)" and are not counted. Profiles do not inherit from each other.',
+            'Comparison is case- and whitespace-sensitive. A leading or trailing space is shown with the visible marker '.Cells::SPACE_MARK.'. Amber cell = differs from '.$result->baselineName().'; DIFF = effective values differ across the environments.',
         ];
 
         return $lines;
@@ -322,7 +325,7 @@ class XlsxWorkbook
 
             foreach ($tab->extraHeaders as $header) {
                 $value = $row->extra[$header] ?? '';
-                $cells[] = $this->text($value, str_starts_with($value, '[Inferred]') || $value === '' ? 'muted' : 'wrap');
+                $cells[] = $this->text($value, str_starts_with($value, '[Inferred]') || ($value === '' && $header === 'Definition') ? 'muted' : 'wrap');
             }
 
             $writer->addRow(new Row($cells));
@@ -333,13 +336,14 @@ class XlsxWorkbook
         }
 
         foreach ($tab->extraHeaders as $extraIndex => $header) {
-            $sheet->setColumnWidth(self::EXTRA_COLUMN_WIDTH, $keyCount + $environmentCount + 2 + $extraIndex);
+            $sheet->setColumnWidth($header === 'Definition' ? self::EXTRA_COLUMN_WIDTH : 22, $keyCount + $environmentCount + 2 + $extraIndex);
         }
     }
 
     private function environmentCellStyle(string $value, ComparisonRow $row, int $index, int $baselineIndex): string
     {
-        $muted = in_array($value, [Cells::ABSENT, Cells::NULL_TEXT, Cells::NONE], true);
+        $muted = in_array($value, [Cells::ABSENT, Cells::NULL_TEXT, Cells::NONE, EffectiveParameterResolver::NO_PROFILE], true)
+            || str_starts_with($value, EffectiveParameterResolver::DEFAULT_PREFIX);
         $differs = $row->differsFromBaseline($index, $baselineIndex);
 
         return match (true) {

@@ -55,7 +55,7 @@ it('counts every table but only retains the compared ones', function (): void {
 
     $sysFile = app(SysFileReader::class)->read($path);
 
-    expect($sysFile->tableCounts)->toBe(['Users' => 2, 'User_Parameter' => 1, 'Profile_Parameter' => 1])
+    expect($sysFile->tableCounts)->toBe(['Users' => 2, 'User_Parameter' => 1, 'Profile' => 1, 'Profile_Parameter' => 1])
         ->and($sysFile->tables)->toHaveKey('Profile_Parameter')
         ->and($sysFile->tables)->not->toHaveKey('Users')
         ->and($sysFile->tables)->not->toHaveKey('User_Parameter')
