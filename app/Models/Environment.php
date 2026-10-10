@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
 use Override;
@@ -144,5 +145,15 @@ class Environment extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults();
+    }
+
+    public function exportFiles(): MorphMany
+    {
+        return $this->morphMany(ExportFile::class, 'scope');
+    }
+
+    public function toolRuns(): MorphMany
+    {
+        return $this->morphMany(ToolRun::class, 'scope');
     }
 }

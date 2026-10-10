@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * @method static Model|static create(array $attributes = [])
@@ -30,6 +31,7 @@ class Dataset extends Model
         return [
             'last_synced_at' => 'datetime',
             'last_sync_summary' => 'array',
+            'settings' => 'array',
         ];
     }
 
@@ -75,5 +77,15 @@ class Dataset extends Model
                 ->relationship('environment', 'name')
                 ->required(),
         ];
+    }
+
+    public function exportFiles(): MorphMany
+    {
+        return $this->morphMany(ExportFile::class, 'scope');
+    }
+
+    public function toolRuns(): MorphMany
+    {
+        return $this->morphMany(ToolRun::class, 'scope');
     }
 }
