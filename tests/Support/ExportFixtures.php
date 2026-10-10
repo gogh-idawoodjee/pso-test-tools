@@ -3,11 +3,14 @@
 use App\Enums\ExportKind;
 use App\Models\ExportFile;
 
-function scheduleXml(string $datasetId = 'NORTH', string $datetime = '2026-10-10T07:12:00', int $activities = 2, int $resources = 1): string
+function scheduleXml(string $datasetId = 'NORTH', string $datetime = '2026-10-10T07:12:00', int $activities = 2, int $resources = 1, bool $withPlan = false): string
 {
     $body = "<Input_Reference><id>x</id><datetime>{$datetime}</datetime><dataset_id>{$datasetId}</dataset_id></Input_Reference>";
     for ($i = 0; $i < $activities; $i++) { $body .= "<Activity><id>A{$i}</id></Activity>"; }
     for ($i = 0; $i < $resources; $i++) { $body .= "<Resources><id>R{$i}</id></Resources>"; }
+    if ($withPlan) {
+        $body .= "<Allocation><activity_id>1</activity_id></Allocation><Plan><id>1</id><dataset_id>{$datasetId}</dataset_id></Plan>";
+    }
     $path = tempnam(sys_get_temp_dir(), 'exp_').'.xml';
     file_put_contents($path, '<?xml version="1.0"?><dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd">'.$body.'</dsScheduleData>');
 

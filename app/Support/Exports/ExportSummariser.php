@@ -48,13 +48,18 @@ class ExportSummariser
 
     private function summariseSchedule(string $path, string $format, string $root, string $timeZone, ExportKind $kind): ExportSummary
     {
+        // A plan upload must carry a Plan block; one streaming pass serves this check and the plan-only summary below.
+        $plan = $format === 'xml' ? $this->readPlanBlock($path) : null;
+        if ($kind === ExportKind::Plan && ! $this->hasPlanBlock($path, $format, $plan)) {
+            throw new InvalidExportException('This file has no Plan block, so it is not a plan export. Upload it as LOAD or End of day instead.');
+        }
+
         $extracted = ScheduleDataSummaryExtractor::extract($path, $format);
         $reference = $extracted['input_reference_datetime'];
 
         // The extractor reports zeros for a file it could not read; a ready row must never say that.
         if ($extracted['dataset_id'] === null && $reference === null) {
             // A plan export has no Input_Reference: its dataset and reference time sit on the Plan block.
-            $plan = $format === 'xml' ? $this->readPlanBlock($path) : null;
             if ($plan !== null) {
                 if ($kind === ExportKind::Load) {
                     throw new InvalidExportException('This file is a plan export (it holds a Plan and its allocations, but no activities or resources), not a LOAD. Upload it under Plan or End of day.');
@@ -88,6 +93,24 @@ class ExportSummariser
             'activity_count' => $extracted['activity_count'],
             'resource_count' => $extracted['resource_count'],
         ]);
+    }
+
+    /** @param array<string, mixed>|null $streamedPlan result of readPlanBlock() for xml */
+    private function hasPlanBlock(string $path, string $format, ?array $streamedPlan): bool
+    {
+        if ($format === 'xml') {
+            return $streamedPlan !== null;
+        }
+
+        // JSON has no streaming reader here; a file too large to decode cannot be checked.
+        if (filesize($path) > ScheduleDataSummaryExtractor::MAX_JSON_PARSE_BYTES) {
+            return false;
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+        $data = is_array($decoded) ? ($decoded['dsScheduleData'] ?? $decoded['ScheduleData'] ?? []) : [];
+
+        return is_array($data) && ! empty($data['Plan']);
     }
 
     /**
