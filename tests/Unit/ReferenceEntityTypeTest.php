@@ -10,7 +10,7 @@ it('maps every entity type onto its PSO wire table', function () {
             'region' => 'Region',
             'skill' => 'Skill',
             'task_type' => 'Activity_Type',
-            'slot_usage_rule' => 'Slot_Usage_Rule',
+            'slot_usage_rule' => 'Slot_Usage_Rule_Set',
             'appointment_template' => 'Appointment_Template',
             'sla_type' => 'SLA_Type',
         ]);
@@ -42,4 +42,9 @@ it('labels and colours origins', function () {
         ->and(ReferenceValueOrigin::Manual->getLabel())->toBe('Manual')
         ->and(ReferenceValueOrigin::Pso->getColor())->toBe('info')
         ->and(ReferenceValueOrigin::Manual->getColor())->toBe('gray');
+});
+
+it('keeps the reference tables out of the deletable object list', function () {
+    expect(PSOObjectRegistry::all())->not->toHaveKeys(['region', 'skill', 'activity_type', 'slot_usage_rule', 'appointment_template', 'sla_type'])
+        ->and(PSOObjectRegistry::forSelect())->not->toHaveKey('region');
 });

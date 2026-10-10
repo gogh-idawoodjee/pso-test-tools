@@ -6,7 +6,10 @@ use Filament\Support\Contracts\HasLabel;
 use Filament\Support\Icons\Heroicon;
 
 /**
- * The kinds of PSO identifier a request can reference, stored per dataset
+ * The kinds of PSO identifier a request can reference, stored per dataset.
+ * Slot usage rules are mirrored at the Slot_Usage_Rule_Set level: that is the
+ * id Appointment_Request carries, and Slot_Usage_Rule rows have no id of their own.
+ *
  * in dataset_reference_values. Adding a kind is a new case here plus an
  * entry in App\Classes\PSOObjectRegistry; no migration.
  */
@@ -26,7 +29,7 @@ enum ReferenceEntityType: string implements HasLabel
             self::Region => 'Region',
             self::Skill => 'Skill',
             self::TaskType => 'Activity_Type',
-            self::SlotUsageRule => 'Slot_Usage_Rule',
+            self::SlotUsageRule => 'Slot_Usage_Rule_Set',
             self::AppointmentTemplate => 'Appointment_Template',
             self::SlaType => 'SLA_Type',
         };
@@ -58,7 +61,7 @@ enum ReferenceEntityType: string implements HasLabel
             self::Region => 'Region',
             self::Skill => 'Skill',
             self::TaskType => 'Task Type',
-            self::SlotUsageRule => 'Slot Usage Rule',
+            self::SlotUsageRule => 'Slot Usage Rule Set',
             self::AppointmentTemplate => 'Appointment Template',
             self::SlaType => 'SLA Type',
         };

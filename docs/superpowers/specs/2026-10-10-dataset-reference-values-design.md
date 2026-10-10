@@ -86,7 +86,7 @@ Model `DatasetReferenceValue`:
 | `region` | Region | `description` | none |
 | `skill` | Skill | `description` | none |
 | `task_type` | Activity_Type | `description` | `priority` (int, from `priority`), `base_value` (decimal, from `base_value`, a Double in PSO), `base_duration` (whole minutes, from `duration`, a Time Span in PSO) |
-| `slot_usage_rule` | Slot_Usage_Rule | `description` | none |
+| `slot_usage_rule` | Slot_Usage_Rule_Set | `description` | none |
 | `appointment_template` | Appointment_Template | `description` | none |
 | `sla_type` | SLA_Type | `description` | none |
 
@@ -104,6 +104,12 @@ string PSO expects, and `ResourceFormatter` already parses PSO time spans with
 and stores `totalMinutes` rounded to a whole number. No new conversion helper is written.
 
 Attribute values are validated per type in the form and in the sync (numeric, nullable).
+
+**Field reality, found in review (2026-10-10):** the earlier draft of this spec named `Slot_Usage_Rule`.
+In the real SaskTel LOAD those rows have no `id` or `description`; the Scheduling Schema confirms the
+identifier lives on `Slot_Usage_Rule_Set` (`id`, `description`), and `Appointment_Request` and
+`Appointment_Template` both reference `slot_usage_rule_set_id`. The `slot_usage_rule` type therefore
+mirrors `Slot_Usage_Rule_Set`. The enum case and the UI label keep the shorter name the app already uses.
 
 ### 4.3 Dataset
 
@@ -162,7 +168,7 @@ Service `ReferenceValuesService`:
    (`sink`), with a timeout from `config('pso-services.reference_values.timeout')`, default 300
    seconds. The default client timeout of 10 seconds is not used here.
 3. Parse the file with `XMLReader`. For each element whose local name is one of the six PSO
-   tables, read its child elements into an associative array and keep only the id, the label
+   tables (Region, Skill, Activity_Type, Slot_Usage_Rule_Set, Appointment_Template, SLA_Type), read its child elements into an associative array and keep only the id, the label
    column and the attribute columns. Skip everything else without materialising it. Strip
    namespaces.
 
@@ -186,7 +192,7 @@ Service `ReferenceValuesService`:
       "Region":               [{"id": "R1", "description": "Regina"}],
       "Skill":                [{"id": "FIBRE", "description": "Fibre install"}],
       "Activity_Type":        [{"id": "INSTALL", "description": "Install", "priority": 5, "base_value": 1000, "base_duration": 3600}],
-      "Slot_Usage_Rule":      [{"id": "AM"}],
+      "Slot_Usage_Rule_Set":  [{"id": "AM", "description": "Morning"}],
       "Appointment_Template": [{"id": "STANDARD", "description": "Standard"}],
       "SLA_Type":             [{"id": "IN", "description": "In window"}]
     }

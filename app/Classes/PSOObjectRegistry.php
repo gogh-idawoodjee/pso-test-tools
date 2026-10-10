@@ -90,10 +90,22 @@ class PSOObjectRegistry
                     ['name' => 'id', 'type' => 'string'],
                 ],
             ],
+        ];
+    }
+
+    /**
+     * Identifier tables a request can reference (region, skill, activity
+     * type, slot usage rule set, appointment template, SLA type). Kept
+     * apart from all(): these are not deletable objects, and their
+     * attributes are columns to read, not primary keys. Mirrors the
+     * same method in pso-services.
+     */
+    public static function referenceValueEntries(): array
+    {
+        return [
             'region' => [
                 'label' => 'Region',
                 'entity' => 'Region',
-                'reference_value' => true,
                 'attributes' => [
                     ['name' => 'id', 'type' => 'string'],
                     ['name' => 'description', 'type' => 'string'],
@@ -102,7 +114,6 @@ class PSOObjectRegistry
             'skill' => [
                 'label' => 'Skill',
                 'entity' => 'Skill',
-                'reference_value' => true,
                 'attributes' => [
                     ['name' => 'id', 'type' => 'string'],
                     ['name' => 'description', 'type' => 'string'],
@@ -111,7 +122,6 @@ class PSOObjectRegistry
             'activity_type' => [
                 'label' => 'Activity Type',
                 'entity' => 'Activity_Type',
-                'reference_value' => true,
                 'attributes' => [
                     ['name' => 'id', 'type' => 'string'],
                     ['name' => 'description', 'type' => 'string'],
@@ -122,9 +132,8 @@ class PSOObjectRegistry
                 ],
             ],
             'slot_usage_rule' => [
-                'label' => 'Slot Usage Rule',
-                'entity' => 'Slot_Usage_Rule',
-                'reference_value' => true,
+                'label' => 'Slot Usage Rule Set',
+                'entity' => 'Slot_Usage_Rule_Set',
                 'attributes' => [
                     ['name' => 'id', 'type' => 'string'],
                     ['name' => 'description', 'type' => 'string'],
@@ -133,7 +142,6 @@ class PSOObjectRegistry
             'appointment_template' => [
                 'label' => 'Appointment Template',
                 'entity' => 'Appointment_Template',
-                'reference_value' => true,
                 'attributes' => [
                     ['name' => 'id', 'type' => 'string'],
                     ['name' => 'description', 'type' => 'string'],
@@ -142,7 +150,6 @@ class PSOObjectRegistry
             'sla_type' => [
                 'label' => 'SLA Type',
                 'entity' => 'SLA_Type',
-                'reference_value' => true,
                 'attributes' => [
                     ['name' => 'id', 'type' => 'string'],
                     ['name' => 'description', 'type' => 'string'],
@@ -153,7 +160,7 @@ class PSOObjectRegistry
 
     public static function get(string $key): ?array
     {
-        return self::all()[$key] ?? null;
+        return self::all()[$key] ?? self::referenceValueEntries()[$key] ?? null;
     }
 
     public static function forSelect(): array
