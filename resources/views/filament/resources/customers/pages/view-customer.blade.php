@@ -1,19 +1,7 @@
 <x-filament-panels::page>
-    @if ($this->hasInfolist())
-        {{ $this->infolist }}
-    @else
-        {{ $this->form }}
-    @endif
+    {{-- Infolist (or form) plus the relation manager tabs, as Filament v5 lays them out. --}}
+    {{ $this->content }}
 
-    @if (count($relationManagers = $this->getRelationManagers()))
-        <x-filament-panels::resources.relation-managers
-            :active-manager="$this->activeRelationManager"
-            :managers="$relationManagers"
-            :owner-record="$record"
-            :page-class="static::class"
-
-        />
-    @endif
     <x-filament::section collapsible="true">
         <x-slot name="heading">
             Appointment Booking
