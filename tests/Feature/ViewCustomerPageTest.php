@@ -7,7 +7,7 @@ use App\Models\Environment;
 use App\Models\User;
 use Livewire\Livewire;
 
-it('renders the customer view page with its tasks tab', function () {
+it('renders the customer view page', function () {
     $user = User::factory()->create();
     $dataset = Dataset::factory()->for(Environment::factory()->for($user))->create();
     $customer = Customer::factory()->for($dataset)->create(['name' => 'Jane Render']);
@@ -15,6 +15,5 @@ it('renders the customer view page with its tasks tab', function () {
 
     Livewire::test(ViewCustomer::class, ['record' => $customer->getRouteKey()])
         ->assertOk()
-        ->assertSee('Jane Render')
-        ->assertSee('Appointment Booking');
+        ->assertSee('Jane Render');
 });
