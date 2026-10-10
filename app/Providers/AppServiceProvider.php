@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\ExternalSanctumToken;
+use App\Tools\ToolRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
@@ -21,7 +22,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Each tool port registers its implementation on this registry.
+        $this->app->singleton(ToolRegistry::class);
+
         if ($this->app->environment('local') && class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)) {
 
             $this->app->register(\Laravel\Telescope\TelescopeServiceProvider::class);

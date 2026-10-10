@@ -51,3 +51,19 @@ are `Slot_Usage_Rule_Set` ids, which is what an appointment request carries.
 
 Tests run on an in-memory SQLite database (`phpunit.xml`), so they never touch the `.env` database.
 `REFERENCE_VALUES_TIMEOUT` (default 600 s) bounds the call to pso-services.
+
+## Exports and tool runs
+
+LOAD, plan, end-of-day and audit exports are uploaded on a dataset's **Exports** tab; SYS exports on an
+environment's. Files go straight from the browser to the private R2 bucket with a short-lived signed URL
+(no file passes through PHP), are summarised on the queue, and are **deleted 12 hours after upload**
+(`EXPORTS_TTL_HOURS`). The **Runs** tab starts a tool against the newest set for a day; results are kept in
+the database, encrypted with the app key, and rendered on the run page. A queue worker must be running.
+
+R2 bucket setup: add a CORS rule allowing the app origin with methods `PUT` and `GET`, headers
+`Content-Type`, and `MaxAgeSeconds` 3600, or uploads fail in the browser with a CORS error.
+The scheduler must run (`php artisan schedule:run` every minute) for `exports:purge`.
+
+Per-dataset settings (display names, coverage, exclusions, labels, time zone) live on the dataset's edit
+form. Seed one from a pso-tools account file with
+`php artisan datasets:seed-settings <dataset id> accounts/SATE.json --time-zone=America/Regina`.

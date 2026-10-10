@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Casts\DatasetSettingsCast;
 use App\Enums\ReferenceEntityType;
+use DateTimeZone;
 use Filament\Forms;
+use Filament\Schemas\Components\Section;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 /**
  * @method static Model|static create(array $attributes = [])
@@ -30,7 +34,13 @@ class Dataset extends Model
         return [
             'last_synced_at' => 'datetime',
             'last_sync_summary' => 'array',
+            'settings' => DatasetSettingsCast::class,
         ];
+    }
+
+    public function timeZone(): string
+    {
+        return $this->settings->timeZone ?? (string) config('app.timezone', 'UTC');
     }
 
     public function environment(): BelongsTo
@@ -74,6 +84,46 @@ class Dataset extends Model
             Forms\Components\Select::make('environment_id')
                 ->relationship('environment', 'name')
                 ->required(),
+            Section::make('Settings')
+                ->description('What the tools read for this customer: names, thresholds and the local time zone.')
+                ->collapsible()
+                ->collapsed(static fn (?self $record): bool => $record === null)
+                ->columns(2)
+                ->columnSpanFull()
+                ->schema([
+                    Forms\Components\TextInput::make('settings.display_name')->label('Customer name on dashboards'),
+                    Forms\Components\TextInput::make('settings.dataset_display_name')->label('Dataset name on dashboards'),
+                    Forms\Components\TextInput::make('settings.coverage_km')->label('Coverage radius (km)')->numeric(),
+                    Forms\Components\TextInput::make('settings.eod_cutoff_hour')->label('End of day cut-off hour')->numeric()->integer()->minValue(0)->maxValue(23),
+                    Forms\Components\Select::make('settings.time_zone')
+                        ->label('Time zone')
+                        ->searchable()
+                        ->options(array_combine(DateTimeZone::listIdentifiers(), DateTimeZone::listIdentifiers())),
+                    Forms\Components\TextInput::make('settings.windows_time_zone')->label('Windows time zone'),
+                    Forms\Components\TagsInput::make('settings.exclude_resource_types')->label('Resource types to leave out')->columnSpanFull(),
+                    Forms\Components\KeyValue::make('settings.resource_type_names')
+                        ->label('Resource type names')
+                        ->keyLabel('PSO resource type')
+                        ->valueLabel('Shown as')
+                        ->columnSpanFull(),
+                    Forms\Components\KeyValue::make('settings.attribute_labels')->label('Attribute labels')->columnSpanFull(),
+                    Forms\Components\TextInput::make('settings.region_pivot.red_below')->label('Region shows red below')->numeric()->integer(),
+                    Forms\Components\TextInput::make('settings.region_pivot.amber_below')->label('Region shows amber below')->numeric()->integer(),
+                    Forms\Components\KeyValue::make('settings.region_labels')->label('Region labels')->columnSpanFull(),
+                    Forms\Components\TextInput::make('settings.supervisor_label')->label('Supervisor label'),
+                    Forms\Components\TextInput::make('settings.supervisor_label_plural')->label('Supervisor label (plural)'),
+                    Forms\Components\KeyValue::make('settings.notes')->label('Notes')->columnSpanFull(),
+                ]),
         ];
+    }
+
+    public function exportFiles(): MorphMany
+    {
+        return $this->morphMany(ExportFile::class, 'scope');
+    }
+
+    public function toolRuns(): MorphMany
+    {
+        return $this->morphMany(ToolRun::class, 'scope');
     }
 }

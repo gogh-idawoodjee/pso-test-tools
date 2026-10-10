@@ -23,7 +23,7 @@ use XMLReader;
  */
 class ScheduleDataSummaryExtractor
 {
-    private const int MAX_JSON_PARSE_BYTES = 20 * 1024 * 1024; // 20MB
+    public const int MAX_JSON_PARSE_BYTES = 20 * 1024 * 1024; // 20MB
 
     /**
      * @return array{dataset_id: ?string, input_reference_datetime: ?CarbonImmutable, activity_count: int, resource_count: int}
