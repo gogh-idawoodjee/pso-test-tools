@@ -110,3 +110,8 @@ it('tells the user a plan export uploaded as a LOAD belongs under Plan', functio
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'xml'), planXml(), 'UTC'))
         ->toThrow(InvalidExportException::class, 'plan export');
 });
+
+it('tells the user a plan export uploaded as end of day belongs under Plan', function () {
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Eod, 'xml'), planXml(), 'UTC'))
+        ->toThrow(InvalidExportException::class, 'End of day');
+});
