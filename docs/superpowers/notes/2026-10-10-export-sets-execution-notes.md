@@ -67,8 +67,8 @@ Fresh reviewer on the whole branch: 0 Critical, 5 Important, 11 Minor. All five 
 
 ## Found in production testing
 
-- **A real plan export uploaded as a LOAD was rejected with "no Input_Reference block".** A PSO plan export (root `dsScheduleData`) has allocations and a `Plan` block but no `Input_Reference`, `Activity` or `Resources`; its dataset id and reference time are on the `Plan` block. The review fix that stopped unreadable files going `ready` with zero counts also caught these. Now: a plan-shaped file is summarised from its `Plan` block (`dataset_id`, `input_reference_datetime`, `export_date`, `allocation_count`) under Plan only; uploaded as a LOAD or EOD (both load-shaped) it fails with "This file is a plan export ... Upload it under Plan."
-- EOD exports are load-shaped (confirmed by the owner), so a plan-shaped file is rejected under EOD as well.
+- **A real plan export uploaded as a LOAD was rejected with "no Input_Reference block".** A PSO plan export (root `dsScheduleData`) has allocations and a `Plan` block but no `Input_Reference`, `Activity` or `Resources`; its dataset id and reference time are on the `Plan` block. The review fix that stopped unreadable files going `ready` with zero counts also caught these. Now: a plan-shaped file is summarised from its `Plan` block (`dataset_id`, `input_reference_datetime`, `export_date`, `allocation_count`) under Plan and EOD; uploaded as a LOAD it fails with "This file is a plan export ... Upload it under Plan or End of day."
+- EOD exports are plan-shaped too (confirmed by the owner), with an input reference of type load. The summariser does not yet tell a Plan from an EOD; it trusts the kind chosen at upload.
 - PSO writes explicit offsets on its timestamps (`+00:00`), so review finding I-2 (offset-less times) has not shown up in a real file.
 
 ## To do after merge

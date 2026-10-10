@@ -56,8 +56,8 @@ class ExportSummariser
             // A plan export has no Input_Reference: its dataset and reference time sit on the Plan block.
             $plan = $format === 'xml' ? $this->readPlanBlock($path) : null;
             if ($plan !== null) {
-                if ($kind !== ExportKind::Plan) {
-                    throw new InvalidExportException("This file is a plan export (it holds a Plan and its allocations, but no activities or resources), so it cannot be used as {$kind->getLabel()}. Upload it under Plan.");
+                if ($kind === ExportKind::Load) {
+                    throw new InvalidExportException('This file is a plan export (it holds a Plan and its allocations, but no activities or resources), not a LOAD. Upload it under Plan or End of day.');
                 }
 
                 $planReference = $this->parseTime((string) $plan['input_reference_date_time'], 'UTC');

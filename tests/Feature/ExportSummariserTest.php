@@ -111,7 +111,8 @@ it('tells the user a plan export uploaded as a LOAD belongs under Plan', functio
         ->toThrow(InvalidExportException::class, 'plan export');
 });
 
-it('tells the user a plan export uploaded as end of day belongs under Plan', function () {
-    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Eod, 'xml'), planXml(), 'UTC'))
-        ->toThrow(InvalidExportException::class, 'End of day');
+it('accepts a plan-shaped file as end of day', function () {
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Eod, 'xml'), planXml(allocations: 2), 'UTC');
+
+    expect($summary->toArray())->toMatchArray(['dataset_id' => 'NORTH', 'allocation_count' => 2, 'export_date' => '2026-10-04']);
 });
