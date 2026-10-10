@@ -9,6 +9,8 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Resources\Resource;
+use Filament\Forms;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
@@ -25,7 +27,15 @@ class TaskResource extends Resource
     public static function form(Schema $form): Schema
     {
         return $form
-            ->schema(Task::getForm());
+            ->schema([
+                Forms\Components\Select::make('customer_id')
+                    ->label('Customer')
+                    ->relationship('customer', 'name')
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(static fn (Set $set) => $set('task_type_id', null)),
+                ...Task::getForm(),
+            ]);
     }
 
     public static function table(Table $table): Table

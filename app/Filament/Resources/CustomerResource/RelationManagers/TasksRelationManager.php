@@ -4,9 +4,7 @@ namespace App\Filament\Resources\CustomerResource\RelationManagers;
 
 use App\Enums\TaskStatus;
 use App\Filament\Resources\TaskResource;
-use App\Models\AppointmentTemplate;
 use App\Models\Environment;
-use App\Models\SlotUsageRule;
 use App\Models\Task;
 use App\Traits\FormTrait;
 use Filament\Actions\Action;
@@ -41,7 +39,7 @@ class TasksRelationManager extends RelationManager
     #[Override]
     public function form(Schema $form): Schema
     {
-        return $form->schema(Task::getForm());
+        return $form->schema(Task::getForm($this->getOwnerRecord()->dataset_id));
     }
 
     #[Override]
@@ -54,7 +52,7 @@ class TasksRelationManager extends RelationManager
                     ->label('Task ID')
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\TextColumn::make('taskType.name')
+                Tables\Columns\TextColumn::make('taskType.label')
                     ->label('Task Type')
                     ->searchable()
                     ->sortable(),
@@ -88,7 +86,13 @@ class TasksRelationManager extends RelationManager
             ->headerActions([
                 CreateAction::make()
                     ->slideOver()
-                    ->label('Create Task'),
+                    ->label('Create Task')
+                    ->mutateDataUsing(function (array $data): array {
+                        $data['dataset_id'] = $this->getOwnerRecord()->dataset_id;
+                        $data['customer_id'] = $this->getOwnerRecord()->id;
+
+                        return $data;
+                    }),
             ])
             ->recordActions([
                 ActionGroup::make([

@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\ReferenceEntityType;
 use App\Enums\Status;
+use App\Filament\Resources\DatasetReferenceValueResource;
+use App\Rules\ReferenceValueInDataset;
 use App\Models\Scopes\DatasetOwnedModel;
 use App\Support\GeocodeHelper;
 use Filament\Actions\Action;
@@ -86,6 +89,16 @@ class Customer extends Model
         return [
             Section::make('Customer Details')
                 ->schema([
+                    Forms\Components\Select::make('dataset_id')
+                        ->label('Dataset')
+                        ->options(static fn (): array => Dataset::ownedByCurrentUser()->with('environment')->get()
+                            ->mapWithKeys(static fn (Dataset $dataset): array => [$dataset->id => "{$dataset->environment->name} / {$dataset->name}"])->all())
+                        ->required()
+                        ->live()
+                        ->afterStateUpdated(static fn (Set $set) => $set('region_id', null))
+                        ->disabledOn('edit')
+                        ->dehydrated()
+                        ->columnSpanFull(),
                     Forms\Components\TextInput::make('name')
                         ->required(),
                     Forms\Components\Select::make('status')
@@ -114,8 +127,12 @@ class Customer extends Model
                         ->required(),
                     Forms\Components\Select::make('region_id')
                         ->label('Region')
-                        ->options([]) // replaced in Task 7 with the dataset's regions
-                        ->searchable(),
+                        ->options(static fn (Get $get): array => DatasetReferenceValue::optionsFor($get('dataset_id'), ReferenceEntityType::Region))
+                        ->searchable()
+                        ->disabled(static fn (Get $get): bool => blank($get('dataset_id')))
+                        ->rules([static fn (Get $get) => new ReferenceValueInDataset($get('dataset_id'), ReferenceEntityType::Region)])
+                        ->createOptionForm(DatasetReferenceValueResource::formSchema(ReferenceEntityType::Region, lockDataset: true))
+                        ->createOptionUsing(static fn (Get $get, array $data): string => DatasetReferenceValue::createManual($get('dataset_id'), ReferenceEntityType::Region, $data)->id),
                     Group::make()
                         ->schema([
                             Forms\Components\TextInput::make('lat')

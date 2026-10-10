@@ -76,6 +76,42 @@ class DatasetReferenceValue extends Model
             && ($this->last_seen_at === null || $this->last_seen_at->lt($lastSynced));
     }
 
+    /** [row uuid => "label (PSO ID)"] for selects that store the row. */
+    public static function optionsFor(?string $datasetId, ReferenceEntityType $type): array
+    {
+        if (blank($datasetId)) {
+            return [];
+        }
+
+        return static::query()->where('dataset_id', $datasetId)->ofType($type)->orderBy('label')->get()
+            ->mapWithKeys(static fn (self $row): array => [$row->id => "{$row->label} ({$row->pso_id})"])
+            ->all();
+    }
+
+    /** [PSO ID => "label (PSO ID)"] for selects whose value goes straight into a PSO request. */
+    public static function psoIdOptionsFor(?string $datasetId, ReferenceEntityType $type): array
+    {
+        if (blank($datasetId)) {
+            return [];
+        }
+
+        return static::query()->where('dataset_id', $datasetId)->ofType($type)->orderBy('label')->get()
+            ->mapWithKeys(static fn (self $row): array => [$row->pso_id => "{$row->label} ({$row->pso_id})"])
+            ->all();
+    }
+
+    /** Create a typed-in row for a dataset; the label defaults to the PSO ID. */
+    public static function createManual(string $datasetId, ReferenceEntityType $type, array $data): self
+    {
+        return static::create([
+            'dataset_id' => $datasetId,
+            'entity_type' => $type,
+            'pso_id' => $data['pso_id'],
+            'label' => filled($data['label'] ?? null) ? $data['label'] : $data['pso_id'],
+            'origin' => ReferenceValueOrigin::Manual,
+        ]);
+    }
+
     /** Read one field of the attributes JSON (priority, base_value, base_duration). */
     public function attribute(string $key): mixed
     {

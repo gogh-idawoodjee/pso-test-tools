@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Enums\ReferenceEntityType;
 use App\Enums\TaskStatus;
+use App\Rules\ReferenceValueInDataset;
+use Filament\Schemas\Components\Utilities\Get;
 use App\Models\Scopes\DatasetOwnedModel;
 use Filament\Forms;
 use Illuminate\Database\Eloquent\Builder;
@@ -81,15 +84,26 @@ class Task extends Model
         return $this->belongsTo(DatasetReferenceValue::class, 'task_type_id');
     }
 
-    public static function getForm(): array
+    /**
+     * @param  string|null  $datasetId  known up front on a customer's relation manager; otherwise taken from the chosen customer
+     */
+    public static function getForm(?string $datasetId = null): array
     {
-        return [
+        $resolveDataset = static fn (Get $get, ?Task $record): ?string => $datasetId
+            ?? $record?->dataset_id
+            ?? ($get('customer_id') ? Customer::query()->whereKey($get('customer_id'))->value('dataset_id') : null);
 
-            Forms\Components\Select::make('task_type_id')->label('Task Type')->options([])->searchable()->required(), // finished in Task 7
+        return [
+            Forms\Components\Select::make('task_type_id')
+                ->label('Task Type')
+                ->required()
+                ->searchable()
+                ->options(static fn (Get $get, ?Task $record): array => DatasetReferenceValue::optionsFor($resolveDataset($get, $record), ReferenceEntityType::TaskType))
+                ->rules([static fn (Get $get, ?Task $record) => new ReferenceValueInDataset($resolveDataset($get, $record), ReferenceEntityType::TaskType)]),
             Forms\Components\Select::make('status')->required()
                 ->enum(TaskStatus::class)
                 ->options(TaskStatus::class),
-            Forms\Components\TextInput::make('duration')->required()->numeric(),
+            Forms\Components\TextInput::make('duration')->label('Duration (minutes)')->numeric()->helperText('Blank uses the task type base duration.'),
         ];
     }
 

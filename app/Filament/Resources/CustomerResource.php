@@ -6,6 +6,7 @@ use App\Enums\TaskStatus;
 use App\Filament\Resources\CustomerResource\Pages;
 use App\Filament\Resources\CustomerResource\RelationManagers\TasksRelationManager;
 use App\Models\Customer;
+use App\Models\Dataset;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -43,6 +44,9 @@ class CustomerResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('dataset.name')
+                    ->label('Dataset')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('address')
@@ -52,7 +56,8 @@ class CustomerResource extends Resource
                 Tables\Columns\TextColumn::make('country')
                     ->searchable(),
 
-                Tables\Columns\TextColumn::make('region.name')
+                Tables\Columns\TextColumn::make('region.label')
+                    ->label('Region')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -70,6 +75,11 @@ class CustomerResource extends Resource
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
+            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('dataset_id')
+                    ->label('Dataset')
+                    ->options(static fn (): array => Dataset::ownedByCurrentUser()->pluck('name', 'id')->all()),
             ])
             ->recordActions([
                 EditAction::make()->slideOver(),
