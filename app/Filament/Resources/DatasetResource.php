@@ -148,6 +148,7 @@ class DatasetResource extends Resource
             RelationManagers\SlaTypesRelationManager::class,
             RelationManagers\CustomersRelationManager::class,
             RelationManagers\ExportFilesRelationManager::class,
+            RelationManagers\ToolRunsRelationManager::class,
         ];
     }
 

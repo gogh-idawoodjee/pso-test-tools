@@ -1,0 +1,70 @@
+@php
+    $run = $this->getToolRun();
+@endphp
+
+<x-filament-panels::page>
+    <div @if ($this->isRunning()) wire:poll.5s @endif class="space-y-6">
+        <x-filament::section>
+            <dl class="grid gap-4 text-sm sm:grid-cols-4">
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">Tool</dt>
+                    <dd class="font-medium text-gray-900 dark:text-gray-100">{{ $run->tool->getLabel() }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">Status</dt>
+                    <dd><x-filament::badge :color="$run->status->getColor()">{{ $run->status->getLabel() }}</x-filament::badge></dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">Run date</dt>
+                    <dd class="font-medium text-gray-900 dark:text-gray-100">{{ $run->run_date?->format('j M Y') ?? 'Not known' }}</dd>
+                </div>
+                <div>
+                    <dt class="text-gray-500 dark:text-gray-400">Started by</dt>
+                    <dd class="font-medium text-gray-900 dark:text-gray-100">{{ $run->startedBy?->name }}</dd>
+                </div>
+            </dl>
+        </x-filament::section>
+
+        @if ($run->status === \App\Enums\ToolRunStatus::Failed)
+            <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="danger">
+                <x-slot name="heading">This run did not finish</x-slot>
+                <p class="text-sm text-gray-700 dark:text-gray-300">{{ $run->error_message }}</p>
+            </x-filament::section>
+        @endif
+
+        @if (filled($run->warnings))
+            <div class="p-4 text-sm rounded-xl bg-warning-50 text-warning-800 ring-1 ring-warning-600/20 dark:bg-warning-400/10 dark:text-warning-200">
+                <p class="mb-2 font-semibold">Warnings</p>
+                <ul class="pl-5 space-y-1 list-disc">
+                    @foreach ($run->warnings as $warning)
+                        <li>{{ $warning }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
+
+        <x-filament::section heading="Inputs">
+            <ul class="space-y-1 text-sm">
+                @forelse ($this->inputFiles() as $kindValue => $file)
+                    <li>
+                        <span class="font-medium">{{ \App\Enums\ExportKind::tryFrom($kindValue)?->getLabel() ?? $kindValue }}</span>:
+                        @if ($file)
+                            {{ $file->original_filename }}
+                            @if ($file->status === \App\Enums\ExportFileStatus::Purged)
+                                <span class="text-gray-500">(raw file purged)</span>
+                            @endif
+                        @else
+                            <span class="text-gray-500">export deleted</span>
+                        @endif
+                    </li>
+                @empty
+                    <li class="text-gray-500">No inputs recorded.</li>
+                @endforelse
+            </ul>
+        </x-filament::section>
+
+        @if ($run->result !== null)
+            @include($this->resultView(), ['run' => $run])
+        @endif
+    </div>
+</x-filament-panels::page>
