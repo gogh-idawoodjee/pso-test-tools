@@ -90,6 +90,64 @@ class PSOObjectRegistry
                     ['name' => 'id', 'type' => 'string'],
                 ],
             ],
+            'region' => [
+                'label' => 'Region',
+                'entity' => 'Region',
+                'reference_value' => true,
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                    ['name' => 'description', 'type' => 'string'],
+                ],
+            ],
+            'skill' => [
+                'label' => 'Skill',
+                'entity' => 'Skill',
+                'reference_value' => true,
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                    ['name' => 'description', 'type' => 'string'],
+                ],
+            ],
+            'activity_type' => [
+                'label' => 'Activity Type',
+                'entity' => 'Activity_Type',
+                'reference_value' => true,
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                    ['name' => 'description', 'type' => 'string'],
+                    ['name' => 'priority', 'type' => 'int'],
+                    ['name' => 'base_value', 'type' => 'float'],
+                    // PSO sends a time span (PT1H30M); the parser stores whole minutes.
+                    ['name' => 'duration', 'type' => 'minutes'],
+                ],
+            ],
+            'slot_usage_rule' => [
+                'label' => 'Slot Usage Rule',
+                'entity' => 'Slot_Usage_Rule',
+                'reference_value' => true,
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                    ['name' => 'description', 'type' => 'string'],
+                ],
+            ],
+            'appointment_template' => [
+                'label' => 'Appointment Template',
+                'entity' => 'Appointment_Template',
+                'reference_value' => true,
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                    ['name' => 'description', 'type' => 'string'],
+                ],
+            ],
+            'sla_type' => [
+                'label' => 'SLA Type',
+                'entity' => 'SLA_Type',
+                'reference_value' => true,
+                'attributes' => [
+                    ['name' => 'id', 'type' => 'string'],
+                    ['name' => 'description', 'type' => 'string'],
+                ],
+            ],
         ];
     }
 
