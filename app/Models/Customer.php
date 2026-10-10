@@ -131,7 +131,7 @@ class Customer extends Model
                         ->searchable()
                         ->disabled(static fn (Get $get): bool => blank($get('dataset_id')))
                         ->rules([static fn (Get $get) => new ReferenceValueInDataset($get('dataset_id'), ReferenceEntityType::Region)])
-                        ->createOptionForm(DatasetReferenceValueResource::formSchema(ReferenceEntityType::Region, lockDataset: true))
+                        ->createOptionForm(static fn (Get $get): array => DatasetReferenceValueResource::formSchema(ReferenceEntityType::Region, lockDataset: true, datasetId: static fn (): ?string => $get('dataset_id')))
                         ->createOptionUsing(static fn (Get $get, array $data): string => DatasetReferenceValue::createManual($get('dataset_id'), ReferenceEntityType::Region, $data)->id),
                     Group::make()
                         ->schema([

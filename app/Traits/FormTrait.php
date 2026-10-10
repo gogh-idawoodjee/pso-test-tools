@@ -26,7 +26,7 @@ trait FormTrait
 
     public ?array $environment_data = [];
 
-    public ?Environment $selectedEnvironment;
+    public ?Environment $selectedEnvironment = null;
 
     public ?string $selectedDataset = null;
 

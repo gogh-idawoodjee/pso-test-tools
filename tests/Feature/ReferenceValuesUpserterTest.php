@@ -82,9 +82,11 @@ it('leaves rows that PSO no longer returns untouched and counts them as missing'
         ->and($summary['region']['missing'])->toBe(1);
 });
 
-it('promotes a manual row to pso when its id appears, overwriting unless it was edited', function () {
-    $plain = DatasetReferenceValue::factory()->for($this->dataset)->manual()->create(['pso_id' => 'A', 'label' => 'typed']);
-    $edited = DatasetReferenceValue::factory()->for($this->dataset)->manual()->create(['pso_id' => 'B', 'label' => 'typed and edited', 'is_locally_modified' => true]);
+it('promotes a manual row to pso when its id appears, overwriting unless it was named on purpose', function () {
+    // A manual row created with only its id takes PSO's description; one given a real label keeps it.
+    $plain = DatasetReferenceValue::factory()->for($this->dataset)->manual()->create(['pso_id' => 'A', 'label' => 'A']);
+    $edited = DatasetReferenceValue::factory()->for($this->dataset)->manual()->create(['pso_id' => 'B', 'label' => 'typed and edited']);
+    expect($plain->is_locally_modified)->toBeFalse()->and($edited->is_locally_modified)->toBeTrue();
 
     app(ReferenceValuesUpserter::class)->apply($this->dataset, emptyTables([
         'Region' => [['id' => 'A', 'description' => 'From PSO'], ['id' => 'B', 'description' => 'From PSO']],

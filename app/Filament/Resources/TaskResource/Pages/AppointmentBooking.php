@@ -267,7 +267,7 @@ class AppointmentBooking extends Page
                             ->label('Appointment Template')
                             ->options(fn (): array => $this->templateOptions())
                             ->searchable()
-                            ->createOptionForm(DatasetReferenceValueResource::formSchema(ReferenceEntityType::AppointmentTemplate, lockDataset: true))
+                            ->createOptionForm(fn (): array => DatasetReferenceValueResource::formSchema(ReferenceEntityType::AppointmentTemplate, lockDataset: true, datasetId: fn (): string => $this->record->dataset_id))
                             ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::AppointmentTemplate, $data))
                             ->createOptionModalHeading('Create Template')
                             ->required(),
@@ -275,14 +275,14 @@ class AppointmentBooking extends Page
                             ->label('Slot Usage Rule Set')
                             ->options(fn (): array => $this->slotUsageRuleOptions())
                             ->searchable()
-                            ->createOptionForm(DatasetReferenceValueResource::formSchema(ReferenceEntityType::SlotUsageRule, lockDataset: true))
+                            ->createOptionForm(fn (): array => DatasetReferenceValueResource::formSchema(ReferenceEntityType::SlotUsageRule, lockDataset: true, datasetId: fn (): string => $this->record->dataset_id))
                             ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::SlotUsageRule, $data))
                             ->createOptionModalHeading('Create Slot Usage Rule Set'),
                         Select::make('slaTypeId')
                             ->label('SLA Type')
                             ->options(fn (): array => $this->slaTypeOptions())
                             ->searchable()
-                            ->createOptionForm(DatasetReferenceValueResource::formSchema(ReferenceEntityType::SlaType, lockDataset: true))
+                            ->createOptionForm(fn (): array => DatasetReferenceValueResource::formSchema(ReferenceEntityType::SlaType, lockDataset: true, datasetId: fn (): string => $this->record->dataset_id))
                             ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::SlaType, $data))
                             ->createOptionModalHeading('Create SLA Type')
                             ->required(),

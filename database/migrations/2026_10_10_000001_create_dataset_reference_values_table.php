@@ -3,6 +3,7 @@
 use App\Enums\TaskStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -29,7 +30,11 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('dataset_id')->constrained('datasets')->cascadeOnDelete();
             $table->string('entity_type', 32);
-            $table->string('pso_id', 64);
+            // PSO ids are case sensitive; MySQL's default collation is not.
+            $psoId = $table->string('pso_id', 64);
+            if (DB::getDriverName() === 'mysql') {
+                $psoId->collation('utf8mb4_bin');
+            }
             $table->string('label');
             $table->json('attributes')->nullable();
             $table->string('origin', 16);

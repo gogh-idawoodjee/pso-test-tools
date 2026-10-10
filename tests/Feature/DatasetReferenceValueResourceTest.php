@@ -83,3 +83,23 @@ it('shows the missing badge for a pso row the last sync did not see', function (
         ->assertCanSeeTableRecords([$missing])
         ->assertSee('Missing from PSO');
 });
+
+it('marks a manual row edited when its label changes, so a later sync keeps the typed name', function () {
+    $row = DatasetReferenceValue::factory()->for($this->dataset)->manual()->create(['pso_id' => 'R1', 'label' => 'R1']);
+
+    Livewire::test(ListRegions::class)
+        ->callAction(TestAction::make('edit')->table($row), data: ['label' => 'Regina (my name)'])
+        ->assertHasNoActionErrors();
+
+    expect($row->refresh()->is_locally_modified)->toBeTrue();
+});
+
+it('marks a manual row edited at creation when the label is not just the pso id', function () {
+    Livewire::test(ListRegions::class)
+        ->callAction(TestAction::make('create'), data: ['dataset_id' => $this->dataset->id, 'pso_id' => 'R1', 'label' => 'Regina'])
+        ->callAction(TestAction::make('create'), data: ['dataset_id' => $this->dataset->id, 'pso_id' => 'R2', 'label' => ''])
+        ->assertHasNoActionErrors();
+
+    expect(DatasetReferenceValue::where('pso_id', 'R1')->first()->is_locally_modified)->toBeTrue()
+        ->and(DatasetReferenceValue::where('pso_id', 'R2')->first()->is_locally_modified)->toBeFalse();
+});

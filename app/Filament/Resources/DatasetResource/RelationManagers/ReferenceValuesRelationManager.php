@@ -22,6 +22,12 @@ abstract class ReferenceValuesRelationManager extends RelationManager
 
     abstract public static function entityType(): ReferenceEntityType;
 
+    /** Filament makes relation managers read-only on a view page; these tabs are where rows get edited. */
+    public function isReadOnly(): bool
+    {
+        return false;
+    }
+
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
         return static::entityType()->pluralLabel();
@@ -29,7 +35,7 @@ abstract class ReferenceValuesRelationManager extends RelationManager
 
     public function form(Schema $schema): Schema
     {
-        return $schema->schema(DatasetReferenceValueResource::formSchema(static::entityType(), lockDataset: true));
+        return $schema->schema(DatasetReferenceValueResource::formSchema(static::entityType(), lockDataset: true, datasetId: fn (): string => $this->getOwnerRecord()->id));
     }
 
     public function table(Table $table): Table

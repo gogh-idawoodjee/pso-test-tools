@@ -198,7 +198,7 @@ class GenerateActivities extends PSOActivityBasePage
             ->live()
             ->options(fn (): array => DatasetReferenceValue::psoIdOptionsFor($this->currentDataset()?->id, $type))
             ->hint(fn (): ?string => $this->currentDataset() ? null : 'Pick an environment and dataset above to see its values.')
-            ->createOptionForm(DatasetReferenceValueResource::formSchema($type, lockDataset: true))
+            ->createOptionForm(fn (): array => DatasetReferenceValueResource::formSchema($type, lockDataset: true, datasetId: fn (): ?string => $this->currentDataset()?->id))
             ->createOptionUsing(function (array $data) use ($type): string {
                 $dataset = $this->currentDataset();
 

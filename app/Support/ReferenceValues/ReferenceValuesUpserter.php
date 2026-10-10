@@ -8,6 +8,7 @@ use App\Models\Dataset;
 use App\Models\DatasetReferenceValue;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * Applies one sync result to a dataset's reference values.
@@ -55,7 +56,7 @@ class ReferenceValuesUpserter
             }
             $seen[$psoId] = true;
 
-            $label = trim((string) ($row['description'] ?? '')) ?: $psoId;
+            $label = Str::limit(trim((string) ($row['description'] ?? '')) ?: $psoId, 255, '');
             $attributes = $this->attributesFor($type, $row);
 
             /** @var DatasetReferenceValue|null $current */

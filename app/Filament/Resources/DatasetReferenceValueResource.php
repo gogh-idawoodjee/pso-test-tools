@@ -7,6 +7,7 @@ use App\Enums\ReferenceValueOrigin;
 use App\Models\Dataset;
 use App\Models\DatasetReferenceValue;
 use BackedEnum;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
@@ -74,9 +75,10 @@ abstract class DatasetReferenceValueResource extends Resource
 
     /**
      * The create/edit form for one entity type. With $lockDataset the dataset
-     * select is omitted (relation managers and create-option forms supply it).
+     * select is omitted and $datasetId (a closure returning the dataset uuid)
+     * tells the uniqueness rule which dataset the row will land in.
      */
-    public static function formSchema(ReferenceEntityType $type, bool $lockDataset = false): array
+    public static function formSchema(ReferenceEntityType $type, bool $lockDataset = false, ?Closure $datasetId = null): array
     {
         $fields = [];
 
@@ -99,7 +101,7 @@ abstract class DatasetReferenceValueResource extends Resource
             ->maxLength(32)
             ->rules([
                 static fn (Get $get, ?DatasetReferenceValue $record) => Rule::unique('dataset_reference_values', 'pso_id')
-                    ->where('dataset_id', $record?->dataset_id ?? $get('dataset_id'))
+                    ->where('dataset_id', $record?->dataset_id ?? ($datasetId ? $datasetId() : $get('dataset_id')))
                     ->where('entity_type', $type->value)
                     ->ignore($record?->id),
             ]);

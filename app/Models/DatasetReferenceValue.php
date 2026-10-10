@@ -47,10 +47,18 @@ class DatasetReferenceValue extends Model
     {
         static::addGlobalScope(new DatasetOwnedModel);
 
-        // A user edit on a PSO-sourced row protects it from the next sync.
+        // A user edit protects the row from the next sync, whichever origin it
+        // has: a manual row that PSO later also returns keeps the typed label.
         // The sync itself writes with saveQuietly(), so this never fires for it.
         static::updating(static function (self $row): void {
-            if ($row->origin === ReferenceValueOrigin::Pso && $row->isDirty(['pso_id', 'label', 'attributes'])) {
+            if ($row->isDirty(['pso_id', 'label', 'attributes'])) {
+                $row->is_locally_modified = true;
+            }
+        });
+
+        // A typed-in row whose label is more than its id was named on purpose.
+        static::creating(static function (self $row): void {
+            if ($row->origin === ReferenceValueOrigin::Manual && filled($row->label) && $row->label !== $row->pso_id) {
                 $row->is_locally_modified = true;
             }
         });
@@ -101,10 +109,13 @@ class DatasetReferenceValue extends Model
     }
 
     /** Create a typed-in row for a dataset; the label defaults to the PSO ID. */
-    public static function createManual(string $datasetId, ReferenceEntityType $type, array $data): self
+    public static function createManual(?string $datasetId, ReferenceEntityType $type, array $data): self
     {
+        // The dataset id comes from form state, so confirm it is one of the user's.
+        $dataset = Dataset::ownedByCurrentUser()->findOrFail($datasetId);
+
         return static::create([
-            'dataset_id' => $datasetId,
+            'dataset_id' => $dataset->id,
             'entity_type' => $type,
             'pso_id' => $data['pso_id'],
             'label' => filled($data['label'] ?? null) ? $data['label'] : $data['pso_id'],

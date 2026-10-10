@@ -221,6 +221,11 @@ Only the six tables leave pso-services. The raw body is never stored past the re
    - Existing row, `is_locally_modified = true`: set `last_seen_at = now` only.
    - Rows for that type not in the response: untouched. They show as missing because their
      `last_seen_at` is older than the dataset's `last_synced_at`.
+
+   What counts as "locally modified" (settled in review, 2026-10-10): any user edit to `pso_id`, `label`
+   or `attributes` on a row of either origin, and a `manual` row created with a label that is more than
+   its id. So a typed-in region "NORTH" named "Regina North" keeps that name when a later sync brings
+   "NORTH" in from PSO; one created with no label takes PSO's description.
 4. Set `datasets.last_synced_at = now` and `last_sync_summary` to the per-type counts.
 5. Record the outcome on the dataset itself (`last_sync_summary` holds `status`, `finished_at`,
    `error` and the counts) and let the Dataset page show it, refreshing itself while a sync is
