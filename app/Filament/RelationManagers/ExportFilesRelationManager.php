@@ -82,9 +82,11 @@ abstract class ExportFilesRelationManager extends RelationManager
             ExportKind::Audits => isset($summary['message_count'])
                 ? number_format((int) $summary['message_count']).' messages, '.number_format((int) ($summary['appointment_request_count'] ?? 0)).' appointment requests'
                 : null,
-            default => isset($summary['activity_count'])
+            default => isset($summary['allocation_count'])
+                ? number_format((int) $summary['allocation_count']).' allocations'
+                : (isset($summary['activity_count'])
                 ? number_format((int) $summary['activity_count']).' activities, '.number_format((int) ($summary['resource_count'] ?? 0)).' resources'
-                : null,
+                : null),
         };
     }
 

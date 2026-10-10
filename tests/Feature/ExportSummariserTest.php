@@ -18,7 +18,7 @@ it('summarises a LOAD xml: dataset, input reference, counts and local export dat
 });
 
 it('summarises a plan inside a zip by its largest xml member', function () {
-    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'zip'), zipOf(scheduleXml(activities: 5), 'whatever.xml'), 'UTC');
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'zip'), zipOf(scheduleXml(activities: 5, withPlan: true), 'whatever.xml'), 'UTC');
 
     expect($summary->toArray()['activity_count'])->toBe(5);
 });
@@ -93,4 +93,57 @@ it('refuses a zip member larger than the uncompressed cap', function () {
 
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'zip'), zipOf(scheduleXml(activities: 20), 'load.xml'), 'UTC'))
         ->toThrow(InvalidExportException::class, 'too large');
+});
+
+it('summarises a plan export by its Plan block and counts its allocations', function () {
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'xml'), planXml(allocations: 4), 'America/Regina');
+
+    expect($summary->toArray())->toMatchArray([
+        'root' => 'dsScheduleData',
+        'dataset_id' => 'NORTH',
+        'allocation_count' => 4,
+        'export_date' => '2026-10-04',
+    ])->and($summary->toArray()['input_reference_datetime'])->toBe('2026-10-04T08:06:33+00:00');
+});
+
+it('tells the user a plan export uploaded as a LOAD belongs under Plan', function () {
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'xml'), planXml(), 'UTC'))
+        ->toThrow(InvalidExportException::class, 'plan export');
+});
+
+it('accepts a plan-shaped file as end of day', function () {
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Eod, 'xml'), planXml(allocations: 2), 'UTC');
+
+    expect($summary->toArray())->toMatchArray(['dataset_id' => 'NORTH', 'allocation_count' => 2, 'export_date' => '2026-10-04']);
+});
+
+it('still reads a LOAD that also carries a plan and its allocations as a LOAD', function () {
+    $xml = file_get_contents(scheduleXml(activities: 3, resources: 2));
+    $withPlan = str_replace('</dsScheduleData>', '<Allocation><activity_id>1</activity_id></Allocation><Plan><id>1</id><dataset_id>NORTH</dataset_id></Plan></dsScheduleData>', $xml);
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.xml';
+    file_put_contents($path, $withPlan);
+
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'xml'), $path, 'UTC');
+
+    expect($summary->toArray())->toMatchArray(['dataset_id' => 'NORTH', 'activity_count' => 3, 'resource_count' => 2])
+        ->and($summary->toArray())->not->toHaveKey('allocation_count');
+});
+
+it('rejects a plan upload that has no Plan block, such as a LOAD', function () {
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'xml'), scheduleXml(), 'UTC'))
+        ->toThrow(InvalidExportException::class, 'no Plan block');
+});
+
+it('accepts a plan upload that carries both the input and the Plan block', function () {
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'xml'), scheduleXml(activities: 4, withPlan: true), 'UTC');
+
+    expect($summary->toArray())->toMatchArray(['dataset_id' => 'NORTH', 'activity_count' => 4]);
+});
+
+it('rejects a JSON plan it cannot check for a Plan block', function () {
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.json';
+    file_put_contents($path, '{"dsScheduleData":{"Input_Reference":{"dataset_id":"NORTH","datetime":"2026-10-10T07:12:00"},"Activity":[{"id":"A1"}]}}');
+
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'json'), $path, 'UTC'))
+        ->toThrow(InvalidExportException::class, 'no Plan block');
 });

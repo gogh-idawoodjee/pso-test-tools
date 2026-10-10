@@ -102,6 +102,7 @@ class RunInputPicker
         $timeZone = $scope instanceof Dataset ? $scope->timeZone() : (string) config('app.timezone', 'UTC');
         $summary = $file->summary ?? [];
         $detail = match (true) {
+            isset($summary['allocation_count']) => number_format((int) $summary['allocation_count']).' allocations',
             isset($summary['activity_count']) => number_format((int) $summary['activity_count']).' activities',
             isset($summary['pso_version']) => 'version '.$summary['pso_version'],
             isset($summary['message_count']) => number_format((int) $summary['message_count']).' messages',

@@ -43,16 +43,39 @@ class ExportSummariser
 
         return $kind === ExportKind::Sys
             ? $this->summariseSys($path)
-            : $this->summariseSchedule($path, $format, $root, $timeZone);
+            : $this->summariseSchedule($path, $format, $root, $timeZone, $kind);
     }
 
-    private function summariseSchedule(string $path, string $format, string $root, string $timeZone): ExportSummary
+    private function summariseSchedule(string $path, string $format, string $root, string $timeZone, ExportKind $kind): ExportSummary
     {
+        // A plan upload must carry a Plan block; one streaming pass serves this check and the plan-only summary below.
+        $plan = $format === 'xml' ? $this->readPlanBlock($path) : null;
+        if ($kind === ExportKind::Plan && ! $this->hasPlanBlock($path, $format, $plan)) {
+            throw new InvalidExportException('This file has no Plan block, so it is not a plan export. Upload it as LOAD or End of day instead.');
+        }
+
         $extracted = ScheduleDataSummaryExtractor::extract($path, $format);
         $reference = $extracted['input_reference_datetime'];
 
         // The extractor reports zeros for a file it could not read; a ready row must never say that.
         if ($extracted['dataset_id'] === null && $reference === null) {
+            // A plan export has no Input_Reference: its dataset and reference time sit on the Plan block.
+            if ($plan !== null) {
+                if ($kind === ExportKind::Load) {
+                    throw new InvalidExportException('This file is a plan export (it holds a Plan and its allocations, but no activities or resources), not a LOAD. Upload it under Plan or End of day.');
+                }
+
+                $planReference = $this->parseTime((string) $plan['input_reference_date_time'], 'UTC');
+
+                return new ExportSummary([
+                    'root' => $root,
+                    'dataset_id' => $plan['dataset_id'],
+                    'input_reference_datetime' => $planReference?->toIso8601String(),
+                    'export_date' => $planReference?->setTimezone($timeZone)->format('Y-m-d'),
+                    'allocation_count' => $plan['allocation_count'],
+                ]);
+            }
+
             if ($format === 'json' && filesize($path) > ScheduleDataSummaryExtractor::MAX_JSON_PARSE_BYTES) {
                 $megabytes = (int) (ScheduleDataSummaryExtractor::MAX_JSON_PARSE_BYTES / 1024 / 1024);
 
@@ -70,6 +93,64 @@ class ExportSummariser
             'activity_count' => $extracted['activity_count'],
             'resource_count' => $extracted['resource_count'],
         ]);
+    }
+
+    /** @param array<string, mixed>|null $streamedPlan result of readPlanBlock() for xml */
+    private function hasPlanBlock(string $path, string $format, ?array $streamedPlan): bool
+    {
+        if ($format === 'xml') {
+            return $streamedPlan !== null;
+        }
+
+        // JSON has no streaming reader here; a file too large to decode cannot be checked.
+        if (filesize($path) > ScheduleDataSummaryExtractor::MAX_JSON_PARSE_BYTES) {
+            return false;
+        }
+
+        $decoded = json_decode((string) file_get_contents($path), true);
+        $data = is_array($decoded) ? ($decoded['dsScheduleData'] ?? $decoded['ScheduleData'] ?? []) : [];
+
+        return is_array($data) && ! empty($data['Plan']);
+    }
+
+    /**
+     * Streams a plan export: counts Allocation rows and reads the dataset id and input
+     * reference time off the Plan block. Null when the file has no Plan block.
+     *
+     * @return array{dataset_id: ?string, input_reference_date_time: ?string, allocation_count: int}|null
+     */
+    private function readPlanBlock(string $path): ?array
+    {
+        $reader = $this->openReader($path);
+        $allocations = 0;
+        $plan = null;
+
+        try {
+            $moved = @$reader->read();
+
+            while ($moved) {
+                if ($reader->nodeType !== XMLReader::ELEMENT || $reader->depth !== 1) {
+                    $moved = @$reader->read();
+
+                    continue;
+                }
+
+                if ($reader->localName === 'Allocation') {
+                    $allocations++;
+                } elseif ($reader->localName === 'Plan' && $plan === null) {
+                    $plan = [
+                        'dataset_id' => $this->childText($reader, 'dataset_id'),
+                        'input_reference_date_time' => $this->childText($reader, 'input_reference_date_time'),
+                    ];
+                }
+
+                $moved = @$reader->next();
+            }
+        } finally {
+            $reader->close();
+        }
+
+        return $plan === null ? null : [...$plan, 'allocation_count' => $allocations];
     }
 
     /** Counts the tables we need and reads the version ids; users and credentials are skipped unread. */

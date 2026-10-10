@@ -65,6 +65,15 @@ Fresh reviewer on the whole branch: 0 Critical, 5 Important, 11 Minor. All five 
 - M-10 Spec section 9 golden test (`EXPORTS_SAMPLE_DIR`) not built.
 - M-11 `tool_runs.inputs` is `{files, options}`, not the spec's flat `{kind: id}` map.
 
+## Found in production testing
+
+- **A real plan export uploaded as a LOAD was rejected with "no Input_Reference block".** A PSO plan export (root `dsScheduleData`) has allocations and a `Plan` block but no `Input_Reference`, `Activity` or `Resources`; its dataset id and reference time are on the `Plan` block. The review fix that stopped unreadable files going `ready` with zero counts also caught these. Now: a plan-shaped file is summarised from its `Plan` block (`dataset_id`, `input_reference_datetime`, `export_date`, `allocation_count`) under Plan and EOD; uploaded as a LOAD it fails with "This file is a plan export ... Upload it under Plan or End of day."
+- EOD exports are plan-shaped too (confirmed by the owner), with an input reference of type load. The summariser does not yet tell a Plan from an EOD; it trusts the kind chosen at upload.
+- **Plan must have a Plan block** (owner's rule). A file under Plan with no `Plan` element is rejected ("This file has no Plan block ... Upload it as LOAD or End of day instead"); a file with both the input and a Plan block is accepted and summarised from its `Input_Reference`. JSON plans over 20 MB cannot be checked and are rejected.
+- **LOAD and EOD cannot be told apart by content** (both are Input_Reference + Activity + Resources, with or without allocations), so their kind is whatever slot the file was dropped in.
+- Real samples checked (Oct 2026): a LOAD with allocations, an EOD, a LOAD-only file and a plan-only file all summarise correctly; all stream in about a second at about 70 MB peak.
+- PSO writes explicit offsets on its timestamps (`+00:00`), so review finding I-2 (offset-less times) has not shown up in a real file.
+
 ## To do after merge
 - `php artisan migrate`, then `php artisan datasets:seed-settings <dataset id> <account file> --time-zone=...` for SATE and ROGE.
 - R2 bucket CORS rule for the app origin (PUT, GET, `Content-Type`); see README.
