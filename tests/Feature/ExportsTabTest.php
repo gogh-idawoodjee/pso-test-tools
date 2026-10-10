@@ -63,3 +63,14 @@ it('shows a failed upload with its reason on the row', function () {
         ->assertSee('Failed')
         ->assertSee('not a SYS');
 });
+
+it('shows allocations for a plan export', function () {
+    $file = ExportFile::factory()->for($this->dataset, 'scope')->create([
+        'kind' => ExportKind::Plan, 'original_filename' => 'plan.zip',
+        'summary' => ['export_date' => '2026-10-04', 'allocation_count' => 7803],
+    ]);
+
+    Livewire::test(DatasetExports::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
+        ->assertCanSeeTableRecords([$file])
+        ->assertSee('7,803 allocations');
+});

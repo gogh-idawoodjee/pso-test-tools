@@ -94,3 +94,19 @@ it('refuses a zip member larger than the uncompressed cap', function () {
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'zip'), zipOf(scheduleXml(activities: 20), 'load.xml'), 'UTC'))
         ->toThrow(InvalidExportException::class, 'too large');
 });
+
+it('summarises a plan export by its Plan block and counts its allocations', function () {
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'xml'), planXml(allocations: 4), 'America/Regina');
+
+    expect($summary->toArray())->toMatchArray([
+        'root' => 'dsScheduleData',
+        'dataset_id' => 'NORTH',
+        'allocation_count' => 4,
+        'export_date' => '2026-10-04',
+    ])->and($summary->toArray()['input_reference_datetime'])->toBe('2026-10-04T08:06:33+00:00');
+});
+
+it('tells the user a plan export uploaded as a LOAD belongs under Plan', function () {
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'xml'), planXml(), 'UTC'))
+        ->toThrow(InvalidExportException::class, 'plan export');
+});

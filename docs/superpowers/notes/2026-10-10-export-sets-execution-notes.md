@@ -65,6 +65,12 @@ Fresh reviewer on the whole branch: 0 Critical, 5 Important, 11 Minor. All five 
 - M-10 Spec section 9 golden test (`EXPORTS_SAMPLE_DIR`) not built.
 - M-11 `tool_runs.inputs` is `{files, options}`, not the spec's flat `{kind: id}` map.
 
+## Found in production testing
+
+- **A real plan export uploaded as a LOAD was rejected with "no Input_Reference block".** A PSO plan export (root `dsScheduleData`) has allocations and a `Plan` block but no `Input_Reference`, `Activity` or `Resources`; its dataset id and reference time are on the `Plan` block. The review fix that stopped unreadable files going `ready` with zero counts also caught these. Now: a plan-shaped file is summarised from its `Plan` block (`dataset_id`, `input_reference_datetime`, `export_date`, `allocation_count`) under Plan (and EOD), and uploaded as a LOAD it fails with "This file is a plan export ... Upload it under Plan."
+- **Assumption to confirm:** EOD exports may be plan-shaped (the fix accepts a plan-shaped file under EOD). If real EODs are LOAD-shaped, nothing changes for them.
+- PSO writes explicit offsets on its timestamps (`+00:00`), so review finding I-2 (offset-less times) has not shown up in a real file.
+
 ## To do after merge
 - `php artisan migrate`, then `php artisan datasets:seed-settings <dataset id> <account file> --time-zone=...` for SATE and ROGE.
 - R2 bucket CORS rule for the app origin (PUT, GET, `Content-Type`); see README.
