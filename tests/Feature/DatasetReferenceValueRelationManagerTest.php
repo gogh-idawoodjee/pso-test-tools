@@ -53,3 +53,12 @@ it('refuses to create a manual row in another user dataset', function () {
     expect(fn () => DatasetReferenceValue::createManual($foreign->id, ReferenceEntityType::Region, ['pso_id' => 'X']))
         ->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
 });
+
+it('shows the row count of its type as the tab badge', function () {
+    DatasetReferenceValue::factory()->for($this->dataset)->count(3)->create();
+    DatasetReferenceValue::factory()->for($this->dataset)->create(['entity_type' => ReferenceEntityType::Skill]);
+
+    expect(RegionsRelationManager::getBadge($this->dataset, ViewDataset::class))->toBe('3')
+        ->and(\App\Filament\Resources\DatasetResource\RelationManagers\SkillsRelationManager::getBadge($this->dataset, ViewDataset::class))->toBe('1')
+        ->and(\App\Filament\Resources\DatasetResource\RelationManagers\SlaTypesRelationManager::getBadge($this->dataset, ViewDataset::class))->toBe('0');
+});

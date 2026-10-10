@@ -14,6 +14,7 @@ use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
@@ -56,6 +57,9 @@ class DatasetResource extends Resource
                     ? ['wire:poll.5s' => 'refreshRecord']
                     : [])
                 ->schema([
+                    View::make('filament.components.sync-in-progress')
+                        ->columnSpanFull()
+                        ->visible(static fn ($livewire): bool => method_exists($livewire, 'isSyncRunning') && $livewire->isSyncRunning()),
                     TextEntry::make('last_sync_summary.status')
                         ->label('Result')
                         ->badge()
@@ -79,7 +83,7 @@ class DatasetResource extends Resource
                     TextEntry::make('last_sync_summary.counts')
                         ->label('Counts')
                         ->columnSpanFull()
-                        ->visible(static fn ($state): bool => filled($state))
+                        ->visible(static fn ($state, $livewire): bool => filled($state) && ($livewire->showSyncCounts ?? false))
                         ->listWithLineBreaks()
                         ->state(static fn (Dataset $record): array => static::countLines($record)),
                 ])->columns(2),

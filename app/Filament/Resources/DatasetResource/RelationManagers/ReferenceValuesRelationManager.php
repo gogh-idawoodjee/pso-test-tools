@@ -33,6 +33,12 @@ abstract class ReferenceValuesRelationManager extends RelationManager
         return static::entityType()->pluralLabel();
     }
 
+    /** Row count of this type, shown on the tab. */
+    public static function getBadge(Model $ownerRecord, string $pageClass): ?string
+    {
+        return (string) $ownerRecord->referenceValues()->where('entity_type', static::entityType())->count();
+    }
+
     public function form(Schema $schema): Schema
     {
         return $schema->schema(DatasetReferenceValueResource::formSchema(static::entityType(), lockDataset: true, datasetId: fn (): string => $this->getOwnerRecord()->id));

@@ -14,12 +14,17 @@ class ViewDataset extends ViewRecord
 {
     protected static string $resource = DatasetResource::class;
 
+    /** True once a sync was seen finishing during this visit; the counts list shows only then. */
+    public bool $showSyncCounts = false;
+
     protected function getHeaderActions(): array
     {
         return [
             Actions\Action::make('sync')
-                ->label('Sync from PSO')
+                ->label(fn (): string => $this->isSyncRunning() ? 'Syncing…' : 'Sync from PSO')
                 ->icon(Heroicon::OutlinedArrowPath)
+                ->disabled(fn (): bool => $this->isSyncRunning())
+                ->color(fn (): string => $this->isSyncRunning() ? 'gray' : 'primary')
                 ->requiresConfirmation()
                 ->modalDescription('Pulls the whole dataset from the PSO gateway and refreshes the regions, skills, task types, slot usage rule sets, appointment templates and SLA types. Rows you edited keep your values. Takes up to a few minutes on a large dataset.')
                 ->action(function (): void {
@@ -48,5 +53,10 @@ class ViewDataset extends ViewRecord
     public function refreshRecord(): void
     {
         $this->record->refresh();
+
+        if (! $this->isSyncRunning()) {
+            $this->showSyncCounts = true;
+            $this->dispatch('dataset-synced');
+        }
     }
 }
