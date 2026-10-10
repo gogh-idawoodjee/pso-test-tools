@@ -6,6 +6,8 @@ use App\Filament\Pages\Backups;
 use App\Filament\Pages\HealthCheckResults;
 use App\Filament\Widgets\QuickLaunch;
 use App\Filament\Widgets\StatsOverview;
+use App\Http\Controllers\Exports\ExportCompleteController;
+use App\Http\Controllers\Exports\ExportSlotController;
 use App\Http\Controllers\SysCompare\SysCompareDownloadController;
 use App\Http\Controllers\SysCompare\SysCompareUploadController;
 use Filament\Http\Middleware\Authenticate;
@@ -92,6 +94,14 @@ class AppPanelProvider extends PanelProvider
                     ->name('sys-compare.uploads.store');
                 Route::get('sys-compare/runs/{run}/{artifact}', SysCompareDownloadController::class)
                     ->name('sys-compare.runs.download');
+
+                // Export sets: the browser uploads straight to R2 through a presigned PUT url.
+                Route::post('exports/slots', ExportSlotController::class)
+                    ->middleware('throttle:60,1')
+                    ->name('exports.slots.store');
+                Route::post('exports/{exportFile}/complete', ExportCompleteController::class)
+                    ->middleware('throttle:60,1')
+                    ->name('exports.complete');
             });
     }
 
