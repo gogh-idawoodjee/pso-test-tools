@@ -6,6 +6,8 @@ return [
     // Raw exports are deleted this long after upload. Results in the database are kept.
     'ttl_hours' => (int) env('EXPORTS_TTL_HOURS', 12),
     'max_file_megabytes' => (int) env('EXPORTS_MAX_FILE_MEGABYTES', 400),
+    // Largest xml/json member read out of a zip. The container disk is small, so cap what a zip may expand to.
+    'max_member_megabytes' => (int) env('EXPORTS_MAX_MEMBER_MEGABYTES', 600),
     // How long a presigned upload URL stays valid.
     'slot_minutes' => (int) env('EXPORTS_SLOT_MINUTES', 15),
     // Scratch folders older than this are swept by exports:purge (a job died mid-way).

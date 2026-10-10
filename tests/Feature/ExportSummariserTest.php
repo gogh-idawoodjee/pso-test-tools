@@ -56,3 +56,41 @@ it('rejects a zip with no xml or json member', function () {
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'zip'), zipOf($txt, 'notes.txt'), 'UTC'))
         ->toThrow(InvalidExportException::class);
 });
+
+it('counts every SYS row when the xml has no whitespace between rows', function () {
+    $xml = \Tests\Support\SysFileBuilder::make()
+        ->version('6.13.0.0', 'Creation', '2025-01-01 00:00:00')
+        ->version('6.14.0.0', 'Upgrade from 6.13.0.0', '2026-03-01 00:00:00')
+        ->parameter('ORG', 'P1', '1')->parameter('ORG', 'P2', '2')->parameter('ORG', 'P3', '3')
+        ->exceptionType('ORG', 'E1', true)->exceptionType('ORG', 'E2', true)
+        ->toXml();
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.xml';
+    file_put_contents($path, preg_replace('/>\s+</', '><', $xml));
+
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Sys, 'xml'), $path, 'UTC');
+
+    expect($summary->toArray())->toMatchArray(['pso_version' => '6.14.0.0', 'parameter_count' => 3, 'exception_type_count' => 2]);
+});
+
+it('fails a schedule file it could read nothing from instead of reporting zero counts', function () {
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.xml';
+    file_put_contents($path, '<dsScheduleData/>');
+
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'xml'), $path, 'UTC'))
+        ->toThrow(InvalidExportException::class, 'could not be summarised');
+});
+
+it('fails a JSON schedule file too large to summarise and tells the user what to upload', function () {
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.json';
+    file_put_contents($path, '{"dsScheduleData":{"pad":"'.str_repeat('x', 21 * 1024 * 1024).'"}}');
+
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'json'), $path, 'UTC'))
+        ->toThrow(InvalidExportException::class, 'XML');
+});
+
+it('refuses a zip member larger than the uncompressed cap', function () {
+    config(['exports.max_member_megabytes' => 0.0001]);
+
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'zip'), zipOf(scheduleXml(activities: 20), 'load.xml'), 'UTC'))
+        ->toThrow(InvalidExportException::class, 'too large');
+});

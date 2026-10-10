@@ -22,14 +22,16 @@ class ExportSummariser
     public function summarise(ExportFile $file, string $localPath, string $timeZone): ExportSummary
     {
         $kind = $file->kind;
+        // Zips are often misnamed, so what the bytes are wins over what the file was called.
+        $contentType = $this->sniffFormat($localPath) ?? $file->content_type;
 
         if ($kind === ExportKind::Audits) {
-            return $this->summariseAudits($file, $localPath, $timeZone);
+            return $this->summariseAudits($contentType, $localPath, $timeZone);
         }
 
-        [$path, $format] = $file->content_type === 'zip'
+        [$path, $format] = $contentType === 'zip'
             ? $this->largestMember($localPath)
-            : [$localPath, $file->content_type];
+            : [$localPath, $contentType];
 
         $root = $this->detectRoot($path, $format);
         $expected = $kind->expectedRoot();
@@ -48,6 +50,17 @@ class ExportSummariser
     {
         $extracted = ScheduleDataSummaryExtractor::extract($path, $format);
         $reference = $extracted['input_reference_datetime'];
+
+        // The extractor reports zeros for a file it could not read; a ready row must never say that.
+        if ($extracted['dataset_id'] === null && $reference === null) {
+            if ($format === 'json' && filesize($path) > ScheduleDataSummaryExtractor::MAX_JSON_PARSE_BYTES) {
+                $megabytes = (int) (ScheduleDataSummaryExtractor::MAX_JSON_PARSE_BYTES / 1024 / 1024);
+
+                throw new InvalidExportException("This JSON file is larger than {$megabytes} MB and could not be summarised. Upload the XML export (or a zip of it) instead.");
+            }
+
+            throw new InvalidExportException('This file could not be summarised: no Input_Reference block was found. Check that it is a complete PSO export.');
+        }
 
         return new ExportSummary([
             'root' => $root,
@@ -68,8 +81,12 @@ class ExportSummariser
         $version = null;
 
         try {
-            while (@$reader->read()) {
+            $moved = @$reader->read();
+
+            while ($moved) {
                 if ($reader->nodeType !== XMLReader::ELEMENT || $reader->depth !== 1) {
+                    $moved = @$reader->read();
+
                     continue;
                 }
 
@@ -86,7 +103,8 @@ class ExportSummariser
                     }
                 }
 
-                $reader->next();
+                // next() lands on the following sibling, which must then be looked at, not read past.
+                $moved = @$reader->next();
             }
         } finally {
             $reader->close();
@@ -100,9 +118,9 @@ class ExportSummariser
         ]);
     }
 
-    private function summariseAudits(ExportFile $file, string $zipPath, string $timeZone): ExportSummary
+    private function summariseAudits(string $contentType, string $zipPath, string $timeZone): ExportSummary
     {
-        if ($file->content_type !== 'zip') {
+        if ($contentType !== 'zip') {
             throw new InvalidExportException('Audit messages must be uploaded as a zip of xml files.');
         }
 
@@ -204,6 +222,11 @@ class ExportSummariser
                 throw new InvalidExportException('The zip holds no .xml or .json file.');
             }
 
+            $capMegabytes = (float) config('exports.max_member_megabytes', 600);
+            if ($bestSize > $capMegabytes * 1024 * 1024) {
+                throw new InvalidExportException('The file inside the zip is too large to read here ('.round($bestSize / 1024 / 1024).' MB uncompressed; the limit is '.round($capMegabytes).' MB).');
+            }
+
             $format = strtolower(pathinfo((string) $zip->getNameIndex($bestIndex), PATHINFO_EXTENSION));
             $target = dirname($zipPath).'/member-'.Str::uuid().'.'.$format;
             $source = $zip->getStreamIndex($bestIndex);
@@ -219,6 +242,20 @@ class ExportSummariser
         } finally {
             $zip->close();
         }
+    }
+
+    /** zip, json or xml by the first bytes of the file; null when it is none of them. */
+    private function sniffFormat(string $path): ?string
+    {
+        $head = (string) file_get_contents($path, false, null, 0, 16);
+        $head = ltrim(str_starts_with($head, "\xEF\xBB\xBF") ? substr($head, 3) : $head);
+
+        return match (true) {
+            str_starts_with($head, "PK\x03\x04") => 'zip',
+            str_starts_with($head, '{') => 'json',
+            str_starts_with($head, '<') => 'xml',
+            default => null,
+        };
     }
 
     private function isReadableMember(string $name, ?string $only = null): bool

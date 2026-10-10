@@ -54,3 +54,13 @@ it('fails a zip whose only member is a SYS export uploaded as a LOAD', function 
         ->and($file->error_message)->toContain('DsSystemData')
         ->and(glob(config('exports.scratch_path').'/*'))->toBe([]);
 });
+
+it('reads a zip that was named as xml by what it is, not by its name', function () {
+    $file = ExportFile::factory()->for(Dataset::factory(), 'scope')->create(['kind' => ExportKind::Load, 'content_type' => 'xml', 'status' => ExportFileStatus::Summarising]);
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($file), file_get_contents(zipOf(scheduleXml(activities: 3), 'load.xml')));
+
+    (new SummariseExportFileJob($file->id))->handle(app(ExportStorage::class), app(\App\Support\Exports\ExportSummariser::class));
+
+    expect($file->refresh()->status)->toBe(ExportFileStatus::Ready)
+        ->and($file->summary['activity_count'])->toBe(3);
+});
