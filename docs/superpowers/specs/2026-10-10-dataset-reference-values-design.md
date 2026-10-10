@@ -141,7 +141,8 @@ One migration, `2026_10_10_000001_create_dataset_reference_values`:
    `appointment_templates` (children first).
 4. Recreate `customers` and `tasks` with the new columns.
 
-`down()` recreates the old tables empty and drops the new ones. No data is carried either way.
+`down()` drops the new tables and columns only; the old tables' migration files are deleted in the
+same change, so recreating them empty would serve nothing. No data is carried either way.
 The old models, resources, factories and their migrations are deleted from the codebase in the
 same change.
 
@@ -215,8 +216,10 @@ Only the six tables leave pso-services. The raw body is never stored past the re
    - Rows for that type not in the response: untouched. They show as missing because their
      `last_seen_at` is older than the dataset's `last_synced_at`.
 4. Set `datasets.last_synced_at = now` and `last_sync_summary` to the per-type counts.
-5. Notify the user through the existing Filament database notification channel: success with
-   the counts, or failure with the gateway message.
+5. Record the outcome on the dataset itself (`last_sync_summary` holds `status`, `finished_at`,
+   `error` and the counts) and let the Dataset page show it, refreshing itself while a sync is
+   running. The app has no database notifications table, and adding one for this would be scope
+   creep; the page is where the user is anyway.
 
 Sync never deletes a row. Users delete rows themselves.
 
