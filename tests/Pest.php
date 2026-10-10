@@ -46,6 +46,8 @@ expect()->extend('toBeOne', function () {
 |
 */
 
+require_once __DIR__.'/Support/ExportFixtures.php';
+
 function callProtectedMethod(object $instance, string $method, array $args = []): mixed
 {
     $reflection = new ReflectionMethod($instance, $method);
