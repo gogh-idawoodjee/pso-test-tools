@@ -116,3 +116,15 @@ it('accepts a plan-shaped file as end of day', function () {
 
     expect($summary->toArray())->toMatchArray(['dataset_id' => 'NORTH', 'allocation_count' => 2, 'export_date' => '2026-10-04']);
 });
+
+it('still reads a LOAD that also carries a plan and its allocations as a LOAD', function () {
+    $xml = file_get_contents(scheduleXml(activities: 3, resources: 2));
+    $withPlan = str_replace('</dsScheduleData>', '<Allocation><activity_id>1</activity_id></Allocation><Plan><id>1</id><dataset_id>NORTH</dataset_id></Plan></dsScheduleData>', $xml);
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.xml';
+    file_put_contents($path, $withPlan);
+
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'xml'), $path, 'UTC');
+
+    expect($summary->toArray())->toMatchArray(['dataset_id' => 'NORTH', 'activity_count' => 3, 'resource_count' => 2])
+        ->and($summary->toArray())->not->toHaveKey('allocation_count');
+});
