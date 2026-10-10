@@ -108,3 +108,12 @@ it('skips parsing a json file over the size cap rather than risk the worker memo
 
     expect($summary['dataset_id'])->toBeNull();
 });
+
+it('reads an Input_Reference datetime without an offset as UTC, because PSO exports in UTC', function () {
+    $path = scheduleDataSummaryFixturePath('summary-no-offset.xml');
+    file_put_contents($path, '<dsScheduleData><Input_Reference><datetime>2026-10-11T02:30:00</datetime><dataset_id>NORTH</dataset_id></Input_Reference></dsScheduleData>');
+
+    $summary = ScheduleDataSummaryExtractor::extract($path, 'xml');
+
+    expect($summary['input_reference_datetime']->toIso8601String())->toBe('2026-10-11T02:30:00+00:00');
+});

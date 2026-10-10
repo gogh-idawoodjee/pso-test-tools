@@ -1,9 +1,9 @@
 <?php
 
 use App\Enums\ExportKind;
-use App\Models\ExportFile;
 use App\Support\Exports\ExportSummariser;
 use App\Support\Exports\InvalidExportException;
+use Tests\Support\SysFileBuilder;
 
 it('summarises a LOAD xml: dataset, input reference, counts and local export date', function () {
     $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'xml'), scheduleXml(datetime: '2026-10-11T02:30:00Z'), 'America/Regina');
@@ -41,8 +41,11 @@ it('summarises an audits zip by message count and time span, keeping no contact 
     file_put_contents("$dir/m1.xml", '<Audit><Plan><output_datetime>2026-10-10T08:00:00</output_datetime></Plan><Appointment_Request><id>AR1</id><customer_phone>555</customer_phone></Appointment_Request></Audit>');
     file_put_contents("$dir/m2.xml", '<Audit><Input_Reference><datetime>2026-10-10T09:00:00</datetime></Input_Reference><Appointment_Offer><id>1</id></Appointment_Offer></Audit>');
     $zipPath = tempnam(sys_get_temp_dir(), 'exp_').'.zip';
-    $zip = new ZipArchive; $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
-    $zip->addFile("$dir/m1.xml", 'm1.xml'); $zip->addFile("$dir/m2.xml", 'm2.xml'); $zip->close();
+    $zip = new ZipArchive;
+    $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFile("$dir/m1.xml", 'm1.xml');
+    $zip->addFile("$dir/m2.xml", 'm2.xml');
+    $zip->close();
 
     $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Audits, 'zip'), $zipPath, 'UTC');
 
@@ -51,14 +54,15 @@ it('summarises an audits zip by message count and time span, keeping no contact 
 });
 
 it('rejects a zip with no xml or json member', function () {
-    $txt = tempnam(sys_get_temp_dir(), 'exp_'); file_put_contents($txt, 'hello');
+    $txt = tempnam(sys_get_temp_dir(), 'exp_');
+    file_put_contents($txt, 'hello');
 
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'zip'), zipOf($txt, 'notes.txt'), 'UTC'))
         ->toThrow(InvalidExportException::class);
 });
 
 it('counts every SYS row when the xml has no whitespace between rows', function () {
-    $xml = \Tests\Support\SysFileBuilder::make()
+    $xml = SysFileBuilder::make()
         ->version('6.13.0.0', 'Creation', '2025-01-01 00:00:00')
         ->version('6.14.0.0', 'Upgrade from 6.13.0.0', '2026-03-01 00:00:00')
         ->parameter('ORG', 'P1', '1')->parameter('ORG', 'P2', '2')->parameter('ORG', 'P3', '3')
@@ -146,4 +150,29 @@ it('rejects a JSON plan it cannot check for a Plan block', function () {
 
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'json'), $path, 'UTC'))
         ->toThrow(InvalidExportException::class, 'no Plan block');
+});
+
+it('dates a LOAD whose datetime has no offset from UTC, not the app time zone', function () {
+    // 02:30 UTC on the 11th is 20:30 on the 10th in Regina; read as Toronto time it would land on the 11th.
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'xml'), scheduleXml(datetime: '2026-10-11T02:30:00'), 'America/Regina');
+
+    expect($summary->toArray())->toMatchArray([
+        'input_reference_datetime' => '2026-10-11T02:30:00+00:00',
+        'export_date' => '2026-10-10',
+    ]);
+});
+
+it('reads audit message times without an offset as UTC, whatever the dataset time zone', function () {
+    $dir = sys_get_temp_dir().'/audits-'.uniqid();
+    mkdir($dir);
+    file_put_contents("$dir/m1.xml", '<Audit><Plan><output_datetime>2026-10-10T08:00:00</output_datetime></Plan></Audit>');
+    $zipPath = tempnam(sys_get_temp_dir(), 'exp_').'.zip';
+    $zip = new ZipArchive;
+    $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFile("$dir/m1.xml", 'm1.xml');
+    $zip->close();
+
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Audits, 'zip'), $zipPath, 'America/Regina');
+
+    expect($summary->toArray()['first_message_at'])->toBe('2026-10-10T08:00:00+00:00');
 });

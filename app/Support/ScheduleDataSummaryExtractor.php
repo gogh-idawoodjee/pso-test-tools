@@ -123,7 +123,8 @@ class ScheduleDataSummaryExtractor
         }
 
         try {
-            return CarbonImmutable::parse($value);
+            // PSO writes exported times in UTC; a time without an offset is UTC, never the app time zone.
+            return CarbonImmutable::parse($value, 'UTC');
         } catch (Throwable) {
             return null;
         }

@@ -26,7 +26,7 @@ class ExportSummariser
         $contentType = $this->sniffFormat($localPath) ?? $file->content_type;
 
         if ($kind === ExportKind::Audits) {
-            return $this->summariseAudits($contentType, $localPath, $timeZone);
+            return $this->summariseAudits($contentType, $localPath);
         }
 
         [$path, $format] = $contentType === 'zip'
@@ -65,7 +65,7 @@ class ExportSummariser
                     throw new InvalidExportException('This file is a plan export (it holds a Plan and its allocations, but no activities or resources), not a LOAD. Upload it under Plan or End of day.');
                 }
 
-                $planReference = $this->parseTime((string) $plan['input_reference_date_time'], 'UTC');
+                $planReference = $this->parseTime((string) $plan['input_reference_date_time']);
 
                 return new ExportSummary([
                     'root' => $root,
@@ -199,7 +199,7 @@ class ExportSummariser
         ]);
     }
 
-    private function summariseAudits(string $contentType, string $zipPath, string $timeZone): ExportSummary
+    private function summariseAudits(string $contentType, string $zipPath): ExportSummary
     {
         if ($contentType !== 'zip') {
             throw new InvalidExportException('Audit messages must be uploaded as a zip of xml files.');
@@ -244,7 +244,7 @@ class ExportSummariser
                             ($parent === 'Plan' && $reader->localName === 'output_datetime')
                             || ($parent === 'Input_Reference' && $reader->localName === 'datetime')
                         )) {
-                            $time = $this->parseTime($reader->readString(), $timeZone);
+                            $time = $this->parseTime($reader->readString());
                         }
                     }
                 } finally {
@@ -404,14 +404,15 @@ class ExportSummariser
         return null;
     }
 
-    private function parseTime(string $value, string $timeZone): ?CarbonImmutable
+    /** PSO writes exported times in UTC; a time without an offset is UTC, never the app or dataset time zone. */
+    private function parseTime(string $value): ?CarbonImmutable
     {
         if (trim($value) === '') {
             return null;
         }
 
         try {
-            return CarbonImmutable::parse(trim($value), $timeZone);
+            return CarbonImmutable::parse(trim($value), 'UTC');
         } catch (Throwable) {
             return null;
         }
