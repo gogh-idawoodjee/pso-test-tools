@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Status;
-use App\Models\Scopes\UserOwnedModel;
+use App\Models\Scopes\DatasetOwnedModel;
 use App\Support\GeocodeHelper;
 use Filament\Actions\Action;
 use Filament\Forms;
@@ -39,6 +39,7 @@ class Customer extends Model
 
     protected $fillable = [
         'id',
+        'dataset_id',
         'name',
         'slug',
         'address',
@@ -66,7 +67,12 @@ class Customer extends Model
 
     public function region(): BelongsTo
     {
-        return $this->belongsTo(Region::class);
+        return $this->belongsTo(DatasetReferenceValue::class, 'region_id');
+    }
+
+    public function dataset(): BelongsTo
+    {
+        return $this->belongsTo(Dataset::class);
     }
 
     public function tasks(): HasMany
@@ -107,9 +113,9 @@ class Customer extends Model
                     Forms\Components\TextInput::make('postcode')
                         ->required(),
                     Forms\Components\Select::make('region_id')
-                        ->relationship('region', 'name')
-                        ->createOptionForm(Region::getForm())
-                        ->editOptionForm(Region::getForm()),
+                        ->label('Region')
+                        ->options([]) // replaced in Task 7 with the dataset's regions
+                        ->searchable(),
                     Group::make()
                         ->schema([
                             Forms\Components\TextInput::make('lat')
@@ -129,7 +135,7 @@ class Customer extends Model
     #[Override]
     protected static function booted(): void
     {
-        static::addGlobalScope(new UserOwnedModel);
+        static::addGlobalScope(new DatasetOwnedModel);
         static::creating(static function ($customer) {
             if (empty($customer->slug)) {
                 $base = Str::slug($customer->name);
@@ -149,10 +155,5 @@ class Customer extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults();
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 }

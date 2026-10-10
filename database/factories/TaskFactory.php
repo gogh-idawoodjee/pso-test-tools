@@ -2,32 +2,25 @@
 
 namespace Database\Factories;
 
-use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
-use App\Models\CustomerTaskType;
+use App\Enums\TaskStatus;
+use App\Models\Customer;
 use App\Models\Task;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 class TaskFactory extends Factory
 {
-    /**
-     * The name of the factory's corresponding model.
-     *
-     * @var string
-     */
     protected $model = Task::class;
 
-    /**
-     * Define the model's default state.
-     */
     public function definition(): array
     {
         return [
-            'appt_window_finish' => fake()->dateTime(),
-            'appt_window_start' => fake()->dateTime(),
-            'duration' => fake()->numberBetween(-10000, 10000),
-            'status' => fake()->word(),
-            'type' => fake()->word(),
-            'customer_task_type_id' => CustomerTaskType::factory(),
+            'customer_id' => Customer::factory(),
+            'task_type_id' => null,
+            'duration' => fake()->numberBetween(30, 240),
+            'base_value' => fake()->numberBetween(1000, 5000),
+            'status' => TaskStatus::IGNORE,
+            'appt_window_start' => null,
+            'appt_window_finish' => null,
         ];
     }
 }

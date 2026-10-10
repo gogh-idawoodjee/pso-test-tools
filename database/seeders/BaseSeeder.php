@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\AppointmentTemplate;
 use App\Models\Environment;
 use App\Models\User;
 
@@ -35,8 +34,6 @@ class BaseSeeder extends Seeder
             ],
         ];
 
-        $templates = ['Repair', 'Install', 'Maintenance'];
-
         foreach ($users as $userData) {
             $user = User::create($userData);
 
@@ -61,16 +58,6 @@ class BaseSeeder extends Seeder
                 'password' => Crypt::encrypt('fakepassword'),
                 'user_id' => $user->id,
             ]);
-
-            foreach ($templates as $templateName) {
-                AppointmentTemplate::create([
-                    'id' => Str::uuid(),
-                    'template_id' => Str::upper($templateName),
-                    'name' => $templateName,
-                    'user_id' => $user->id,
-                ]);
-
-            }
         }
     }
 }

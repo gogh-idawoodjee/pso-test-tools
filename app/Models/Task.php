@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\TaskStatus;
-use App\Models\Scopes\UserOwnedModel;
+use App\Models\Scopes\DatasetOwnedModel;
 use Filament\Forms;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -41,27 +41,26 @@ class Task extends Model
     protected static function booted(): void
     {
 
-        static::addGlobalScope(new UserOwnedModel);
-        static::creating(static function (self $task) {
+        static::addGlobalScope(new DatasetOwnedModel);
+        static::creating(static function (self $task): void {
+            if (empty($task->dataset_id) && $task->customer_id) {
+                $task->dataset_id = Customer::withoutGlobalScopes()->whereKey($task->customer_id)->value('dataset_id');
+            }
 
-            if ($task->taskType) {
-                $task->duration ??= $task->taskType->base_duration;
-                $task->base_value ??= $task->taskType->base_value;
+            $taskType = $task->task_type_id
+                ? DatasetReferenceValue::withoutGlobalScopes()->find($task->task_type_id)
+                : null;
+
+            if ($taskType) {
+                $task->duration ??= $taskType->attribute('base_duration');
+                $task->base_value ??= $taskType->attribute('base_value');
             }
 
             if (empty($task->friendly_id)) {
-                // Try to get task type prefix
-                $prefix = 'X';
-                if (! empty($task->task_type_id)) {
-                    $taskType = TaskType::find($task->task_type_id);
-                    $prefix = strtoupper(substr($taskType?->name ?? 'X', 0, 1));
-                }
-
-                // Generate unique friendly ID
+                $prefix = strtoupper(substr($taskType?->label ?: 'X', 0, 1));
                 do {
                     $friendlyId = 'T-'.$prefix.'_'.str_pad((string) random_int(0, 99999), 5, '0', STR_PAD_LEFT);
-                } while (self::where('friendly_id', $friendlyId)->exists());
-
+                } while (self::withoutGlobalScopes()->where('dataset_id', $task->dataset_id)->where('friendly_id', $friendlyId)->exists());
                 $task->friendly_id = $friendlyId;
             }
         });
@@ -72,17 +71,21 @@ class Task extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    public function dataset(): BelongsTo
+    {
+        return $this->belongsTo(Dataset::class);
+    }
+
     public function taskType(): BelongsTo
     {
-        return $this->belongsTo(TaskType::class);
+        return $this->belongsTo(DatasetReferenceValue::class, 'task_type_id');
     }
 
     public static function getForm(): array
     {
         return [
 
-            Forms\Components\Select::make('task_type_id')->required()
-                ->relationship('taskType', 'name'),
+            Forms\Components\Select::make('task_type_id')->label('Task Type')->options([])->searchable()->required(), // finished in Task 7
             Forms\Components\Select::make('status')->required()
                 ->enum(TaskStatus::class)
                 ->options(TaskStatus::class),
@@ -94,10 +97,5 @@ class Task extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults();
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 }

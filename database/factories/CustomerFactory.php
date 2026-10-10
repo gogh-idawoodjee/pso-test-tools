@@ -5,7 +5,9 @@ namespace Database\Factories;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 use App\Models\Customer;
-use App\Models\Region;
+use App\Enums\Status;
+use App\Models\Dataset;
+use App\Models\DatasetReferenceValue;
 
 class CustomerFactory extends Factory
 {
@@ -29,8 +31,16 @@ class CustomerFactory extends Factory
             'long' => fake()->randomFloat(0, 0, 9999999999.),
             'name' => fake()->name(),
             'postcode' => fake()->postcode(),
-            'region_id' => Region::factory(),
-            'status' => fake()->word(),
+            'dataset_id' => Dataset::factory(),
+            'region_id' => null,
+            'status' => Status::ACTIVE,
         ];
+    }
+
+    public function withRegion(): static
+    {
+        return $this->afterCreating(function (Customer $customer): void {
+            $customer->update(['region_id' => DatasetReferenceValue::factory()->for($customer->dataset)->create()->id]);
+        });
     }
 }
