@@ -49,7 +49,7 @@ Fresh reviewer on the whole branch: 0 Critical, 5 Important, 11 Minor. All five 
 | I-5 A zip named `.xml` was read as XML | reads a zip that was named as xml by what it is |
 
 ### Not fixed (rulings)
-- **I-2 Timestamps without an offset** are parsed in the app time zone, then shifted to the dataset zone. The right convention (UTC or local) is a fact about real PSO exports that was not verified, and the same extractor feeds the gateway upload summary. If PSO writes UTC, `export_date` can land on the wrong day and the run picker's "same day" grouping suffers. **Needs a decision.**
+- **I-2 Timestamps without an offset: resolved 2026-10-10 (branch `fix/pso-times-utc`).** Ish confirmed PSO always writes exported data in UTC. The schedule extractor (also used by the gateway upload) and the audits summary now read a time without an offset as UTC; `export_date` is that instant converted to the dataset zone.
 - **I-4 remainder:** no free-disk check before streaming inputs to scratch, only the member cap. Several large concurrent jobs can still fill a small container.
 
 ### Deferred minors
