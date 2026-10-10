@@ -5,6 +5,9 @@ namespace App\Filament\Resources\EnvironmentResource\RelationManagers;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
+use App\Filament\Resources\DatasetResource;
+use App\Models\Dataset;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Forms;
@@ -58,6 +61,10 @@ class DatasetsRelationManager extends RelationManager
                 CreateAction::make()->slideOver()->label('Add Dataset'),
             ])
             ->recordActions([
+                Action::make('open')
+                    ->label('Open')
+                    ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
+                    ->url(static fn (Dataset $record): string => DatasetResource::getUrl('view', ['record' => $record])),
                 DeleteAction::make(),
 
             ])
