@@ -2,11 +2,12 @@
 
 namespace App\Filament\Resources\TaskResource\Pages;
 
+use App\Enums\ReferenceEntityType;
 use App\Enums\TaskStatus;
+use App\Filament\Resources\DatasetReferenceValueResource;
 use App\Filament\Resources\TaskResource;
-use App\Models\AppointmentTemplate;
+use App\Models\DatasetReferenceValue;
 use App\Models\Environment;
-use App\Models\SlotUsageRule;
 use App\Traits\FormTrait;
 use Carbon\Carbon;
 use Filament\Actions\Action;
@@ -106,7 +107,7 @@ class AppointmentBooking extends Page
             ->record($this->record)
             ->columns(1) // Single column for the main container
             ->schema([
-                Section::make('Task '.data_get($this->record, 'friendly_id').' - '.data_get($this->record, 'taskType.name'))
+                Section::make('Task '.data_get($this->record, 'friendly_id').' - '.data_get($this->record, 'taskType.label'))
                     ->icon(Heroicon::OutlinedClipboardDocumentList)
                     ->schema([
                         // Activity ID and Status row
@@ -148,9 +149,9 @@ class AppointmentBooking extends Page
                                             ->weight('bold'),
                                         TextEntry::make('status')
                                             ->label(false)
-                                            ->formatStateUsing(fn (int $state) => TaskStatus::tryFrom($state)?->getLabel())
+                                            ->formatStateUsing(static fn (TaskStatus|int|null $state) => ($state instanceof TaskStatus ? $state : TaskStatus::tryFrom((int) $state))?->getLabel())
                                             ->badge()
-                                            ->color(static fn (int $state) => match (TaskStatus::tryFrom($state)) {
+                                            ->color(static fn (TaskStatus|int|null $state) => match ($state instanceof TaskStatus ? $state : TaskStatus::tryFrom((int) $state)) {
                                                 TaskStatus::IGNORE => 'gray',
                                                 TaskStatus::UNALLOCATED, TaskStatus::ALLOCATED => 'warning',
                                                 TaskStatus::FOLLOW_ON, TaskStatus::COMMITTED, TaskStatus::SENT, TaskStatus::DOWNLOADED => 'info',
@@ -224,11 +225,36 @@ class AppointmentBooking extends Page
         // some of them we should just display though.
         $this->task_data['sla_start'] = now()->format('Y-m-d\TH:i');
 
+        if (array_key_exists('Appointment', $this->slaTypeOptions())) {
+            $this->task_data['slaTypeId'] = 'Appointment';
+        }
+
     }
 
     protected function getForms(): array
     {
         return ['env_form', 'taskForm'];
+    }
+
+    /** Appointment templates of the task's dataset, keyed by the PSO id the request carries. */
+    public function templateOptions(): array
+    {
+        return DatasetReferenceValue::psoIdOptionsFor($this->record->dataset_id, ReferenceEntityType::AppointmentTemplate);
+    }
+
+    public function slotUsageRuleOptions(): array
+    {
+        return DatasetReferenceValue::psoIdOptionsFor($this->record->dataset_id, ReferenceEntityType::SlotUsageRule);
+    }
+
+    public function slaTypeOptions(): array
+    {
+        return DatasetReferenceValue::psoIdOptionsFor($this->record->dataset_id, ReferenceEntityType::SlaType);
+    }
+
+    private function createManualReferenceValue(ReferenceEntityType $type, array $data): string
+    {
+        return DatasetReferenceValue::createManual($this->record->dataset_id, $type, $data)->pso_id;
     }
 
     public function taskForm(Schema $form): Schema
@@ -239,33 +265,27 @@ class AppointmentBooking extends Page
                     Section::make('Appointment Booking')->schema([
                         Select::make('appointmentTemplateId')
                             ->label('Appointment Template')
-                            ->options(fn () => AppointmentTemplate::query()
-                                ->orderBy('name')
-                                ->pluck('name', 'id')
-                                ->toArray()
-                            )
+                            ->options(fn (): array => $this->templateOptions())
                             ->searchable()
-                            ->createOptionForm(AppointmentTemplate::getForm())
-                            ->createOptionUsing(static function (Get $get, array $data): string {
-                                return AppointmentTemplate::create($data)->id;
-                            })
+                            ->createOptionForm(DatasetReferenceValueResource::formSchema(ReferenceEntityType::AppointmentTemplate, lockDataset: true))
+                            ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::AppointmentTemplate, $data))
                             ->createOptionModalHeading('Create Template')
                             ->required(),
-
-                        Select::make('slotUsageRuleSetId')
-                            ->label('Slot Usage Rule')
-                            ->options(fn () => SlotUsageRule::query()
-                                ->orderBy('name')
-                                ->pluck('name', 'id')
-                                ->toArray()
-                            )
+                        Select::make('slotUsageRuleId')
+                            ->label('Slot Usage Rule Set')
+                            ->options(fn (): array => $this->slotUsageRuleOptions())
                             ->searchable()
-                            ->createOptionForm(SlotUsageRule::getForm())
-                            ->createOptionUsing(static function (Get $get, array $data): string {
-                                return SlotUsageRule::create($data)->id;
-                            })
-                            ->createOptionModalHeading('Create new Slot Usage Rule'),
-
+                            ->createOptionForm(DatasetReferenceValueResource::formSchema(ReferenceEntityType::SlotUsageRule, lockDataset: true))
+                            ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::SlotUsageRule, $data))
+                            ->createOptionModalHeading('Create Slot Usage Rule Set'),
+                        Select::make('slaTypeId')
+                            ->label('SLA Type')
+                            ->options(fn (): array => $this->slaTypeOptions())
+                            ->searchable()
+                            ->createOptionForm(DatasetReferenceValueResource::formSchema(ReferenceEntityType::SlaType, lockDataset: true))
+                            ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::SlaType, $data))
+                            ->createOptionModalHeading('Create SLA Type')
+                            ->required(),
                         DateTimePicker::make('sla_start')
                             ->label('Search for Appointments from:')
                             ->closeOnDateSelection()
@@ -333,22 +353,23 @@ class AppointmentBooking extends Page
             'data' => [
                 'appointmentTemplateId' => data_get($this->task_data, 'appointmentTemplateId'),
                 'baseValue' => data_get($this->record, 'base_value'),
-                'priority' => data_get($this->record, 'taskType.priority'),
+                'priority' => data_get($this->record, 'taskType.attributes.priority'),
                 'slaStart' => Carbon::parse(data_get($this->task_data, 'sla_start'))->format('Y-m-d\TH:i:s'),
                 'slaEnd' => Carbon::parse(data_get($this->task_data, 'sla_start'))->addDays(21)->format('Y-m-d\TH:i:s'),
                 'duration' => data_get($this->record, 'duration'),
                 'activityId' => data_get($this->record, 'friendly_id'),
-                'activityTypeId' => data_get($this->record, 'taskType.name'),
+                'activityTypeId' => data_get($this->record, 'taskType.pso_id'),
                 'lat' => data_get($this->record, 'customer.lat'),
                 'long' => data_get($this->record, 'customer.long'),
-                'slaTypeId' => 'Appointment', // todo parameterize this
+                'slaTypeId' => data_get($this->task_data, 'slaTypeId'),
                 'appointmentTemplateDuration' => 21,
                 'appointmentBaseDate' => now()->startOfDay()->toIso8601String(),
             ],
         ];
 
-        if (data_get($this->task_data, 'slotUsageRuleSetId')) {
-            Arr::add($data, 'data.slotUsageRuleId', data_get($this->task_data, 'slotUsageRuleSetId'));
+        if (data_get($this->task_data, 'slotUsageRuleId')) {
+            // Arr::add() returns a copy, so the old call here never sent the rule set.
+            $data['data']['slotUsageRuleId'] = data_get($this->task_data, 'slotUsageRuleId');
         }
 
         if ($inputDatetime = $this->inputDatetimePayloadValue(data_get($this->task_data, 'input_datetime'))) {

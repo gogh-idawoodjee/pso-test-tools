@@ -2,12 +2,17 @@
 
 namespace App\Filament\Pages\Activity;
 
+use App\Enums\ReferenceEntityType;
 use App\Filament\BasePages\PSOActivityBasePage;
+use App\Filament\Resources\DatasetReferenceValueResource;
+use App\Models\Dataset;
+use App\Models\DatasetReferenceValue;
 use App\Support\GeocodeHelper;
 use BackedEnum;
 use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Forms;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Fieldset;
@@ -46,19 +51,8 @@ class GenerateActivities extends PSOActivityBasePage
                         Fieldset::make('details')
                             ->label('Details')
                             ->schema([
-                                TextInput::make('activity_type_id')
-                                    ->prefixIcon('heroicon-o-tag') // Better for type/category
-                                    ->label('Activity Type ID')
-                                    ->required()
-                                    ->live()
-                                    ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
-                                TextInput::make('sla_type_id')
-                                    ->label('SLA Type ID')
-                                    ->prefixIcon('heroicon-o-shield-check') // SLA = service level agreement
-                                    ->required()
-                                    ->validationMessages(['required' => 'SLA Type ID is required'])
-                                    ->live()
-                                    ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
+                                $this->referenceSelect('activity_type_id', 'Activity Type ID', 'heroicon-o-tag', ReferenceEntityType::TaskType),
+                                $this->referenceSelect('sla_type_id', 'SLA Type ID', 'heroicon-o-shield-check', ReferenceEntityType::SlaType),
                                 TextInput::make('base_value')
                                     ->label('Base Value')
                                     ->required()
@@ -165,14 +159,11 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->helperText('will be a UUID if not included'),
                                 $this->inputDatetimeField(),
                                 Forms\Components\Repeater::make('skills')
-                                    ->simple(
-                                        TextInput::make('skills')
-                                            ->prefixIcon('heroicon-o-cog-6-tooth') // Skills/capabilities
-                                    )->addActionLabel('Add Skill')->defaultItems(0),
+                                    ->simple($this->referenceSelect('skill', 'Skill', 'heroicon-o-cog-6-tooth', ReferenceEntityType::Skill, required: false))
+                                    ->addActionLabel('Add Skill')->defaultItems(0),
                                 Forms\Components\Repeater::make('regions')
-                                    ->simple(TextInput::make('region')->prefixIcon('heroicon-o-map') // Geographic regions
-                                    )->addActionLabel('Add Region')->defaultItems(0),
-
+                                    ->simple($this->referenceSelect('region', 'Region', 'heroicon-o-map', ReferenceEntityType::Region, required: false))
+                                    ->addActionLabel('Add Region')->defaultItems(0),
                             ])->columns(3),
 
                         Actions::make([Action::make('create_activity')
@@ -185,6 +176,34 @@ class GenerateActivities extends PSOActivityBasePage
                     ])->columns(1),
 
             ])->statePath('activity_data');
+    }
+
+    /** The dataset picked in the environment section, if any (the select holds its PSO name). */
+    public function currentDataset(): ?Dataset
+    {
+        return $this->selectedEnvironment?->datasets->firstWhere('name', $this->selectedDataset);
+    }
+
+    /**
+     * A searchable select over the current dataset's values of one type, keyed by PSO id,
+     * with a create option that stores a manual row so the page stays usable before a sync.
+     */
+    private function referenceSelect(string $name, string $label, string $icon, ReferenceEntityType $type, bool $required = true): Select
+    {
+        return Select::make($name)
+            ->label($label)
+            ->prefixIcon($icon)
+            ->searchable()
+            ->required($required)
+            ->live()
+            ->options(fn (): array => DatasetReferenceValue::psoIdOptionsFor($this->currentDataset()?->id, $type))
+            ->hint(fn (): ?string => $this->currentDataset() ? null : 'Pick an environment and dataset above to see its values.')
+            ->createOptionForm(DatasetReferenceValueResource::formSchema($type, lockDataset: true))
+            ->createOptionUsing(function (array $data) use ($type): string {
+                $dataset = $this->currentDataset();
+
+                return $dataset ? DatasetReferenceValue::createManual($dataset->id, $type, $data)->pso_id : $data['pso_id'];
+            });
     }
 
     /**
@@ -207,8 +226,10 @@ class GenerateActivities extends PSOActivityBasePage
 
     private function generateActivitiesPayload(): array
     {
-        $skills = collect($this->activity_data['skills'])->pluck('skill')->filter()->values()->all();
-        $regions = collect($this->activity_data['regions'])->pluck('region')->filter()->values()->all();
+        // Simple repeaters hold a flat list of values; pluck() on them always gave nulls, so
+        // skills and regions were never sent before this change.
+        $skills = collect($this->activity_data['skills'] ?? [])->filter()->values()->all();
+        $regions = collect($this->activity_data['regions'] ?? [])->filter()->values()->all();
         $slaWindow = $this->calculateSlaWindow();
 
         return $this->buildPayload(
