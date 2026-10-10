@@ -33,3 +33,21 @@ Server prerequisites for uploads of up to 25 MB per file: PHP `upload_max_filesi
 Parameters are compared as effective values: the export lists only parameters that were set explicitly, so an unset parameter uses its default, taken from the parameter catalog (`app/Support/SysCompare/Data/pso_parameters_reference.csv`, 736 rows from IFS). Rows that differ only because of a default are marked `Same (default)` and are not counted. Defaults can change between PSO versions and the shipped catalog is for **PSO 6.14**: the report warns, by environment name, whenever an environment is on a different release, because a `Same (default)` row could then be hiding a real difference. If the catalog cannot be loaded the comparison falls back to raw values and the report says so.
 
 The golden tests use the four reference exports, which are not in the repo. Point `SYS_COMPARE_SAMPLES` at a folder holding `prod.xml`, `acc.xml`, `stg.xml` and `tst.xml`; the tests are skipped when they are not available.
+
+## Base Data and datasets
+
+Regions, skills, task types, slot usage rule sets, appointment templates and SLA types are stored per **dataset**
+(an environment can hold several), in one table, and are what the request-building pages offer in their
+selects. Open a dataset (Base Data > Datasets, or from its environment) and press **Sync from PSO** to pull
+them from the PSO gateway through pso-services (`GET /api/v2/dataset/reference-values`). The gateway returns
+the whole dataset body, so a sync takes up to a few minutes on a large dataset and runs on the queue; a queue
+worker must be running. Rows you edit keep your values on later syncs (badge "Edited"; "Reset to PSO" hands
+them back). Rows PSO stops returning are flagged "Missing from PSO" and are never deleted automatically.
+Customers and their tasks belong to a dataset too, and only see that dataset's regions and task types.
+
+Task type rows carry priority, base value and base duration (minutes) as fallbacks for tasks that do not set
+their own, following PSO's precedence: Activity_Status, then Activity, then Activity_Type. Slot usage choices
+are `Slot_Usage_Rule_Set` ids, which is what an appointment request carries.
+
+Tests run on an in-memory SQLite database (`phpunit.xml`), so they never touch the `.env` database.
+`REFERENCE_VALUES_TIMEOUT` (default 600 s) bounds the call to pso-services.
