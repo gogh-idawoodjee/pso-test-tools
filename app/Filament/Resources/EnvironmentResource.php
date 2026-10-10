@@ -94,6 +94,7 @@ class EnvironmentResource extends Resource
         return [
 
             RelationManagers\DatasetsRelationManager::class,
+            RelationManagers\ExportFilesRelationManager::class,
         ];
     }
 
