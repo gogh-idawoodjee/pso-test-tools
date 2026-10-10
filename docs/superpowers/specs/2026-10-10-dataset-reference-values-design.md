@@ -85,7 +85,7 @@ Model `DatasetReferenceValue`:
 | --- | --- | --- | --- |
 | `region` | Region | `description` | none |
 | `skill` | Skill | `description` | none |
-| `task_type` | Activity_Type | `description` | `priority` (int, from `priority`), `base_value` (decimal, from `base_value`, a Double in PSO), `base_duration` (whole seconds, from `duration`, a Time Span in PSO) |
+| `task_type` | Activity_Type | `description` | `priority` (int, from `priority`), `base_value` (decimal, from `base_value`, a Double in PSO), `base_duration` (whole minutes, from `duration`, a Time Span in PSO) |
 | `slot_usage_rule` | Slot_Usage_Rule | `description` | none |
 | `appointment_template` | Appointment_Template | `description` | none |
 | `sla_type` | SLA_Type | `description` | none |
@@ -95,8 +95,13 @@ the list of attribute columns with their casts, the navigation label and the Fil
 class. Column names are confirmed against the Scheduling Schema document: all six tables have
 `id` String(32) and `description` String(2000); Activity_Type has `priority` Integer,
 `base_value` Double and `duration` Time Span. When `description` is empty the label falls back
-to `id`. The time span is parsed by the same rules the existing formatters use for PSO durations
-and stored as whole seconds.
+to `id`.
+
+Durations are **minutes** everywhere in both apps: `Task.duration` is minutes,
+`PSOHelper::setPSODuration()` in pso-services takes minutes and emits the ISO 8601 `PT..H..M`
+string PSO expects, and `ResourceFormatter` already parses PSO time spans with
+`CarbonInterval::fromString()`. The sync parses `duration` with `CarbonInterval::fromString()`
+and stores `totalMinutes` rounded to a whole number. No new conversion helper is written.
 
 Attribute values are validated per type in the form and in the sync (numeric, nullable).
 
@@ -159,6 +164,15 @@ Service `ReferenceValuesService`:
    tables, read its child elements into an associative array and keep only the id, the label
    column and the attribute columns. Skip everything else without materialising it. Strip
    namespaces.
+
+   The six tables are **registered in `PSOObjectRegistry`** (`app/Classes/V2`), the existing
+   catalogue of PSO entities with their wire names and attribute types, under the keys `region`,
+   `skill`, `activity_type`, `slot_usage_rule`, `appointment_template` and `sla_type`. The
+   parser reads the table list and the attribute casts from there, so the registry stays the one
+   place that knows PSO entity shapes. pso-test-tools has its own, slightly older copy of the
+   registry (`app/Classes/PSOObjectRegistry.php`, used by the delete and custom exception pages);
+   the same six entries are added to it so the two copies do not drift further, and the
+   `ReferenceEntityType` enum maps each case to its registry key.
 4. Delete the temporary file in a `finally`.
 5. Respond through the existing `ApiResponses` envelope:
 
@@ -254,9 +268,26 @@ and clear when the dataset changes. Lists gain a dataset column and filter.
 ### 6.4 Consumers
 
 Pages that build PSO requests read identifiers with
-`Dataset::referenceValuesOf(ReferenceEntityType::X)` for the dataset the user picked. Today no
-page reads the old tables, so this release only wires the selects on Customer and Task; the
-activity and appointment pages pick the new source up when they are next touched.
+`Dataset::referenceValuesOf(ReferenceEntityType::X)` for the dataset in play. Three places read
+the old tables today and are changed in this release:
+
+- **`Task::booted()`** fills `duration` and `base_value` from the task type and builds the
+  `friendly_id` prefix from the task type name. It now reads `attributes.base_duration`,
+  `attributes.base_value` and `label` from the `DatasetReferenceValue`, and the `friendly_id`
+  uniqueness check runs within the dataset.
+- **`TaskResource/Pages/AppointmentBooking`** has selects for the appointment template and the
+  slot usage rule with create-option forms. Both now list the task's dataset's rows of that
+  type, and the create-option forms create `manual` rows in that dataset. `activityTypeId` is
+  sent as the task type's `pso_id` (it currently sends the name). The hardcoded
+  `slaTypeId => 'Appointment'` (marked todo in the code) becomes a select over the dataset's
+  `sla_type` rows, defaulting to `Appointment` when the dataset has a row with that id.
+- **`Activity/GenerateActivities`** takes SLA type, skills and regions as free text. Each becomes
+  a select over the dataset's rows of that type, with the option to type a value that is not in
+  the list (Filament searchable select with create option, creating a `manual` row). This keeps
+  the page usable before the first sync.
+
+`GenericDelete` and `GenerateCustomException` use the object registry, not these tables, and are
+untouched.
 
 ## 7. Testing
 
@@ -277,6 +308,10 @@ pso-test-tools:
 - Feature: each resource lists only its type and only datasets owned by the user; editing a
   `pso` row sets the flag; `Reset to PSO` clears it; a Customer cannot save a region from
   another dataset.
+- Feature: creating a Task fills duration and base value from the task type's attributes; the
+  appointment booking payload carries the task type's `pso_id` and the chosen SLA type id; the
+  template and slot usage selects show only the task's dataset.
+- Unit: the time span parse (`PT1H30M` to 90, `PT45M` to 45, `P1D` to 1440, empty to null).
 - Golden: when `REFERENCE_VALUES_SAMPLE_LOAD` points at a real LOAD export (kept outside the
   repo, as the sys compare samples are), the parser output is compared with a stored JSON
   snapshot; skipped otherwise.
