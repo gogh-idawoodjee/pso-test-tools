@@ -12,4 +12,8 @@ return [
     ],
     'custom_key' => env('SHREDDER_KEY'),
 
+    'reference_values' => [
+        // The gateway returns the whole dataset body; pso-services streams and parses it.
+        'timeout' => (int) env('REFERENCE_VALUES_TIMEOUT', 600),
+    ],
 ];
