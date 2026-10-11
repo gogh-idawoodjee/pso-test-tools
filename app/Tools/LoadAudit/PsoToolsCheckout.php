@@ -3,6 +3,7 @@
 namespace App\Tools\LoadAudit;
 
 use App\Tools\Contracts\ToolSetupException;
+use Symfony\Component\Process\ExecutableFinder;
 
 /** Where the pso-tools scripts and reference files live on this server. */
 class PsoToolsCheckout
@@ -13,11 +14,22 @@ class PsoToolsCheckout
     {
         $root = config('tools.pso_tools_path');
 
-        return new self(filled($root) ? rtrim((string) $root, '/') : null, (string) config('tools.python', 'python3'));
+        $python = trim((string) config('tools.python', 'python3'));
+
+        return new self(filled($root) ? rtrim((string) $root, '/') : null, $python !== '' ? $python : 'python3');
     }
 
+    /** The configured interpreter, checked to exist so a missing one is a setup message, not a shell error. */
     public function python(): string
     {
+        $found = str_contains($this->python, '/')
+            ? is_file($this->python) && is_executable($this->python)
+            : app(ExecutableFinder::class)->find($this->python) !== null;
+
+        if (! $found) {
+            throw new ToolSetupException("The load audit is not set up on this server: Python ({$this->python}) was not found.");
+        }
+
         return $this->python;
     }
 

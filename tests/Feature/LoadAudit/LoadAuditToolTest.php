@@ -1,13 +1,20 @@
 <?php
 
+use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
+use App\Enums\ToolRunStatus;
+use App\Jobs\RunToolJob;
 use App\Models\Dataset;
+use App\Models\ExportFile;
 use App\Models\ToolRun;
+use App\Support\Exports\ExportStorage;
 use App\Tools\Contracts\ToolSetupException;
 use App\Tools\LoadAudit\LoadAuditTool;
 use App\Tools\ToolContext;
 use App\Tools\ToolRegistry;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 
 /** Symfony Process only forwards variables from $_SERVER/$_ENV, not ones set with putenv(), so set them there. */
 function fakeAuditEnv(string $name, ?string $value): void
@@ -34,6 +41,10 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    if (isset($this->scratch) && is_dir($this->scratch)) {
+        File::deleteDirectory($this->scratch);
+    }
+
     fakeAuditEnv('FAKE_AUDIT_MODE', null);
     fakeAuditEnv('FAKE_AUDIT_ARGS_FILE', null);
 });
@@ -134,3 +145,47 @@ it('offers the ifs release and grace hours as run options', function () {
 
     expect($names)->toBe(['options.ifs_release', 'options.complete_grace_hours']);
 });
+
+it('surfaces a missing python as the not-set-up message', function () {
+    config(['tools.python' => '/nonexistent/python3']);
+
+    expect(fn () => (new LoadAuditTool)->run($this->context, ['load' => $this->scratch.'/load.xml'], []))
+        ->toThrow(ToolSetupException::class, 'The load audit is not set up on this server: Python (/nonexistent/python3) was not found.');
+});
+
+it('limits the last error line kept in the failure message', function () {
+    fakeAuditEnv('FAKE_AUDIT_MODE', 'longfail');
+
+    try {
+        (new LoadAuditTool)->run($this->context, ['load' => $this->scratch.'/load.xml'], []);
+        $this->fail('expected a failure');
+    } catch (RuntimeException $exception) {
+        expect($exception->getMessage())->toStartWith('The audit stopped while running the checks: EEE')
+            ->and($exception->getMessage())->not->toContain(str_repeat('E', 301))
+            ->and(strlen($exception->getMessage()))->toBeLessThan(400);
+    }
+});
+
+it('removes the whole scratch folder, accounts folder included, after a run', function (string $mode, ToolRunStatus $expected) {
+    fakeAuditEnv('FAKE_AUDIT_MODE', $mode);
+    Storage::fake('r2');
+    $scratchRoot = sys_get_temp_dir().'/exports-la-'.uniqid();
+    config(['exports.disk' => 'r2', 'exports.scratch_path' => $scratchRoot]);
+
+    try {
+        $storage = app(ExportStorage::class);
+        $file = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'content_type' => 'xml']);
+        Storage::disk('r2')->put($storage->objectKey($file), '<dsScheduleData/>');
+        $run = ToolRun::factory()->for($this->dataset, 'scope')->create([
+            'tool' => ToolId::LoadAudit, 'status' => ToolRunStatus::Queued, 'result' => null, 'run_date' => null,
+            'inputs' => ['files' => ['load' => $file->id], 'options' => []],
+        ]);
+
+        (new RunToolJob($run->id))->handle($storage, app(ToolRegistry::class));
+
+        expect($run->fresh()->status)->toBe($expected)
+            ->and(is_dir($scratchRoot.'/'.$run->id))->toBeFalse();
+    } finally {
+        File::deleteDirectory($scratchRoot);
+    }
+})->with([['ok', ToolRunStatus::Succeeded], ['fail', ToolRunStatus::Failed]]);

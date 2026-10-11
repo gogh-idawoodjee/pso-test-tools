@@ -1,6 +1,6 @@
 """Stand-in for pso-tools/load-audit/audit_load.py in tests. Same arguments, same outputs, no checks.
 
-FAKE_AUDIT_MODE: ok (default) | fail | hang | silent | split.
+FAKE_AUDIT_MODE: ok (default) | fail | hang | silent | split | longfail.
 FAKE_AUDIT_ARGS_FILE: where to write the received argv as JSON (optional).
 """
 import json, os, sys, time
@@ -41,6 +41,10 @@ if arg('--plan'):
 progress({'stage': 'checks'})
 if arg('--sys'):
     progress({'stage': 'sys', 'percent': 0}); progress({'stage': 'sys', 'percent': 100}); progress({'stage': 'checks'})
+
+if mode == 'longfail':
+    sys.stderr.write('E' * 1000 + '\n')
+    sys.exit(1)
 
 if mode == 'fail':
     sys.stderr.write('Traceback (most recent call last):\n  File "audit_load.py", line 1\nKeyError: '); sys.stderr.flush()

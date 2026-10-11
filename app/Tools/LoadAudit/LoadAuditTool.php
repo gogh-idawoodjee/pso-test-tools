@@ -13,6 +13,7 @@ use Filament\Forms\Components\TextInput;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -93,7 +94,7 @@ class LoadAuditTool implements Tool
             $process = Process::path($workDir)
                 ->timeout($timeout)
                 ->env(['PSO_PROGRESS' => 'lines', 'LANG' => 'C.UTF-8'])
-                ->run($argv, function (string $type, string $buffer) use (&$stdout, &$pending, $handleLine): void {
+                ->run($argv, static function (string $type, string $buffer) use (&$stdout, &$pending, $handleLine): void {
                     if ($type === 'out') {
                         $stdout .= $buffer;
 
@@ -117,7 +118,7 @@ class LoadAuditTool implements Tool
             $stage = strtolower(preg_replace('/:.*$/', '', $lastLabel));
             $lastLine = collect($stderr)->last(static fn (string $line): bool => trim($line) !== '') ?? 'no error text';
 
-            throw new RuntimeException("The audit stopped while {$stage}: ".trim($lastLine));
+            throw new RuntimeException("The audit stopped while {$stage}: ".Str::limit(trim($lastLine), 300));
         }
 
         $json = @file_get_contents($workDir.'/'.LoadAuditCommand::OUT_JSON);

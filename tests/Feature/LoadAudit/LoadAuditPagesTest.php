@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Pages\ToolRunPage;
@@ -7,8 +8,10 @@ use App\Filament\Resources\DatasetResource\Pages\ViewDataset;
 use App\Filament\Resources\DatasetResource\RelationManagers\ToolRunsRelationManager as DatasetRuns;
 use App\Models\Dataset;
 use App\Models\Environment;
+use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -109,3 +112,50 @@ it('shows the placeholder on the Runs tab when a summary has no counts or other 
 
     expect(substr_count($component->html(), '3 red, 0 amber, 0 green'))->toBe(1);
 });
+
+it('gives 404 for a run that belongs to another dataset of the same user', function () {
+    $datasetB = Dataset::factory()->for($this->dataset->environment)->create(['name' => 'SOUTH']);
+    $runB = ToolRun::factory()->for($datasetB, 'scope')->create(['tool' => ToolId::LoadAudit, 'result' => ['html' => '<p>b</p>', 'findings' => []]]);
+
+    foreach (['load-audit.dashboard', 'load-audit.download-html', 'load-audit.download-findings'] as $name) {
+        $this->get(route($name, [$this->dataset, $runB]))->assertNotFound();
+    }
+});
+
+it('gives 403 to a user who cannot access the panel', function () {
+    $this->actingAs(User::factory()->create(['email' => 'someone@example.com']));
+
+    $this->get(route('load-audit.dashboard', [$this->dataset, $this->run]))->assertForbidden();
+});
+
+it('renders a run without a page without an iframe or download buttons', function () {
+    $noPage = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'result' => ['findings' => []], 'summary' => null]);
+
+    Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $noPage->id])
+        ->assertOk()
+        ->assertDontSeeHtml('<iframe')
+        ->assertDontSee('Download HTML')
+        ->assertSee('audit page is not available');
+});
+
+it('validates the real load audit options on the Run form', function (array $options, ?string $invalidField) {
+    Queue::fake();
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'summary' => ['export_date' => '2026-10-10']]);
+
+    $component = Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
+        ->callTableAction('run_load_audit', data: ['files' => ['load' => $load->id], 'options' => $options]);
+
+    if ($invalidField === null) {
+        $component->assertHasNoTableActionErrors();
+    } else {
+        $component->assertHasTableActionErrors([$invalidField]);
+    }
+})->with([
+    'release abc' => [['ifs_release' => 'abc', 'complete_grace_hours' => 24], 'options.ifs_release'],
+    'release 25.2.7' => [['ifs_release' => '25.2.7', 'complete_grace_hours' => 24], null],
+    'release blank' => [['ifs_release' => '', 'complete_grace_hours' => 24], null],
+    'grace 169' => [['ifs_release' => '', 'complete_grace_hours' => 169], 'options.complete_grace_hours'],
+    'grace -1' => [['ifs_release' => '', 'complete_grace_hours' => -1], 'options.complete_grace_hours'],
+    'grace 0' => [['ifs_release' => '', 'complete_grace_hours' => 0], null],
+    'grace 24' => [['ifs_release' => '', 'complete_grace_hours' => 24], null],
+]);

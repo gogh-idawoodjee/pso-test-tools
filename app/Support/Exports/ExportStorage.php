@@ -4,6 +4,7 @@ namespace App\Support\Exports;
 
 use App\Models\ExportFile;
 use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
@@ -100,10 +101,7 @@ class ExportStorage
         if (! str_starts_with($directory, $root.'/') || ! is_dir($directory)) {
             return;
         }
-        foreach (array_diff(scandir($directory) ?: [], ['.', '..']) as $entry) {
-            @unlink($directory.'/'.$entry);
-        }
-        @rmdir($directory);
+        File::deleteDirectory($directory);
     }
 
     private function assertUuid(string $value): void
