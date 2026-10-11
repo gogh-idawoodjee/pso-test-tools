@@ -2,7 +2,7 @@
 
 namespace App\Tools\LoadAudit;
 
-/** One stderr line from audit_load.py run with PSO_PROGRESS=lines, turned into words for the run page. */
+/** One stderr line from a pso-tools script run with PSO_PROGRESS=lines, turned into words for the run page. */
 class ProgressLine
 {
     private const LABELS = [
@@ -10,6 +10,7 @@ class ProgressLine
         'plan' => 'Reading the plan',
         'sys' => 'Reading the SYS file',
         'checks' => 'Running the checks',
+        'gather' => "Working out each technician's regions",
     ];
 
     /** @return array{label: string, percent: ?int, seconds_left: ?int, stage: string}|null null for anything that is not a progress line we know */
