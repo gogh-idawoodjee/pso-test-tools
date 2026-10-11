@@ -1,7 +1,7 @@
 # Design: load audit on the web (runs the pso-tools Python)
 
 **Date:** 2026-10-10
-**Status:** Approved in conversation, pending spec review
+**Status:** Approved 2026-10-11; plan at `docs/superpowers/plans/2026-10-11-load-audit-port.md`
 **Repos:** pso-test-tools (the tool, progress, dashboard) and pso-tools (one small progress change to
 `load-audit/audit_load.py`). Builds on `2026-10-10-export-sets-design.md` (export files, tool runs,
 `RunToolJob`, the `Tool` contract, dataset settings).
@@ -92,8 +92,8 @@ Built as an argument list for `Symfony\Component\Process\Process` (never through
   dataset id, as it does today.
 - `--sys` is always explicit when a SYS was chosen. When none was chosen, the scratch folder holds no
   other DsSystemData file, so the script's "find a SYS next to the LOAD" search finds nothing.
-- Working directory: the run's scratch folder. Environment: only `PATH`, `LANG=C.UTF-8` and
-  `PSO_PROGRESS=lines`.
+- Working directory: the run's scratch folder. The process inherits the worker's environment plus
+  `PSO_PROGRESS=lines` and `LANG=C.UTF-8`; `-I` makes Python ignore any `PYTHON*` variables.
 
 ### 3.4 What the run stores
 
@@ -109,6 +109,10 @@ Built as an argument list for `Symfony\Component\Process\Process` (never through
 example a red or amber check with no recommendation). The markdown report is written to scratch and
 discarded.
 
+`ToolResult::$summary` (new, stored in a plain `tool_runs.summary` json column): `{counts: {red, amber,
+green}}`, so the Runs tab can show counts without decrypting a 0.5 MB `result` per row. Counts are not
+customer text.
+
 ## 4. Live progress
 
 ### 4.1 pso-tools: opt-in progress lines
@@ -120,7 +124,8 @@ discarded.
   PROGRESS {"stage":"load","percent":45,"seconds_left":6}
   ```
 
-  At most twice a second, as now. `seconds_left` is omitted until there is an estimate.
+  At most twice a second, as now, plus a 0% line when a file is opened and a 100% line when it is finished,
+  so even a small file reports each stage. `seconds_left` is omitted until there is an estimate.
 - Stages: `load`, `plan`, `sys` (with `percent` while that file is read) and `checks` (no percent),
   written each time checks start. `main()` reads the SYS after the first checks, so a full run reports
   `load`, `plan`, `checks`, `sys`, `checks`. Each `read_*` function passes its stage to `ReadProgress` instead of
@@ -130,7 +135,8 @@ discarded.
 
 ### 4.2 pso-test-tools: generic progress on a run
 
-- Migration: `tool_runs.progress` json, nullable: `{label, percent, seconds_left}`.
+- Migration: `tool_runs.progress` json, nullable: `{label, percent, seconds_left}`; and `tool_runs.summary`
+  json, nullable (section 3.4).
 - `ToolContext::reportProgress(string $label, ?int $percent = null, ?int $secondsLeft = null): void`
   saves the column at most once every 2 seconds, and at once when the label changes. `RunToolJob` sets
   it to null when the run succeeds or fails.
