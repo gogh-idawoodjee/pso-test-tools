@@ -76,7 +76,9 @@ The server needs Python 3 and a checkout of that repo:
 1. As `deploy`: `git clone <read-only deploy URL for outofjam/pso-tools> /var/www/pso-tools` (using a
    read-only deploy key added to the repo in GitHub).
 2. In `.env`: `TOOLS_PSO_TOOLS_PATH=/var/www/pso-tools` (and `TOOLS_PYTHON` if `python3` is not on the worker's PATH).
-3. `php artisan migrate --force`, `php artisan optimize:clear`, `php artisan optimize`, restart the queue worker.
+3. `php artisan migrate --force --path=database/migrations/2026_10_11_000004_add_progress_and_summary_to_tool_runs_table.php`
+   (`--path` because of the production `.env` placeholder issue), then `php artisan optimize:clear`,
+   `php artisan optimize`, and restart the queue worker.
 4. To update the audit later: `git pull` in `/var/www/pso-tools`. The app needs no redeploy.
 
 A run shows live progress (reading the LOAD, the plan, the SYS file, running the checks) and finishes with the
