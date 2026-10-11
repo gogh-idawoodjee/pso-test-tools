@@ -43,10 +43,27 @@ class ReferenceValuesRelationManager extends RelationManager
         return 'Reference values';
     }
 
-    /** Rows of every type, shown on the tab. */
+    /** Per-type counts live on the type switch, so the tab itself carries no number. */
     public static function getBadge(Model $ownerRecord, string $pageClass): ?string
     {
-        return (string) $ownerRecord->referenceValues()->count();
+        return null;
+    }
+
+    /**
+     * The switch's options: "Regions (312)". One grouped query; types with no rows read "(0)".
+     *
+     * @return array<string, string>
+     */
+    public function typeOptions(): array
+    {
+        $counts = $this->getOwnerRecord()->referenceValues()
+            ->selectRaw('entity_type, count(*) as n')
+            ->groupBy('entity_type')
+            ->pluck('n', 'entity_type');
+
+        return collect(ReferenceEntityType::cases())
+            ->mapWithKeys(fn (ReferenceEntityType $type): array => [$type->value => $type->pluralLabel().' ('.(int) ($counts[$type->value] ?? 0).')'])
+            ->all();
     }
 
     /** The type the switch is on; Regions until the user picks another. */
@@ -81,7 +98,7 @@ class ReferenceValuesRelationManager extends RelationManager
             ->filters([
                 SelectFilter::make(self::FILTER)
                     ->label('Type')
-                    ->options(collect(ReferenceEntityType::cases())->mapWithKeys(static fn (ReferenceEntityType $type): array => [$type->value => $type->pluralLabel()])->all())
+                    ->options(fn (): array => $this->typeOptions())
                     ->default(ReferenceEntityType::Region->value)
                     ->selectablePlaceholder(false)
                     ->native(false),

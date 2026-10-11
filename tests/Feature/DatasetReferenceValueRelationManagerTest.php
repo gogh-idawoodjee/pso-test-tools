@@ -60,11 +60,16 @@ it('refuses to create a manual row in another user dataset', function () {
         ->toThrow(ModelNotFoundException::class);
 });
 
-it('shows the row count of every type as the tab badge', function () {
+it('counts each type on the switch and puts no number on the tab', function () {
     DatasetReferenceValue::factory()->for($this->dataset)->count(3)->create();
     DatasetReferenceValue::factory()->for($this->dataset)->create(['entity_type' => ReferenceEntityType::Skill]);
 
-    expect(ReferenceValuesRelationManager::getBadge($this->dataset, ViewDataset::class))->toBe('4');
+    $options = regionsTab($this->dataset)->instance()->typeOptions();
+
+    expect($options['region'])->toBe('Regions (3)')
+        ->and($options['skill'])->toBe('Skills (1)')
+        ->and($options['sla_type'])->toBe('SLA Types (0)')
+        ->and(ReferenceValuesRelationManager::getBadge($this->dataset, ViewDataset::class))->toBeNull();
 });
 
 it('lists one type at a time, regions first, and follows the type switch', function () {
