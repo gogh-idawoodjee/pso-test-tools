@@ -64,6 +64,10 @@ Fresh reviewer on the whole branch: 0 Critical, 5 Important, 11 Minor. All five 
 - M-9 `ExportStorage::readToScratch` does not guard `fopen` returning false.
 - M-10 Spec section 9 golden test (`EXPORTS_SAMPLE_DIR`) not built.
 - M-11 `tool_runs.inputs` is `{files, options}`, not the spec's flat `{kind: id}` map.
+- M-12 `ExportSummariser::largestMember` caps on the size the zip header claims; the copy itself is unbounded. Bound the copy and fail when the stream is not exhausted.
+- M-13 The Exports tab polls every 10 s while any row is `uploading`, so a slot that never finished keeps the tab polling until the purge (12 h).
+- M-14 The Exports tab's input reference time column formats in the app zone (America/Toronto) while the export date beside it uses the dataset zone.
+- M-15 `RunInputPicker::defaultsFor` matches by export date, which the audit summary lacks, so an audits zip is never preselected when a LOAD exists.
 
 ## Found in production testing
 
