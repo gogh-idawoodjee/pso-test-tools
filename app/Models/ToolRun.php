@@ -25,7 +25,7 @@ class ToolRun extends Model
 
     protected $fillable = [
         'scope_type', 'scope_id', 'tool', 'run_date', 'inputs', 'started_by_user_id', 'status',
-        'result', 'warnings', 'error_message', 'queued_at', 'started_at', 'finished_at',
+        'result', 'warnings', 'progress', 'summary', 'error_message', 'queued_at', 'started_at', 'finished_at',
     ];
 
     protected function casts(): array
@@ -35,6 +35,8 @@ class ToolRun extends Model
             'status' => ToolRunStatus::class,
             'inputs' => 'array',
             'warnings' => 'array',
+            'progress' => 'array',
+            'summary' => 'array',
             'result' => 'encrypted:array',
             'run_date' => 'date',
             'queued_at' => 'datetime',

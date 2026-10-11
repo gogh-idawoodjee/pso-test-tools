@@ -43,6 +43,7 @@ class FakeTool implements Tool
                 'options' => $options,
             ],
             warnings: ['Fake warning'],
+            summary: ['counts' => ['red' => 1]],
         );
     }
 }

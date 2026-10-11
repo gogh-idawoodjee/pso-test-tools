@@ -89,3 +89,24 @@ it('refuses an input that belongs to another dataset', function () {
     expect($run->refresh()->status)->toBe(ToolRunStatus::Failed)
         ->and($run->error_message)->toContain('does not belong');
 });
+
+it('clears progress when the run succeeds and stores the summary', function () {
+    $run = runFor($this->dataset, $this->load);
+    $run->forceFill(['progress' => ['label' => 'Old', 'percent' => 5, 'seconds_left' => null]])->save();
+
+    (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
+
+    expect($run->refresh()->progress)->toBeNull()
+        ->and($run->summary)->toBe(['counts' => ['red' => 1]]);
+});
+
+it('clears progress when the run fails', function () {
+    FakeTool::$throw = new RuntimeException('boom');
+    $run = runFor($this->dataset, $this->load);
+    $run->forceFill(['progress' => ['label' => 'Old', 'percent' => 5, 'seconds_left' => null]])->save();
+
+    (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
+    FakeTool::$throw = null;
+
+    expect($run->refresh()->progress)->toBeNull();
+});
