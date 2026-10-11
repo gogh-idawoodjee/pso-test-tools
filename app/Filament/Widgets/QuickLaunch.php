@@ -12,7 +12,6 @@ use App\Filament\Pages\HomePages\PSOModellingHome;
 use App\Filament\Pages\HomePages\PSOResourceHome;
 use App\Filament\Pages\IssueToken;
 use App\Filament\Pages\PreferenceCalculator;
-use App\Filament\Pages\TechnicianAvail;
 use App\Filament\Pages\TechnicianDetails;
 use App\Filament\Pages\TravelAnalyzer;
 use App\Filament\Resources\AppointmentTemplateResource;
@@ -98,7 +97,6 @@ class QuickLaunch extends Widget
                 'color' => 'additional-tools',
                 'items' => [
                     ['label' => 'Filter Load File', 'icon' => Heroicon::OutlinedFunnel, 'class' => FilterLoadFile::class],
-                    ['label' => 'Technician Availability', 'icon' => Heroicon::OutlinedCalendar, 'class' => TechnicianAvail::class],
                     ['label' => 'Preference Calculator', 'icon' => Heroicon::OutlinedCalculator, 'class' => PreferenceCalculator::class],
                 ],
             ],

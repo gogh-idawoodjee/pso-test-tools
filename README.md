@@ -88,6 +88,24 @@ audit's own page in a sandboxed frame, plus downloads of that page and the findi
 Cloud release (not in any PSO file) and how long finished work is kept (24 hours by default). The SYS file comes
 from the dataset's environment. If the server is not set up, a run fails with a message naming what is missing.
 
+### Region availability
+
+Which regions each technician can work on each day of a week, from a LOAD, run as a child process from the
+same pso-tools checkout (nothing is ported). Start it on a dataset's Runs tab with "Run Region availability";
+"Week of" is any date in the week to show (blank: the LOAD's own week; a weekend LOAD shows the next week).
+One run is one week. The page has three layers: the week grid (technicians down, days across, shift bar and
+region change chips, filters for district, supervisor and resource type, search by id or name), the one-day
+view (click a cell: the shift with breaks and every region window with multiplier and priority) and the
+region pivot (regions by parent, technician counts per day with thresholds, click for names). The
+per-technician view is the search box plus a click on a day.
+
+The dataset's settings are handed to the script as its account file, so the district and supervisor labels,
+excluded resource types, resource type names and pivot thresholds come from the dataset's edit form, not from
+the checkout. Downloads: the page and the gathered JSON. Timeout: `TOOLS_REGION_AVAILABILITY_TIMEOUT_SECONDS`
+(600 by default).
+
+This replaces the Technician Availability page (JSON upload, one technician's shifts), removed 2026-10-11.
+
 ## Deploying
 
 Pushes to `main` deploy themselves: a cron on the server runs `deploy/pull-deploy.sh` every 2 minutes, which
