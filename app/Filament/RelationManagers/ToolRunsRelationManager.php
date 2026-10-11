@@ -37,14 +37,26 @@ abstract class ToolRunsRelationManager extends RelationManager
         return $table
             ->poll(fn (): ?string => $this->getOwnerRecord()->toolRuns()
                 ->whereIn('status', [ToolRunStatus::Queued, ToolRunStatus::Running])
-                ->exists() ? '10s' : null)
+                ->exists() ? '5s' : null)
             ->defaultSort('queued_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('tool')->badge(),
                 Tables\Columns\TextColumn::make('run_date')->date()->placeholder('-'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
+                    ->description(static fn (ToolRun $record): ?string => $record->progress['label'] ?? null)
                     ->tooltip(static fn (ToolRun $record): ?string => $record->error_message),
+                Tables\Columns\TextColumn::make('summary.counts')
+                    ->label('Findings')
+                    ->placeholder('-')
+                    ->formatStateUsing(static function (mixed $state, ToolRun $record): ?string {
+                        $counts = $record->summary['counts'] ?? null;
+                        if (! is_array($counts)) {
+                            return null;
+                        }
+
+                        return "{$counts['red']} red, {$counts['amber']} amber, {$counts['green']} green";
+                    }),
                 Tables\Columns\TextColumn::make('startedBy.name')->label('Started by'),
                 Tables\Columns\TextColumn::make('finished_at')->dateTime()->placeholder('-'),
             ])
