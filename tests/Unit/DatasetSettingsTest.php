@@ -48,3 +48,23 @@ it('has sensible defaults when nothing is set', function () {
         ->and($settings->excludeResourceTypes)->toBe([])
         ->and($settings->displayName)->toBeNull();
 });
+
+it('writes the pso-tools account file keys and round trips through fromAccountFile', function () {
+    $settings = DatasetSettings::fromArray([
+        'display_name' => 'SaskTel',
+        'dataset_display_name' => 'North',
+        'exclude_resource_types' => ['LONGCYCLE'],
+        'attribute_labels' => ['district' => 'District', 'supervisor_email' => 'Supervisor Email'],
+        'region_labels' => ['district_label' => 'Territory'],
+        'time_zone' => 'America/Regina',
+    ]);
+
+    $file = $settings->toAccountFile();
+
+    expect($file['attributes'])->toBe(['district' => 'District', 'supervisor_email' => 'Supervisor Email'])
+        ->and($file['dataset_name'])->toBe('North')
+        ->and($file['regions'])->toBe(['district_label' => 'Territory'])
+        ->and($file)->not->toHaveKeys(['attribute_labels', 'dataset_display_name', 'region_labels', 'eod_cutoff_hour', 'supervisor_label', 'windows_time_zone', 'resource_type_names', 'notes'])
+        ->and($file['region_pivot'])->toBe(['red_below' => 1, 'amber_below' => 3])
+        ->and(DatasetSettings::fromAccountFile($file)->toArray())->toBe($settings->toArray());
+});
