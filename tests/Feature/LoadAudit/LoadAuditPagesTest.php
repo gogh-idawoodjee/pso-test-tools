@@ -91,7 +91,21 @@ it('shows the progress label and the counts on the Runs tab', function () {
         'progress' => ['label' => 'Running the checks', 'percent' => null, 'seconds_left' => null],
     ]);
 
-    Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
+    $component = Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
         ->assertSee('Running the checks')
         ->assertSee('2 red, 1 amber, 9 green');
+
+    expect(substr_count($component->html(), '2 red, 1 amber, 9 green'))->toBe(1);
+});
+
+it('shows the placeholder on the Runs tab when a summary has no counts or other keys', function () {
+    ToolRun::query()->delete();
+    ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::ScheduleReview, 'summary' => ['rows' => 4]]);
+    ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::ScheduleReview, 'summary' => ['counts' => ['red' => 3]]]);
+    ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::ScheduleReview, 'summary' => null]);
+
+    $component = Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
+        ->assertOk();
+
+    expect(substr_count($component->html(), '3 red, 0 amber, 0 green'))->toBe(1);
 });

@@ -46,16 +46,16 @@ abstract class ToolRunsRelationManager extends RelationManager
                     ->badge()
                     ->description(static fn (ToolRun $record): ?string => $record->progress['label'] ?? null)
                     ->tooltip(static fn (ToolRun $record): ?string => $record->error_message),
-                Tables\Columns\TextColumn::make('summary.counts')
+                Tables\Columns\TextColumn::make('findings')
                     ->label('Findings')
                     ->placeholder('-')
-                    ->formatStateUsing(static function (mixed $state, ToolRun $record): ?string {
+                    ->getStateUsing(static function (ToolRun $record): ?string {
                         $counts = $record->summary['counts'] ?? null;
                         if (! is_array($counts)) {
                             return null;
                         }
 
-                        return "{$counts['red']} red, {$counts['amber']} amber, {$counts['green']} green";
+                        return ((int) ($counts['red'] ?? 0)).' red, '.((int) ($counts['amber'] ?? 0)).' amber, '.((int) ($counts['green'] ?? 0)).' green';
                     }),
                 Tables\Columns\TextColumn::make('startedBy.name')->label('Started by'),
                 Tables\Columns\TextColumn::make('finished_at')->dateTime()->placeholder('-'),
