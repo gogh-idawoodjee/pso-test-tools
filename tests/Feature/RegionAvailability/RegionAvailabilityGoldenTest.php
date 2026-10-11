@@ -77,6 +77,8 @@ it('gathers the same JSON through the web as the command line', function () {
             ->and($run->summary['week'])->toBe($cliJson['meta']['week'])
             ->and($run->summary['counts']['techs'])->toBe($cliJson['meta']['counts']['techs']);
     } finally {
+        // The fake disk holds a copy of the customer LOAD; never leave it under storage/.
+        Storage::disk('r2')->deleteDirectory('');
         $removeDirectory($scratchPath);
         $removeDirectory($work);
     }
