@@ -6,8 +6,10 @@ use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Models\ExportFile;
 use App\Support\Exports\ExportStorage;
+use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -17,6 +19,8 @@ use Livewire\Attributes\On;
 abstract class ExportFilesRelationManager extends RelationManager
 {
     protected static string $relationship = 'exportFiles';
+
+    protected static string|BackedEnum|null $icon = Heroicon::OutlinedArrowUpTray;
 
     /** Filament makes relation managers read-only on a view page; uploads and deletes happen here. */
     public function isReadOnly(): bool

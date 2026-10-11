@@ -4,6 +4,7 @@ namespace App\Filament\Resources\DatasetResource\RelationManagers;
 
 use App\Filament\Resources\CustomerResource;
 use App\Models\Customer;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
@@ -13,6 +14,8 @@ use Filament\Tables\Table;
 class CustomersRelationManager extends RelationManager
 {
     protected static string $relationship = 'customers';
+
+    protected static string|BackedEnum|null $icon = Heroicon::OutlinedUsers;
 
     public function table(Table $table): Table
     {

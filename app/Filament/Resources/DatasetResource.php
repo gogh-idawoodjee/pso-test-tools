@@ -140,12 +140,7 @@ class DatasetResource extends Resource
     public static function getRelations(): array
     {
         return [
-            RelationManagers\RegionsRelationManager::class,
-            RelationManagers\SkillsRelationManager::class,
-            RelationManagers\TaskTypesRelationManager::class,
-            RelationManagers\SlotUsageRulesRelationManager::class,
-            RelationManagers\AppointmentTemplatesRelationManager::class,
-            RelationManagers\SlaTypesRelationManager::class,
+            RelationManagers\ReferenceValuesRelationManager::class,
             RelationManagers\CustomersRelationManager::class,
             RelationManagers\ExportFilesRelationManager::class,
             'toolRuns' => RelationManagers\ToolRunsRelationManager::class,

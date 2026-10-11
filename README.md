@@ -43,7 +43,9 @@ them from the PSO gateway through pso-services (`GET /api/v2/dataset/reference-v
 the whole dataset body, so a sync takes up to a few minutes on a large dataset and runs on the queue; a queue
 worker must be running. Rows you edit keep your values on later syncs (badge "Edited"; "Reset to PSO" hands
 them back). Rows PSO stops returning are flagged "Missing from PSO" and are never deleted automatically.
-Customers and their tasks belong to a dataset too, and only see that dataset's regions and task types.
+On the dataset page they are all under one **Reference values** tab with a type switch above the table
+(Regions first); each type also has its own page under Base Data. Customers and their tasks belong to a
+dataset too, and only see that dataset's regions and task types.
 
 Task type rows carry priority, base value and base duration (minutes) as fallbacks for tasks that do not set
 their own, following PSO's precedence: Activity_Status, then Activity, then Activity_Type. Slot usage choices

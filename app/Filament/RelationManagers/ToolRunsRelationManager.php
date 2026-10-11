@@ -9,10 +9,12 @@ use App\Jobs\RunToolJob;
 use App\Models\ToolRun;
 use App\Support\Exports\RunInputPicker;
 use App\Tools\ToolRegistry;
+use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Resources\RelationManagers\RelationManager;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +23,8 @@ use Illuminate\Database\Eloquent\Model;
 abstract class ToolRunsRelationManager extends RelationManager
 {
     protected static string $relationship = 'toolRuns';
+
+    protected static string|BackedEnum|null $icon = Heroicon::OutlinedPlay;
 
     public function isReadOnly(): bool
     {
