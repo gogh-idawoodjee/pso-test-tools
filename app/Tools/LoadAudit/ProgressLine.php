@@ -20,14 +20,19 @@ class ProgressLine
         }
 
         $record = json_decode(substr($line, strlen('PROGRESS ')), true);
-        if (! is_array($record) || ! isset(self::LABELS[$record['stage'] ?? null])) {
+        if (! is_array($record)) {
+            return null;
+        }
+
+        $stage = $record['stage'] ?? null;
+        if (! is_string($stage) || ! isset(self::LABELS[$stage])) {
             return null;
         }
 
         $percent = isset($record['percent']) && is_numeric($record['percent']) ? max(0, min(100, (int) $record['percent'])) : null;
         $left = isset($record['seconds_left']) && is_numeric($record['seconds_left']) ? max(0, (int) $record['seconds_left']) : null;
 
-        $label = self::LABELS[$record['stage']];
+        $label = self::LABELS[$stage];
         if ($percent !== null) {
             $label .= ": {$percent}%";
             if ($left !== null) {
@@ -35,6 +40,6 @@ class ProgressLine
             }
         }
 
-        return ['label' => $label, 'percent' => $percent, 'seconds_left' => $left, 'stage' => $record['stage']];
+        return ['label' => $label, 'percent' => $percent, 'seconds_left' => $left, 'stage' => $stage];
     }
 }

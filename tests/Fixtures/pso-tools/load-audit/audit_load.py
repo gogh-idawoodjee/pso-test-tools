@@ -1,6 +1,6 @@
 """Stand-in for pso-tools/load-audit/audit_load.py in tests. Same arguments, same outputs, no checks.
 
-FAKE_AUDIT_MODE: ok (default) | fail | hang | silent.
+FAKE_AUDIT_MODE: ok (default) | fail | hang | silent | split.
 FAKE_AUDIT_ARGS_FILE: where to write the received argv as JSON (optional).
 """
 import json, os, sys, time
@@ -23,6 +23,13 @@ def progress(rec):
     if lines:
         sys.stderr.write('PROGRESS %s\n' % json.dumps(rec)); sys.stderr.flush()
 
+if mode == 'split' and lines:
+    # One progress line delivered in two flushed pieces, to prove the reader joins chunks.
+    sys.stderr.write('PROGRESS {"stage":"sys","per'); sys.stderr.flush()
+    time.sleep(0.4)
+    sys.stderr.write('cent":50}\n'); sys.stderr.flush()
+    time.sleep(0.4)
+
 progress({'stage': 'load', 'percent': 0})
 progress({'stage': 'load', 'percent': 45, 'seconds_left': 6})
 sys.stderr.write('not progress, just noise\n')
@@ -36,7 +43,9 @@ if arg('--sys'):
     progress({'stage': 'sys', 'percent': 0}); progress({'stage': 'sys', 'percent': 100}); progress({'stage': 'checks'})
 
 if mode == 'fail':
-    sys.stderr.write('Traceback (most recent call last):\n  File "audit_load.py", line 1\nKeyError: \'dataset_id\'\n')
+    sys.stderr.write('Traceback (most recent call last):\n  File "audit_load.py", line 1\nKeyError: '); sys.stderr.flush()
+    time.sleep(0.4)
+    sys.stderr.write("'dataset_id'")  # last line: split across chunks, no trailing newline
     sys.exit(1)
 
 print('warning: no recommendation for red/amber check: Resources with no shifts')

@@ -73,34 +73,44 @@ class LoadAuditTool implements Tool
         $lastLabel = 'starting';
         $stderr = [];
         $stdout = '';
+        $pending = '';
+
+        $handleLine = static function (string $line) use (&$lastLabel, &$stderr, $context): void {
+            if ($line === '') {
+                return;
+            }
+            $progress = ProgressLine::parse($line);
+            if ($progress !== null) {
+                $lastLabel = $progress['label'];
+                $context->reportProgress($progress['label'], $progress['percent'], $progress['seconds_left'], $progress['stage']);
+            } elseif (! str_starts_with($line, 'PROGRESS ')) {
+                $stderr[] = $line;
+                $stderr = array_slice($stderr, -200);
+            }
+        };
 
         try {
             $process = Process::path($workDir)
                 ->timeout($timeout)
                 ->env(['PSO_PROGRESS' => 'lines', 'LANG' => 'C.UTF-8'])
-                ->run($argv, function (string $type, string $buffer) use (&$lastLabel, &$stderr, &$stdout, $context): void {
+                ->run($argv, function (string $type, string $buffer) use (&$stdout, &$pending, $handleLine): void {
                     if ($type === 'out') {
                         $stdout .= $buffer;
 
                         return;
                     }
-                    foreach (preg_split('/\r?\n/', $buffer) as $line) {
-                        if ($line === '') {
-                            continue;
-                        }
-                        $progress = ProgressLine::parse($line);
-                        if ($progress !== null) {
-                            $lastLabel = $progress['label'];
-                            $context->reportProgress($progress['label'], $progress['percent'], $progress['seconds_left'], $progress['stage']);
-                        } elseif (! str_starts_with($line, 'PROGRESS ')) {
-                            $stderr[] = $line;
-                            $stderr = array_slice($stderr, -50);
-                        }
+                    // A chunk can end mid-line: only complete lines are handled, the fragment waits for the next chunk.
+                    $lines = preg_split('/\r?\n/', $pending.$buffer);
+                    $pending = (string) array_pop($lines);
+                    foreach ($lines as $line) {
+                        $handleLine($line);
                     }
                 });
         } catch (ProcessTimedOutException) {
             throw new RuntimeException('The audit took longer than '.intdiv($timeout, 60).' minutes and was stopped.');
         }
+
+        $handleLine($pending);
 
         if (! $process->successful()) {
             Log::warning('Load audit script failed', ['tool_run_id' => $context->run->id, 'exit' => $process->exitCode(), 'stderr' => implode("\n", $stderr)]);

@@ -81,6 +81,25 @@ it('throttles repeated percent updates for the same stage', function () {
     expect($saves)->toBe(2);
 });
 
+it('joins a progress line that arrives in two chunks', function () {
+    fakeAuditEnv('FAKE_AUDIT_MODE', 'split');
+    $context = new class($this->run, $this->dataset, $this->dataset->settings, 'America/Regina') extends ToolContext
+    {
+        /** @var list<string> */
+        public array $labels = [];
+
+        public function reportProgress(string $label, ?int $percent = null, ?int $secondsLeft = null, ?string $stage = null): void
+        {
+            $this->labels[] = $label;
+            parent::reportProgress($label, $percent, $secondsLeft, $stage);
+        }
+    };
+
+    (new LoadAuditTool)->run($context, ['load' => $this->scratch.'/load.xml'], []);
+
+    expect($context->labels)->toContain('Reading the SYS file: 50%');
+});
+
 it('fails plainly when the server is not set up', function () {
     config(['tools.pso_tools_path' => null]);
 

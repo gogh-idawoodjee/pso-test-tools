@@ -13,7 +13,7 @@ it('labels each stage in plain English', function (string $stage, string $label)
 
 it('ignores noise, broken json and unknown stages', function (string $line) {
     expect(ProgressLine::parse($line))->toBeNull();
-})->with(['just noise', 'PROGRESS {not json', 'PROGRESS {"stage":"mystery"}', 'PROGRESS []', '']);
+})->with(['just noise', 'PROGRESS {not json', 'PROGRESS {"stage":"mystery"}', 'PROGRESS []', 'PROGRESS {"stage":[]}', 'PROGRESS {"stage":{"a":1}}', 'PROGRESS {"stage":1.5}', '']);
 
 it('rounds the percent into the label without an estimate when there is none', function () {
     expect(ProgressLine::parse('PROGRESS {"stage":"plan","percent":100}')['label'])->toBe('Reading the plan: 100%');
