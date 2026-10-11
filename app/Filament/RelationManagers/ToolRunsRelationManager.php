@@ -2,7 +2,6 @@
 
 namespace App\Filament\RelationManagers;
 
-use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Pages\ToolRunPage;
@@ -79,6 +78,10 @@ abstract class ToolRunsRelationManager extends RelationManager
                     ->default(fn (): ?string => app(RunInputPicker::class)->defaultsFor($this->getOwnerRecord(), $toolId)[$kind->value] ?? null)
                     ->required(in_array($kind, $tool->requiredKinds(), true))
                     ->native(false);
+            }
+
+            foreach ($tool->optionFields() as $field) {
+                $fields[] = $field;
             }
 
             $actions[] = Action::make("run_{$toolId->value}")

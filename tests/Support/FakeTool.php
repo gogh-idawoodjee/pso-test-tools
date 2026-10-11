@@ -7,6 +7,7 @@ use App\Enums\Tool as ToolId;
 use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolResult;
 use App\Tools\ToolContext;
+use Filament\Schemas\Components\Component;
 use Throwable;
 
 class FakeTool implements Tool
@@ -26,6 +27,14 @@ class FakeTool implements Tool
     public function optionalKinds(): array
     {
         return [ExportKind::Sys];
+    }
+
+    /** @var list<Component> */
+    public static array $optionFields = [];
+
+    public function optionFields(): array
+    {
+        return self::$optionFields;
     }
 
     public function run(ToolContext $context, array $inputPaths, array $options): ToolResult
