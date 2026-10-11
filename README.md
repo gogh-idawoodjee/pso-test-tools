@@ -67,3 +67,19 @@ The scheduler must run (`php artisan schedule:run` every minute) for `exports:pu
 Per-dataset settings (display names, coverage, exclusions, labels, time zone) live on the dataset's edit
 form. Seed one from a pso-tools account file with
 `php artisan datasets:seed-settings <dataset id> accounts/SATE.json --time-zone=America/Regina`.
+
+### Load and configuration health audit
+
+The audit is the Python script in the private `pso-tools` repo, run as a child process; nothing is ported.
+The server needs Python 3 and a checkout of that repo:
+
+1. As `deploy`: `git clone <read-only deploy URL for outofjam/pso-tools> /var/www/pso-tools` (using a
+   read-only deploy key added to the repo in GitHub).
+2. In `.env`: `TOOLS_PSO_TOOLS_PATH=/var/www/pso-tools` (and `TOOLS_PYTHON` if `python3` is not on the worker's PATH).
+3. `php artisan migrate --force`, `php artisan optimize:clear`, `php artisan optimize`, restart the queue worker.
+4. To update the audit later: `git pull` in `/var/www/pso-tools`. The app needs no redeploy.
+
+A run shows live progress (reading the LOAD, the plan, the SYS file, running the checks) and finishes with the
+audit's own page in a sandboxed frame, plus downloads of that page and the findings JSON. Run options: the IFS
+Cloud release (not in any PSO file) and how long finished work is kept (24 hours by default). The SYS file comes
+from the dataset's environment. If the server is not set up, a run fails with a message naming what is missing.
