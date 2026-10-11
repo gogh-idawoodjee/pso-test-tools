@@ -67,3 +67,9 @@ The scheduler must run (`php artisan schedule:run` every minute) for `exports:pu
 Per-dataset settings (display names, coverage, exclusions, labels, time zone) live on the dataset's edit
 form. Seed one from a pso-tools account file with
 `php artisan datasets:seed-settings <dataset id> accounts/SATE.json --time-zone=America/Regina`.
+
+## Deploying
+
+Pushes to `main` deploy themselves: a cron on the server runs `deploy/pull-deploy.sh` every 2 minutes, which
+resets each checkout to `origin/main` and runs composer, migrate, optimize and a worker restart, with a
+Pushover message per deploy. Install steps and the failure rules are in `deploy/README.md`.

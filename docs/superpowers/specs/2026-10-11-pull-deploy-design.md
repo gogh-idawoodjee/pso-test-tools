@@ -1,6 +1,6 @@
 # Pull deploy: design
 
-Date: 2026-10-11. Status: approved in conversation, awaiting written review.
+Date: 2026-10-11. Status: approved; built the same day (`deploy/pull-deploy.sh`, `tests/deploy/pull-deploy.bats`).
 
 ## 1. Problem
 
@@ -39,7 +39,7 @@ deploy/
   pull-deploy.env.example PUSHOVER_TOKEN=, PUSHOVER_USER=
   README.md               install steps (section 7 of this spec, kept current)
 tests/deploy/
-  pull-deploy.bats        shell tests (bats-core), see section 6
+  pull-deploy.bats        shell tests (bats-core), see section 6; `bats tests/deploy`
 ```
 
 On the box, all owned by `deploy`:
@@ -54,10 +54,11 @@ On the box, all owned by `deploy`:
 Crontab for `deploy`:
 
 ```
-*/2 * * * * flock -n /home/deploy/.pull-deploy.lock /home/deploy/bin/pull-deploy >> /home/deploy/pull-deploy.log 2>&1
+*/2 * * * * $HOME/bin/pull-deploy >> $HOME/pull-deploy.log 2>&1
 ```
 
-Commenting that line out is the pause switch.
+The script takes its own `flock -n` on `/home/deploy/.pull-deploy.lock` and exits 1 with "another run holds
+the lock" when a previous run is still going. Commenting the crontab line out is the pause switch.
 
 ## 4. What one run does
 
@@ -138,6 +139,8 @@ Cases:
 6. `--dry-run` with a pending push prints `<name> <old7>..<new7>`, HEAD is unchanged, no calls, no curl.
 7. `--force <name>` with nothing pending deploys that target anyway.
 8. A second concurrent run is refused by the lock (`flock -n` returns 1).
+9. A fetch that fails (origin gone) is reported as step `fetch` and notified.
+10. Without Pushover keys the deploy runs and only logs; no curl call.
 
 Run with `bats tests/deploy` (install: `brew install bats-core`). Pest's suite does not run these; the
 README says how.
