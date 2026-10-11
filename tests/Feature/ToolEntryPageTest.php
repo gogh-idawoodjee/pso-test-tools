@@ -23,6 +23,8 @@ it('lists the user datasets and links to each Runs tab', function () {
 });
 
 it('stays out of navigation until its tool is registered', function () {
+    // The real app registers the load audit at boot, so swap in an empty registry to see the unregistered state.
+    app()->instance(ToolRegistry::class, new ToolRegistry);
     expect(LoadAuditEntry::shouldRegisterNavigation())->toBeFalse();
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
     expect(LoadAuditEntry::shouldRegisterNavigation())->toBeTrue();

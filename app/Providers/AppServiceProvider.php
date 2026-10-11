@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Enums\Tool as ToolId;
 use App\Models\ExternalSanctumToken;
+use App\Tools\LoadAudit\LoadAuditTool;
 use App\Tools\ToolRegistry;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
@@ -24,6 +26,9 @@ class AppServiceProvider extends ServiceProvider
     {
         // Each tool port registers its implementation on this registry.
         $this->app->singleton(ToolRegistry::class);
+        $this->app->afterResolving(ToolRegistry::class, static function (ToolRegistry $registry): void {
+            $registry->register(ToolId::LoadAudit, LoadAuditTool::class);
+        });
 
         if ($this->app->environment('local') && class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)) {
 

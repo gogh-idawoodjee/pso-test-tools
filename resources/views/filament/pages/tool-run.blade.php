@@ -3,7 +3,7 @@
 @endphp
 
 <x-filament-panels::page>
-    <div @if ($this->isRunning()) wire:poll.5s @endif class="space-y-6">
+    <div @if ($this->isRunning()) wire:poll.2s @endif class="space-y-6">
         <x-filament::section>
             <dl class="grid gap-4 text-sm sm:grid-cols-4">
                 <div>
@@ -24,6 +24,17 @@
                 </div>
             </dl>
         </x-filament::section>
+
+        @if ($this->isRunning() && filled($run->progress['label'] ?? null))
+            <x-filament::section>
+                <p class="text-sm font-medium text-gray-900 dark:text-gray-100">{{ $run->progress['label'] }}</p>
+                @if (($run->progress['percent'] ?? null) !== null)
+                    <div class="mt-2 h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ $run->progress['percent'] }}">
+                        <div class="h-2 rounded-full bg-primary-600 transition-all" style="width: {{ (int) $run->progress['percent'] }}%"></div>
+                    </div>
+                @endif
+            </x-filament::section>
+        @endif
 
         @if ($run->status === \App\Enums\ToolRunStatus::Failed)
             <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="danger">

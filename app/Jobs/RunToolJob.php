@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Enums\ToolRunStatus;
 use App\Models\Dataset;
@@ -63,6 +62,8 @@ class RunToolJob implements ShouldQueue
             $run->forceFill([
                 'result' => $output->result,
                 'warnings' => $output->warnings,
+                'summary' => $output->summary ?: null,
+                'progress' => null,
                 'run_date' => $run->run_date ?? $this->exportDateOf($files),
                 'status' => ToolRunStatus::Succeeded,
                 'error_message' => null,
@@ -91,7 +92,7 @@ class RunToolJob implements ShouldQueue
 
     private function markFailed(ToolRun $run, string $message): void
     {
-        $run->forceFill(['status' => ToolRunStatus::Failed, 'error_message' => $message, 'finished_at' => now()])->save();
+        $run->forceFill(['status' => ToolRunStatus::Failed, 'progress' => null, 'error_message' => $message, 'finished_at' => now()])->save();
     }
 
     private function scopeOf(ToolRun $run): Model

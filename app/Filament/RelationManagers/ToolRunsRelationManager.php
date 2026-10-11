@@ -2,7 +2,6 @@
 
 namespace App\Filament\RelationManagers;
 
-use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Pages\ToolRunPage;
@@ -38,14 +37,26 @@ abstract class ToolRunsRelationManager extends RelationManager
         return $table
             ->poll(fn (): ?string => $this->getOwnerRecord()->toolRuns()
                 ->whereIn('status', [ToolRunStatus::Queued, ToolRunStatus::Running])
-                ->exists() ? '10s' : null)
+                ->exists() ? '5s' : null)
             ->defaultSort('queued_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('tool')->badge(),
                 Tables\Columns\TextColumn::make('run_date')->date()->placeholder('-'),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
+                    ->description(static fn (ToolRun $record): ?string => $record->progress['label'] ?? null)
                     ->tooltip(static fn (ToolRun $record): ?string => $record->error_message),
+                Tables\Columns\TextColumn::make('findings')
+                    ->label('Findings')
+                    ->placeholder('-')
+                    ->getStateUsing(static function (ToolRun $record): ?string {
+                        $counts = $record->summary['counts'] ?? null;
+                        if (! is_array($counts)) {
+                            return null;
+                        }
+
+                        return ((int) ($counts['red'] ?? 0)).' red, '.((int) ($counts['amber'] ?? 0)).' amber, '.((int) ($counts['green'] ?? 0)).' green';
+                    }),
                 Tables\Columns\TextColumn::make('startedBy.name')->label('Started by'),
                 Tables\Columns\TextColumn::make('finished_at')->dateTime()->placeholder('-'),
             ])
@@ -79,6 +90,10 @@ abstract class ToolRunsRelationManager extends RelationManager
                     ->default(fn (): ?string => app(RunInputPicker::class)->defaultsFor($this->getOwnerRecord(), $toolId)[$kind->value] ?? null)
                     ->required(in_array($kind, $tool->requiredKinds(), true))
                     ->native(false);
+            }
+
+            foreach ($tool->optionFields() as $field) {
+                $fields[] = $field;
             }
 
             $actions[] = Action::make("run_{$toolId->value}")
