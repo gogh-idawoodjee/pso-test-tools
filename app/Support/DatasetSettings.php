@@ -110,6 +110,28 @@ class DatasetSettings implements Arrayable, JsonSerializable
         return self::fromArray($values);
     }
 
+    /**
+     * These settings as the pso-tools scripts read them from accounts/<ACCOUNT>.json: their key names,
+     * nulls and empty maps left out (an empty PHP array encodes as a JSON list, and the scripts call
+     * .get() on these, so an empty one must be absent rather than []). fromAccountFile(toAccountFile())
+     * gives the same settings back.
+     *
+     * @return array<string, mixed>
+     */
+    public function toAccountFile(): array
+    {
+        $out = [];
+        foreach ($this->toArray() as $key => $value) {
+            if ($value === null || $value === []) {
+                continue;
+            }
+            $fileKey = array_search($key, self::ACCOUNT_FILE_ALIASES, true);
+            $out[$fileKey === false ? $key : $fileKey] = $value;
+        }
+
+        return $out;
+    }
+
     public function toArray(): array
     {
         return [

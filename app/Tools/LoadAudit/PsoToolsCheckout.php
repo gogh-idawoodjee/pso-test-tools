@@ -5,7 +5,7 @@ namespace App\Tools\LoadAudit;
 use App\Tools\Contracts\ToolSetupException;
 use Symfony\Component\Process\ExecutableFinder;
 
-/** Where the pso-tools scripts and reference files live on this server. */
+/** Where the pso-tools scripts and reference files live on this server. Shared by every tool that runs one. */
 class PsoToolsCheckout
 {
     public function __construct(private ?string $root, private string $python) {}
@@ -27,7 +27,7 @@ class PsoToolsCheckout
             : app(ExecutableFinder::class)->find($this->python) !== null;
 
         if (! $found) {
-            throw new ToolSetupException("The load audit is not set up on this server: Python ({$this->python}) was not found.");
+            throw new ToolSetupException("The pso-tools checkout is not set up on this server: Python ({$this->python}) was not found.");
         }
 
         return $this->python;
@@ -36,6 +36,11 @@ class PsoToolsCheckout
     public function script(): string
     {
         return $this->file('load-audit/audit_load.py');
+    }
+
+    public function regionAvailabilityScript(): string
+    {
+        return $this->file('region-availability/region_availability.py');
     }
 
     public function paramsFile(): string
@@ -51,12 +56,12 @@ class PsoToolsCheckout
     private function file(string $relative): string
     {
         if ($this->root === null) {
-            throw new ToolSetupException('The load audit is not set up on this server: TOOLS_PSO_TOOLS_PATH is not set.');
+            throw new ToolSetupException('The pso-tools checkout is not set up on this server: TOOLS_PSO_TOOLS_PATH is not set.');
         }
 
         $path = $this->root.'/'.$relative;
         if (! is_file($path)) {
-            throw new ToolSetupException("The load audit is not set up on this server: {$path} is missing.");
+            throw new ToolSetupException("The pso-tools checkout is not set up on this server: {$path} is missing.");
         }
 
         return $path;

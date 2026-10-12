@@ -9,4 +9,8 @@ return [
         // Under RunToolJob's 900 s so the job reports the timeout in plain words.
         'timeout_seconds' => (int) env('TOOLS_LOAD_AUDIT_TIMEOUT_SECONDS', 840),
     ],
+    'region_availability' => [
+        // The viewer reads one LOAD and does no checks; SaskTel's takes well under a minute.
+        'timeout_seconds' => (int) env('TOOLS_REGION_AVAILABILITY_TIMEOUT_SECONDS', 600),
+    ],
 ];

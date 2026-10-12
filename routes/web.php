@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\LoadAuditRunController;
+use App\Http\Controllers\ToolRunPageController;
 use Filament\Http\Middleware\Authenticate;
 use Illuminate\Support\Facades\Route;
 
@@ -18,9 +18,9 @@ Route::get('/download/{filename}', static function ($filename) {
 
 Route::middleware(['web', Authenticate::class])
     ->prefix('datasets/{dataset}/runs/{run}')
-    ->controller(LoadAuditRunController::class)
+    ->controller(ToolRunPageController::class)
     ->group(static function (): void {
-        Route::get('dashboard', 'dashboard')->name('load-audit.dashboard');
-        Route::get('download/html', 'downloadHtml')->name('load-audit.download-html');
-        Route::get('download/findings', 'downloadFindings')->name('load-audit.download-findings');
+        Route::get('page', 'page')->name('tool-runs.page');
+        Route::get('download/html', 'downloadHtml')->name('tool-runs.download-html');
+        Route::get('download/json', 'downloadJson')->name('tool-runs.download-json');
     });

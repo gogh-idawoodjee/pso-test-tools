@@ -50,12 +50,16 @@ abstract class ToolRunsRelationManager extends RelationManager
                     ->badge()
                     ->description(static fn (ToolRun $record): ?string => $record->progress['label'] ?? null)
                     ->tooltip(static fn (ToolRun $record): ?string => $record->error_message),
-                Tables\Columns\TextColumn::make('findings')
-                    ->label('Findings')
+                Tables\Columns\TextColumn::make('result_summary')
+                    ->label('Result')
                     ->placeholder('-')
                     ->getStateUsing(static function (ToolRun $record): ?string {
-                        $counts = $record->summary['counts'] ?? null;
-                        if (! is_array($counts)) {
+                        $summary = $record->summary ?? [];
+                        if (is_string($summary['line'] ?? null) && $summary['line'] !== '') {
+                            return $summary['line'];
+                        }
+                        $counts = $summary['counts'] ?? null;
+                        if (! is_array($counts) || ! array_key_exists('red', $counts)) {
                             return null;
                         }
 

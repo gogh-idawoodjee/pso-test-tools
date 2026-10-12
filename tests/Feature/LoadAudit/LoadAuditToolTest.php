@@ -150,7 +150,7 @@ it('surfaces a missing python as the not-set-up message', function () {
     config(['tools.python' => '/nonexistent/python3']);
 
     expect(fn () => (new LoadAuditTool)->run($this->context, ['load' => $this->scratch.'/load.xml'], []))
-        ->toThrow(ToolSetupException::class, 'The load audit is not set up on this server: Python (/nonexistent/python3) was not found.');
+        ->toThrow(ToolSetupException::class, 'The pso-tools checkout is not set up on this server: Python (/nonexistent/python3) was not found.');
 });
 
 it('limits the last error line kept in the failure message', function () {
