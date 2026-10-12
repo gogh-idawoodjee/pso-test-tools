@@ -37,8 +37,8 @@ it('gives 404 to another user and to a run without a page yet, and serves anothe
     $other = ToolRun::factory()->for(Dataset::factory(), 'scope')->create(['tool' => ToolId::LoadAudit]);
     $this->get(route('tool-runs.page', [$other->scope_id, $other]))->assertNotFound();
 
-    $review = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::ScheduleReview, 'result' => ['html' => '<p>Review page</p>']]);
-    $this->get(route('tool-runs.page', [$this->dataset, $review]))->assertOk()->assertSee('Review page', false);
+    $timeline = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::AppointmentTimeline, 'result' => ['html' => '<p>Timeline page</p>']]);
+    $this->get(route('tool-runs.page', [$this->dataset, $timeline]))->assertOk()->assertSee('Timeline page', false);
 
     $running = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'status' => ToolRunStatus::Running, 'result' => null]);
     $this->get(route('tool-runs.page', [$this->dataset, $running]))->assertNotFound();
@@ -103,9 +103,9 @@ it('shows the progress label and the counts on the Runs tab', function () {
 
 it('shows the placeholder on the Runs tab when a summary has no counts or other keys', function () {
     ToolRun::query()->delete();
-    ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::ScheduleReview, 'summary' => ['rows' => 4]]);
-    ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::ScheduleReview, 'summary' => ['counts' => ['red' => 3]]]);
-    ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::ScheduleReview, 'summary' => null]);
+    ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::AppointmentTimeline, 'summary' => ['rows' => 4]]);
+    ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::AppointmentTimeline, 'summary' => ['counts' => ['red' => 3]]]);
+    ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::AppointmentTimeline, 'summary' => null]);
 
     $component = Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
         ->assertOk();

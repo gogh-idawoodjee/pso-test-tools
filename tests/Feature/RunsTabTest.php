@@ -72,7 +72,7 @@ it('shows a tool option field on the Run form and stores the option', function (
 it('shows a run page with inputs, warnings and the generic result view', function () {
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'morning-load.zip']);
     $run = ToolRun::factory()->for($this->dataset, 'scope')->create([
-        'tool' => ToolId::ScheduleReview, 'inputs' => ['files' => ['load' => $load->id], 'options' => []],
+        'tool' => ToolId::AppointmentTimeline, 'inputs' => ['files' => ['load' => $load->id], 'options' => []],
         'result' => ['checks' => 12], 'warnings' => ['Two activities have no location'],
     ]);
 

@@ -9,8 +9,6 @@ use Filament\Support\Contracts\HasLabel;
 enum Tool: string implements HasLabel
 {
     case LoadAudit = 'load_audit';
-    case ScheduleReview = 'schedule_review';
-    case ScheduleRollup = 'schedule_rollup';
     case RegionAvailability = 'region_availability';
     case AppointmentTimeline = 'appointment_timeline';
     case PlanTravels = 'plan_travels';
@@ -25,8 +23,6 @@ enum Tool: string implements HasLabel
     {
         return match ($this) {
             self::LoadAudit => 'Load and configuration health audit',
-            self::ScheduleReview => 'Daily schedule review',
-            self::ScheduleRollup => 'Schedule review roll-up',
             self::RegionAvailability => 'Region availability',
             self::AppointmentTimeline => 'Appointment timeline',
             self::PlanTravels => 'Plan travels',

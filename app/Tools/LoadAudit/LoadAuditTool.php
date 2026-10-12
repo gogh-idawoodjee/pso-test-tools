@@ -99,7 +99,7 @@ class LoadAuditTool implements Tool
         );
     }
 
-    /** Where the dashboard's "Open the schedule review" button goes until that tool is ported: the dataset's Runs tab. */
+    /** Where the dashboard's "Open the schedule review" button goes: the dataset's Runs tab (the schedule review is a separate product, not a tool here). */
     private function reviewUrl(mixed $scope): string
     {
         return $scope instanceof Dataset
