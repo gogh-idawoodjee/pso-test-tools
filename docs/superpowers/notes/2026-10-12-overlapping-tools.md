@@ -88,7 +88,7 @@ Output becomes an export file in the dataset (so it can go straight to Gateway U
 download. The plan travels import XML then becomes a preset of this tool (its 26-table whitelist plus a date),
 not a feature of the travel report. Filter Load File is retired once this ships, as Technician Availability was.
 
-Open questions for Ish:
-- Is JSON input still needed (who produces dsScheduleData as JSON today)? Remove-PsoTables and the plan travels
-  pass are XML only.
-- Is the Input_Reference datetime override used? Keep it as an option if so.
+Answered by Ish 2026-10-12:
+- JSON input is still needed: the tool must read both XML and JSON (Remove-PsoTables and the plan travels pass
+  are XML only today).
+- The Input_Reference datetime override is used: keep it as an option.
