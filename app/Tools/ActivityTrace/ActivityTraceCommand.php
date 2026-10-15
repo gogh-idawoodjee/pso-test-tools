@@ -20,7 +20,7 @@ class ActivityTraceCommand
      * @param  array<string, mixed>  $options  activity_id and work_task_id, either or both
      * @return list<string>
      */
-    public static function build(PsoToolsCheckout $checkout, string $workDir, array $inputPaths, array $options, string $timeZone, ?string $ifsTimeZone, ?string $datasetName): array
+    public static function build(PsoToolsCheckout $checkout, string $workDir, array $inputPaths, array $options, ?string $timeZone, ?string $ifsTimeZone, ?string $datasetName): array
     {
         $argv = [$checkout->python(), $checkout->activityTraceScript(), '--audits', $inputPaths['audits']];
 
@@ -37,7 +37,10 @@ class ActivityTraceCommand
             }
         }
 
-        array_push($argv, '--tz', $timeZone);
+        // No zone: the script reads and shows times in UTC and says so on the page.
+        if (filled(trim((string) $timeZone))) {
+            array_push($argv, '--tz', trim((string) $timeZone));
+        }
 
         if (filled(trim((string) $ifsTimeZone))) {
             array_push($argv, '--ifs-tz', trim((string) $ifsTimeZone));

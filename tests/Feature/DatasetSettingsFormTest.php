@@ -43,3 +43,16 @@ it('seeds settings from a pso-tools account file', function () {
         ->and($settings->timeZone)->toBe('America/Regina');
     @unlink($path);
 });
+
+it('falls back to UTC when the dataset has no time zone, and says whether it has one', function () {
+    config(['app.timezone' => 'America/Toronto']);
+
+    expect($this->dataset->timeZone())->toBe('UTC')
+        ->and($this->dataset->hasTimeZone())->toBeFalse()
+        ->and($this->dataset->ifsTimeZone())->toBe('UTC');
+
+    $this->dataset->update(['settings' => ['time_zone' => 'America/Regina']]);
+
+    expect($this->dataset->fresh()->timeZone())->toBe('America/Regina')
+        ->and($this->dataset->fresh()->hasTimeZone())->toBeTrue();
+});

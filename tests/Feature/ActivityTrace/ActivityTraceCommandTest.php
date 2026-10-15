@@ -53,3 +53,10 @@ it('leaves out the dataset name when blank', function () {
 
     expect($argv)->not->toContain('--dataset-name');
 });
+
+it('leaves out --tz when the dataset has no time zone, so the page says times are UTC', function () {
+    $argv = ActivityTraceCommand::build($this->checkout, '/w', $this->audits, ['activity_id' => 'a'], null, null, 'NORTH');
+
+    expect($argv)->not->toContain('--tz')->not->toContain('--ifs-tz')
+        ->and(traceArgv($this->audits, ['activity_id' => 'a']))->toContain('--tz', 'America/Regina');
+});

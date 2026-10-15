@@ -7,6 +7,7 @@ use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Navigation\Groups;
+use App\Filament\Resources\DatasetResource;
 use App\Livewire\ExportDropZone;
 use App\Models\Dataset;
 use App\Models\Environment;
@@ -159,6 +160,7 @@ abstract class ToolWizardPage extends Page implements HasForms
                     ->native(false)
                     ->disabled(static fn (Get $get): bool => blank($get('environment_id')))
                     ->afterStateUpdated(static fn (self $livewire) => $livewire->resetInputs())
+                    ->belowContent(static fn (Get $get): ?Text => self::missingTimeZoneWarning($get('environment_id'), $get('dataset_id')))
                     ->createOptionForm([
                         TextInput::make('name')->required(),
                         TextInput::make('rota')->required()->helperText('The PSO rota id for this dataset.'),
@@ -171,6 +173,23 @@ abstract class ToolWizardPage extends Page implements HasForms
                     })
                     : null,
             ])));
+    }
+
+    /** Under the dataset select: a dataset with no zone shows its times in UTC, so say so and where to set it. */
+    private static function missingTimeZoneWarning(?string $environmentId, ?string $datasetId): ?Text
+    {
+        if (blank($environmentId) || blank($datasetId)) {
+            return null;
+        }
+        $dataset = Dataset::query()->ownedByCurrentUser()->where('environment_id', $environmentId)->find($datasetId);
+        if ($dataset === null || $dataset->hasTimeZone()) {
+            return null;
+        }
+
+        return Text::make(new HtmlString(Blade::render(
+            'This dataset has no time zone set, so times will show in UTC. Set it under Setup, Datasets. <x-filament::link :href="$url">Edit the dataset</x-filament::link>',
+            ['url' => DatasetResource::getUrl('view', ['record' => $dataset, 'action' => 'edit'])],
+        )))->color('warning');
     }
 
     protected function inputsStep(): Step

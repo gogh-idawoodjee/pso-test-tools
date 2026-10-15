@@ -38,9 +38,18 @@ class Dataset extends Model
         ];
     }
 
+    /**
+     * The zone the dataset's times are shown in. PSO exports are UTC, so a dataset with no zone
+     * set shows UTC rather than the app's own zone (which once showed SaskTel times in Toronto time).
+     */
     public function timeZone(): string
     {
-        return $this->settings->timeZone ?? (string) config('app.timezone', 'UTC');
+        return $this->settings->timeZone ?? 'UTC';
+    }
+
+    public function hasTimeZone(): bool
+    {
+        return filled($this->settings->timeZone ?? null);
     }
 
     /** The zone IFS event log times are written in; blank means the dataset time zone. */

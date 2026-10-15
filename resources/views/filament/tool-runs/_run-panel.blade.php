@@ -17,6 +17,9 @@
             <dd class="font-medium text-gray-900 dark:text-gray-100">{{ $run->startedBy?->name }}</dd>
         </div>
     </dl>
+    @if (($run->summary['meta']['time_zone_default'] ?? false) === true)
+        <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">Times are UTC because the dataset has no time zone set.</p>
+    @endif
 </x-filament::section>
 
 @if ($isRunning && filled($run->progress['label'] ?? null))

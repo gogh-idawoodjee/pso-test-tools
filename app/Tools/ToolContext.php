@@ -18,6 +18,8 @@ class ToolContext
         public Model $scope,
         public ?DatasetSettings $settings,
         public string $timeZone,
+        /** True when the dataset has no zone set and $timeZone is the UTC fallback. */
+        public bool $timeZoneIsDefault = false,
     ) {}
 
     /**

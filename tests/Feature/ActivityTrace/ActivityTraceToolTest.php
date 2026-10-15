@@ -199,3 +199,15 @@ it('lists the tool in the catalogue with a correct article', function () {
         ->assertSee('Trace an activity')
         ->assertSee('Needs an Audit messages export; LOAD, IFS event log optional');
 });
+
+it('passes no --tz when the run uses the default zone, but still an IFS zone that was set', function () {
+    $argsFile = $this->scratch.'/args.json';
+    fakeTraceEnv('FAKE_TRACE_ARGS_FILE', $argsFile);
+    $this->dataset->update(['settings' => ['ifs_time_zone' => 'America/Toronto']]);
+    $context = new ToolContext($this->run, $this->dataset->fresh(), $this->dataset->fresh()->settings, 'UTC', timeZoneIsDefault: true);
+
+    (new ActivityTraceTool)->run($context, ['audits' => $this->scratch.'/audits.zip'], ['activity_id' => 'abc']);
+
+    $argv = json_decode(file_get_contents($argsFile), true)['argv'];
+    expect($argv)->not->toContain('--tz')->toContain('--ifs-tz', 'America/Toronto');
+});

@@ -42,9 +42,16 @@ class RunToolJob implements ShouldQueue
 
         $run->forceFill(['status' => ToolRunStatus::Running, 'started_at' => now()])->save();
         $scratch = null;
+        $meta = [];
 
         try {
             $scope = $this->scopeOf($run);
+            $timeZoneIsDefault = $scope instanceof Dataset && ! $scope->hasTimeZone();
+            if ($timeZoneIsDefault) {
+                // Recorded at start, so the run page says times are UTC even when the run fails.
+                $meta = ['time_zone_default' => true];
+                $run->forceFill(['summary' => ['meta' => $meta]])->save();
+            }
             $tool = $registry->for($run->tool);
             $files = $this->resolveInputs($run, $scope, $tool->requiredKinds(), $tool->optionalKinds());
 
@@ -57,12 +64,16 @@ class RunToolJob implements ShouldQueue
             $settings = $scope instanceof Dataset ? $scope->settings : null;
             $timeZone = $scope instanceof Dataset ? $scope->timeZone() : (string) config('app.timezone', 'UTC');
 
-            $output = $tool->run(new ToolContext($run, $scope, $settings, $timeZone), $inputPaths, $run->inputs['options'] ?? []);
+            $output = $tool->run(new ToolContext($run, $scope, $settings, $timeZone, $timeZoneIsDefault), $inputPaths, $run->inputs['options'] ?? []);
+            $summary = $output->summary;
+            if ($meta !== []) {
+                $summary['meta'] = [...(is_array($summary['meta'] ?? null) ? $summary['meta'] : []), ...$meta];
+            }
 
             $run->forceFill([
                 'result' => $output->result,
                 'warnings' => $output->warnings,
-                'summary' => $output->summary ?: null,
+                'summary' => $summary ?: null,
                 'progress' => null,
                 'run_date' => $run->run_date ?? $this->exportDateOf($files, $timeZone),
                 'status' => ToolRunStatus::Succeeded,

@@ -8,6 +8,7 @@ use App\Filament\Pages\ToolRunPage;
 use App\Filament\Pages\Tools\LoadAuditEntry;
 use App\Filament\Pages\Tools\PlanTravelsEntry;
 use App\Filament\Pages\Tools\SysCompareEntry;
+use App\Filament\Resources\DatasetResource;
 use App\Jobs\RunToolJob;
 use App\Models\Dataset;
 use App\Models\Environment;
@@ -360,4 +361,25 @@ it('waits for an upload that is still being read instead of starting without it'
         ->assertFormSet(['files.sys' => $sys->id]);
 
     expect(ToolRun::count())->toBe(0);
+});
+
+it('warns under the dataset when it has no time zone, with a link to set it', function () {
+    Livewire::test(LoadAuditEntry::class)
+        ->assertSee('This dataset has no time zone set, so times will show in UTC. Set it under Setup, Datasets.')
+        ->assertSeeHtml(e(DatasetResource::getUrl('view', ['record' => $this->dataset, 'action' => 'edit'])));
+
+    $this->dataset->update(['settings' => ['time_zone' => 'America/Regina']]);
+
+    Livewire::test(LoadAuditEntry::class)->assertDontSee('This dataset has no time zone set');
+});
+
+it('notes on the run panel when the run used UTC because the dataset has no zone', function () {
+    Queue::fake();
+    $run = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'status' => ToolRunStatus::Succeeded, 'started_by_user_id' => $this->user->id, 'summary' => ['meta' => ['time_zone_default' => true]]]);
+    $other = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'status' => ToolRunStatus::Succeeded, 'started_by_user_id' => $this->user->id, 'summary' => null]);
+
+    expect(view('filament.tool-runs._run-panel', ['run' => $run, 'inputFiles' => collect(), 'resultView' => 'filament.tool-runs._generic', 'isRunning' => false])->render())
+        ->toContain('Times are UTC because the dataset has no time zone set')
+        ->and(view('filament.tool-runs._run-panel', ['run' => $other, 'inputFiles' => collect(), 'resultView' => 'filament.tool-runs._generic', 'isRunning' => false])->render())
+        ->not->toContain('Times are UTC');
 });

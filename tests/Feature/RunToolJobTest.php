@@ -130,3 +130,32 @@ it('dates a run with no LOAD from its audit messages in the dataset zone', funct
         ->and($run->status)->toBe(ToolRunStatus::Succeeded)
         ->and($run->run_date->toDateString())->toBe('2026-10-10');
 });
+
+it('runs a dataset with no time zone in UTC and records that in the summary', function () {
+    $dataset = Dataset::factory()->create(['settings' => ['display_name' => 'SaskTel']]);
+    $load = ExportFile::factory()->for($dataset, 'scope')->create(['kind' => ExportKind::Load, 'content_type' => 'xml', 'summary' => ['export_date' => '2026-10-10']]);
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($load), '<dsScheduleData/>');
+    $run = runFor($dataset, $load);
+
+    (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
+
+    expect($run->refresh()->result['time_zone'])->toBe('UTC')
+        ->and($run->summary)->toBe(['counts' => ['red' => 1], 'meta' => ['time_zone_default' => true]]);
+});
+
+it('records the default zone at start, so a failed run says it too', function () {
+    FakeTool::$throw = new RuntimeException('boom');
+    $dataset = Dataset::factory()->create(['settings' => []]);
+    $load = ExportFile::factory()->for($dataset, 'scope')->create(['kind' => ExportKind::Load, 'content_type' => 'xml']);
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($load), '<dsScheduleData/>');
+    $run = runFor($dataset, $load);
+
+    try {
+        (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
+    } finally {
+        FakeTool::$throw = null;
+    }
+
+    expect($run->refresh()->status)->toBe(ToolRunStatus::Failed)
+        ->and($run->summary)->toBe(['meta' => ['time_zone_default' => true]]);
+});

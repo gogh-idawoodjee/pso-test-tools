@@ -56,10 +56,15 @@ class ActivityTraceTool implements Tool
     {
         $checkout = PsoToolsCheckout::fromConfig();
         $workDir = dirname($inputPaths['audits']);
-        $ifsTimeZone = $context->scope instanceof Dataset ? $context->scope->ifsTimeZone() : null;
+        // With no dataset zone the script gets no --tz (its page then says times are UTC), and an IFS zone only when one was set.
+        $ifsTimeZone = match (true) {
+            ! $context->scope instanceof Dataset => null,
+            $context->timeZoneIsDefault => $context->scope->settings->ifsTimeZone ?? null,
+            default => $context->scope->ifsTimeZone(),
+        };
 
         $argv = ActivityTraceCommand::build(
-            $checkout, $workDir, $inputPaths, $options, $context->timeZone, $ifsTimeZone,
+            $checkout, $workDir, $inputPaths, $options, $context->timeZoneIsDefault ? null : $context->timeZone, $ifsTimeZone,
             $context->scope instanceof Dataset ? $context->scope->name : null,
         );
         $timeout = (int) config('tools.activity_trace.timeout_seconds', 840);
