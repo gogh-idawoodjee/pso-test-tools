@@ -150,3 +150,25 @@ it('swaps the chosen files when the dataset changes', function () {
         ->fillForm(['dataset_id' => $south->id])
         ->assertFormSet(['files.load' => $southLoad->id]);
 });
+
+it('leaves an optional export the user cleared empty', function () {
+    $sys = ExportFile::factory()->for($this->environment, 'scope')->create(['kind' => ExportKind::Sys]);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->assertFormSet(['files.sys' => $sys->id])
+        ->set('data.files.sys', null)
+        ->dispatch('export-uploaded')
+        ->assertFormSet(['files.sys' => null])
+        ->call('refreshInputs')
+        ->assertFormSet(['files.sys' => null]);
+});
+
+it('switches to a newer file the user just uploaded', function () {
+    $this->travelTo(now()->startOfMinute());
+    $old = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'created_at' => now()->subHour()]);
+
+    $component = Livewire::test(LoadAuditEntry::class)->assertFormSet(['files.load' => $old->id]);
+    $new = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    $component->dispatch('export-uploaded')->assertFormSet(['files.load' => $new->id]);
+});

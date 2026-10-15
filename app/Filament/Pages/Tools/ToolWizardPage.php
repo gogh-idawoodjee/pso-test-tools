@@ -51,6 +51,12 @@ abstract class ToolWizardPage extends Page implements HasForms
 
     public ?string $runId = null;
 
+    /** @var list<string> kinds the user emptied on purpose; never refilled with a default */
+    public array $clearedKinds = [];
+
+    /** @var array<string, list<string>> kind value => usable file ids at the last refresh */
+    public array $knownFiles = [];
+
     abstract public static function tool(): ToolId;
 
     public function mount(): void
@@ -138,8 +144,7 @@ abstract class ToolWizardPage extends Page implements HasForms
     {
         return Step::make('Inputs')
             ->description('The exports to run against. Reuse a file already uploaded or drop a new one.')
-            ->schema(fn (): array => [...$this->inputFields(), $this->uploadBlock()])
-            ->afterValidation(fn () => $this->refreshInputs());
+            ->schema(fn (): array => [...$this->inputFields(), $this->uploadBlock()]);
     }
 
     /** @return list<Select> */
@@ -166,7 +171,8 @@ abstract class ToolWizardPage extends Page implements HasForms
                 ->placeholder($kindOptions === [] ? 'No '.$kind->getLabel().' export uploaded yet' : 'Choose a file')
                 ->required($required)
                 ->validationMessages(['required' => $this->aExport($kind).' is required.'])
-                ->native(false);
+                ->native(false)
+                ->afterStateUpdated(static fn (?string $state, self $livewire) => $livewire->rememberChoice($kind->value, $state));
         }
 
         return $fields;
@@ -204,19 +210,46 @@ abstract class ToolWizardPage extends Page implements HasForms
     public function resetInputs(): void
     {
         $this->data['files'] = $this->emptyFiles();
+        $this->clearedKinds = [];
+        $this->knownFiles = [];
         $this->refreshInputs();
     }
 
-    /** Fill every empty file field with the picker's default (the newest set that belongs together). */
+    /** A user who empties a field keeps it empty; picking a file again lifts that. */
+    public function rememberChoice(string $kind, ?string $fileId): void
+    {
+        $this->clearedKinds = blank($fileId)
+            ? array_values(array_unique([...$this->clearedKinds, $kind]))
+            : array_values(array_diff($this->clearedKinds, [$kind]));
+    }
+
+    /**
+     * Select the newest file when it arrived since the last refresh (the upload the user just made),
+     * then fill the remaining empty fields the user has not cleared with the picker's
+     * default (the newest set that belongs together).
+     */
     #[On('export-uploaded')]
     public function refreshInputs(): void
     {
         if (! $this->hasScope()) {
             return;
         }
-        $defaults = app(RunInputPicker::class)->defaultsFor($this->scopeModel(), static::tool());
-        foreach ($defaults as $kind => $fileId) {
-            if (blank($this->data['files'][$kind] ?? null)) {
+        $picker = app(RunInputPicker::class);
+        $scope = $this->scopeModel();
+        $files = array_map(static fn (array $options): array => array_map('strval', array_keys($options)), $picker->optionsFor($scope, static::tool()));
+
+        foreach ($files as $kind => $ids) {
+            // Only a file that is new since the last refresh; an older one surfacing because the newest expired does not count.
+            $newest = $ids[0] ?? null;
+            if ($newest !== null && array_key_exists($kind, $this->knownFiles) && ! in_array($newest, $this->knownFiles[$kind], true)) {
+                $this->data['files'][$kind] = $newest;
+                $this->clearedKinds = array_values(array_diff($this->clearedKinds, [$kind]));
+            }
+        }
+        $this->knownFiles = $files;
+
+        foreach ($picker->defaultsFor($scope, static::tool()) as $kind => $fileId) {
+            if (blank($this->data['files'][$kind] ?? null) && ! in_array($kind, $this->clearedKinds, true)) {
                 $this->data['files'][$kind] = $fileId;
             }
         }
