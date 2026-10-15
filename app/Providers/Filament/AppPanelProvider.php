@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Navigation\Groups;
+use App\Filament\Navigation\LivePsoActionPages;
 use App\Filament\Pages\Backups;
 use App\Filament\Pages\HealthCheckResults;
 use App\Http\Controllers\Exports\ExportCompleteController;
@@ -18,6 +19,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Facades\FilamentView;
+use Filament\View\PanelsRenderHook;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -107,6 +109,11 @@ class AppPanelProvider extends PanelProvider
         parent::register();
         FilamentView::registerRenderHook('panels::body.end',
             fn (): string => Blade::render("@vite('resources/js/app.js')"));
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::PAGE_START,
+            fn (): string => view('filament.live-environment-banner')->render(),
+            scopes: LivePsoActionPages::all(),
+        );
 
     }
 }
