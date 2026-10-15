@@ -19,7 +19,7 @@ class WebhookEndpointProvisioner
 {
     public function provision(string $environmentName, string $contentType, UploadRunLog $log): WebhookEndpoint
     {
-        $baseUrl = rtrim((string) config('services.webhook.base_url'), '/');
+        $baseUrl = rtrim(config('services.webhook.base_url') ?: 'https://webhook.thetechnodro.me', '/');
         $aliasKey = config('services.webhook.alias_key');
 
         $tokenConfig = [
@@ -43,13 +43,18 @@ class WebhookEndpointProvisioner
 
     private function aliasFor(string $environmentName): string
     {
-        return 'pso-'.preg_replace('/[^a-z0-9-]/', '-', Str::lower($environmentName));
+        $lowered = Str::lower($environmentName);
+
+        // Per character like the PowerShell script; invalid UTF-8 falls back to per byte.
+        $slug = preg_replace('/[^a-z0-9-]/u', '-', $lowered) ?? preg_replace('/[^a-z0-9-]/', '-', $lowered);
+
+        return 'pso-'.$slug;
     }
 
     /**
      * @param  array<string, mixed>  $tokenConfig
      */
-    private function ensureAlias(string $baseUrl, #[SensitiveParameter] string $aliasKey, string $alias, array $tokenConfig, UploadRunLog $log): WebhookEndpoint
+    private function ensureAlias(string $baseUrl, #[\SensitiveParameter] string $aliasKey, string $alias, array $tokenConfig, UploadRunLog $log): WebhookEndpoint
     {
         $log->step("Ensuring webhook alias '/{$alias}' exists and injecting Broadcast...");
 

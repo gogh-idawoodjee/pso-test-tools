@@ -52,7 +52,9 @@ it('uses an xml canned response for xml payloads', function () {
 
     provisionWebhook('env', 'application/xml');
 
-    Http::assertSent(static fn ($request) => $request['default_content'] === '<response/>'
+    Http::assertSent(static fn ($request) => $request->url() === 'https://webhook.example.test/_alias/pso-env'
+        && $request->hasHeader('X-Alias-Key', 'alias-key-123')
+        && $request['default_content'] === '<response/>'
         && $request['default_content_type'] === 'application/xml');
 });
 
@@ -117,4 +119,50 @@ it('throws when the reply carries no uuid', function () {
     Http::fake(['https://webhook.example.test/_alias/*' => Http::response(['created' => true], 200)]);
 
     expect(static fn () => provisionWebhook())->toThrow(WebhookProvisioningException::class, 'uuid');
+});
+
+it('maps the alias per character like the PowerShell script', function (string $environmentName, string $alias) {
+    Http::fake(['https://webhook.example.test/_alias/*' => Http::response(['uuid' => 'uuid-1', 'created' => true], 201)]);
+
+    [$endpoint] = provisionWebhook($environmentName);
+
+    expect($endpoint->alias)->toBe($alias);
+})->with([
+    'accent' => ['Québec', 'pso-qu-bec'],
+    'dashes' => ['-a-', 'pso--a-'],
+]);
+
+it('posts the one-off token with the canned response body', function () {
+    config(['services.webhook.alias_key' => null]);
+    Http::fake(['https://webhook.example.test/token' => Http::response(['uuid' => 'uuid-77'], 201)]);
+
+    provisionWebhook();
+
+    Http::assertSent(static fn ($request) => $request->method() === 'POST'
+        && $request->url() === 'https://webhook.example.test/token'
+        && $request['default_status'] === 200
+        && $request['default_content'] === '{}'
+        && $request['default_content_type'] === 'application/json');
+});
+
+it('throws on a server error from the alias call', function () {
+    Http::fake(['https://webhook.example.test/_alias/*' => Http::response('boom', 503)]);
+
+    expect(static fn () => provisionWebhook())->toThrow(WebhookProvisioningException::class, '503');
+});
+
+it('throws when the one-off reply carries no uuid', function () {
+    config(['services.webhook.alias_key' => null]);
+    Http::fake(['https://webhook.example.test/token' => Http::response(['x' => 1], 201)]);
+
+    expect(static fn () => provisionWebhook())->toThrow(WebhookProvisioningException::class, 'uuid');
+});
+
+it('falls back to the default base url when the configured one is empty', function () {
+    config(['services.webhook.base_url' => '']);
+    Http::fake(['https://webhook.thetechnodro.me/_alias/*' => Http::response(['uuid' => 'uuid-1', 'created' => true], 201)]);
+
+    [$endpoint] = provisionWebhook();
+
+    expect($endpoint->url)->toBe('https://webhook.thetechnodro.me/pso-sasktel-tst');
 });
