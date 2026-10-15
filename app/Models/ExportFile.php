@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Models\Scopes\ScopeOwnedModel;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use InvalidArgumentException;
 use Override;
+use Throwable;
 
 /**
  * One uploaded PSO export (LOAD, plan, EOD, audits zip on a dataset; SYS on an
@@ -91,9 +93,29 @@ class ExportFile extends Model
         return $this->status === ExportFileStatus::Ready && ! $this->isExpired();
     }
 
-    /** The export's local date, from the summary, when known. */
-    public function exportDate(): ?string
+    /**
+     * The export's local date, from the summary, when known. Audit messages and IFS event logs carry no
+     * export_date: their first message or event (kept in UTC) is dated in $timeZone, by default the
+     * dataset's zone, so they line up with the LOAD of the same day.
+     */
+    public function exportDate(?string $timeZone = null): ?string
     {
-        return data_get($this->summary, 'export_date');
+        $date = data_get($this->summary, 'export_date');
+        if ($date !== null) {
+            return $date;
+        }
+
+        $first = data_get($this->summary, 'first_message_at') ?? data_get($this->summary, 'first_event');
+        if (! is_string($first) || $first === '') {
+            return null;
+        }
+
+        $timeZone ??= $this->scope instanceof Dataset ? $this->scope->timeZone() : (string) config('app.timezone', 'UTC');
+
+        try {
+            return CarbonImmutable::parse($first)->setTimezone($timeZone)->format('Y-m-d');
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

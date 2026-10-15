@@ -41,6 +41,22 @@ it('preselects the newest set of one day and offers the environment sys for a da
         ->and($picker->defaultsFor($this->dataset, ToolId::LoadAudit))->toBe(['load' => $load->id, 'sys' => $sys->id]);
 });
 
+it('dates audit messages and event logs in the dataset zone, preselects the LOAD day and counts events', function () {
+    $this->dataset->update(['settings' => ['time_zone' => 'America/Regina']]);
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'summary' => ['export_date' => '2026-10-10'], 'created_at' => now()->subHours(3)]);
+    // 03:00 UTC on the 11th is the evening of the 10th in Regina.
+    $sameDayAudits = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Audits, 'summary' => ['message_count' => 9, 'first_message_at' => '2026-10-11T03:00:00+00:00'], 'created_at' => now()->subHours(2)]);
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Audits, 'summary' => ['message_count' => 4, 'first_message_at' => '2026-10-12T15:00:00+00:00']]);
+    $sameDayLog = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::EventLog, 'content_type' => 'xlsx', 'summary' => ['event_count' => 1234, 'first_event' => '2026-10-10T14:00:00+00:00'], 'created_at' => now()->subHours(2)]);
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::EventLog, 'content_type' => 'xlsx', 'summary' => ['event_count' => 5, 'first_event' => '2026-10-09T14:00:00+00:00']]);
+
+    $picker = app(RunInputPicker::class);
+
+    expect($sameDayAudits->exportDate())->toBe('2026-10-10')
+        ->and($picker->defaultsFor($this->dataset, ToolId::AppointmentTimeline))->toBe(['audits' => $sameDayAudits->id, 'load' => $load->id, 'event_log' => $sameDayLog->id])
+        ->and($picker->optionsFor($this->dataset, ToolId::AppointmentTimeline)['event_log'][$sameDayLog->id])->toContain('(1,234 events)');
+});
+
 it('starts a run from the Runs tab with the chosen files', function () {
     Queue::fake();
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'summary' => ['export_date' => '2026-10-10']]);

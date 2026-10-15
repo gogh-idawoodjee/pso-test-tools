@@ -110,3 +110,23 @@ it('clears progress when the run fails', function () {
 
     expect($run->refresh()->progress)->toBeNull();
 });
+
+it('dates a run with no LOAD from its audit messages in the dataset zone', function () {
+    FakeTool::$kinds = [[ExportKind::Audits], []];
+    $audits = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Audits, 'content_type' => 'zip', 'summary' => ['first_message_at' => '2026-10-11T03:00:00+00:00']]);
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($audits), 'zip');
+    $run = ToolRun::factory()->for($this->dataset, 'scope')->create([
+        'tool' => ToolId::LoadAudit, 'status' => ToolRunStatus::Queued, 'result' => null, 'run_date' => null,
+        'inputs' => ['files' => ['audits' => $audits->id], 'options' => []],
+    ]);
+
+    try {
+        (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
+    } finally {
+        FakeTool::$kinds = null;
+    }
+
+    expect($run->refresh()->error_message)->toBeNull()
+        ->and($run->status)->toBe(ToolRunStatus::Succeeded)
+        ->and($run->run_date->toDateString())->toBe('2026-10-10');
+});

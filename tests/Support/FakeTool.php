@@ -49,7 +49,7 @@ class FakeTool implements Tool
         return new ToolResult(
             result: [
                 'seen_kinds' => array_keys($inputPaths),
-                'bytes' => filesize($inputPaths['load']),
+                'bytes' => isset($inputPaths['load']) ? filesize($inputPaths['load']) : null,
                 'display_name' => $context->settings?->displayName,
                 'time_zone' => $context->timeZone,
                 'options' => $options,

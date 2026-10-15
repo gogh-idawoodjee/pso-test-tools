@@ -78,11 +78,12 @@ class RunInputPicker
             $anchor = collect($candidates)->flatten(1)->reject(static fn (ExportFile $file): bool => $file->kind === ExportKind::Sys)
                 ->sortByDesc('created_at')->values();
         }
-        $day = $anchor->first()?->exportDate();
+        $timeZone = $scope instanceof Dataset ? $scope->timeZone() : (string) config('app.timezone', 'UTC');
+        $day = $anchor->first()?->exportDate($timeZone);
 
         $defaults = [];
         foreach ($candidates as $kindValue => $files) {
-            $match = $day !== null ? $files->first(static fn (ExportFile $file): bool => $file->exportDate() === $day) : null;
+            $match = $day !== null ? $files->first(static fn (ExportFile $file): bool => $file->exportDate($timeZone) === $day) : null;
 
             if ($match === null && ($kindValue === ExportKind::Sys->value || $day === null)) {
                 $match = $files->first();
@@ -131,6 +132,7 @@ class RunInputPicker
             isset($summary['activity_count']) => number_format((int) $summary['activity_count']).' activities',
             isset($summary['pso_version']) => 'version '.$summary['pso_version'],
             isset($summary['message_count']) => number_format((int) $summary['message_count']).' messages',
+            isset($summary['event_count']) => number_format((int) $summary['event_count']).' events',
             default => null,
         };
 

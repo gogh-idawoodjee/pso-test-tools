@@ -64,7 +64,7 @@ class RunToolJob implements ShouldQueue
                 'warnings' => $output->warnings,
                 'summary' => $output->summary ?: null,
                 'progress' => null,
-                'run_date' => $run->run_date ?? $this->exportDateOf($files),
+                'run_date' => $run->run_date ?? $this->exportDateOf($files, $timeZone),
                 'status' => ToolRunStatus::Succeeded,
                 'error_message' => null,
                 'finished_at' => now(),
@@ -157,10 +157,10 @@ class RunToolJob implements ShouldQueue
     }
 
     /** @param array<string, ExportFile> $files */
-    private function exportDateOf(array $files): ?string
+    private function exportDateOf(array $files, string $timeZone): ?string
     {
         $file = $files[ExportKind::Load->value] ?? (array_values($files)[0] ?? null);
 
-        return $file?->exportDate();
+        return $file?->exportDate($timeZone);
     }
 }
