@@ -94,10 +94,21 @@ class ActivityTraceTool implements Tool
             }
         }
 
+        // The script resolves the activity from a work task id, so its own answer comes first.
+        $pick = static fn (mixed ...$values): ?string => collect($values)
+            ->map(static fn (mixed $value): string => is_scalar($value) ? trim((string) $value) : '')
+            ->first(static fn (string $value): bool => $value !== '');
+        $activityId = $pick($data['meta']['activity_id'] ?? null, $options['activity_id'] ?? null);
+        $workTaskId = $pick($options['work_task_id'] ?? null, $data['meta']['work_task_id'] ?? null);
+        $subject = $activityId !== null ? "Activity {$activityId}" : ($workTaskId !== null ? "Work task {$workTaskId}" : null);
+        if ($subject !== null) {
+            $line = $line !== null && $line !== '' ? "{$subject}: {$line}" : $subject;
+        }
+
         return new ToolResult(
             result: ['html' => $html, 'data' => $data, 'booking_csv' => $booking, 'history_csv' => $history],
             warnings: $warnings,
-            summary: ['line' => $line, 'counts' => $counts],
+            summary: ['line' => $line, 'counts' => $counts, 'activity_id' => $activityId, 'work_task_id' => $workTaskId],
         );
     }
 }

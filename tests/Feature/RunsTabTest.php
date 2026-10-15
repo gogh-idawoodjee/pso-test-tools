@@ -57,6 +57,11 @@ it('dates audit messages and event logs in the dataset zone, preselects the LOAD
         ->and($picker->optionsFor($this->dataset, ToolId::AppointmentTimeline)['event_log'][$sameDayLog->id])->toContain('(1,234 events)');
 });
 
+it('labels the run action with a colon before the tool name', function () {
+    Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
+        ->assertTableActionExists('run_load_audit', static fn ($action): bool => $action->getLabel() === 'Run: '.ToolId::LoadAudit->getLabel());
+});
+
 it('starts a run from the Runs tab with the chosen files', function () {
     Queue::fake();
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'summary' => ['export_date' => '2026-10-10']]);

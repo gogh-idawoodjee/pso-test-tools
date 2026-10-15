@@ -109,7 +109,7 @@ abstract class ToolRunsRelationManager extends RelationManager
             }
 
             $actions[] = Action::make("run_{$toolId->value}")
-                ->label('Run '.$toolId->getLabel())
+                ->label('Run: '.$toolId->getLabel())
                 ->icon('heroicon-o-play')
                 ->schema($fields)
                 ->action(function (array $data) use ($toolId): void {

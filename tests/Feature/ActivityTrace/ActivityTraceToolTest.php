@@ -46,6 +46,7 @@ afterEach(function () {
     File::deleteDirectory($this->scratch);
     fakeTraceEnv('FAKE_TRACE_MODE', null);
     fakeTraceEnv('FAKE_TRACE_ARGS_FILE', null);
+    fakeTraceEnv('FAKE_TRACE_RESOLVED_ACTIVITY', null);
 });
 
 it('is registered and asks for audits, with load and event log optional', function () {
@@ -77,8 +78,20 @@ it('runs the script and stores the page, data, both CSVs, counts, summary and wa
         ->and($result->result['data']['findings'])->toHaveCount(4)
         ->and($result->result['booking_csv'])->toStartWith('time,event')
         ->and($result->result['history_csv'])->toStartWith('time,step')
-        ->and($result->summary)->toBe(['line' => 'Booked 2026-10-03 after 2 offers; 14 scheduling events, 1 check failed', 'counts' => ['red' => 1, 'amber' => 2, 'green' => 1]])
+        ->and($result->summary)->toBe(['line' => 'Activity abc: Booked 2026-10-03 after 2 offers; 14 scheduling events, 1 check failed', 'counts' => ['red' => 1, 'amber' => 2, 'green' => 1], 'activity_id' => 'abc', 'work_task_id' => null])
         ->and($result->warnings)->toBe(['the LOAD has no slot usage rules']);
+});
+
+it('names the activity the script found for a work task, or the work task when it found none', function () {
+    fakeTraceEnv('FAKE_TRACE_RESOLVED_ACTIVITY', '813775');
+    $found = (new ActivityTraceTool)->run($this->context, ['audits' => $this->scratch.'/audits.zip'], ['work_task_id' => 'WT9']);
+    fakeTraceEnv('FAKE_TRACE_RESOLVED_ACTIVITY', null);
+    $notFound = (new ActivityTraceTool)->run($this->context, ['audits' => $this->scratch.'/audits.zip'], ['work_task_id' => 'WT9']);
+
+    expect($found->summary['line'])->toStartWith('Activity 813775: Booked')
+        ->and($found->summary['activity_id'])->toBe('813775')
+        ->and($notFound->summary['line'])->toStartWith('Work task WT9: Booked')
+        ->and($notFound->summary['activity_id'])->toBeNull();
 });
 
 it('fails with the scripts own words when the activity is not found', function () {
@@ -126,6 +139,7 @@ function storedTrace(): ToolRun
 {
     return ToolRun::factory()->for(test()->dataset, 'scope')->create([
         'tool' => ToolId::AppointmentTimeline, 'run_date' => '2026-10-04',
+        'inputs' => ['files' => [], 'options' => ['activity_id' => '813775']],
         'result' => ['html' => '<html>Trace page</html>', 'data' => ['findings' => []], 'booking_csv' => "time,event\n1,offer\n", 'history_csv' => "time,step\n1,plan\n"],
         'summary' => ['line' => 'Booked after 2 offers', 'counts' => ['red' => 1, 'amber' => 2, 'green' => 3]],
     ]);
@@ -147,10 +161,12 @@ it('serves the stored CSVs as downloads', function () {
     $run = storedTrace();
 
     $this->get(route('tool-runs.download-booking-csv', [$this->dataset, $run]))
-        ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_booking.csv')
+        ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_activity813775_booking.csv')
         ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
     $this->get(route('tool-runs.download-history-csv', [$this->dataset, $run]))
-        ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_history.csv');
+        ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_activity813775_history.csv');
+    $this->get(route('tool-runs.download-html', [$this->dataset, $run]))
+        ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_activity813775.html');
 });
 
 it('gives 404 on the CSV routes for another user or a missing file', function () {

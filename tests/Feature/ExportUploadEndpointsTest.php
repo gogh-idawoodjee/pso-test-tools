@@ -67,6 +67,17 @@ it('refuses files over the size cap and with the wrong extension', function () {
         ->assertStatus(422)->assertJsonValidationErrors('file_name');
 });
 
+it('uses the right article in the kind and extension errors', function () {
+    $this->postJson(route('filament.app.exports.slots.store'), slotPayload($this->dataset, ['kind' => 'event_log', 'file_name' => 'events.xml']))
+        ->assertStatus(422)->assertJsonPath('errors.file_name.0', 'An IFS event log export must be a .xlsx, .csv file.');
+    $this->postJson(route('filament.app.exports.slots.store'), slotPayload($this->dataset, ['kind' => 'audits', 'file_name' => 'audits.xml']))
+        ->assertStatus(422)->assertJsonPath('errors.file_name.0', 'An Audit messages export must be a .zip file.');
+    $this->postJson(route('filament.app.exports.slots.store'), ['scope_type' => 'environment', 'scope_id' => $this->dataset->environment_id, 'kind' => 'audits', 'file_name' => 'audits.zip', 'file_size' => 10])
+        ->assertStatus(422)->assertJsonPath('errors.kind.0', 'An Audit messages export cannot be uploaded to an environment.');
+    $this->postJson(route('filament.app.exports.slots.store'), slotPayload($this->dataset, ['file_name' => 'load.csv']))
+        ->assertStatus(422)->assertJsonPath('errors.file_name.0', 'A LOAD export must be a .xml, .json, .zip file.');
+});
+
 it('completes an upload whose object arrived with the declared size and queues the summary', function () {
     Queue::fake();
     $file = ExportFile::factory()->for($this->dataset, 'scope')->uploading()->create(['file_size_bytes' => 17, 'content_type' => 'xml']);

@@ -51,16 +51,22 @@ class ExportSlotRequest extends FormRequest
             $kind = ExportKind::from((string) $this->input('kind'));
 
             if (self::SCOPES[$this->input('scope_type')] !== $kind->allowedScope()) {
-                $validator->errors()->add('kind', "A {$kind->getLabel()} export cannot be uploaded to a {$this->input('scope_type')}.");
+                $validator->errors()->add('kind', ucfirst(self::withArticle($kind->getLabel())).' export cannot be uploaded to '.self::withArticle((string) $this->input('scope_type')).'.');
 
                 return;
             }
 
             $extension = strtolower(pathinfo((string) $this->input('file_name'), PATHINFO_EXTENSION));
             if (! in_array($extension, $kind->extensions(), true)) {
-                $validator->errors()->add('file_name', 'A '.$kind->getLabel().' export must be a .'.implode(', .', $kind->extensions()).' file.');
+                $validator->errors()->add('file_name', ucfirst(self::withArticle($kind->getLabel())).' export must be a .'.implode(', .', $kind->extensions()).' file.');
             }
         });
+    }
+
+    /** "an IFS event log", "an Audit messages", "a LOAD": the article goes by the first letter. */
+    private static function withArticle(string $label): string
+    {
+        return (preg_match('/^[aeiou]/i', $label) === 1 ? 'an ' : 'a ').$label;
     }
 
     public function exportKind(): ExportKind

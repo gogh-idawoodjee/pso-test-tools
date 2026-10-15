@@ -88,12 +88,23 @@ class ToolRunPageController extends Controller
         return [$datasetModel, $toolRun];
     }
 
-    /** <tool>_<account>_<dataset>_<week Monday or run date>.<ext>, cleaned to letters, digits, _ and -. */
+    /**
+     * <tool>_<account>_<dataset>_<week Monday or run date>[_activity<id> or _worktask<id>].<ext>, cleaned to
+     * letters, digits, _ and -. The activity part names what a trace run traced.
+     */
     public static function fileName(Dataset $dataset, ToolRun $run, string $extension): string
     {
         $clean = static fn (?string $part): string => preg_replace('/[^A-Za-z0-9_-]/', '_', (string) $part);
         $date = $run->summary['week'] ?? $run->run_date?->toDateString() ?? 'undated';
 
-        return $run->tool->value.'_'.$clean($dataset->environment?->account_id).'_'.$clean($dataset->name).'_'.$clean($date).'.'.$extension;
+        $activityId = $run->summary['activity_id'] ?? $run->inputs['options']['activity_id'] ?? null;
+        $workTaskId = $run->summary['work_task_id'] ?? $run->inputs['options']['work_task_id'] ?? null;
+        $subject = match (true) {
+            is_scalar($activityId) && trim((string) $activityId) !== '' => '_activity'.$clean(trim((string) $activityId)),
+            is_scalar($workTaskId) && trim((string) $workTaskId) !== '' => '_worktask'.$clean(trim((string) $workTaskId)),
+            default => '',
+        };
+
+        return $run->tool->value.'_'.$clean($dataset->environment?->account_id).'_'.$clean($dataset->name).'_'.$clean($date).$subject.'.'.$extension;
     }
 }
