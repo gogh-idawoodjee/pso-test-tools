@@ -143,10 +143,10 @@
                 @if ($compact) title="{{ $hint($extensionsByKind[$kindValue]) }}" @endif
                 @class([
                     'relative flex items-center gap-x-2 overflow-hidden rounded-lg bg-white px-3 text-sm ring-1 ring-gray-950/10 cursor-pointer transition duration-75 motion-reduce:transition-none',
-                    'hover:ring-gray-950/20 focus-within:ring-2 focus-within:ring-primary-500',
-                    'dark:bg-white/5 dark:ring-white/20 dark:hover:ring-white/30',
-                    'data-[state=drag]:ring-2 data-[state=drag]:ring-primary-500 data-[state=drag]:bg-primary-50 dark:data-[state=drag]:bg-primary-500/10',
-                    'data-[state=error]:ring-danger-500 dark:data-[state=error]:ring-danger-500',
+                    'hover:ring-gray-950/20 focus-within:ring-2 focus-within:ring-primary-500 focus-within:hover:ring-primary-500',
+                    'dark:bg-white/5 dark:ring-white/20 dark:hover:ring-white/30 dark:focus-within:ring-primary-500 dark:focus-within:hover:ring-primary-500',
+                    'data-[state=drag]:ring-2 data-[state=drag]:ring-primary-500 data-[state=drag]:hover:ring-primary-500 dark:data-[state=drag]:ring-primary-500 dark:data-[state=drag]:hover:ring-primary-500 data-[state=drag]:bg-primary-50 dark:data-[state=drag]:bg-primary-500/10',
+                    'data-[state=error]:ring-danger-500 data-[state=error]:hover:ring-danger-500 dark:data-[state=error]:ring-danger-500 dark:data-[state=error]:hover:ring-danger-500',
                     'min-h-9 py-1.5' => $compact,
                     'min-h-14 py-2.5' => ! $compact,
                 ])
