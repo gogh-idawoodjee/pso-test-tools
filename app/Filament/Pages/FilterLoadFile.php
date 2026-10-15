@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Navigation\Groups;
 use App\Jobs\ProcessResourceFile;
 use App\Models\Environment;
 use App\Traits\FilamentJobMonitoring;
@@ -47,7 +48,7 @@ class FilterLoadFile extends Page
 
     protected string $view = 'filament.pages.filter-load-file';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Additional Tools';
+    protected static string|UnitEnum|null $navigationGroup = Groups::ANALYSE;
 
     // File upload and processing properties
     public ?array $upload = null;

@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Classes\PSOObjectRegistry;
 use App\Enums\PSOEntities;
+use App\Filament\Navigation\Groups;
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use BackedEnum;
@@ -29,7 +30,7 @@ class GenerateCustomException extends Page
 
     protected string $view = 'filament.pages.generate-custom-exception';
 
-    protected static string|UnitEnum|null $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = Groups::LIVE;
 
     public ?array $exception_data = [];
 

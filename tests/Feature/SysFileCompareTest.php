@@ -43,8 +43,8 @@ it('renders for a signed-in panel user', function (): void {
     Livewire::test(SysFileCompare::class)->assertOk()->assertSee('PSO Sys File Compare')->assertSee('Drop PSO system data exports here');
 });
 
-it('is in the Additional Tools navigation group', function (): void {
-    expect(SysFileCompare::getNavigationGroup())->toBe('Additional Tools')
+it('is in the Analyse exports navigation group', function (): void {
+    expect(SysFileCompare::getNavigationGroup())->toBe('Analyse exports')
         ->and(SysFileCompare::getNavigationLabel())->toBe('PSO Sys File Compare');
 });
 

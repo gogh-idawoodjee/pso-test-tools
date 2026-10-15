@@ -6,6 +6,7 @@ use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
+use App\Filament\Navigation\Groups;
 use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
@@ -46,7 +47,7 @@ abstract class ToolWizardPage extends Page implements HasForms
 {
     use InteractsWithForms;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Analyse exports';
+    protected static string|UnitEnum|null $navigationGroup = Groups::ANALYSE;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPlayCircle;
 

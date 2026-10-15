@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\ReferenceEntityType;
 use App\Enums\ReferenceValueOrigin;
+use App\Filament\Navigation\Groups;
 use App\Models\Dataset;
 use App\Models\DatasetReferenceValue;
 use BackedEnum;
@@ -34,7 +35,7 @@ abstract class DatasetReferenceValueResource extends Resource
 {
     protected static ?string $model = DatasetReferenceValue::class;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Base Data';
+    protected static string|UnitEnum|null $navigationGroup = Groups::SETUP;
 
     abstract public static function entityType(): ReferenceEntityType;
 

@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Classes\PSOObjectRegistry;
 use App\Enums\HttpMethod;
+use App\Filament\Navigation\Groups;
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use BackedEnum;
@@ -33,7 +34,7 @@ class GenericDelete extends Page
 
     protected string $view = 'filament.pages.generic-delete';
 
-    protected static string|UnitEnum|null $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = Groups::LIVE;
 
     public ?array $deletion_data = [];
 

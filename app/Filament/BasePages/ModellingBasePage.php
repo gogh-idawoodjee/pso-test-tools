@@ -2,6 +2,7 @@
 
 namespace App\Filament\BasePages;
 
+use App\Filament\Navigation\Groups;
 use App\Models\Environment;
 use App\Traits\FormTrait;
 use BackedEnum;
@@ -13,7 +14,7 @@ abstract class ModellingBasePage extends Page
 {
     use FormTrait;
 
-    protected static string|UnitEnum|null $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = Groups::LIVE;
 
     protected static ?string $navigationParentItem = 'Modelling Services';
 

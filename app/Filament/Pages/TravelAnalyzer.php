@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Navigation\Groups;
 use App\Models\Environment;
 use App\Support\GeocodeHelper;
 use App\Traits\FormTrait;
@@ -27,7 +28,7 @@ class TravelAnalyzer extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedMap;
 
-    protected static string|UnitEnum|null $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = Groups::LIVE;
 
     public ?array $data = [];
 

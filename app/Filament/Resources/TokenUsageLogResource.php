@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Navigation\Groups;
 use App\Filament\Resources\TokenUsageLogResource\Pages;
 use App\Models\TokenUsageLog;
 use App\Traits\AdminViewable;
@@ -25,7 +26,7 @@ class TokenUsageLogResource extends Resource
 
     protected static string|null|BackedEnum $navigationIcon = Heroicon::OutlinedRectangleStack;
 
-    protected static string|null|UnitEnum $navigationGroup = 'Core';
+    protected static string|null|UnitEnum $navigationGroup = Groups::ADMIN;
 
     public static function form(Schema $form): Schema
     {

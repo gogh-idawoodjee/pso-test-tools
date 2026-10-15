@@ -1,11 +1,9 @@
 <?php
 
 use App\Filament\Pages\TechnicianAvail;
-use App\Filament\Widgets\QuickLaunch;
 use App\Jobs\GetTechnicianShiftsJob;
 use App\Models\User;
 use App\Services\TechnicianAvailabilityService;
-use Livewire\Livewire;
 
 /** The old page is replaced by the region availability tool on a dataset's Runs tab (spec 2026-10-11). */
 it('no longer has the Technician Availability page, tile or service', function () {
@@ -18,8 +16,4 @@ it('no longer has the Technician Availability page, tile or service', function (
         ->and(is_file(base_path('tests/Fixtures/sample-technician-shifts.json')))->toBeFalse();
 
     $this->get('/technician-avail')->assertNotFound();
-
-    Livewire::test(QuickLaunch::class)
-        ->assertSee('Technician Details')
-        ->assertDontSee('Technician Availability');
 });

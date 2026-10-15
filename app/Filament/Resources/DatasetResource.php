@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Enums\ReferenceEntityType;
+use App\Filament\Navigation\Groups;
 use App\Filament\Resources\DatasetResource\Pages;
 use App\Filament\Resources\DatasetResource\RelationManagers;
 use App\Models\Dataset;
@@ -26,7 +27,7 @@ class DatasetResource extends Resource
 {
     protected static ?string $model = Dataset::class;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Base Data';
+    protected static string|UnitEnum|null $navigationGroup = Groups::SETUP;
 
     protected static ?int $navigationSort = -1;
 

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages\HomePages;
 
+use App\Filament\Navigation\Groups;
 use BackedEnum;
 use Filament\Pages\Page;
 use UnitEnum;
@@ -18,5 +19,5 @@ class PSOActivityHome extends Page
 
     protected static ?string $title = 'Activity Services';
 
-    protected static string|UnitEnum|null $navigationGroup = 'API Services';
+    protected static string|UnitEnum|null $navigationGroup = Groups::LIVE;
 }

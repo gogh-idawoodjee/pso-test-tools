@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Navigation\Groups;
 use App\Traits\AdminViewable;
 use BackedEnum;
 use Filament\Support\Icons\Heroicon;
@@ -21,6 +22,6 @@ class HealthCheckResults extends BaseHealthCheckResults
 
     public static function getNavigationGroup(): ?string
     {
-        return 'Core';
+        return Groups::ADMIN;
     }
 }

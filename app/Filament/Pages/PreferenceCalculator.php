@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Navigation\Groups;
 use BackedEnum;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -22,7 +23,7 @@ class PreferenceCalculator extends Page
 
     protected string $view = 'filament.pages.preference-calculator';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Additional Tools';
+    protected static string|UnitEnum|null $navigationGroup = Groups::ANALYSE;
 
     public ?array $preference_data = [];
 

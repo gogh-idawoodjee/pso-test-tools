@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Navigation\Groups;
 use App\Filament\Resources\EnvironmentResource\Pages;
 use App\Filament\Resources\EnvironmentResource\RelationManagers;
 use App\Models\Environment;
@@ -26,7 +27,7 @@ class EnvironmentResource extends Resource
 
     protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::CircleStack;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Base Data';
+    protected static string|UnitEnum|null $navigationGroup = Groups::SETUP;
 
     protected static ?int $navigationSort = 1;
 

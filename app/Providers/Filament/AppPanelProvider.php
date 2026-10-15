@@ -2,10 +2,9 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Navigation\Groups;
 use App\Filament\Pages\Backups;
 use App\Filament\Pages\HealthCheckResults;
-use App\Filament\Widgets\QuickLaunch;
-use App\Filament\Widgets\StatsOverview;
 use App\Http\Controllers\Exports\ExportCompleteController;
 use App\Http\Controllers\Exports\ExportSlotController;
 use App\Http\Controllers\SysCompare\SysCompareDownloadController;
@@ -42,16 +41,17 @@ class AppPanelProvider extends PanelProvider
             ->path('/')
             ->login()
             ->sidebarCollapsibleOnDesktop()
+            ->navigationGroups(Groups::ordered())
             ->brandLogoHeight('auto')
             ->brandLogo(asset('images/pso_test_tools_logo_final.svg'))
             ->favicon(asset('images/favicon.png'))
             ->colors([
                 'primary' => Color::Violet,
                 'gray' => Color::Slate,
-                'core' => Color::Emerald,
-                'base-data' => Color::Amber,
-                'api-services' => Color::Rose,
-                'additional-tools' => Color::Cyan,
+                'analyse' => Color::Cyan,
+                'live' => Color::Rose,
+                'setup' => Color::Amber,
+                'admin' => Color::Emerald,
             ])
             ->viteTheme('resources/css/filament/app/theme.css')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
@@ -59,11 +59,8 @@ class AppPanelProvider extends PanelProvider
             ->pages([
                 Pages\Dashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
                 Widgets\AccountWidget::class,
-                StatsOverview::class,
-                QuickLaunch::class,
             ])
             ->plugins([
                 FilamentSpatieLaravelBackupPlugin::make()

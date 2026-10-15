@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Navigation\Groups;
 use App\Models\User;
 use App\Traits\AdminViewable;
 use BackedEnum;
@@ -11,10 +12,13 @@ use Filament\Pages\Page;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Carbon;
+use UnitEnum;
 
 class IssueToken extends Page
 {
     use AdminViewable;
+
+    protected static string|UnitEnum|null $navigationGroup = Groups::ADMIN;
 
     protected static string|null|BackedEnum $navigationIcon = Heroicon::OutlinedKey;
 

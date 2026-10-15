@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Navigation\Groups;
 use App\Jobs\RunSysCompareJob;
 use App\Support\SysCompare\Storage\SysCompareStorage;
 use App\Support\SysCompare\SysCompareArtifact;
@@ -52,7 +53,7 @@ class SysFileCompare extends Page
 
     protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::ArrowsRightLeft;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Additional Tools';
+    protected static string|UnitEnum|null $navigationGroup = Groups::ANALYSE;
 
     protected static ?string $navigationLabel = 'PSO Sys File Compare';
 
