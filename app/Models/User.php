@@ -29,6 +29,7 @@ class User extends Authenticatable implements FilamentUser
         'name',
         'email',
         'password',
+        'last_tool_context',
     ];
 
     /**
@@ -51,7 +52,14 @@ class User extends Authenticatable implements FilamentUser
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_tool_context' => 'array',
         ];
+    }
+
+    /** @param  int|null  $datasetId  null for environment-scoped tools */
+    public function rememberToolContext(?int $environmentId, ?int $datasetId): void
+    {
+        $this->forceFill(['last_tool_context' => ['environment_id' => $environmentId, 'dataset_id' => $datasetId]])->save();
     }
 
     #[Override]
