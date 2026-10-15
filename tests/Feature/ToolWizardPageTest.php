@@ -383,3 +383,20 @@ it('notes on the run panel when the run used UTC because the dataset has no zone
         ->and(view('filament.tool-runs._run-panel', ['run' => $other, 'inputFiles' => collect(), 'resultView' => 'filament.tool-runs._generic', 'isRunning' => false])->render())
         ->not->toContain('Times are UTC');
 });
+
+it('does not wait for an upload that never finished', function () {
+    Queue::fake();
+    config(['exports.slot_minutes' => 15]);
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+    ExportFile::factory()->for($this->environment, 'scope')->sys()->create();
+    $stale = ExportFile::factory()->for($this->environment, 'scope')->sys()->uploading()->create();
+    ExportFile::query()->whereKey($stale->id)->update(['created_at' => now()->subMinutes(26)]);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->call('refreshInputs')
+        ->assertDontSeeHtml('wire:poll.2s="refreshInputs"')
+        ->assertFormFieldEnabled('files.sys')
+        ->call('start');
+
+    expect(ToolRun::count())->toBe(1);
+});

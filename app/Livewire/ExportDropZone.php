@@ -72,8 +72,8 @@ class ExportDropZone extends Component
     }
 
     /**
-     * Per kind, the newest file still arriving or being read, else the newest failed read of the
-     * last few minutes the user has not dismissed.
+     * Per kind, the newest file still arriving or being read, else, unless the user dismissed it,
+     * the newest file when it is an abandoned upload or a failed read of the last few minutes.
      *
      * @return array<string, array{state: 'reading'|'error', file: ExportFile}>
      */
@@ -86,8 +86,7 @@ class ExportDropZone extends Component
                 ->where('scope_type', $this->scope->getMorphClass())->where('scope_id', $this->scope->getKey())
                 ->where('kind', $kind);
 
-            $pending = (clone $files)->whereIn('status', [ExportFileStatus::Uploading, ExportFileStatus::Summarising])
-                ->latest()->first(['id', 'original_filename', 'status']);
+            $pending = (clone $files)->pending()->latest()->first(['id', 'original_filename', 'status']);
             if ($pending !== null) {
                 $found[$kind] = ['state' => 'reading', 'file' => $pending];
 
@@ -95,10 +94,21 @@ class ExportDropZone extends Component
             }
 
             $newest = (clone $files)->where('status', '!=', ExportFileStatus::Purged)
-                ->latest()->first(['id', 'original_filename', 'status', 'error_message', 'updated_at']);
-            if ($newest?->status === ExportFileStatus::Failed
-                && $newest->updated_at->greaterThanOrEqualTo(now()->subMinutes(self::FAILED_SHOWN_MINUTES))
-                && ! in_array($newest->id, $this->dismissed, true)) {
+                ->latest()->first(['id', 'original_filename', 'status', 'error_message', 'created_at', 'updated_at']);
+            if ($newest === null || in_array($newest->id, $this->dismissed, true)) {
+                continue;
+            }
+
+            // An upload the browser never completed: say so until dismissed, whatever its age (the purge marks it failed).
+            if ($newest->isAbandonedUpload()) {
+                $newest->error_message = 'Upload did not finish';
+                $found[$kind] = ['state' => 'error', 'file' => $newest];
+
+                continue;
+            }
+
+            if ($newest->status === ExportFileStatus::Failed
+                && $newest->updated_at->greaterThanOrEqualTo(now()->subMinutes(self::FAILED_SHOWN_MINUTES))) {
                 $found[$kind] = ['state' => 'error', 'file' => $newest];
             }
         }

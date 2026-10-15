@@ -37,10 +37,27 @@ it('purges an expired slot that never received an object without error', functio
 
 it('sweeps scratch folders older than the sweep window', function () {
     $root = config('exports.scratch_path');
-    mkdir("$root/old", 0770, true); touch("$root/old/file.xml", time() - 3 * 3600); touch("$root/old", time() - 3 * 3600);
-    mkdir("$root/new", 0770, true); touch("$root/new/file.xml");
+    mkdir("$root/old", 0770, true);
+    touch("$root/old/file.xml", time() - 3 * 3600);
+    touch("$root/old", time() - 3 * 3600);
+    mkdir("$root/new", 0770, true);
+    touch("$root/new/file.xml");
 
     Artisan::call('exports:purge');
 
     expect(is_dir("$root/old"))->toBeFalse()->and(is_dir("$root/new"))->toBeTrue();
+});
+
+it('marks an upload that never finished as failed once the slot and its grace have passed', function () {
+    config(['exports.slot_minutes' => 15]);
+    $stale = ExportFile::factory()->for(Dataset::factory(), 'scope')->uploading()->create(['expires_at' => now()->addHours(10)]);
+    ExportFile::query()->withoutGlobalScopes()->whereKey($stale->id)->update(['created_at' => now()->subMinutes(26)]);
+    $slow = ExportFile::factory()->for(Dataset::factory(), 'scope')->uploading()->create(['expires_at' => now()->addHours(10)]);
+    ExportFile::query()->withoutGlobalScopes()->whereKey($slow->id)->update(['created_at' => now()->subMinutes(20)]);
+
+    Artisan::call('exports:purge');
+
+    expect($stale->refresh()->status)->toBe(ExportFileStatus::Failed)
+        ->and($stale->error_message)->toBe('The upload did not finish.')
+        ->and($slow->refresh()->status)->toBe(ExportFileStatus::Uploading);
 });

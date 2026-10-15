@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages\Tools;
 
-use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
@@ -349,8 +348,7 @@ abstract class ToolWizardPage extends Page implements HasForms
             $uploadScope = $this->uploadScopeFor($kind, $scope);
 
             return ExportFile::query()->where('scope_type', $uploadScope->getMorphClass())->where('scope_id', $uploadScope->getKey())
-                ->where('kind', $kind)
-                ->whereIn('status', [ExportFileStatus::Uploading, ExportFileStatus::Summarising])->exists();
+                ->where('kind', $kind)->pending()->exists();
         }));
     }
 

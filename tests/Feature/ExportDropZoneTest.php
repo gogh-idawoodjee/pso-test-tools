@@ -105,3 +105,27 @@ it('re-reads the server state when an upload completes', function () {
 
     $component->dispatch('export-uploaded')->assertSee('Reading north_load.zip');
 });
+
+it('says an upload that never finished did not finish, and stops polling for it', function () {
+    config(['exports.slot_minutes' => 15]);
+    $file = ExportFile::factory()->for($this->dataset, 'scope')->uploading()->create(['kind' => ExportKind::Load, 'original_filename' => 'north_load.zip']);
+    ExportFile::query()->whereKey($file->id)->update(['created_at' => now()->subMinutes(26)]);
+
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load]])
+        ->assertSee('north_load.zip: Upload did not finish')
+        ->assertDontSee('Reading north_load.zip')
+        ->assertSeeHtml('data-state="error"')
+        ->assertDontSeeHtml('wire:poll.2s')
+        ->call('dismiss', $file->id)
+        ->assertDontSee('Upload did not finish')
+        ->assertSee('Drop a new LOAD');
+});
+
+it('still shows a slow upload inside the slot and its grace as being read', function () {
+    config(['exports.slot_minutes' => 15]);
+    $file = ExportFile::factory()->for($this->dataset, 'scope')->uploading()->create(['kind' => ExportKind::Load, 'original_filename' => 'north_load.zip']);
+    ExportFile::query()->whereKey($file->id)->update(['created_at' => now()->subMinutes(20)]);
+
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load]])
+        ->assertSee('Reading north_load.zip');
+});

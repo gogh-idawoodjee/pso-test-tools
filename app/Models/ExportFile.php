@@ -78,6 +78,36 @@ class ExportFile extends Model
         return $query->where('status', ExportFileStatus::Ready);
     }
 
+    /**
+     * Minutes after which a row still in Uploading counts as abandoned (browser closed, PUT failed):
+     * the presigned slot's lifetime plus a grace margin, because a PUT started near the end of the
+     * slot can still finish and complete only accepts an Uploading row.
+     */
+    public const UPLOAD_GRACE_MINUTES = 10;
+
+    public static function uploadAbandonedAfterMinutes(): int
+    {
+        return (int) config('exports.slot_minutes', 15) + self::UPLOAD_GRACE_MINUTES;
+    }
+
+    /** Still arriving or being read: Summarising, or Uploading within the slot and its grace. */
+    public function scopePending(Builder $query): Builder
+    {
+        return $query->where(static fn (Builder $query): Builder => $query
+            ->where('status', ExportFileStatus::Summarising)
+            ->orWhere(static fn (Builder $query): Builder => $query
+                ->where('status', ExportFileStatus::Uploading)
+                ->where('created_at', '>=', now()->subMinutes(self::uploadAbandonedAfterMinutes()))));
+    }
+
+    /** An Uploading row older than the slot and its grace: the upload will never complete. */
+    public function isAbandonedUpload(): bool
+    {
+        return $this->status === ExportFileStatus::Uploading
+            && $this->created_at !== null
+            && $this->created_at->lt(now()->subMinutes(self::uploadAbandonedAfterMinutes()));
+    }
+
     public function scopeOfKind(Builder $query, ExportKind $kind): Builder
     {
         return $query->where('kind', $kind);

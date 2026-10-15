@@ -43,9 +43,7 @@ abstract class ExportFilesRelationManager extends RelationManager
     {
         return $table
             ->header(fn () => view('livewire.export-drop-zone-header', ['scope' => $this->getOwnerRecord()]))
-            ->poll(fn (): ?string => $this->getOwnerRecord()->exportFiles()
-                ->whereIn('status', [ExportFileStatus::Uploading, ExportFileStatus::Summarising])
-                ->exists() ? '10s' : null)
+            ->poll(fn (): ?string => $this->getOwnerRecord()->exportFiles()->pending()->exists() ? '10s' : null)
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('kind')->badge(),

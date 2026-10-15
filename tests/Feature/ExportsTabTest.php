@@ -78,9 +78,21 @@ it('shows allocations for a plan export', function () {
 it('shows the file being read on the target of its kind, among all the targets', function () {
     ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'original_filename' => 'north_plan.zip', 'status' => ExportFileStatus::Uploading]);
 
-    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset])
+    Livewire::test(DatasetExports::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
         ->assertSee('Reading north_plan.zip')
         ->assertDontSee('Drop a new Plan')
-        ->assertSee('Drop a new LOAD')
-        ->assertSet('serverStates', ['plan' => 'reading']);
+        ->assertSee('Drop a new LOAD');
+});
+
+it('stops polling the table for an upload that never finished', function () {
+    config(['exports.slot_minutes' => 15]);
+    $live = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'status' => ExportFileStatus::Uploading]);
+
+    Livewire::test(DatasetExports::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
+        ->assertSeeHtml('wire:poll.10s');
+
+    ExportFile::query()->whereKey($live->id)->update(['created_at' => now()->subMinutes(26)]);
+
+    Livewire::test(DatasetExports::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
+        ->assertDontSeeHtml('wire:poll.10s');
 });

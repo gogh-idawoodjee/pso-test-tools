@@ -17,6 +17,12 @@ class PurgeExports extends Command
 
     public function handle(ExportStorage $storage): int
     {
+        // Uploads the browser never completed (closed tab, failed PUT) would otherwise sit in Uploading until they expire.
+        $abandoned = ExportFile::withoutGlobalScopes()
+            ->where('status', ExportFileStatus::Uploading)
+            ->where('created_at', '<', now()->subMinutes(ExportFile::uploadAbandonedAfterMinutes()))
+            ->update(['status' => ExportFileStatus::Failed, 'error_message' => 'The upload did not finish.', 'updated_at' => now()]);
+
         $purged = 0;
 
         ExportFile::withoutGlobalScopes()
@@ -39,7 +45,7 @@ class PurgeExports extends Command
 
         $swept = $this->sweepScratch($storage);
 
-        $this->info("Purged {$purged} export(s), swept {$swept} scratch folder(s).");
+        $this->info("Marked {$abandoned} unfinished upload(s) failed, purged {$purged} export(s), swept {$swept} scratch folder(s).");
 
         return self::SUCCESS;
     }
