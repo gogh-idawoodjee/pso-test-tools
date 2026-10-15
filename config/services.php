@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'webhook' => [
+        // Self-hosted webhook.site that receives the plan PSO broadcasts back.
+        'base_url' => env('WEBHOOK_BASE_URL', 'https://webhook.thetechnodro.me'),
+        // The webhook server's ALIAS_API_KEY. Without it, one-off tokens are used.
+        'alias_key' => env('WEBHOOK_ALIAS_KEY'),
+    ],
+
 ];
