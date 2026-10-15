@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PsoGatewayUpload extends Model
 {
@@ -20,6 +21,11 @@ class PsoGatewayUpload extends Model
         'status' => PsoGatewayUploadStatus::class,
         'file_size_bytes' => 'integer',
         'compressed_size_bytes' => 'integer',
+        'skip_webhook' => 'boolean',
+        'broadcast_settings' => 'array',
+        'response_status' => 'integer',
+        'wire_bytes' => 'integer',
+        'post_duration_ms' => 'integer',
         'activity_count' => 'integer',
         'resource_count' => 'integer',
         'queued_at' => 'datetime',
@@ -45,6 +51,15 @@ class PsoGatewayUpload extends Model
         'queued_at',
         'started_at',
         'completed_at',
+        'dataset_id_override',
+        'skip_webhook',
+        'broadcast_settings',
+        'response_status',
+        'response_body',
+        'webhook_url',
+        'webhook_view_url',
+        'wire_bytes',
+        'post_duration_ms',
     ];
 
     public function environment(): BelongsTo
@@ -55,5 +70,10 @@ class PsoGatewayUpload extends Model
     public function initiatedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'initiated_by_user_id');
+    }
+
+    public function logLines(): HasMany
+    {
+        return $this->hasMany(PsoGatewayUploadLogLine::class, 'pso_gateway_upload_id');
     }
 }

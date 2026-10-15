@@ -22,6 +22,9 @@ class PsoGatewayUploadFactory extends Factory
             'file_size_bytes' => fake()->numberBetween(1000, 1000000),
             'status' => PsoGatewayUploadStatus::QUEUED,
             'queued_at' => now(),
+            // Existing job tests send the file as-is; tests of the webhook
+            // flow set this to false explicitly.
+            'skip_webhook' => true,
         ];
     }
 }
