@@ -1,9 +1,15 @@
 <?php
 
+use App\Enums\GatewayUploadLogLevel;
 use App\Enums\PsoGatewayUploadStatus;
 use App\Jobs\SendPsoScheduleDataJob;
 use App\Models\Environment;
 use App\Models\PsoGatewayUpload;
+use App\Support\ScheduleData\BroadcastInjection;
+use App\Support\ScheduleData\BroadcastSettings;
+use App\Support\ScheduleData\RewriteReport;
+use App\Support\ScheduleData\ScheduleDataRewriter;
+use App\Support\ScheduleData\ScheduleDataRewriterFactory;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Http;
@@ -151,7 +157,7 @@ it('fails cleanly when the gateway rejects credentials', function () {
     $upload->refresh();
 
     expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED);
-    expect($upload->error_message)->toBe('Could not authenticate with the PSO gateway. Check the environment credentials.');
+    expect($upload->error_message)->toBe('Could not log on to the PSO gateway: Unauthorized. Please check your session or login credentials.');
 });
 
 it('maps a gateway AUTHENTICATION_FAILED response to a plain-language error', function () {
@@ -355,4 +361,457 @@ it('fails cleanly when the zip contains no json or xml entry', function () {
 
     expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::FAILED);
     expect($upload->error_message)->toContain('.json or .xml');
+});
+
+function webhookJobUpload(string $path, string $contents, array $attributes = []): PsoGatewayUpload
+{
+    Storage::disk('r2')->put($path, $contents);
+
+    return PsoGatewayUpload::factory()
+        ->for(Environment::factory()->create(['name' => 'SaskTel TST']), 'environment')
+        ->create([
+            'stored_path' => $path,
+            'original_filename' => basename($path),
+            'skip_webhook' => false,
+            ...$attributes,
+        ]);
+}
+
+function runUploadJob(PsoGatewayUpload $upload): void
+{
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))->handle();
+}
+
+function fakeWebhookAndGateway(array $extra = []): void
+{
+    config([
+        'services.webhook.base_url' => 'https://webhook.example.test',
+        'services.webhook.alias_key' => 'alias-key-123',
+    ]);
+
+    Http::fake([
+        ...PsoServicesFake::session(),
+        'https://webhook.example.test/_alias/*' => Http::response(['uuid' => 'uuid-1', 'created' => true], 201),
+        '*/scheduling/data' => Http::response(['InternalId' => '1857054'], 200),
+        ...$extra,
+    ]);
+}
+
+function sentPayload(): array
+{
+    $sent = null;
+
+    Http::assertSent(static function ($request) use (&$sent) {
+        if (str_contains((string) $request->url(), '/scheduling/data')) {
+            $sent = json_decode(gzdecode((string) $request->body()), true, flags: JSON_THROW_ON_ERROR);
+
+            return true;
+        }
+
+        return false;
+    });
+
+    return $sent;
+}
+
+it('injects the webhook broadcast and records the webhook and response', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}],"Resources":[{"id":"R1"}]}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+    $payload = sentPayload();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect($upload->webhook_url)->toBe('https://webhook.example.test/pso-sasktel-tst');
+    expect($upload->webhook_view_url)->toBe('https://webhook.example.test/#!/uuid-1');
+    expect($upload->response_status)->toBe(200);
+    expect($upload->response_body)->toContain('1857054');
+    expect($upload->wire_bytes)->toBeGreaterThan(0);
+    expect($upload->post_duration_ms)->not->toBeNull();
+    expect($payload['ScheduleData']['Broadcast'][0]['maximum_wait'])->toBe('PT5M');
+    expect($payload['ScheduleData']['Broadcast'][0]['id'])->toBe('WEBHOOK_COMPLETE');
+    expect(collect($payload['ScheduleData']['Broadcast_Parameter'])->firstWhere('parameter_name', 'url')['parameter_value'])
+        ->toBe('https://webhook.example.test/pso-sasktel-tst');
+    expect($payload['ScheduleData']['Input_Reference'][0]['dataset_id'])->toBe('OLD');
+});
+
+it('uses the per-upload broadcast settings', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        '{"ScheduleData":{"Resources":[]}}',
+        ['broadcast_settings' => BroadcastSettings::fromArray(['id' => 'MY_HOOK', 'maximum_wait' => 'PT10M', 'minimum_plan_quality' => 90])->toArray()],
+    );
+
+    runUploadJob($upload);
+
+    $broadcast = sentPayload()['ScheduleData']['Broadcast'][0];
+
+    expect($broadcast['id'])->toBe('MY_HOOK');
+    expect($broadcast['maximum_wait'])->toBe('PT10M');
+    expect($broadcast['minimum_plan_quality'])->toBe(90);
+});
+
+it('sends the original bytes when the webhook is skipped and no dataset id is given', function () {
+    fakeWebhookAndGateway();
+    $original = '{"ScheduleData":{"Resources":[{"id":"R1"}]}}';
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', $original, ['skip_webhook' => true]);
+
+    runUploadJob($upload);
+
+    expect(json_encode(sentPayload()))->toBe(json_encode(json_decode($original, true)));
+    expect($upload->refresh()->webhook_url)->toBeNull();
+    Http::assertNotSent(static fn ($request) => str_contains((string) $request->url(), 'webhook.example.test'));
+});
+
+it('applies a dataset id override even when the webhook is skipped', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}]}}',
+        ['skip_webhook' => true, 'dataset_id_override' => 'NEW'],
+    );
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect(sentPayload()['ScheduleData']['Input_Reference'][0]['dataset_id'])->toBe('NEW');
+    expect($upload->dataset_id)->toBe('NEW');
+    expect($upload->logLines->pluck('text')->implode("\n"))->toContain("'OLD' -> 'NEW'");
+});
+
+it('injects into an xml upload', function () {
+    fakeWebhookAndGateway();
+    $xml = '<dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd"><Resources><id>R1</id></Resources></dsScheduleData>';
+    $upload = webhookJobUpload('gateway-uploads/schedule.xml', $xml);
+
+    runUploadJob($upload);
+
+    $sentXml = null;
+    Http::assertSent(static function ($request) use (&$sentXml) {
+        if (str_contains((string) $request->url(), '/scheduling/data')) {
+            $sentXml = gzdecode((string) $request->body());
+
+            return $request->hasHeader('Content-Type', 'application/xml');
+        }
+
+        return false;
+    });
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect($sentXml)->toContain('<Broadcast>')->toContain('<maximum_wait>PT5M</maximum_wait>');
+});
+
+it('fails the run and sends nothing to PSO when the webhook cannot be provisioned', function () {
+    fakeWebhookAndGateway(['https://webhook.example.test/_alias/*' => Http::response('forbidden', 403)]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($upload->error_message)->toContain('403');
+    Http::assertNotSent(static fn ($request) => str_contains((string) $request->url(), '/scheduling/data'));
+    Http::assertNotSent(static fn ($request) => $request->url() === PsoServicesFake::sessionUrl());
+});
+
+it('fails with the script message when the file has no schedule data wrapper', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"Other":{}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($upload->error_message)->toContain("Expected a top-level 'ScheduleData' or 'dsScheduleData' wrapper");
+    Http::assertNotSent(static fn ($request) => str_contains((string) $request->url(), '/scheduling/data'));
+});
+
+it('logs off through pso-services after a successful upload', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    Http::assertSent(static fn ($request) => $request->method() === 'DELETE'
+        && $request->url() === PsoServicesFake::sessionUrl()
+        && $request->hasHeader('token', 'tok-abc'));
+});
+
+it('still logs off when the gateway POST fails', function () {
+    fakeWebhookAndGateway(['*/scheduling/data' => Http::response(['Message' => 'Invalid Parameters'], 400)]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    Http::assertSent(static fn ($request) => $request->method() === 'DELETE' && $request->url() === PsoServicesFake::sessionUrl());
+    expect($upload->logLines->pluck('text')->implode("\n"))->toContain('HTTP status      : 400');
+});
+
+it('still logs off when the gateway POST times out', function () {
+    fakeWebhookAndGateway(['*/scheduling/data' => static function () {
+        throw new ConnectionException('Connection timed out');
+    }]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    Http::assertSent(static fn ($request) => $request->method() === 'DELETE' && $request->url() === PsoServicesFake::sessionUrl());
+});
+
+it('treats a failing logoff as a warning, not a failed run', function () {
+    config(['services.webhook.base_url' => 'https://webhook.example.test', 'services.webhook.alias_key' => 'alias-key-123']);
+    Http::fake([
+        ...PsoServicesFake::session(logoffStatus: 500),
+        'https://webhook.example.test/_alias/*' => Http::response(['uuid' => 'uuid-1', 'created' => true], 201),
+        '*/scheduling/data' => Http::response(['InternalId' => '1857054'], 200),
+    ]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect($upload->logLines->where('level', GatewayUploadLogLevel::WARN)->pluck('text')->implode("\n"))->toContain('Logoff failed');
+});
+
+it('puts the pso-services reason in the run log when logon is refused', function () {
+    config(['services.webhook.base_url' => 'https://webhook.example.test', 'services.webhook.alias_key' => 'alias-key-123']);
+    Http::fake([
+        PsoServicesFake::sessionUrl() => Http::response(['message' => 'Production URLs are not allowed', 'errors' => ['baseUrl' => ['Production URLs are not allowed']]], 422),
+        'https://webhook.example.test/_alias/*' => Http::response(['uuid' => 'uuid-1', 'created' => true], 201),
+    ]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($upload->logLines->pluck('text')->implode("\n"))->toContain('Production URLs are not allowed');
+});
+
+it('writes the script-style steps to the run log and never a secret', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}],"Broadcast":[{"id":"X"}]}}');
+
+    runUploadJob($upload);
+
+    $text = $upload->refresh()->logLines()->orderBy('id')->pluck('text')->implode("\n");
+
+    expect($text)->toContain('PSO RESTful Gateway - Schedule Data Upload');
+    expect($text)->toContain('Created new alias /pso-sasktel-tst');
+    expect($text)->toContain('Stripped existing broadcast from the file: 1 Broadcast and 0 Broadcast_Parameter row(s) removed.');
+    expect($text)->toContain("Injected Broadcast 'WEBHOOK_COMPLETE'");
+    expect($text)->toContain('maximum_wait=PT5M');
+    expect($text)->toContain('required_tables: Allocation,Plan,');
+    expect($text)->toContain('Logon successful');
+    expect($text)->toContain('Response body:');
+    expect($text)->toContain('Done in');
+    expect($text)->toContain('Webhook endpoint for this run: https://webhook.example.test/#!/uuid-1');
+    expect($text)->not->toContain('secret-password');
+    expect($text)->not->toContain('tok-abc');
+    expect($text)->not->toContain('alias-key-123');
+});
+
+it('logs "nothing to strip" when the file has no broadcast rows', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    expect($upload->refresh()->logLines->pluck('text')->implode("\n"))->toContain('No existing Broadcast or Broadcast_Parameter in the file - nothing to strip.');
+});
+
+it('puts the pso-services reason on the upload when logon is refused', function () {
+    config(['services.webhook.base_url' => 'https://webhook.example.test', 'services.webhook.alias_key' => 'alias-key-123']);
+    Http::fake([
+        PsoServicesFake::sessionUrl() => Http::response(['message' => 'Production URLs are not allowed', 'errors' => ['baseUrl' => ['Production URLs are not allowed']]], 422),
+        'https://webhook.example.test/_alias/*' => Http::response(['uuid' => 'uuid-1', 'created' => true], 201),
+    ]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->error_message)->toBe('Could not log on to the PSO gateway: Production URLs are not allowed');
+    expect($upload->logLines->where('level', GatewayUploadLogLevel::ERROR)->pluck('text')->implode("\n"))->toContain('LOGON FAILED');
+    Http::assertNotSent(static fn ($request) => str_contains((string) $request->url(), '/scheduling/data'));
+    Http::assertNotSent(static fn ($request) => $request->method() === 'DELETE');
+});
+
+it('shows an unreachable pso-services as the logon failure reason', function () {
+    config(['services.webhook.base_url' => 'https://webhook.example.test', 'services.webhook.alias_key' => 'alias-key-123']);
+    Http::fake([
+        PsoServicesFake::sessionUrl() => static function () {
+            throw new ConnectionException('cURL error 28');
+        },
+        'https://webhook.example.test/_alias/*' => Http::response(['uuid' => 'uuid-1', 'created' => true], 201),
+    ]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($upload->error_message)->toContain('could not be reached');
+});
+
+it('writes the log steps in the script order', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}],"Resources":[]}}',
+        ['dataset_id_override' => 'NEW'],
+    );
+
+    runUploadJob($upload);
+
+    $text = $upload->refresh()->logLines()->orderBy('id')->pluck('text')->implode("\n");
+
+    $expectedOrder = [
+        '=== PSO RESTful Gateway - Schedule Data Upload ===',
+        'File found:',
+        'Content type     : application/json (from extension)',
+        "Ensuring webhook alias '/pso-sasktel-tst' exists",
+        'Webhook endpoint : https://webhook.example.test/pso-sasktel-tst',
+        'Rewriting the file (streaming)...',
+        "Changed Input_Reference.dataset_id: 'OLD' -> 'NEW'",
+        'No existing Broadcast or Broadcast_Parameter in the file - nothing to strip.',
+        "Injected Broadcast 'WEBHOOK_COMPLETE'",
+        'Sending modified copy instead of the original',
+        'Step 1/3: Logging on',
+        'Logon successful',
+        'Step 2/3: Preparing request body',
+        'Compressed to',
+        'Step 3/3: POSTing to https://example.test/IFSSchedulingRESTfulGateway/api/v1/scheduling/data',
+        'Upload complete.',
+        'HTTP status      : 200',
+        'Wire bytes sent',
+        'POST duration',
+        'Effective rate',
+        'Response body:',
+        'Logging off session...',
+        'Session logged off.',
+        '=== Done in',
+        'Webhook endpoint for this run: https://webhook.example.test/#!/uuid-1',
+    ];
+
+    $position = -1;
+
+    foreach ($expectedOrder as $fragment) {
+        $found = strpos($text, $fragment, $position + 1);
+
+        expect($found)->not->toBeFalse("'{$fragment}' is missing or out of order");
+
+        $position = $found;
+    }
+});
+
+it('keeps the customer broadcast rows when the webhook is skipped', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}],"Broadcast":[{"id":"CUSTOMER"}],"Broadcast_Parameter":[{"broadcast_id":"CUSTOMER"}]}}',
+        ['skip_webhook' => true, 'dataset_id_override' => 'NEW'],
+    );
+
+    runUploadJob($upload);
+
+    $payload = sentPayload();
+
+    expect($payload['ScheduleData']['Broadcast'])->toBe([['id' => 'CUSTOMER']]);
+    expect($payload['ScheduleData']['Broadcast_Parameter'])->toBe([['broadcast_id' => 'CUSTOMER']]);
+    expect($payload['ScheduleData']['Input_Reference'][0]['dataset_id'])->toBe('NEW');
+    expect($upload->refresh()->logLines->pluck('text')->implode("\n"))->not->toContain('Stripped existing broadcast');
+});
+
+it('sends a json file with no wrapper unchanged when only a dataset id override is set', function () {
+    fakeWebhookAndGateway();
+    $original = '{"Other":{"Input_Reference":[{"dataset_id":"OLD"}]}}';
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', $original, ['skip_webhook' => true, 'dataset_id_override' => 'NEW']);
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect(json_encode(sentPayload()))->toBe(json_encode(json_decode($original, true)));
+    expect($upload->logLines->pluck('text')->implode("\n"))
+        ->toContain("No top-level 'ScheduleData' or 'dsScheduleData' wrapper in the file")
+        ->toContain('No Input_Reference.dataset_id in the file - nothing to keep or change.');
+});
+
+it('suggests the skip toggle when the wrapper is missing', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.xml', '<Other><Resources/></Other>');
+
+    runUploadJob($upload);
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($upload->error_message)->toContain("Turn on 'Skip webhook broadcast'");
+    Http::assertNotSent(static fn ($request) => $request->url() === PsoServicesFake::sessionUrl());
+});
+
+it('removes a partial rewrite and sends nothing when the rewriter throws', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    $destinations = new ArrayObject;
+
+    $rewriter = new class($destinations) implements ScheduleDataRewriter
+    {
+        public function __construct(private ArrayObject $destinations) {}
+
+        public function rewrite(string $sourcePath, string $destinationPath, ?string $datasetIdOverride, ?BroadcastInjection $injection): RewriteReport
+        {
+            $this->destinations[] = $destinationPath;
+            file_put_contents($destinationPath, '{"ScheduleData":{"Resou');
+
+            throw new RuntimeException('The rewritten schedule data could not be written.');
+        }
+    };
+
+    $factory = Mockery::mock(ScheduleDataRewriterFactory::class);
+    $factory->shouldReceive('forFormat')->andReturn($rewriter);
+    app()->instance(ScheduleDataRewriterFactory::class, $factory);
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($upload->error_message)->toContain('could not be written');
+    expect($destinations)->toHaveCount(1);
+    expect(file_exists($destinations[0]))->toBeFalse();
+    expect(is_dir(dirname($destinations[0])))->toBeFalse();
+    Http::assertNotSent(static fn ($request) => str_contains((string) $request->url(), '/scheduling/data'));
+    Http::assertNotSent(static fn ($request) => $request->url() === PsoServicesFake::sessionUrl());
+    Storage::disk('r2')->assertMissing('gateway-uploads/schedule.json');
+});
+
+it('never writes a secret to a log line, the response body or the error message', function () {
+    config(['services.webhook.base_url' => 'https://webhook.example.test', 'services.webhook.alias_key' => 'alias-key-123']);
+    Http::fake([
+        ...PsoServicesFake::session(logoffStatus: 500),
+        'https://webhook.example.test/_alias/*' => Http::response(['uuid' => 'uuid-1', 'created' => true], 201),
+        '*/scheduling/data' => Http::response(['Message' => 'Invalid Parameters'], 400),
+    ]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+    $everything = $upload->logLines->pluck('text')->implode("\n")."\n{$upload->response_body}\n{$upload->error_message}";
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect($everything)->not->toContain('secret-password')->not->toContain('tok-abc')->not->toContain('alias-key-123');
 });

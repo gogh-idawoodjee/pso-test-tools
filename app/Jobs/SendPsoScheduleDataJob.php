@@ -3,11 +3,19 @@
 namespace App\Jobs;
 
 use App\Enums\PsoGatewayUploadStatus;
+use App\Models\Environment;
 use App\Models\PsoGatewayUpload;
+use App\Models\Scopes\UserOwnedModel;
+use App\Support\GatewayUpload\UploadRunLog;
 use App\Support\GatewayUploadPath;
 use App\Support\GzipFileCompressor;
+use App\Support\ScheduleData\BroadcastInjection;
+use App\Support\ScheduleData\BroadcastSettings;
+use App\Support\ScheduleData\RewriteReport;
+use App\Support\ScheduleData\ScheduleDataRewriterFactory;
 use App\Support\ScheduleDataSummaryExtractor;
 use App\Support\ScheduleDataZipExtractor;
+use App\Support\Webhook\WebhookEndpointProvisioner;
 use App\Traits\PSOInteractionsTrait;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
@@ -29,11 +37,16 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, PSOInteractionsTrait, Queueable, SerializesModels;
 
-    public int $timeout = 300;
+    // Download, unzip, stream-rewrite, gzip, logon, a POST of up to 240s and
+    // logoff all run inside this. The queue connection's retry_after must be
+    // larger than this value (see config/queue.php).
+    public int $timeout = 900;
 
     public int $tries = 1;
 
     private const int CHUNK_SIZE = 1024 * 1024; // 1MB
+
+    private const int RESPONSE_BODY_LIMIT = 65536; // 64KB kept on the row and in the log
 
     public function __construct(
         public string $psoGatewayUploadId,
@@ -61,6 +74,9 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             return;
         }
 
+        $log = app(UploadRunLog::class, ['upload' => $upload]);
+        $runStartedAt = microtime(true);
+
         $upload->update(['status' => PsoGatewayUploadStatus::COMPRESSING, 'started_at' => now()]);
 
         $workDir = storage_path('app/private/gateway-uploads/'.$upload->id);
@@ -68,20 +84,39 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             mkdir($workDir, 0755, true);
         }
 
-        try {
-            $downloadedPath = $this->downloadOriginalUpload($upload, $workDir);
+        $sessionToken = null;
 
-            $rawPath = str_ends_with(strtolower($downloadedPath), '.zip')
+        try {
+            $log->step('=== PSO RESTful Gateway - Schedule Data Upload ===');
+            $log->sub('Environment      : '.($this->environmentName($upload) ?? '(unknown)'));
+            $log->sub("Gateway base URL : {$this->baseUrl}");
+            $log->sub("Account          : {$this->accountId}");
+            $log->sub("User             : {$this->username}");
+            $log->sub("File             : {$upload->original_filename}");
+            $log->sub('Gzip compression : on');
+
+            $downloadedPath = $this->downloadOriginalUpload($upload, $workDir);
+            $log->step('File found: '.$this->megabytes((int) filesize($downloadedPath)).' MB');
+
+            $isZip = str_ends_with(strtolower($downloadedPath), '.zip');
+            $rawPath = $isZip
                 ? ScheduleDataZipExtractor::extract($downloadedPath, $workDir)
                 : $downloadedPath;
 
+            if ($isZip) {
+                $log->sub('Extracted '.basename($rawPath).' from the zip ('.$this->megabytes((int) filesize($rawPath)).' MB)');
+            }
+
             $format = str_ends_with(strtolower($rawPath), '.xml') ? 'xml' : 'json';
             $contentType = $format === 'xml' ? 'application/xml' : 'application/json';
+            $log->sub("Content type     : {$contentType} (from extension)");
+
+            $sendPath = $this->preparePayload($upload, $log, $rawPath, $format, $contentType, $workDir);
 
             // Display-only — never blocks or alters the upload itself. If the
             // file can't be parsed for these fields, they're simply left null;
-            // the raw bytes are still gzipped and sent unchanged either way.
-            $summary = ScheduleDataSummaryExtractor::extract($rawPath, $format);
+            // the bytes are still gzipped and sent unchanged either way.
+            $summary = ScheduleDataSummaryExtractor::extract($sendPath, $format);
 
             $upload->update([
                 'dataset_id' => $summary['dataset_id'],
@@ -90,21 +125,38 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
                 'resource_count' => $summary['resource_count'],
             ]);
 
+            // Same order as the script: log on, then gzip, then POST. The
+            // session is logged off in `finally` if anything below throws.
+            $log->step('Step 1/3: Logging on through pso-services...');
+            $sessionToken = $this->authenticatePSO($this->baseUrl, $this->accountId, $this->username, $this->password);
+
+            if (! $sessionToken) {
+                // The services' own reason (401, 422, 5xx or unreachable),
+                // never the request itself: it carries the password.
+                $reason = $this->session_error_message ?? 'no detail from the PSO services API.';
+                $log->error('LOGON FAILED');
+                $this->failUpload($upload, "Could not log on to the PSO gateway: {$reason}");
+
+                return;
+            }
+
+            $log->ok('Logon successful. Session token acquired (length: '.strlen($sessionToken).').');
+
+            $log->step('Step 2/3: Preparing request body...');
+            $log->sub('Gzip-compressing request body...');
+
+            $sendSize = (int) filesize($sendPath);
             $gzipPath = $workDir.'/payload.gz';
-            $compressedSize = GzipFileCompressor::compress($rawPath, $gzipPath);
+            $compressStartedAt = microtime(true);
+            $compressedSize = GzipFileCompressor::compress($sendPath, $gzipPath);
+
+            $ratio = $sendSize > 0 ? round((1 - $compressedSize / $sendSize) * 100, 1) : 0;
+            $log->sub('Compressed to '.$this->megabytes($compressedSize).' MB in '.number_format(microtime(true) - $compressStartedAt, 2)."s ({$ratio}% smaller)");
 
             $upload->update([
                 'compressed_size_bytes' => $compressedSize,
                 'status' => PsoGatewayUploadStatus::UPLOADING,
             ]);
-
-            $token = $this->authenticatePSO($this->baseUrl, $this->accountId, $this->username, $this->password);
-
-            if (! $token) {
-                $this->failUpload($upload, 'Could not authenticate with the PSO gateway. Check the environment credentials.');
-
-                return;
-            }
 
             $gzipStream = @fopen($gzipPath, 'rb');
 
@@ -112,23 +164,63 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
                 throw new RuntimeException("The compressed payload could not be opened for sending: {$gzipPath}");
             }
 
+            $dataUrl = "{$this->baseUrl}/IFSSchedulingRESTfulGateway/api/v1/scheduling/data";
+            $log->step("Step 3/3: POSTing to {$dataUrl} ...");
+
             // Laravel's HTTP client defaults to a 30s response-wait timeout,
             // which is nowhere near enough here: PSO validates and writes
             // the whole payload before it responds, and that can legitimately
             // take longer than 30s for a large load. Without this, the load
             // lands and succeeds on PSO's side while this job still times
-            // out and reports a false failure. Left under the job's own
-            // $timeout (300s) to leave headroom for the download/compress/
-            // auth steps that already ran before this request.
+            // out and reports a false failure.
+            $postStartedAt = microtime(true);
             $response = Http::timeout(240)
                 ->connectTimeout(10)
                 ->withHeaders([
-                    'apiKey' => $token,
+                    'apiKey' => $sessionToken,
                     'Content-Encoding' => 'gzip',
                 ])->withBody($gzipStream, $contentType)
-                ->post("{$this->baseUrl}/IFSSchedulingRESTfulGateway/api/v1/scheduling/data");
+                ->post($dataUrl);
+            $postSeconds = microtime(true) - $postStartedAt;
+
+            $responseBody = mb_strcut($response->body(), 0, self::RESPONSE_BODY_LIMIT, 'UTF-8');
+
+            $upload->update([
+                'response_status' => $response->status(),
+                'response_body' => $responseBody,
+                'wire_bytes' => $compressedSize,
+                'post_duration_ms' => (int) round($postSeconds * 1000),
+            ]);
+
+            $rate = $postSeconds > 0 ? round(($compressedSize / 1048576) / $postSeconds, 2) : 0;
+
+            // As the script: the outcome first, then the numbers and the raw body.
+            if ($response->successful()) {
+                $log->ok('Upload complete.');
+            } else {
+                $log->error('UPLOAD FAILED after '.$this->duration($postSeconds));
+            }
+
+            $log->sub("HTTP status      : {$response->status()}");
+            $log->sub('Wire bytes sent  : '.$this->megabytes($compressedSize).' MB');
+            $log->sub('POST duration    : '.$this->duration($postSeconds));
+            $log->sub("Effective rate   : {$rate} MB/s (wire, post-compression)");
+
+            if ($responseBody !== '') {
+                $log->sub('Response body:');
+                $log->sub($responseBody);
+            }
+
+            $this->logOff($log, $sessionToken);
+            $sessionToken = null;
 
             if ($response->successful()) {
+                $log->step('=== Done in '.$this->duration(microtime(true) - $runStartedAt).' total ===');
+
+                if (filled($upload->webhook_view_url)) {
+                    $log->sub("Webhook endpoint for this run: {$upload->webhook_view_url}");
+                }
+
                 $upload->update([
                     'status' => PsoGatewayUploadStatus::SUCCEEDED,
                     'internal_id' => $response->json('InternalId'),
@@ -139,15 +231,176 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             }
 
             $this->failUpload($upload, $this->mapGatewayError($response));
-        } catch (ConnectionException $e) {
-            Log::error('PSO gateway connection error', ['upload_id' => $upload->id, 'message' => $e->getMessage()]);
+        } catch (ConnectionException $exception) {
+            Log::error('PSO gateway connection error', ['upload_id' => $upload->id, 'message' => $exception->getMessage()]);
+            $log->error('UPLOAD FAILED');
+            $log->sub("Error: {$exception->getMessage()}");
             $this->failUpload($upload, 'Could not reach the PSO gateway (timed out or unreachable).');
-        } catch (Throwable $e) {
-            Log::error('PSO gateway upload failed', ['upload_id' => $upload->id, 'message' => $e->getMessage()]);
-            $this->failUpload($upload, $e->getMessage());
+        } catch (Throwable $exception) {
+            Log::error('PSO gateway upload failed', ['upload_id' => $upload->id, 'message' => $exception->getMessage()]);
+            $this->failUpload($upload, $exception->getMessage());
         } finally {
+            if ($sessionToken !== null) {
+                $this->logOff($log, $sessionToken);
+            }
+
             $this->cleanup($upload, $workDir);
         }
+    }
+
+    /**
+     * Provisions the webhook, then writes the modified copy (dataset id
+     * override, old broadcast rows stripped, new Broadcast injected) and
+     * returns its path. Returns the original path when there is nothing to do.
+     */
+    private function preparePayload(
+        PsoGatewayUpload $upload,
+        UploadRunLog $log,
+        string $rawPath,
+        string $format,
+        string $contentType,
+        string $workDir,
+    ): string {
+        $datasetIdOverride = filled($upload->dataset_id_override) ? trim((string) $upload->dataset_id_override) : null;
+        $injection = null;
+
+        if ($upload->skip_webhook) {
+            $log->sub('Webhook broadcast skipped (Skip webhook broadcast is on).');
+        } else {
+            $environmentName = $this->environmentName($upload);
+
+            if ($environmentName === null) {
+                throw new RuntimeException("The upload's environment could not be found, so the webhook alias cannot be named. Turn on 'Skip webhook broadcast' to send the file without it.");
+            }
+
+            $endpoint = app(WebhookEndpointProvisioner::class)->provision(
+                $environmentName,
+                $contentType,
+                $log,
+            );
+
+            $upload->update([
+                'webhook_url' => $endpoint->url,
+                'webhook_view_url' => $endpoint->viewUrl,
+            ]);
+
+            $injection = new BroadcastInjection(
+                BroadcastSettings::fromArray($upload->broadcast_settings ?? []),
+                $endpoint->url,
+            );
+        }
+
+        if ($datasetIdOverride === null && $injection === null) {
+            $log->sub('No dataset ID override and no webhook - sending the file exactly as uploaded.');
+
+            return $rawPath;
+        }
+
+        $destinationPath = "{$workDir}/payload_modified.{$format}";
+
+        $log->step('Rewriting the file (streaming)...');
+
+        try {
+            $report = app(ScheduleDataRewriterFactory::class)
+                ->forFormat($format)
+                ->rewrite($rawPath, $destinationPath, $datasetIdOverride, $injection);
+        } catch (Throwable $exception) {
+            // A rewriter can stop part-way through; never leave a truncated
+            // copy behind that a later step could pick up and send.
+            File::delete($destinationPath);
+
+            if ($injection !== null && str_contains($exception->getMessage(), "'dsScheduleData' wrapper")) {
+                throw new RuntimeException($exception->getMessage()." Turn on 'Skip webhook broadcast' to send the file as it is.", previous: $exception);
+            }
+
+            throw $exception;
+        }
+
+        if ($report->format === 'json') {
+            // Only reachable without an injection: the rewriter refuses to
+            // inject into a file with no wrapper. The script sends it as is.
+            $log->warn("No top-level 'ScheduleData' or 'dsScheduleData' wrapper in the file - sending it unchanged.");
+        }
+
+        $this->logRewrite($log, $report, $datasetIdOverride, $injection);
+
+        if ($injection === null && ! $report->datasetIdChanged) {
+            File::delete($destinationPath);
+            $log->sub('Nothing changed - sending the file exactly as uploaded.');
+
+            return $rawPath;
+        }
+
+        $log->sub('Sending modified copy instead of the original: '.basename($destinationPath).' ('.$this->megabytes($report->bytesWritten).' MB)');
+
+        return $destinationPath;
+    }
+
+    private function logRewrite(UploadRunLog $log, RewriteReport $report, ?string $datasetIdOverride, ?BroadcastInjection $injection): void
+    {
+        if ($report->datasetIds === []) {
+            $log->sub('No Input_Reference.dataset_id in the file - nothing to keep or change.');
+        } else {
+            $current = implode(', ', array_map(static fn (string $id): string => $id === '' ? '(blank)' : $id, $report->datasetIds));
+
+            if ($datasetIdOverride !== null && $report->datasetIdChanged) {
+                $log->sub("Changed Input_Reference.dataset_id: '{$current}' -> '{$datasetIdOverride}'");
+            } else {
+                $log->sub("Keeping Input_Reference.dataset_id: {$current}");
+            }
+        }
+
+        if ($injection === null) {
+            return;
+        }
+
+        if ($report->strippedBroadcasts === 0 && $report->strippedBroadcastParameters === 0) {
+            $log->warn('No existing Broadcast or Broadcast_Parameter in the file - nothing to strip.');
+        } else {
+            $log->warn("Stripped existing broadcast from the file: {$report->strippedBroadcasts} Broadcast and {$report->strippedBroadcastParameters} Broadcast_Parameter row(s) removed.");
+        }
+
+        $settings = $injection->settings;
+
+        $log->sub("Injected Broadcast '{$settings->broadcastId}' (plan_type={$settings->planType}, once_only=true, minimum_plan_quality={$settings->minimumPlanQuality}, maximum_wait={$settings->maximumWait}, allocation_type={$settings->allocationType})");
+        $log->sub('required_tables: '.implode(',', $settings->requiredTables));
+    }
+
+    private function logOff(UploadRunLog $log, string $sessionToken): void
+    {
+        $log->step('Logging off session...');
+
+        if ($this->logoffPSO($this->baseUrl, $sessionToken)) {
+            $log->sub('Session logged off.');
+
+            return;
+        }
+
+        $log->warn('Logoff failed (non-fatal): '.($this->session_error_message ?? 'no detail from the PSO services API'));
+    }
+
+    /**
+     * Read past the user-owned global scope: the queue worker has no signed-in
+     * user, so `$upload->environment` would always come back null here.
+     */
+    private function environmentName(PsoGatewayUpload $upload): ?string
+    {
+        $name = Environment::query()
+            ->withoutGlobalScope(UserOwnedModel::class)
+            ->whereKey($upload->pso_environment_id)
+            ->value('name');
+
+        return filled($name) ? (string) $name : null;
+    }
+
+    private function megabytes(int $bytes): string
+    {
+        return number_format($bytes / 1048576, 2);
+    }
+
+    private function duration(float $seconds): string
+    {
+        return sprintf('%02d:%06.3f', intdiv((int) $seconds, 60), fmod($seconds, 60));
     }
 
     private function downloadOriginalUpload(PsoGatewayUpload $upload, string $workDir): string
@@ -206,6 +459,8 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 
     private function failUpload(PsoGatewayUpload $upload, string $message): void
     {
+        app(UploadRunLog::class, ['upload' => $upload])->error($message);
+
         $upload->update([
             'status' => PsoGatewayUploadStatus::FAILED,
             'error_message' => $message,
