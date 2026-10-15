@@ -48,7 +48,7 @@ class RunInputPicker
 
         foreach ($this->kindsOf($toolId) as $kind) {
             $options[$kind->value] = $this->candidates($scope, $kind)
-                ->mapWithKeys(fn (ExportFile $file): array => [$file->id => $this->labelFor($file, $scope).'  '.$this->purgeCountdown($file)])
+                ->mapWithKeys(fn (ExportFile $file): array => [$file->id => $this->labelFor($file, $scope).', '.$this->purgeCountdown($file)])
                 ->all();
         }
 

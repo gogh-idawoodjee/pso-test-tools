@@ -66,3 +66,14 @@ it('remembers the context on the user, with a null dataset for an environment-sc
     FakeTool::$kinds = null;
     expect($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->dataset->environment_id, 'dataset_id' => null]);
 });
+
+it('checks chosen files are usable, skipping blanks and keys the tool does not take', function () {
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+    $purged = ExportFile::factory()->for($this->dataset, 'scope')->purged()->create(['kind' => ExportKind::Load]);
+    $check = app(StartToolRun::class);
+
+    $check->assertUsable($this->dataset, ToolId::LoadAudit, ['load' => $load->id, 'sys' => null, 'not-a-kind' => 'x']);
+
+    expect(fn () => $check->assertUsable($this->dataset, ToolId::LoadAudit, ['load' => $purged->id]))
+        ->toThrow(UnusableInputException::class, 'The LOAD export you chose is no longer available. Choose or upload another.');
+});

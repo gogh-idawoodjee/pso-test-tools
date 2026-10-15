@@ -6,6 +6,7 @@ use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Pages\ToolRunPage;
 use App\Filament\Pages\Tools\LoadAuditEntry;
+use App\Filament\Pages\Tools\PlanTravelsEntry;
 use App\Filament\Pages\Tools\SysCompareEntry;
 use App\Jobs\RunToolJob;
 use App\Models\Dataset;
@@ -18,6 +19,7 @@ use Filament\Forms\Components\TextInput;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Queue;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Tests\Support\FakeTool;
 
@@ -120,7 +122,7 @@ it('offers the newest usable file per kind, preselected, and names the time left
         ->assertSee('new-load.zip')
         ->assertSee('old-load.zip')
         ->assertDontSee('gone.zip')
-        ->assertSee('Purges in 11 h 0 m');
+        ->assertSee('new-load.zip, Purges in 11 h 0 m');
 });
 
 it('blocks the run while a required export is missing and names it', function () {
@@ -250,12 +252,62 @@ it('refuses a file that is no longer usable and sends the user back to choose an
     Queue::fake();
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
-    $component = Livewire::test(LoadAuditEntry::class)->assertFormSet(['files.load' => $load->id]);
+    // The event below names the same wizard and step keys the page renders.
+    $component = Livewire::test(LoadAuditEntry::class)->assertFormSet(['files.load' => $load->id])
+        ->assertSeeHtml('x-ref="step-form.inputs::data::wizard-step"')
+        ->assertSeeHtml('form.tool-wizard');
     $load->update(['status' => ExportFileStatus::Purged]);
 
     $component->call('start')
         ->assertSet('runId', null)
         ->assertNotified('The run did not start')
-        ->assertFormSet(['files.load' => null]);
+        ->assertFormSet(['files.load' => null])
+        ->assertDispatched('go-to-wizard-step', key: 'form.tool-wizard', step: 'form.inputs::data::wizard-step');
     expect(ToolRun::count())->toBe(0);
+});
+
+it('refuses an unregistered tool URL instead of crashing, and opens a registered one', function () {
+    expect(app(ToolRegistry::class)->has(ToolId::PlanTravels))->toBeFalse();
+    // A user the panel admits, so the 403 is the page's own refusal.
+    $this->actingAs(User::factory()->create(['email' => 'consultant@mac.com']));
+
+    $this->get(PlanTravelsEntry::getUrl())->assertForbidden();
+    $this->get(LoadAuditEntry::getUrl())->assertOk();
+});
+
+it('shows an option field default instead of a blank', function () {
+    FakeTool::$optionFields = [TextInput::make('options.finished_hours')->default('24')];
+
+    Livewire::test(LoadAuditEntry::class)
+        ->assertFormSet(['options.finished_hours' => '24', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
+    FakeTool::$optionFields = [];
+});
+
+it('ignores a file key the tool does not take', function () {
+    Queue::fake();
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->set('data.files.not-a-kind', 'x')
+        ->call('start')
+        ->assertHasNoFormErrors();
+    expect(ToolRun::sole()->inputs['files'])->toBe(['load' => $load->id]);
+});
+
+it('locks the run id and shows the result view of the run own tool', function () {
+    Queue::fake();
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    $component = Livewire::test(LoadAuditEntry::class)->call('start');
+    ToolRun::sole()->update(['tool' => ToolId::RegionAvailability]);
+
+    expect($component->instance()->resultView())->toBe('filament.tool-runs.region_availability')
+        ->and(method_exists(LoadAuditEntry::class, 'resetWizard'))->toBeFalse()
+        ->and(fn () => $component->set('runId', ToolRun::factory()->create()->id))->toThrow(CannotUpdateLockedPropertyException::class);
+});
+
+it('names the configured export lifetime by the upload box', function () {
+    config(['exports.ttl_hours' => 6]);
+
+    Livewire::test(LoadAuditEntry::class)->assertSee('Files are kept for 6 hours');
 });

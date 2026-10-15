@@ -34,6 +34,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Override;
 use UnitEnum;
@@ -56,6 +57,7 @@ abstract class ToolWizardPage extends Page implements HasForms
     /** @var array<string, mixed>|null */
     public ?array $data = [];
 
+    #[Locked]
     public ?string $runId = null;
 
     /** @var list<string> kinds the user emptied on purpose; never refilled with a default */
@@ -64,10 +66,15 @@ abstract class ToolWizardPage extends Page implements HasForms
     /** @var array<string, list<string>> kind value => usable file ids at the last refresh */
     public array $knownFiles = [];
 
+    private const WIZARD_KEY = 'tool-wizard';
+
     abstract public static function tool(): ToolId;
 
     public function mount(): void
     {
+        // Filament's own canAccess check runs after this mount, too late to stop the form asking for a missing implementation.
+        abort_unless(static::canAccess(), 403);
+
         $remembered = auth()->user()->last_tool_context ?? [];
         $environments = Environment::query()->orderBy('name')->get(['id']);
         $environmentId = in_array($remembered['environment_id'] ?? null, $environments->pluck('id')->all(), true)
@@ -82,7 +89,9 @@ abstract class ToolWizardPage extends Page implements HasForms
                 : ($datasets->count() === 1 ? $datasets->first()->id : null);
         }
 
-        $this->form->fill(['environment_id' => $environmentId, 'dataset_id' => $datasetId, 'files' => $this->emptyFiles(), 'options' => []]);
+        // fill() with no state applies the fields' own defaults (an option's default value); the scope and files go on top.
+        $this->form->fill();
+        $this->data = [...$this->data ?? [], 'environment_id' => $environmentId, 'dataset_id' => $datasetId, 'files' => $this->emptyFiles()];
         $this->refreshInputs();
     }
 
@@ -92,6 +101,7 @@ abstract class ToolWizardPage extends Page implements HasForms
             ->statePath('data')
             ->components([
                 Wizard::make($this->steps())
+                    ->key(self::WIZARD_KEY, isInheritable: false)
                     ->submitAction(new HtmlString(Blade::render(
                         '<x-filament::button type="submit">Run {{ $label }}</x-filament::button>',
                         ['label' => static::tool()->getLabel()],
@@ -209,7 +219,7 @@ abstract class ToolWizardPage extends Page implements HasForms
     protected function uploadBlock(): View
     {
         return View::make('filament.pages.tools.wizard-upload')
-            ->viewData(fn (): array => ['scope' => $this->hasScope() ? $this->scopeModel() : null, 'pending' => $this->hasPendingUploads()]);
+            ->viewData(fn (): array => ['scope' => $this->hasScope() ? $this->scopeModel() : null, 'pending' => $this->hasPendingUploads(), 'ttlHours' => (int) config('exports.ttl_hours', 12)]);
     }
 
     protected function hasScope(): bool
@@ -307,7 +317,8 @@ abstract class ToolWizardPage extends Page implements HasForms
         $scope = $this->scopeModel();
 
         try {
-            $this->assertChosenFilesUsable($scope);
+            // A file that expired since the form opened is no longer an option, so say so before the form's own validation does.
+            app(StartToolRun::class)->assertUsable($scope, static::tool(), $this->data['files'] ?? []);
             $state = $this->form->getState();
             $run = app(StartToolRun::class)->start($scope, static::tool(), $state['files'] ?? [], $state['options'] ?? [], auth()->user());
         } catch (UnusableInputException $e) {
@@ -316,6 +327,8 @@ abstract class ToolWizardPage extends Page implements HasForms
             $this->rememberChoice($e->kind->value, null);
             $this->refreshInputs();
             Notification::make()->title('The run did not start')->body($e->getMessage())->danger()->send();
+            // The emptied field is on the Inputs step; take the user there rather than leave them on a later step.
+            $this->dispatch('go-to-wizard-step', ...$this->inputsStepTarget());
 
             return;
         }
@@ -323,16 +336,14 @@ abstract class ToolWizardPage extends Page implements HasForms
         $this->runId = $run->id;
     }
 
-    /** A file that expired since the form opened is no longer an option, so say so before the form's own validation does. */
-    private function assertChosenFilesUsable(Model $scope): void
+    /** @return array{key: string, step: string} the payload the wizard's go-to-wizard-step listener expects */
+    private function inputsStepTarget(): array
     {
-        $usable = app(RunInputPicker::class)->optionsFor($scope, static::tool());
+        /** @var Wizard $wizard */
+        $wizard = $this->form->getComponent(self::WIZARD_KEY);
+        $inputs = $wizard->getChildSchema()->getComponent(static fn ($component): bool => $component instanceof Step && $component->getLabel() === 'Inputs');
 
-        foreach ($this->data['files'] ?? [] as $kind => $fileId) {
-            if (filled($fileId) && ! array_key_exists((string) $fileId, $usable[$kind] ?? [])) {
-                throw UnusableInputException::unavailable(ExportKind::from($kind));
-            }
-        }
+        return ['key' => $wizard->getKey(), 'step' => $inputs->getKey()];
     }
 
     public function currentRun(): ?ToolRun
@@ -358,7 +369,7 @@ abstract class ToolWizardPage extends Page implements HasForms
 
     public function resultView(): string
     {
-        $specific = 'filament.tool-runs.'.static::tool()->value;
+        $specific = 'filament.tool-runs.'.$this->currentRun()?->tool->value;
 
         return view()->exists($specific) ? $specific : 'filament.tool-runs._generic';
     }
@@ -369,17 +380,15 @@ abstract class ToolWizardPage extends Page implements HasForms
         $this->runId = null;
     }
 
-    /** Back to the form with nothing carried over from the last run. */
-    public function resetWizard(): void
-    {
-        $this->runId = null;
-        $this->clearedKinds = [];
-        $this->knownFiles = [];
-        $this->mount();
-    }
-
     #[Override]
     public static function shouldRegisterNavigation(): bool
+    {
+        return app(ToolRegistry::class)->has(static::tool());
+    }
+
+    /** An unregistered tool's URL is refused rather than crashing on its missing implementation. */
+    #[Override]
+    public static function canAccess(): bool
     {
         return app(ToolRegistry::class)->has(static::tool());
     }

@@ -3,7 +3,7 @@
     @if ($scope === null)
         <p class="text-sm text-gray-500 dark:text-gray-400">Choose where first.</p>
     @else
-        <p class="text-sm text-gray-500 dark:text-gray-400">Files are kept for 12 hours, then the raw file is deleted. Results from runs that used it are kept.</p>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Files are kept for {{ $ttlHours }} hours, then the raw file is deleted. Results from runs that used it are kept.</p>
         @livewire(\App\Livewire\ExportDropZone::class, ['scope' => $scope], key('wizard-drop-zone-'.$scope->getMorphClass().'-'.$scope->getKey()))
         @if ($pending)
             <p class="text-sm text-gray-500 dark:text-gray-400">Reading the file you just uploaded. It will appear above when ready.</p>
