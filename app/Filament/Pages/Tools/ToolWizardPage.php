@@ -9,12 +9,15 @@ use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Support\Exports\RunInputPicker;
+use App\Support\Tools\StartToolRun;
+use App\Support\Tools\UnusableInputException;
 use App\Tools\ToolRegistry;
 use BackedEnum;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
 use Filament\Schemas\Components\Utilities\Get;
@@ -95,7 +98,20 @@ abstract class ToolWizardPage extends Page implements HasForms
     /** @return list<Step> */
     protected function steps(): array
     {
-        return [$this->whereStep(), $this->inputsStep()];
+        return array_values(array_filter(
+            [$this->whereStep(), $this->inputsStep(), $this->optionsStep()],
+            static fn (Step $step): bool => ! $step->isHidden(),
+        ));
+    }
+
+    protected function optionsStep(): Step
+    {
+        $fields = app(ToolRegistry::class)->for(static::tool())->optionFields();
+
+        return Step::make('Options')
+            ->description('Settings for this run. Leave blank for the defaults.')
+            ->schema($fields)
+            ->hidden($fields === []);
     }
 
     protected function whereStep(): Step
@@ -282,10 +298,22 @@ abstract class ToolWizardPage extends Page implements HasForms
         return Dataset::query()->ownedByCurrentUser()->where('environment_id', $environment->id)->findOrFail($this->data['dataset_id'] ?? null);
     }
 
-    /** Validates every step; Task 6 starts the run here. */
     public function start(): void
     {
-        $this->form->getState();
+        $state = $this->form->getState();
+        $scope = $this->scopeModel();
+
+        try {
+            $run = app(StartToolRun::class)->start($scope, static::tool(), $state['files'] ?? [], $state['options'] ?? [], auth()->user());
+        } catch (UnusableInputException $e) {
+            $this->data['files'][$e->kind->value] = null;
+            $this->refreshInputs();
+            Notification::make()->title('The run did not start')->body($e->getMessage())->danger()->send();
+
+            return;
+        }
+
+        $this->runId = $run->id;
     }
 
     #[Override]

@@ -4,13 +4,17 @@ use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Filament\Pages\Tools\LoadAuditEntry;
 use App\Filament\Pages\Tools\SysCompareEntry;
+use App\Jobs\RunToolJob;
 use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
 use App\Tools\ToolRegistry;
+use Filament\Forms\Components\TextInput;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\Support\FakeTool;
 
@@ -171,4 +175,43 @@ it('switches to a newer file the user just uploaded', function () {
     $new = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
     $component->dispatch('export-uploaded')->assertFormSet(['files.load' => $new->id]);
+});
+
+it('has no Options step when the tool has no option fields, and one when it has', function () {
+    FakeTool::$optionFields = [];
+    Livewire::test(LoadAuditEntry::class)->assertDontSee('Settings for this run');
+
+    FakeTool::$optionFields = [TextInput::make('options.ifs_release')->label('IFS Cloud release')];
+    Livewire::test(LoadAuditEntry::class)->assertSee('Settings for this run')->assertFormFieldExists('options.ifs_release');
+    FakeTool::$optionFields = [];
+});
+
+it('starts a run with the chosen file and options, remembers the context and shows the run', function () {
+    Queue::fake();
+    FakeTool::$optionFields = [TextInput::make('options.ifs_release')];
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    $component = Livewire::test(LoadAuditEntry::class)
+        ->fillForm(['options' => ['ifs_release' => '25.2.7']])
+        ->call('start')
+        ->assertHasNoFormErrors();
+    FakeTool::$optionFields = [];
+
+    $run = ToolRun::sole();
+    expect($run->tool)->toBe(ToolId::LoadAudit)
+        ->and($run->inputs)->toBe(['files' => ['load' => $load->id], 'options' => ['ifs_release' => '25.2.7']])
+        ->and($component->get('runId'))->toBe($run->id)
+        ->and($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
+    Queue::assertPushed(RunToolJob::class);
+});
+
+it('refuses a scope the user does not own even if the id is forced into the form', function () {
+    $theirs = Dataset::factory()->for(Environment::factory())->create();
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    // The Livewire testable has no assertNotFound and does not run the exception handler, so the raw
+    // ModelNotFoundException (which Laravel renders as a 404) is what escapes.
+    expect(fn () => Livewire::test(LoadAuditEntry::class)->set('data.dataset_id', $theirs->id)->call('start'))
+        ->toThrow(ModelNotFoundException::class);
+    expect(ToolRun::count())->toBe(0);
 });
