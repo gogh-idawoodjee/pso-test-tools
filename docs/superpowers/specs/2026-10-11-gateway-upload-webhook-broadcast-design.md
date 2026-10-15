@@ -153,20 +153,19 @@ Existing steps keep their order; new ones are marked. Each logs what the script 
 
 1. Header: environment, gateway base URL, account, user, file, content type, gzip (script's banner).
 2. Download from R2, unzip if needed; log file size.
-3. **Dataset ID (new):** log current distinct values; with an override, log `'old' -> 'new'`.
-4. **Webhook (new, unless skipped):** log alias created or found with its uuid, endpoint, dashboard URL,
-   canned response, broadcast compression decision.
-5. **Rewrite (new):** one pass over the file; log rows stripped (`No existing Broadcast ... nothing to
-   strip` when none), the injected broadcast id, plan type, quality, `maximum_wait`, allocation type and
-   required tables, and the path of the modified copy.
-6. Summary extraction (existing, now run on the rewritten file) and gzip; log sizes and ratio.
-7. Authenticate through pso-services (4.9); log success (token length only) or the failure with HTTP
+3. **Webhook (new, unless skipped):** provision the endpoint (alias created or found, endpoint, dashboard,
+   canned response). It comes first because the rewrite needs its URL.
+4. **Rewrite (new):** one streaming pass; log the dataset ID (current value and any change), rows stripped
+   (`No existing Broadcast ... nothing to strip` when none), the injected broadcast and its required tables,
+   and the modified copy's name and size.
+5. Summary extraction (now run on the rewritten file) and gzip; log sizes and ratio.
+6. Authenticate through pso-services (4.9); log success (token length only) or the failure with HTTP
    status and body.
-8. POST; log HTTP status, wire bytes, duration, effective MB/s and the raw response body. On a non-2xx
+7. POST; log HTTP status, wire bytes, duration, effective MB/s and the raw response body. On a non-2xx
    response, log the status and raw body before the mapped error, as the script does.
-9. **Logoff (new):** through pso-services `DELETE /session` (4.9) with the session token; failure is a
+8. **Logoff (new):** through pso-services `DELETE /session` (4.9) with the session token; failure is a
    warning. It runs in a `finally` so a failed POST still logs off, as the script does.
-10. Finish: total duration; the webhook view URL again (script's closing line).
+9. Finish: total duration; the webhook view URL again (script's closing line).
 
 ### 4.6 Form and status panel
 

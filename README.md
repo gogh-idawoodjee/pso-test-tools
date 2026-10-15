@@ -58,6 +58,20 @@ are `Slot_Usage_Rule_Set` ids, which is what an appointment request carries.
 Tests run on an in-memory SQLite database (`phpunit.xml`), so they never touch the `.env` database.
 `REFERENCE_VALUES_TIMEOUT` (default 600 s) bounds the call to pso-services.
 
+## Gateway Upload and the webhook broadcast
+
+An environment's **Gateway Upload** tab sends a schedule data file to the PSO gateway on the queue (a queue worker must be running). Before sending, the job can change the dataset ID in the file (an override field; blank leaves it alone) and inject a Broadcast that points PSO's plan output at a webhook endpoint, so the plan PSO sends back can be inspected. Tick "Skip webhook" to send the file as it is.
+
+Order of a run: header, download, webhook endpoint provisioned (needs its URL first), one streaming rewrite of the file, summary and gzip, logon through pso-services, POST to the gateway, logoff (always, even after a failed POST). Every step is written to a run log shown live on the tab and kept per run.
+
+Configuration (`.env`):
+
+- `WEBHOOK_BASE_URL`: the self-hosted webhook.site (default `https://webhook.thetechnodro.me`).
+- `WEBHOOK_ALIAS_KEY`: the webhook server's `ALIAS_API_KEY`. With it each environment gets a stable alias; without it every run gets a fresh one-off token.
+- `PSO_SESSION_TIMEOUT`: seconds allowed for a session logon or logoff through pso-services (default 20).
+
+Queue note: the job can run for several minutes, so the queue `retry_after` defaults to 960 seconds. On a server, `DB_QUEUE_RETRY_AFTER` must be greater than 900 and the worker's `--timeout` at least 900.
+
 ## Exports and tool runs
 
 LOAD, plan, end-of-day and audit exports are uploaded on a dataset's **Exports** tab; SYS exports on an
