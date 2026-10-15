@@ -1,7 +1,9 @@
 <?php
 
 use App\Filament\Pages\FilterLoadFile;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 
 afterEach(function () {
     Cache::forget('resource-job:job-monitoring-test:status');
@@ -75,4 +77,11 @@ it('returns 0:00 when no job has been created', function () {
     $page->jobCreatedAt = null;
 
     expect($page->getElapsedTime())->toBe('0:00');
+});
+
+it('refuses a client change to the job id', function () {
+    $this->actingAs(User::factory()->create(['email' => 'ish@mac.com']));
+
+    expect(fn () => Livewire\Livewire::test(FilterLoadFile::class)->set('jobId', 'x/../y'))
+        ->toThrow(CannotUpdateLockedPropertyException::class);
 });

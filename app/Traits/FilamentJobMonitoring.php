@@ -6,9 +6,11 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Locked;
 
 trait FilamentJobMonitoring
 {
+    #[Locked]
     public ?string $jobId = null;
 
     public ?string $jobKey = null;

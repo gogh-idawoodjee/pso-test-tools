@@ -13,7 +13,7 @@ Route::get('/download/{filename}', static function (string $filename) {
     }
 
     return response()->download($path, $filename, [
-        'Content-Type' => 'application/json',
+        'Content-Type' => str_ends_with($filename, '.zip') ? 'application/zip' : 'application/json',
     ]);
 })->middleware(['web', Authenticate::class])->name('download.filtered')->where('filename', '[A-Za-z0-9._-]+');
 
