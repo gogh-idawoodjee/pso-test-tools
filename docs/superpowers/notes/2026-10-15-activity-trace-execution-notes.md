@@ -59,7 +59,7 @@ pso-test-tools:
 ## Browser check list
 
 - Exports tab accepts an .xlsx event log and shows "N events, first to last".
-- Datasets settings show IFS time zone.
+- Datasets settings show IFS event log time zone.
 - The wizard for Trace an activity shows three input rows (Audit messages, LOAD, IFS event log) and the two option fields (activity id, work task id).
 - A run on the SaskTel dataset with activity 813775 (known: 35 requests, 87 steps, no allocations) shows Booking and History, the zone switch and the four downloads (page, JSON, booking CSV, history CSV).
 - A wrong activity id fails the run with the plain "not found" message.

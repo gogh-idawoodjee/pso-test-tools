@@ -121,7 +121,7 @@ task id if that is all you have. The report has two views: **Booking** (requests
 of offered slots) and **History** (inputs, plan changes, window and shift checks, planned versus actual), with a
 switch for the time zone. Downloads: the page, the JSON, `booking.csv` and `history.csv`. Like the audit, it is
 Python from the pso-tools checkout (`activity-trace/trace_activity.py`, found through `TOOLS_PSO_TOOLS_PATH`),
-run fresh each time. The dataset's settings add an **IFS time zone** (`ifs_time_zone`), the zone the event log
+run fresh each time. The dataset's settings add an **IFS event log time zone** (`ifs_time_zone`), the zone the event log
 times are written in; blank means the dataset's own zone.
 
 ## Deploying
