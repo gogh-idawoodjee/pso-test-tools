@@ -201,18 +201,21 @@ abstract class ToolWizardPage extends Page implements HasForms
             $required = in_array($kind, $tool->requiredKinds(), true);
             $kindOptions = $options[$kind->value] ?? [];
             $uploadScope = $this->uploadScopeFor($kind, $scope);
-            $helperText = array_filter([
-                in_array($kind, $pending, true) ? 'Reading the '.$kind->getLabel().' export you just uploaded. It is chosen here when ready.' : null,
-                $uploadScope !== $scope ? $this->aExport($kind).' comes from the environment, not the dataset, because it describes the whole PSO system.' : null,
-            ]);
+            // The drop target beside it shows the file being read; the select waits for it and then chooses it.
+            $reading = in_array($kind, $pending, true);
             $rows[] = Grid::make(['default' => 1, 'md' => 3])->schema([
                 Select::make("files.{$kind->value}")
                     ->label($kind->getLabel().' export')
                     ->hint($required ? 'Required' : 'Optional')
-                    ->helperText($helperText === [] ? null : implode(' ', $helperText))
+                    ->helperText($uploadScope !== $scope ? $this->aExport($kind).' comes from the environment, not the dataset, because it describes the whole PSO system.' : null)
                     ->options($kindOptions)
                     ->getOptionLabelUsing(fn ($value): ?string => $kindOptions[$value] ?? null)
-                    ->placeholder($kindOptions === [] ? 'No '.$kind->getLabel().' export uploaded yet' : 'Choose a file')
+                    ->placeholder(match (true) {
+                        $reading => 'Reading the file you uploaded',
+                        $kindOptions === [] => 'No '.$kind->getLabel().' export uploaded yet',
+                        default => 'Choose a file',
+                    })
+                    ->disabled($reading)
                     ->required($required)
                     ->validationMessages(['required' => $this->aExport($kind).' is required.'])
                     ->native(false)
@@ -228,7 +231,7 @@ abstract class ToolWizardPage extends Page implements HasForms
         }
 
         return [
-            Group::make($rows)->extraAttributes($pending === [] ? [] : ['wire:poll.5s' => 'refreshInputs']),
+            Group::make($rows)->extraAttributes($pending === [] ? [] : ['wire:poll.2s' => 'refreshInputs']),
             Text::make('Files are kept for '.(int) config('exports.ttl_hours', 12).' hours, then the raw file is deleted. Results from runs that used it are kept.')->color('gray'),
         ];
     }
@@ -351,6 +354,17 @@ abstract class ToolWizardPage extends Page implements HasForms
     public function start(): void
     {
         $scope = $this->scopeModel();
+
+        // A select is disabled while its upload is being read, and a disabled field leaves the form state: wait instead.
+        $reading = $this->pendingKinds();
+        if ($reading !== []) {
+            $labels = array_map(static fn (ExportKind $kind): string => $kind->getLabel(), $reading);
+            Notification::make()->title('The run did not start')
+                ->body('Wait until the '.implode(' and ', $labels).' export you uploaded has been read, then run again.')
+                ->warning()->send();
+
+            return;
+        }
 
         try {
             // A file that expired since the form opened is no longer an option, so say so before the form's own validation does.

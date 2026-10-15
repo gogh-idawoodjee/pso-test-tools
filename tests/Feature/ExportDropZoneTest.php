@@ -1,9 +1,11 @@
 <?php
 
+use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Livewire\ExportDropZone;
 use App\Models\Dataset;
 use App\Models\Environment;
+use App\Models\ExportFile;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -49,4 +51,57 @@ it('keeps the extensions hint on a second line, or in a title when compact', fun
 it('compiles the classes used in the livewire views', function () {
     expect(file_get_contents(resource_path('css/filament/app/theme.css')))
         ->toMatch('#@source\s+[\'"](\.\./)+resources/views/livewire/#');
+});
+
+it('shows the file the server is still reading, with a moving bar, and polls', function () {
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'north_load.zip', 'status' => ExportFileStatus::Summarising]);
+
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load], 'compact' => true])
+        ->assertSee('Reading north_load.zip')
+        ->assertSee('This can take a minute for large files')
+        ->assertSeeHtml('data-state="reading"')
+        ->assertSeeHtml('animate-indeterminate')
+        ->assertSeeHtml('wire:poll.2s')
+        ->assertSet('serverStates', ['load' => 'reading'])
+        ->assertDontSee('Drop a new LOAD');
+});
+
+it('shows why the server could not read a file until it is dismissed', function () {
+    $file = ExportFile::factory()->for($this->dataset, 'scope')->failed()->create(['kind' => ExportKind::Load, 'error_message' => 'This is not a LOAD export.']);
+
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load]])
+        ->assertSee('This is not a LOAD export.')
+        ->assertSeeHtml('data-state="error"')
+        ->assertSee('Dismiss')
+        ->assertDontSeeHtml('wire:poll.2s')
+        ->call('dismiss', $file->id)
+        ->assertDontSee('This is not a LOAD export.')
+        ->assertSee('Drop a new LOAD')
+        ->assertSeeHtml('data-state="idle"');
+});
+
+it('forgets a failure older than ten minutes', function () {
+    $file = ExportFile::factory()->for($this->dataset, 'scope')->failed()->create(['kind' => ExportKind::Load, 'error_message' => 'This is not a LOAD export.']);
+    ExportFile::query()->whereKey($file->id)->update(['updated_at' => now()->subMinutes(11)]);
+
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load]])
+        ->assertDontSee('This is not a LOAD export.')
+        ->assertSee('Drop a new LOAD');
+});
+
+it('is idle once the file is ready', function () {
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'north_load.zip']);
+
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load]])
+        ->assertDontSee('Reading north_load.zip')
+        ->assertSee('Drop a new LOAD')
+        ->assertSeeHtml('data-state="idle"')
+        ->assertDontSeeHtml('wire:poll.2s');
+});
+
+it('re-reads the server state when an upload completes', function () {
+    $component = Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load]])->assertSee('Drop a new LOAD');
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'north_load.zip', 'status' => ExportFileStatus::Summarising]);
+
+    $component->dispatch('export-uploaded')->assertSee('Reading north_load.zip');
 });

@@ -74,3 +74,13 @@ it('shows allocations for a plan export', function () {
         ->assertCanSeeTableRecords([$file])
         ->assertSee('7,803 allocations');
 });
+
+it('shows the file being read on the target of its kind, among all the targets', function () {
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'original_filename' => 'north_plan.zip', 'status' => ExportFileStatus::Uploading]);
+
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset])
+        ->assertSee('Reading north_plan.zip')
+        ->assertDontSee('Drop a new Plan')
+        ->assertSee('Drop a new LOAD')
+        ->assertSet('serverStates', ['plan' => 'reading']);
+});

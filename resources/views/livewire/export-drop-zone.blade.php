@@ -2,6 +2,10 @@
     Each file is uploaded straight to R2: ask the app for a presigned PUT url (slot), PUT the file
     there with an XHR so progress is real, then tell the app it arrived (complete). No request in
     this flow carries a file body to the app.
+
+    The server then reads the file. $serverFiles holds, per kind, the file being read (state
+    reading) or a recent failed read (state error); a local upload in progress takes precedence.
+    The component polls while a file is being read so the target returns to idle when it is ready.
 --}}
 @php
     $hint = static function (array $extensions) use ($maxMegabytes, $ttlHours): string {
@@ -13,7 +17,16 @@
     };
 @endphp
 <div class="grid gap-4 {{ ! $compact && count($targets) > 1 ? 'md:grid-cols-2' : '' }}">
+    {{-- Its own element, so the poll starts and stops as the element comes and goes on a re-render. --}}
+    @if (in_array('reading', $serverStates, true))
+        <div wire:poll.2s wire:key="export-drop-reading-poll" hidden></div>
+    @endif
+
     @foreach ($targets as $kindValue => $kindLabel)
+        @php
+            $serverState = $serverFiles[$kindValue]['state'] ?? null;
+            $serverFile = $serverFiles[$kindValue]['file'] ?? null;
+        @endphp
         <div
             wire:key="export-drop-{{ $kindValue }}"
             x-data="{
@@ -129,7 +142,16 @@
                         return 'drag'
                     }
 
-                    return this.single()?.error ? 'error' : (this.single() ? 'busy' : 'idle')
+                    if (this.single()) {
+                        return this.single().error ? 'error' : 'busy'
+                    }
+
+                    // The server's reading or error state, kept current on every render.
+                    return this.$wire.serverStates?.[this.kind] ?? 'idle'
+                },
+
+                serverReading() {
+                    return ! this.single() && this.$wire.serverStates?.[this.kind] === 'reading'
                 },
             }"
             class="space-y-2"
@@ -139,7 +161,7 @@
                 x-on:dragleave.prevent="dragging = false"
                 x-on:drop.prevent="dragging = false; pick($event.dataTransfer.files)"
                 x-bind:data-state="state()"
-                data-state="idle"
+                data-state="{{ $serverState ?? 'idle' }}"
                 @if ($compact) title="{{ $hint($extensionsByKind[$kindValue]) }}" @endif
                 @class([
                     'relative flex items-center gap-x-2 overflow-hidden rounded-lg bg-white px-3 text-sm ring-1 ring-gray-950/10 cursor-pointer transition duration-75 motion-reduce:transition-none',
@@ -160,19 +182,41 @@
                     x-bind:style="'width: ' + (single()?.percent ?? 0) + '%'"
                 ></div>
 
+                @if ($serverState === 'reading')
+                    {{-- The file is on the server and being read: no progress to report, so a bar that keeps moving. --}}
+                    <div aria-hidden="true" x-show="! single()" class="absolute inset-0 overflow-hidden">
+                        <div class="absolute inset-y-0 left-0 w-1/3 bg-primary-500/15 animate-indeterminate motion-reduce:animate-none motion-reduce:w-full"></div>
+                    </div>
+
+                    <x-filament::loading-indicator x-show="! single()" class="relative size-4 shrink-0 text-primary-500" />
+                @endif
+
                 <x-filament::icon
                     icon="heroicon-m-arrow-up-tray"
                     class="relative size-4 shrink-0 text-gray-400 dark:text-gray-500"
                     x-bind:class="state() === 'error' ? 'text-danger-500 dark:text-danger-400' : ''"
+                    x-show="! serverReading()"
                 />
 
                 <span class="relative min-w-0 flex-1">
-                    <span x-show="! single()" class="block">
-                        <span class="block truncate text-gray-950 dark:text-white">Drop a new {{ $kindLabel }} here or <span class="font-medium text-primary-600 dark:text-primary-400">browse</span></span>
-                        @unless ($compact)
-                            <span class="block text-xs text-gray-500 dark:text-gray-400">{{ $hint($extensionsByKind[$kindValue]) }}</span>
-                        @endunless
-                    </span>
+                    @if ($serverState === 'reading')
+                        <span x-show="! single()" class="block" role="status">
+                            <span class="block truncate text-gray-950 dark:text-white">Reading {{ $serverFile->original_filename }}</span>
+                            <span class="block text-xs text-gray-500 dark:text-gray-400">This can take a minute for large files</span>
+                        </span>
+                    @elseif ($serverState === 'error')
+                        <span x-show="! single()" class="flex items-start justify-between gap-x-3">
+                            <span class="text-danger-600 dark:text-danger-400" role="alert">{{ $serverFile->original_filename }}: {{ $serverFile->error_message ?? 'the file could not be read.' }}</span>
+                            <button type="button" class="shrink-0 font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" wire:click.prevent="dismiss(@js($serverFile->id))">Dismiss</button>
+                        </span>
+                    @else
+                        <span x-show="! single()" class="block">
+                            <span class="block truncate text-gray-950 dark:text-white">Drop a new {{ $kindLabel }} here or <span class="font-medium text-primary-600 dark:text-primary-400">browse</span></span>
+                            @unless ($compact)
+                                <span class="block text-xs text-gray-500 dark:text-gray-400">{{ $hint($extensionsByKind[$kindValue]) }}</span>
+                            @endunless
+                        </span>
+                    @endif
 
                     <template x-if="single() && ! single().error">
                         <span class="flex items-center justify-between gap-x-3 text-gray-950 dark:text-white">

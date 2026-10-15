@@ -4,6 +4,20 @@
 @source '../../../../resources/views/filament/**/*';
 @source '../../../../resources/views/livewire/**/*';
 
+/* The drop target while the server reads an uploaded file: a bar that slides across and repeats. */
+@theme {
+    --animate-indeterminate: indeterminate 1.4s ease-in-out infinite;
+
+    @keyframes indeterminate {
+        0% {
+            transform: translateX(-100%);
+        }
+        100% {
+            transform: translateX(300%);
+        }
+    }
+}
+
 /* Force Highlight.js styles */
 .hljs {
     background: #0d1117 !important;

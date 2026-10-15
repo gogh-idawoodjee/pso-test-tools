@@ -16,6 +16,7 @@ use App\Models\ToolRun;
 use App\Models\User;
 use App\Tools\ToolRegistry;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Queue;
@@ -327,11 +328,36 @@ it('offers one drop target per kind the tool takes, each to its own scope', func
         ->toContain("scope_type: 'environment', scope_id: '{$this->environment->getKey()}', kind: this.kind");
 });
 
-it('polls while an upload to either scope is still being read, and says so by that field', function () {
-    $component = Livewire::test(LoadAuditEntry::class)->assertDontSeeHtml('wire:poll.5s="refreshInputs"');
-    ExportFile::factory()->for($this->environment, 'scope')->sys()->create(['status' => ExportFileStatus::Summarising]);
+it('polls every two seconds while an upload to either scope is still being read, and disables that select', function () {
+    $component = Livewire::test(LoadAuditEntry::class)->assertDontSeeHtml('wire:poll.2s="refreshInputs"');
+    $file = ExportFile::factory()->for($this->environment, 'scope')->sys()->create(['status' => ExportFileStatus::Summarising]);
 
     $component->call('refreshInputs')
-        ->assertSeeHtml('wire:poll.5s="refreshInputs"')
-        ->assertSee('Reading the SYS export you just uploaded');
+        ->assertSeeHtml('wire:poll.2s="refreshInputs"')
+        ->assertDontSeeHtml('wire:poll.5s')
+        ->assertSee('Reading the file you uploaded')
+        ->assertDontSee('Reading the SYS export you just uploaded')
+        ->assertFormFieldDisabled('files.sys')
+        ->assertFormFieldEnabled('files.load');
+
+    $file->update(['status' => ExportFileStatus::Ready]);
+
+    $component->call('refreshInputs')
+        ->assertDontSeeHtml('wire:poll.2s="refreshInputs"')
+        ->assertFormFieldEnabled('files.sys')
+        ->assertFormSet(['files.sys' => $file->id]);
+});
+
+it('waits for an upload that is still being read instead of starting without it', function () {
+    Queue::fake();
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+    $sys = ExportFile::factory()->for($this->environment, 'scope')->sys()->create();
+    $component = Livewire::test(LoadAuditEntry::class);
+    ExportFile::factory()->for($this->environment, 'scope')->sys()->create(['status' => ExportFileStatus::Summarising]);
+
+    $component->call('start')
+        ->assertNotified(Notification::make()->title('The run did not start')->body('Wait until the SYS export you uploaded has been read, then run again.')->warning())
+        ->assertFormSet(['files.sys' => $sys->id]);
+
+    expect(ToolRun::count())->toBe(0);
 });
