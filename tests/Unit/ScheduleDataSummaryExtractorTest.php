@@ -99,14 +99,62 @@ it('returns the empty summary for malformed json instead of throwing', function 
     expect($summary['activity_count'])->toBe(0);
 });
 
-it('skips parsing a json file over the size cap rather than risk the worker memory limit', function () {
-    $path = scheduleDataSummaryFixturePath('summary-large.json');
-    file_put_contents($path, json_encode(['dsScheduleData' => ['Input_Reference' => ['dataset_id' => 'DCU']]]));
-    file_put_contents($path, str_repeat(' ', 21 * 1024 * 1024), FILE_APPEND);
+it('reads a json file far larger than the old 20 MB parse cap', function () {
+    $path = tempnam(sys_get_temp_dir(), 'extractjson');
 
-    $summary = ScheduleDataSummaryExtractor::extract($path, 'json');
+    $handle = fopen($path, 'wb');
+    fwrite($handle, '{"dsScheduleData":{"Input_Reference":{"datetime":"2026-09-10T12:26:05Z","dataset_id":"BIG"},"Activity":[');
+    $row = '{"id":"A","description":"'.str_repeat('x', 200).'"},';
 
-    expect($summary['dataset_id'])->toBeNull();
+    for ($index = 0; $index < 100000; $index++) {
+        fwrite($handle, $row);
+    }
+
+    fwrite($handle, '{"id":"LAST"}],"Resources":[{"id":"R1"},{"id":"R2"}]}}');
+    fclose($handle);
+
+    try {
+        expect(filesize($path))->toBeGreaterThan(20 * 1024 * 1024);
+
+        $summary = ScheduleDataSummaryExtractor::extract($path, 'json');
+
+        expect($summary['dataset_id'])->toBe('BIG');
+        expect($summary['activity_count'])->toBe(100001);
+        expect($summary['resource_count'])->toBe(2);
+    } finally {
+        @unlink($path);
+    }
+});
+
+it('reads the 6.15+ ScheduleData wrapper', function () {
+    $path = tempnam(sys_get_temp_dir(), 'extractjson');
+    file_put_contents($path, json_encode(['ScheduleData' => [
+        'Input_Reference' => [['datetime' => '2026-09-10T12:26:05Z', 'dataset_id' => 'NEWFMT']],
+        'Activity' => [['id' => 'A1'], ['id' => 'A2'], ['id' => 'A3']],
+        'Resources' => [['id' => 'R1']],
+    ]]));
+
+    try {
+        $summary = ScheduleDataSummaryExtractor::extract($path, 'json');
+
+        expect($summary['dataset_id'])->toBe('NEWFMT');
+        expect($summary['activity_count'])->toBe(3);
+        expect($summary['resource_count'])->toBe(1);
+        expect($summary['input_reference_datetime'])->not->toBeNull();
+    } finally {
+        @unlink($path);
+    }
+});
+
+it('counts a legacy single-object entity as one row', function () {
+    $path = tempnam(sys_get_temp_dir(), 'extractjson');
+    file_put_contents($path, '{"dsScheduleData":{"Resources":{"id":"R1"}}}');
+
+    try {
+        expect(ScheduleDataSummaryExtractor::extract($path, 'json')['resource_count'])->toBe(1);
+    } finally {
+        @unlink($path);
+    }
 });
 
 it('reads an Input_Reference datetime without an offset as UTC, because PSO exports in UTC', function () {

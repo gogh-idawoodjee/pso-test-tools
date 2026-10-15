@@ -19,6 +19,9 @@ use ZipArchive;
  */
 class ExportSummariser
 {
+    // The plan-block check still decodes JSON in full, so it keeps the old 20 MB cap (moved from the extractor).
+    private const int MAX_JSON_PLAN_CHECK_BYTES = 20 * 1024 * 1024;
+
     public function summarise(ExportFile $file, string $localPath, string $timeZone): ExportSummary
     {
         $kind = $file->kind;
@@ -81,8 +84,8 @@ class ExportSummariser
                 ]);
             }
 
-            if ($format === 'json' && filesize($path) > ScheduleDataSummaryExtractor::MAX_JSON_PARSE_BYTES) {
-                $megabytes = (int) (ScheduleDataSummaryExtractor::MAX_JSON_PARSE_BYTES / 1024 / 1024);
+            if ($format === 'json' && filesize($path) > self::MAX_JSON_PLAN_CHECK_BYTES) {
+                $megabytes = (int) (self::MAX_JSON_PLAN_CHECK_BYTES / 1024 / 1024);
 
                 throw new InvalidExportException("This JSON file is larger than {$megabytes} MB and could not be summarised. Upload the XML export (or a zip of it) instead.");
             }
@@ -108,7 +111,7 @@ class ExportSummariser
         }
 
         // JSON has no streaming reader here; a file too large to decode cannot be checked.
-        if (filesize($path) > ScheduleDataSummaryExtractor::MAX_JSON_PARSE_BYTES) {
+        if (filesize($path) > self::MAX_JSON_PLAN_CHECK_BYTES) {
             return false;
         }
 

@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Support\ScheduleData\JsonTokenReader;
 use Carbon\CarbonImmutable;
 use DOMNode;
 use Throwable;
@@ -16,15 +17,11 @@ use XMLReader;
  *
  * XML is read with XMLReader, a streaming pull-parser — this stays safe at
  * any file size, since it only ever builds a DOM for the small
- * Input_Reference element itself, never the whole document. JSON has no
- * equivalent streaming reader in PHP core, so it's decoded in full and
- * capped at MAX_JSON_PARSE_BYTES to avoid risking the worker's memory
- * limit on a 100MB+ payload for what is purely a cosmetic enhancement.
+ * Input_Reference element itself, never the whole document. JSON is read
+ * with the same chunked token reader, so it is safe at any size too.
  */
 class ScheduleDataSummaryExtractor
 {
-    public const int MAX_JSON_PARSE_BYTES = 20 * 1024 * 1024; // 20MB
-
     /**
      * @return array{dataset_id: ?string, input_reference_datetime: ?CarbonImmutable, activity_count: int, resource_count: int}
      */
@@ -95,25 +92,132 @@ class ScheduleDataSummaryExtractor
 
     private static function extractFromJson(string $filePath): array
     {
-        if (filesize($filePath) > self::MAX_JSON_PARSE_BYTES) {
+        $handle = @fopen($filePath, 'rb');
+
+        if ($handle === false) {
             return self::empty();
         }
 
-        $decoded = json_decode(file_get_contents($filePath), true);
-        $data = is_array($decoded) ? ($decoded['dsScheduleData'] ?? []) : [];
+        $depth = 0;
+        $previous = '';
+        $wrapperPending = false;
+        $wrapperFound = false;
+        $insideWrapper = false;
+        $entityName = null;
+        $entityIsArray = false;
+        $wantedField = null;
+        $datasetId = null;
+        $datetime = null;
+        $activityCount = 0;
+        $resourceCount = 0;
 
-        $inputReference = $data['Input_Reference'] ?? null;
+        try {
+            foreach (app(JsonTokenReader::class)->tokens($handle) as $token) {
+                if (strspn($token[0], " \t\r\n") === 1) {
+                    continue;
+                }
 
-        if (is_array($inputReference) && array_is_list($inputReference)) {
-            $inputReference = $inputReference[0] ?? null;
+                $before = $previous;
+                $previous = $token;
+
+                if ($wantedField !== null) {
+                    if ($token === ':') {
+                        continue;
+                    }
+
+                    if ($token[0] === '"') {
+                        $text = json_decode($token);
+
+                        if (is_string($text) && $text !== '') {
+                            if ($wantedField === 'dataset_id') {
+                                $datasetId ??= $text;
+                            } else {
+                                $datetime ??= $text;
+                            }
+                        }
+                    }
+
+                    $wantedField = null;
+
+                    if ($token !== '{' && $token !== '[') {
+                        continue;
+                    }
+                }
+
+                if ($token === '{' || $token === '[') {
+                    if ($wrapperPending && $token === '{' && $depth === 1) {
+                        $insideWrapper = true;
+                        $wrapperFound = true;
+                        $wrapperPending = false;
+                    } elseif ($insideWrapper && $depth === 2 && $entityName !== null) {
+                        $entityIsArray = $token === '[';
+
+                        if (! $entityIsArray) {
+                            self::tally($entityName, $activityCount, $resourceCount);
+                        }
+                    } elseif ($insideWrapper && $depth === 3 && $entityIsArray && $token === '{') {
+                        self::tally($entityName, $activityCount, $resourceCount);
+                    }
+
+                    $depth++;
+
+                    continue;
+                }
+
+                if ($token === '}' || $token === ']') {
+                    $depth--;
+
+                    if ($insideWrapper && $depth === 1) {
+                        $insideWrapper = false;
+                    }
+
+                    continue;
+                }
+
+                if ($token === ':' || $token === ',') {
+                    continue;
+                }
+
+                if ($token[0] === '"' && ($before === '{' || $before === ',')) {
+                    $key = json_decode($token);
+
+                    if ($depth === 1 && ! $wrapperFound) {
+                        $wrapperPending = in_array($key, ['ScheduleData', 'dsScheduleData'], true);
+                    } elseif ($insideWrapper && $depth === 2) {
+                        $entityName = is_string($key) ? $key : null;
+                        $entityIsArray = false;
+                    } elseif (
+                        $insideWrapper
+                        && $entityName === 'Input_Reference'
+                        && (($depth === 3 && ! $entityIsArray) || ($depth === 4 && $entityIsArray))
+                    ) {
+                        $wantedField = in_array($key, ['dataset_id', 'datetime'], true) ? $key : null;
+                    }
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        if (! $wrapperFound) {
+            return self::empty();
         }
 
         return [
-            'dataset_id' => is_array($inputReference) ? ($inputReference['dataset_id'] ?? null) : null,
-            'input_reference_datetime' => self::parseDatetime(is_array($inputReference) ? ($inputReference['datetime'] ?? null) : null),
-            'activity_count' => is_array($data['Activity'] ?? null) ? count($data['Activity']) : 0,
-            'resource_count' => is_array($data['Resources'] ?? null) ? count($data['Resources']) : 0,
+            'dataset_id' => $datasetId,
+            'input_reference_datetime' => self::parseDatetime($datetime),
+            'activity_count' => $activityCount,
+            'resource_count' => $resourceCount,
         ];
+    }
+
+    private static function tally(?string $entityName, int &$activityCount, int &$resourceCount): void
+    {
+        match ($entityName) {
+            'Activity' => $activityCount++,
+            'Resources' => $resourceCount++,
+            default => null,
+        };
     }
 
     private static function parseDatetime(?string $value): ?CarbonImmutable
