@@ -1,0 +1,52 @@
+<?php
+
+use App\Enums\ExportKind;
+use App\Livewire\ExportDropZone;
+use App\Models\Dataset;
+use App\Models\Environment;
+use App\Models\User;
+use Livewire\Livewire;
+
+beforeEach(function () {
+    $this->user = User::factory()->create();
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user))->create();
+    $this->actingAs($this->user);
+});
+
+it('offers every kind the scope allows by default', function () {
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset])
+        ->assertSee('Drop a new LOAD')->assertSee('Drop a new Plan')->assertSee('Drop a new End of day')->assertSee('Drop a new Audit messages')
+        ->assertDontSee('Drop a new SYS');
+});
+
+it('offers only the kinds it is given', function () {
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load], 'compact' => true])
+        ->assertSee('Drop a new LOAD')
+        ->assertDontSee('Drop a new Plan')->assertDontSee('End of day')->assertDontSee('Audit messages');
+});
+
+it('uploads an environment kind to the environment', function () {
+    $environment = $this->dataset->environment;
+
+    Livewire::test(ExportDropZone::class, ['scope' => $environment, 'kinds' => [ExportKind::Sys], 'compact' => true])
+        ->assertSee('Drop a new SYS')
+        ->assertSeeHtml("scope_type: 'environment'")
+        ->assertSeeHtml("scope_id: '{$environment->getKey()}'");
+});
+
+it('refuses a kind the scope does not take', function () {
+    (new ExportDropZone)->mount($this->dataset, [ExportKind::Sys]);
+})->throws(InvalidArgumentException::class, 'A SYS export cannot be uploaded to a Dataset.');
+
+it('keeps the extensions hint on a second line, or in a title when compact', function () {
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load]])
+        ->assertSeeHtml('<span class="block text-xs text-gray-500');
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load], 'compact' => true])
+        ->assertDontSeeHtml('<span class="block text-xs text-gray-500')
+        ->assertSeeHtml('title=".xml, .json or .zip, up to');
+});
+
+it('compiles the classes used in the livewire views', function () {
+    expect(file_get_contents(resource_path('css/filament/app/theme.css')))
+        ->toMatch('#@source\s+[\'"](\.\./)+resources/views/livewire/#');
+});

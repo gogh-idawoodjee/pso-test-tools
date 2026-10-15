@@ -3,8 +3,17 @@
     there with an XHR so progress is real, then tell the app it arrived (complete). No request in
     this flow carries a file body to the app.
 --}}
-<div class="grid gap-4 {{ count($kinds) > 1 ? 'md:grid-cols-2' : '' }}">
-    @foreach ($kinds as $kindValue => $kindLabel)
+@php
+    $hint = static function (array $extensions) use ($maxMegabytes, $ttlHours): string {
+        $dotted = array_map(static fn (string $extension): string => '.'.$extension, $extensions);
+        $last = array_pop($dotted);
+        $list = $dotted === [] ? $last : implode(', ', $dotted).' or '.$last;
+
+        return "{$list}, up to {$maxMegabytes} MB. Deleted from storage {$ttlHours} hours after upload.";
+    };
+@endphp
+<div class="grid gap-4 {{ ! $compact && count($targets) > 1 ? 'md:grid-cols-2' : '' }}">
+    @foreach ($targets as $kindValue => $kindLabel)
         <div
             wire:key="export-drop-{{ $kindValue }}"
             x-data="{
@@ -109,48 +118,108 @@
                 remove(id) {
                     this.uploads = this.uploads.filter((item) => item.id !== id)
                 },
+
+                // Display only: one upload turns the target itself into its progress bar; several stack below.
+                single() {
+                    return this.uploads.length === 1 ? this.uploads[0] : null
+                },
+
+                state() {
+                    if (this.dragging) {
+                        return 'drag'
+                    }
+
+                    return this.single()?.error ? 'error' : (this.single() ? 'busy' : 'idle')
+                },
             }"
-            class="space-y-3"
+            class="space-y-2"
         >
             <label
                 x-on:dragover.prevent="dragging = true"
                 x-on:dragleave.prevent="dragging = false"
                 x-on:drop.prevent="dragging = false; pick($event.dataTransfer.files)"
-                x-bind:class="dragging ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10' : 'border-gray-300 dark:border-white/20'"
-                class="flex flex-col items-center justify-center gap-1 px-6 py-6 text-center transition border-2 border-dashed cursor-pointer rounded-xl hover:border-primary-500"
+                x-bind:data-state="state()"
+                data-state="idle"
+                @if ($compact) title="{{ $hint($extensionsByKind[$kindValue]) }}" @endif
+                @class([
+                    'relative flex items-center gap-x-2 overflow-hidden rounded-lg bg-white px-3 text-sm ring-1 ring-gray-950/10 cursor-pointer transition duration-75 motion-reduce:transition-none',
+                    'hover:ring-gray-950/20 focus-within:ring-2 focus-within:ring-primary-500',
+                    'dark:bg-white/5 dark:ring-white/20 dark:hover:ring-white/30',
+                    'data-[state=drag]:ring-2 data-[state=drag]:ring-primary-500 data-[state=drag]:bg-primary-50 dark:data-[state=drag]:bg-primary-500/10',
+                    'data-[state=error]:ring-danger-500 dark:data-[state=error]:ring-danger-500',
+                    'min-h-9 py-1.5' => $compact,
+                    'min-h-14 py-2.5' => ! $compact,
+                ])
             >
-                <x-filament::icon icon="heroicon-o-arrow-up-tray" class="w-8 h-8 text-gray-400" />
+                {{-- The target fills as the progress bar while a single upload runs. --}}
+                <div
+                    aria-hidden="true"
+                    x-show="single() && ! single().error"
+                    x-cloak
+                    class="absolute inset-y-0 left-0 bg-primary-500/15 transition-[width] duration-200 motion-reduce:transition-none"
+                    x-bind:style="'width: ' + (single()?.percent ?? 0) + '%'"
+                ></div>
 
-                <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    Drop a {{ $kindLabel }} export here, or click to choose it
-                </span>
+                <x-filament::icon
+                    icon="heroicon-m-arrow-up-tray"
+                    class="relative size-4 shrink-0 text-gray-400 dark:text-gray-500"
+                    x-bind:class="state() === 'error' ? 'text-danger-500 dark:text-danger-400' : ''"
+                />
 
-                <span class="text-xs text-gray-500 dark:text-gray-400">
-                    .{{ implode(', .', $extensionsByKind[$kindValue]) }} files up to {{ $maxMegabytes }} MB. Deleted from storage {{ $ttlHours }} hours after upload.
+                <span class="relative min-w-0 flex-1">
+                    <span x-show="! single()" class="block">
+                        <span class="block truncate text-gray-950 dark:text-white">Drop a new {{ $kindLabel }} here or <span class="font-medium text-primary-600 dark:text-primary-400">browse</span></span>
+                        @unless ($compact)
+                            <span class="block text-xs text-gray-500 dark:text-gray-400">{{ $hint($extensionsByKind[$kindValue]) }}</span>
+                        @endunless
+                    </span>
+
+                    <template x-if="single() && ! single().error">
+                        <span class="flex items-center justify-between gap-x-3 text-gray-950 dark:text-white">
+                            <span class="truncate" x-text="'Uploading ' + single().name"></span>
+                            <span class="shrink-0 text-gray-500 tabular-nums dark:text-gray-400" x-text="single().percent + '%'"></span>
+                        </span>
+                    </template>
+
+                    <template x-if="single()?.error">
+                        <span class="flex items-start justify-between gap-x-3">
+                            <span class="text-danger-600 dark:text-danger-400" role="alert" x-text="single().error"></span>
+                            <button type="button" class="shrink-0 font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" x-on:click.prevent="remove(single().id)">Dismiss</button>
+                        </span>
+                    </template>
                 </span>
 
                 <input
                     x-ref="input"
                     type="file"
                     multiple
-                    class="hidden"
+                    class="sr-only"
                     x-bind:accept="extensions.map((extension) => '.' + extension).join(',')"
                     x-on:change="pick($event.target.files)"
                 />
             </label>
 
-            <template x-for="upload in uploads" x-bind:key="upload.id">
-                <div class="px-3 py-2 text-sm rounded-lg ring-1 ring-gray-950/10 dark:ring-white/20">
-                    <div class="flex items-center justify-between gap-3">
-                        <span class="truncate" x-text="upload.name"></span>
-                        <button type="button" class="text-xs text-gray-500 hover:text-gray-700" x-show="upload.error" x-on:click="remove(upload.id)">Dismiss</button>
+            <div class="space-y-2" x-show="uploads.length > 1" x-cloak>
+                <template x-for="upload in uploads" x-bind:key="upload.id">
+                    <div
+                        class="relative overflow-hidden rounded-lg bg-white px-3 py-1.5 text-sm ring-1 dark:bg-white/5"
+                        x-bind:class="upload.error ? 'ring-danger-500' : 'ring-gray-950/10 dark:ring-white/20'"
+                    >
+                        <div
+                            aria-hidden="true"
+                            x-show="! upload.error"
+                            class="absolute inset-y-0 left-0 bg-primary-500/15 transition-[width] duration-200 motion-reduce:transition-none"
+                            x-bind:style="'width: ' + upload.percent + '%'"
+                        ></div>
+                        <div class="relative flex items-start justify-between gap-x-3">
+                            <span class="min-w-0 truncate text-gray-950 dark:text-white" x-show="! upload.error" x-text="upload.name"></span>
+                            <span class="shrink-0 text-gray-500 tabular-nums dark:text-gray-400" x-show="! upload.error" x-text="upload.percent + '%'"></span>
+                            <span class="text-danger-600 dark:text-danger-400" role="alert" x-show="upload.error" x-text="upload.error"></span>
+                            <button type="button" class="shrink-0 font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" x-show="upload.error" x-on:click="remove(upload.id)">Dismiss</button>
+                        </div>
                     </div>
-                    <p class="mt-1 text-xs text-danger-600" x-show="upload.error" x-text="upload.error"></p>
-                    <div class="h-1.5 mt-2 overflow-hidden rounded bg-gray-200 dark:bg-white/10" x-show="! upload.error">
-                        <div class="h-full bg-primary-500" x-bind:style="'width: ' + upload.percent + '%'"></div>
-                    </div>
-                </div>
-            </template>
+                </template>
+            </div>
         </div>
     @endforeach
 </div>
