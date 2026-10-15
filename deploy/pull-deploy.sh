@@ -16,6 +16,9 @@
 
 set -u
 
+# Cron starts with a minimal PATH; composer lives in /usr/local/bin on the box.
+export PATH="/usr/local/bin:/usr/bin:/bin:${PATH:-}"
+
 ENV_FILE="${PULL_DEPLOY_ENV:-$HOME/.pull-deploy.env}"
 LOCK_FILE="${PULL_DEPLOY_LOCK:-$HOME/.pull-deploy.lock}"
 TARGETS_FILE="${PULL_DEPLOY_TARGETS:-}"
