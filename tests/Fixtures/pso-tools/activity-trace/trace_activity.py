@@ -1,6 +1,8 @@
 """Stand-in for pso-tools/activity-trace/trace_activity.py in tests. Same arguments and output files, no tracing.
 
-FAKE_TRACE_MODE: ok (default) | notfound (exit 2) | fail (exit 1) | silent (exit 0, writes nothing).
+FAKE_TRACE_MODE: ok (default) | notfound (exit 2) | fail (exit 1, two-line stderr) | eventlogfail (exit 1, one line)
+| blank (exit 2, no stderr) | silent (exit 0, writes nothing). Every mode but blank writes PROGRESS lines first, as the
+real script does with PSO_PROGRESS=lines.
 FAKE_TRACE_ARGS_FILE: where to write the received argv and cwd, as JSON (optional).
 """
 import json, os, sys
@@ -14,11 +16,24 @@ if os.environ.get('FAKE_TRACE_ARGS_FILE'):
     with open(os.environ['FAKE_TRACE_ARGS_FILE'], 'w') as fh:
         json.dump({'argv': sys.argv[1:], 'cwd': os.getcwd(), 'progress_env': os.environ.get('PSO_PROGRESS')}, fh)
 
+def progress(stage, percent):
+    if os.environ.get('PSO_PROGRESS') == 'lines':
+        sys.stderr.write('PROGRESS %s\n' % json.dumps({'stage': stage, 'percent': percent}, separators=(',', ':')))
+
+if mode == 'blank':
+    sys.exit(2)
+progress('scanning', 0)
+progress('scanning', 100)
+progress('reading', 40)
+
 if mode == 'notfound':
     sys.stderr.write('Activity 123 is not in the audit messages.\n')
     sys.exit(2)
 if mode == 'fail':
-    sys.stderr.write('Stopped during: reading the audits\n')
+    sys.stderr.write("Stopped during: reading the audit files\nKeyError: 'Activity_Status'\n")
+    sys.exit(1)
+if mode == 'eventlogfail':
+    sys.stderr.write('Stopped during: reading the IFS event log: The event log has no Time column.\n')
     sys.exit(1)
 if mode == 'silent':
     sys.exit(0)

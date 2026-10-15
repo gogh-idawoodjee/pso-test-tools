@@ -72,16 +72,52 @@ final class ScriptRun
 
         if (! $process->successful()) {
             Log::warning('pso-tools script failed', ['tool_run_id' => $context->run->id, 'script' => $argv[2] ?? null, 'exit' => $process->exitCode(), 'stderr' => implode("\n", $stderr)]);
+            $lastLine = collect($stderr)->last(static fn (string $line): bool => trim($line) !== '') ?? 'no error text';
             if ($reasonExitCode !== null && $process->exitCode() === $reasonExitCode) {
-                throw new RuntimeException(Str::limit(trim((string) collect($stderr)->last(static fn (string $line): bool => trim($line) !== '')), 300));
+                throw new RuntimeException(Str::limit(trim($lastLine), 300));
+            }
+
+            $stopped = self::stoppedDuring($stderr);
+            if ($stopped !== null) {
+                throw new RuntimeException("{$noun} stopped while {$stopped['stage']}: ".Str::limit($stopped['message'], 300));
             }
 
             $stage = strtolower(preg_replace('/:.*$/', '', $lastLabel));
-            $lastLine = collect($stderr)->last(static fn (string $line): bool => trim($line) !== '') ?? 'no error text';
 
             throw new RuntimeException("{$noun} stopped while {$stage}: ".Str::limit(trim($lastLine), 300));
         }
 
         return new self($stdout, $stderr, $lastLabel);
+    }
+
+    /**
+     * The script's own "Stopped during" report, when it wrote one: either one line
+     * "Stopped during: <stage>: <message>", or "Stopped during: <stage>" followed by "<ExceptionClass>: <message>".
+     * The exception class name is dropped so the user reads a plain sentence.
+     *
+     * @param  list<string>  $stderr
+     * @return array{stage: string, message: string}|null
+     */
+    private static function stoppedDuring(array $stderr): ?array
+    {
+        $prefix = 'Stopped during: ';
+        for ($i = count($stderr) - 1; $i >= 0; $i--) {
+            $line = trim($stderr[$i]);
+            if (! str_starts_with($line, $prefix)) {
+                continue;
+            }
+            $rest = substr($line, strlen($prefix));
+            if (str_contains($rest, ': ')) {
+                [$stage, $message] = explode(': ', $rest, 2);
+            } else {
+                $stage = $rest;
+                $after = array_values(array_filter(array_slice($stderr, $i + 1), static fn (string $l): bool => trim($l) !== ''));
+                $message = isset($after[0]) ? (string) preg_replace('/^[A-Za-z_][\\w.]*: /', '', trim($after[0])) : 'no error text';
+            }
+
+            return ['stage' => trim($stage), 'message' => trim($message) === '' ? 'no error text' : trim($message)];
+        }
+
+        return null;
     }
 }

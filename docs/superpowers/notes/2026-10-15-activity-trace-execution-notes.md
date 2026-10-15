@@ -45,7 +45,8 @@ pso-tools:
 
 pso-test-tools:
 - Last "Created Date" header wins in the summariser's first pass (it now breaks on the first, check the CSV path); numeric text in a csv could still be read as a serial inside 30000 to 80000.
-- Empty error on exit 2 with empty stderr (ScriptRun.php, line 75); no test that both ids blank is rejected in the wizard; the CSV file name uses `str_replace('.csv')`; the article helper is duplicated in ToolCatalogue; an exception class name can leak into exit-1 messages; the exit-1 message reads "stopped while starting: Stopped during: ..." when no PROGRESS line came first.
+- No test that both ids blank is rejected in the wizard; the CSV file name uses `str_replace('.csv')`; the article helper is duplicated in ToolCatalogue.
+- Fixed in the final wave: every exit-1 message used to read "stopped while starting: ..." (with the Python class name, and "Stopped during: ..." repeated for event log errors), because ProgressLine knew neither `scanning` nor `reading`, so no PROGRESS line was ever taken. ScriptRun now builds the message from the script's own "Stopped during" line, and an exit 2 with empty stderr says "no error text".
 - Only the first worksheet of an event log is read; text dates with an explicit offset use that offset.
 
 ## After merge

@@ -88,11 +88,31 @@ it('fails with the scripts own words when the activity is not found', function (
         ->toThrow(RuntimeException::class, 'Activity 123 is not in the audit messages.');
 });
 
-it('names the stage when the script fails otherwise', function () {
-    fakeTraceEnv('FAKE_TRACE_MODE', 'fail');
+it('names the scripts own stage and drops the exception class name when it fails', function (string $mode, string $message) {
+    fakeTraceEnv('FAKE_TRACE_MODE', $mode);
+
+    try {
+        (new ActivityTraceTool)->run($this->context, ['audits' => $this->scratch.'/audits.zip'], ['activity_id' => '123']);
+        $this->fail('expected the run to fail');
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toBe($message);
+    }
+})->with([
+    'two-line form' => ['fail', "The trace stopped while reading the audit files: 'Activity_Status'"],
+    'one-line form' => ['eventlogfail', 'The trace stopped while reading the IFS event log: The event log has no Time column.'],
+]);
+
+it('reports the scanning and reading progress', function () {
+    (new ActivityTraceTool)->run($this->context, ['audits' => $this->scratch.'/audits.zip'], ['activity_id' => 'abc']);
+
+    expect($this->run->fresh()->progress['label'] ?? null)->toBe('Reading the audit messages: 40%');
+});
+
+it('says there is no error text when the not-found exit has an empty stderr', function () {
+    fakeTraceEnv('FAKE_TRACE_MODE', 'blank');
 
     expect(fn () => (new ActivityTraceTool)->run($this->context, ['audits' => $this->scratch.'/audits.zip'], ['activity_id' => '123']))
-        ->toThrow(RuntimeException::class, 'The trace stopped while');
+        ->toThrow(RuntimeException::class, 'no error text');
 });
 
 it('fails when the script exits cleanly but wrote nothing', function () {

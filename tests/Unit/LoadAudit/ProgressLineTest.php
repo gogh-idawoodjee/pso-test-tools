@@ -9,7 +9,7 @@ it('turns a load line into a label with percent and estimate', function () {
 
 it('labels each stage in plain English', function (string $stage, string $label) {
     expect(ProgressLine::parse('PROGRESS {"stage":"'.$stage.'"}')['label'])->toBe($label);
-})->with([['load', 'Reading the LOAD'], ['plan', 'Reading the plan'], ['sys', 'Reading the SYS file'], ['checks', 'Running the checks'], ['gather', "Working out each technician's regions"]]);
+})->with([['load', 'Reading the LOAD'], ['plan', 'Reading the plan'], ['sys', 'Reading the SYS file'], ['checks', 'Running the checks'], ['gather', "Working out each technician's regions"], ['scanning', 'Finding the activity in the audit messages'], ['reading', 'Reading the audit messages']]);
 
 it('ignores noise, broken json and unknown stages', function (string $line) {
     expect(ProgressLine::parse($line))->toBeNull();

@@ -11,6 +11,8 @@ class ProgressLine
         'sys' => 'Reading the SYS file',
         'checks' => 'Running the checks',
         'gather' => "Working out each technician's regions",
+        'scanning' => 'Finding the activity in the audit messages',
+        'reading' => 'Reading the audit messages',
     ];
 
     /** @return array{label: string, percent: ?int, seconds_left: ?int, stage: string}|null null for anything that is not a progress line we know */
