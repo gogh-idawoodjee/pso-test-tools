@@ -1,5 +1,8 @@
 # Trace an activity: design
 
+Corrections after execution (2026-10-15): the History shift check uses Plan_Route from the plan files, not the LOAD
+(section 2, LOAD); the timing cards come from a compact all-requests timing table (section 1).
+
 Date: 2026-10-15. Status: approved in conversation, awaiting written review. Replaces issue #30's scope;
 closes the #25 question for this tool (Python first).
 
@@ -44,7 +47,8 @@ activity should be one story.
   `trace.html`, `trace.json`, `booking.csv`, `history.csv` in the run's scratch folder; the tool stores all
   four in the run result (`html`, `data`, `booking_csv`, `history_csv`).
 - Result page: the sandboxed iframe used by the load audit, plus download buttons for HTML, JSON, booking CSV
-  and history CSV. Summary line built from the JSON, for example "Booked 2026-10-03 after 2 offers; 14
+  and history CSV. The dataset-wide timing cards come from a compact table of all requests' timings (times only, not rows), so they keep
+  the meaning they have in the PowerShell. Summary line built from the JSON, for example "Booked 2026-10-03 after 2 offers; 14
   scheduling events, 1 check failed" (booking outcome; history counts; red findings count).
 
 ## 2. The Python tool
@@ -82,8 +86,9 @@ order with the task timeline's file-name fallback; the PowerShell scripts' own r
 Only the optional LOAD input. No search next to the input, no nested zip, no prompt. The LOAD supplies
 Appointment_Template, Appointment_Template_Item, Appt_Template_Slot_Usage, Slot_Usage_Rule_Set,
 Slot_Usage_Rule (booking) and is also read as one more audit file for the activity's rows (history). Without a
-LOAD: the Booking view says slot usage rules were not checked; the History view skips the shift-fit check and
-says so.
+LOAD: the Booking view says slot usage rules were not checked. The History shift check does not need the LOAD: it
+uses the Plan_Route rows from the plan files, as the PowerShell does, and a note appears when no route matched an
+allocation. The LOAD is read as one more audit file, placed at its own time among the audits.
 
 ### Work task id and related activities
 

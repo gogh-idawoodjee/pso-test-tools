@@ -112,6 +112,18 @@ the checkout. Downloads: the page and the gathered JSON. Timeout: `TOOLS_REGION_
 
 This replaces the Technician Availability page (JSON upload, one technician's shifts), removed 2026-10-11.
 
+### Trace an activity
+
+What happened to one activity: how it was booked and how PSO scheduled it. Inputs: the **Audit messages** zip
+(required), the LOAD (optional; adds the slot usage rule check to the Booking view) and the **IFS event log**
+(optional; an .xlsx or .csv export, paired with the audit's scheduling events). Enter an activity id, or a work
+task id if that is all you have. The report has two views: **Booking** (requests, offers, response, the calendar
+of offered slots) and **History** (inputs, plan changes, window and shift checks, planned versus actual), with a
+switch for the time zone. Downloads: the page, the JSON, `booking.csv` and `history.csv`. Like the audit, it is
+Python from the pso-tools checkout (`activity-trace/trace_activity.py`, found through `TOOLS_PSO_TOOLS_PATH`),
+run fresh each time. The dataset's settings add an **IFS time zone** (`ifs_time_zone`), the zone the event log
+times are written in; blank means the dataset's own zone.
+
 ## Deploying
 
 Pushes to `main` deploy themselves: a cron on the server runs `deploy/pull-deploy.sh` every 2 minutes, which
