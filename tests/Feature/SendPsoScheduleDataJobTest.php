@@ -8,6 +8,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Tests\Support\PsoServicesFake;
 
 beforeEach(function () {
     Storage::fake('r2');
@@ -24,7 +25,7 @@ it('uploads a json file to the gateway and records the internal id on success', 
     ]);
 
     Http::fake([
-        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        ...PsoServicesFake::session(),
         '*/scheduling/data' => Http::response(['InternalId' => '1857054'], 200),
     ]);
 
@@ -75,7 +76,7 @@ it('populates dataset id, input reference datetime, and entity counts from the u
     ]);
 
     Http::fake([
-        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        ...PsoServicesFake::session(),
         '*/scheduling/data' => Http::response(['InternalId' => '1857054'], 200),
     ]);
 
@@ -99,7 +100,7 @@ it('still succeeds even when the uploaded file cannot be parsed for summary meta
     ]);
 
     Http::fake([
-        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        ...PsoServicesFake::session(),
         '*/scheduling/data' => Http::response(['InternalId' => '1857054'], 200),
     ]);
 
@@ -122,7 +123,7 @@ it('sets Content-Type to application/xml for an xml upload', function () {
     ]);
 
     Http::fake([
-        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        ...PsoServicesFake::session(),
         '*/scheduling/data' => Http::response(['InternalId' => '1857055'], 200),
     ]);
 
@@ -142,7 +143,7 @@ it('fails cleanly when the gateway rejects credentials', function () {
     ]);
 
     Http::fake([
-        '*/scheduling/session' => Http::response([], 401),
+        ...PsoServicesFake::session(logonStatus: 401),
     ]);
 
     (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'bad-user', 'bad-password'))->handle();
@@ -163,7 +164,7 @@ it('maps a gateway AUTHENTICATION_FAILED response to a plain-language error', fu
     ]);
 
     Http::fake([
-        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        ...PsoServicesFake::session(),
         '*/scheduling/data' => Http::response(['Message' => 'AUTHENTICATION_FAILED'], 400),
     ]);
 
@@ -188,7 +189,7 @@ it('records a plain-language error on a connection failure', function () {
     ]);
 
     Http::fake([
-        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        ...PsoServicesFake::session(),
         '*/scheduling/data' => function () {
             throw new ConnectionException('Connection timed out');
         },
@@ -217,7 +218,7 @@ it('extracts and uploads a zipped json file, and cleans up the extracted temp fi
     ]);
 
     Http::fake([
-        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        ...PsoServicesFake::session(),
         '*/scheduling/data' => Http::response(['InternalId' => '1857099'], 200),
     ]);
 
@@ -251,7 +252,7 @@ it('removes the whole work directory when the zip entry carries a directory comp
     ]);
 
     Http::fake([
-        '*/scheduling/session' => Http::response(['SessionToken' => 'tok-abc'], 200),
+        ...PsoServicesFake::session(),
         '*/scheduling/data' => Http::response(['InternalId' => '1857100'], 200),
     ]);
 

@@ -10,6 +10,10 @@ return [
     'defaults' => [
         'timeout' => env('DEFAULT_TIMEOUT', 5),
     ],
+    'session' => [
+        // Logon goes pso-test-tools -> pso-services -> PSO, so it needs more than the 5s default.
+        'timeout' => (int) env('PSO_SESSION_TIMEOUT', 20),
+    ],
     'custom_key' => env('SHREDDER_KEY'),
 
     'reference_values' => [

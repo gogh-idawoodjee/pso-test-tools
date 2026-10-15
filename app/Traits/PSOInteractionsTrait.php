@@ -3,10 +3,10 @@
 namespace App\Traits;
 
 use App\Enums\HttpMethod;
-use Exception;
+use App\Support\PsoServices\PsoServicesSessionClient;
+use App\Support\PsoServices\PsoServicesSessionException;
 use Filament\Notifications\Notification;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
@@ -18,6 +18,12 @@ trait PSOInteractionsTrait
 {
     protected ?int $error_value = null;
 
+    /**
+     * Why the last authenticatePSO()/logoffPSO() call failed, as pso-services
+     * reported it, for callers that want to show the reason.
+     */
+    protected ?string $session_error_message = null;
+
     public ?array $json_form_data = [];
 
     public function authenticatePSO(
@@ -27,6 +33,7 @@ trait PSOInteractionsTrait
         #[SensitiveParameter] string $password,
     ): ?string {
         $this->error_value = null;
+        $this->session_error_message = null;
 
         if (! $base_url) {
             Log::warning('Base URL is missing for PSO authentication.');
@@ -35,52 +42,43 @@ trait PSOInteractionsTrait
         }
 
         try {
-            $timeout = config('psott.defaults.timeout', 10);
+            return app(PsoServicesSessionClient::class)->logon($base_url, $account_id, $username, $password);
+        } catch (PsoServicesSessionException $exception) {
+            $this->error_value = $exception->statusCode === 401 ? 401 : 500;
+            $this->session_error_message = $exception->getMessage();
 
-            $response = Http::asForm()
-                ->timeout($timeout)
-                ->connectTimeout($timeout)
-                ->post("{$base_url}/IFSSchedulingRESTfulGateway/api/v1/scheduling/session", [
-                    'accountId' => $account_id,
-                    'userName' => $username,
-                    'password' => $password,
-                ]);
-
-            if ($response->unauthorized() || $response->status() === 400) {
-                $this->error_value = 401;
-                Log::warning('Invalid PSO credentials provided.', compact('username', 'account_id'));
-
-                return null;
-            }
-
-            $sessionToken = $response->json('SessionToken');
-
-            if (! $sessionToken) {
-                Log::warning('Authentication successful but SessionToken is missing.');
-
-                return null;
-            }
-
-            return $sessionToken;
-        } catch (ConnectionException $e) {
-            Log::error('Connection error during PSO authentication', ['message' => $e->getMessage()]);
-            $this->error_value = 500;
-
-            return null;
-        } catch (RequestException $e) {
-            $this->error_value = 500;
-            Log::error('HTTP error during PSO authentication', [
-                'message' => $e->getMessage(),
-                'response' => $e->response?->json(),
-                'status' => $e->response?->status(),
+            Log::warning('PSO authentication through pso-services failed', [
+                'status' => $exception->statusCode,
+                'message' => $exception->getMessage(),
+                'username' => $username,
+                'account_id' => $account_id,
             ]);
 
             return null;
-        } catch (Exception $e) {
-            Log::error('Unexpected error during PSO authentication', ['message' => $e->getMessage()]);
-            $this->error_value = 500;
+        }
+    }
 
-            return null;
+    /**
+     * Ends a session through pso-services. A failure is reported, not thrown:
+     * callers have already finished their work by the time they log off.
+     */
+    public function logoffPSO(string $base_url, #[SensitiveParameter] string $session_token): bool
+    {
+        $this->session_error_message = null;
+
+        try {
+            app(PsoServicesSessionClient::class)->logoff($base_url, $session_token);
+
+            return true;
+        } catch (PsoServicesSessionException $exception) {
+            $this->session_error_message = $exception->getMessage();
+
+            Log::warning('PSO logoff through pso-services failed', [
+                'status' => $exception->statusCode,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return false;
         }
     }
 
