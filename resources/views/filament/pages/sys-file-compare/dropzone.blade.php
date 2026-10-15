@@ -122,6 +122,15 @@
         remove(id) {
             this.uploads = this.uploads.filter((item) => item.id !== id)
         },
+
+        // Display only: the target's ring follows the drag and the newest upload's error.
+        state() {
+            if (this.dragging) {
+                return 'drag'
+            }
+
+            return this.uploads.at(-1)?.error ? 'error' : 'idle'
+        },
     }"
     class="space-y-3"
 >
@@ -129,25 +138,34 @@
         x-on:dragover.prevent="dragging = true"
         x-on:dragleave.prevent="dragging = false"
         x-on:drop.prevent="dragging = false; pick($event.dataTransfer.files)"
-        x-bind:class="dragging ? 'border-primary-500 bg-primary-50 dark:bg-primary-500/10' : 'border-gray-300 dark:border-white/20'"
-        class="flex flex-col items-center justify-center gap-1 px-6 py-8 text-center transition border-2 border-dashed cursor-pointer rounded-xl hover:border-primary-500"
+        x-bind:data-state="state()"
+        data-state="idle"
+        @class([
+            'relative flex min-h-14 items-center gap-x-2 rounded-lg bg-white px-3 py-2.5 text-sm ring-1 ring-gray-950/10 cursor-pointer transition duration-75 motion-reduce:transition-none',
+            'hover:ring-gray-950/20 focus-within:ring-2 focus-within:ring-primary-500',
+            'dark:bg-white/5 dark:ring-white/20 dark:hover:ring-white/30',
+            'data-[state=drag]:ring-2 data-[state=drag]:ring-primary-500 data-[state=drag]:bg-primary-50 dark:data-[state=drag]:bg-primary-500/10',
+            'data-[state=error]:ring-danger-500 dark:data-[state=error]:ring-danger-500',
+        ])
     >
-        <x-filament::icon icon="heroicon-o-arrow-up-tray" class="w-8 h-8 text-gray-400" />
+        <x-filament::icon icon="heroicon-m-arrow-up-tray" class="size-4 shrink-0 text-gray-400 dark:text-gray-500" />
 
-        <span class="text-sm font-medium text-gray-900 dark:text-gray-100">
-            @if ($isSys)
-                Drop PSO system data exports here, or click to choose files
-            @else
-                Drop a ParamDefinitions.csv here, or click to choose it
-            @endif
-        </span>
+        <span class="min-w-0 flex-1">
+            <span class="block text-gray-950 dark:text-white">
+                @if ($isSys)
+                    Drop PSO system data exports here or <span class="font-medium text-primary-600 dark:text-primary-400">browse</span>
+                @else
+                    Drop a ParamDefinitions.csv here or <span class="font-medium text-primary-600 dark:text-primary-400">browse</span>
+                @endif
+            </span>
 
-        <span class="text-xs text-gray-500 dark:text-gray-400">
-            @if ($isSys)
-                .xml files, up to {{ $maxFiles }} files and {{ $maxMegabytes }} MB each. They are kept on a private disk and deleted as soon as the comparison finishes.
-            @else
-                A .csv file with the columns Parameter, Definition, Note and Basis.
-            @endif
+            <span class="block text-xs text-gray-500 dark:text-gray-400">
+                @if ($isSys)
+                    .xml files, up to {{ $maxFiles }} files and {{ $maxMegabytes }} MB each. They are kept on a private disk and deleted as soon as the comparison finishes.
+                @else
+                    A .csv file with the columns Parameter, Definition, Note and Basis.
+                @endif
+            </span>
         </span>
 
         <input
@@ -162,8 +180,8 @@
 
     @unless ($isSys)
         <template x-if="$wire.formData?.definitions">
-            <div class="flex items-center justify-between gap-3 px-3 py-2 text-sm rounded-lg bg-gray-50 dark:bg-white/5">
-                <span x-text="$wire.formData.definitions.fileName"></span>
+            <div class="flex items-center justify-between gap-3 px-3 py-1.5 text-sm rounded-lg bg-white ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/20">
+                <span class="truncate text-gray-950 dark:text-white" x-text="$wire.formData.definitions.fileName"></span>
                 <x-filament::button type="button" size="xs" color="danger" outlined class="shrink-0" x-on:click="$wire.removeDefinitions()">
                     Remove
                 </x-filament::button>
@@ -175,21 +193,19 @@
         <template x-for="upload in uploads" x-bind:key="upload.id">
             <li class="text-sm">
                 <template x-if="! upload.error">
-                    <div>
-                        <div class="flex justify-between text-gray-700 dark:text-gray-300">
-                            <span x-text="upload.name"></span>
-                            <span x-text="upload.percent + '%'"></span>
-                        </div>
-                        <div class="h-1.5 mt-1 overflow-hidden bg-gray-200 rounded-full dark:bg-gray-700">
-                            <div class="h-1.5 bg-primary-500" x-bind:style="'width:' + upload.percent + '%'"></div>
+                    <div class="relative overflow-hidden rounded-lg bg-white px-3 py-1.5 ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/20">
+                        <div aria-hidden="true" class="absolute inset-y-0 left-0 bg-primary-500/15 transition-[width] duration-200 motion-reduce:transition-none" x-bind:style="'width:' + upload.percent + '%'"></div>
+                        <div class="relative flex justify-between gap-3 text-gray-950 dark:text-white">
+                            <span class="truncate" x-text="upload.name"></span>
+                            <span class="shrink-0 text-gray-500 tabular-nums dark:text-gray-400" x-text="upload.percent + '%'"></span>
                         </div>
                     </div>
                 </template>
 
                 <template x-if="upload.error">
-                    <div class="flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-danger-50 text-danger-700 dark:bg-danger-500/10 dark:text-danger-400">
-                        <span x-text="upload.error"></span>
-                        <x-filament::button type="button" size="xs" color="danger" outlined class="shrink-0" x-on:click="remove(upload.id)">
+                    <div class="flex items-start justify-between gap-3 px-3 py-1.5 rounded-lg bg-white ring-1 ring-danger-500 dark:bg-white/5">
+                        <span class="text-danger-600 dark:text-danger-400" role="alert" x-text="upload.error"></span>
+                        <x-filament::button type="button" size="xs" color="gray" class="shrink-0" x-on:click="remove(upload.id)">
                             Dismiss
                         </x-filament::button>
                     </div>
