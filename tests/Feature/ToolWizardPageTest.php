@@ -1,7 +1,10 @@
 <?php
 
+use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
+use App\Enums\ToolRunStatus;
+use App\Filament\Pages\ToolRunPage;
 use App\Filament\Pages\Tools\LoadAuditEntry;
 use App\Filament\Pages\Tools\SysCompareEntry;
 use App\Jobs\RunToolJob;
@@ -213,5 +216,46 @@ it('refuses a scope the user does not own even if the id is forced into the form
     // ModelNotFoundException (which Laravel renders as a 404) is what escapes.
     expect(fn () => Livewire::test(LoadAuditEntry::class)->set('data.dataset_id', $theirs->id)->call('start'))
         ->toThrow(ModelNotFoundException::class);
+    expect(ToolRun::count())->toBe(0);
+});
+
+it('shows the run panel after starting, with open, run again and home links', function () {
+    Queue::fake();
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'morning-load.zip']);
+
+    $component = Livewire::test(LoadAuditEntry::class)->call('start')->assertHasNoFormErrors();
+    $run = ToolRun::sole();
+
+    $component->assertSee('Queued')
+        ->assertSee('morning-load.zip')
+        ->assertSee(ToolRunPage::urlFor($this->dataset, $run), false)
+        ->assertSee('Run again')
+        ->assertSee('Back to home');
+
+    $run->update(['status' => ToolRunStatus::Succeeded, 'result' => ['ok' => true], 'warnings' => ['Two activities have no location'], 'finished_at' => now()]);
+    $component->call('$refresh')->assertSee('Succeeded')->assertSee('Two activities have no location');
+});
+
+it('run again returns to the form with the same choices', function () {
+    Queue::fake();
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    Livewire::test(LoadAuditEntry::class)->call('start')
+        ->call('runAgain')
+        ->assertSet('runId', null)
+        ->assertFormSet(['dataset_id' => $this->dataset->id, 'files.load' => $load->id]);
+});
+
+it('refuses a file that is no longer usable and sends the user back to choose another', function () {
+    Queue::fake();
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    $component = Livewire::test(LoadAuditEntry::class)->assertFormSet(['files.load' => $load->id]);
+    $load->update(['status' => ExportFileStatus::Purged]);
+
+    $component->call('start')
+        ->assertSet('runId', null)
+        ->assertNotified('The run did not start')
+        ->assertFormSet(['files.load' => null]);
     expect(ToolRun::count())->toBe(0);
 });

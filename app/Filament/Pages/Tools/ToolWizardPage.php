@@ -5,9 +5,11 @@ namespace App\Filament\Pages\Tools;
 use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
+use App\Enums\ToolRunStatus;
 use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
+use App\Models\ToolRun;
 use App\Support\Exports\RunInputPicker;
 use App\Support\Tools\StartToolRun;
 use App\Support\Tools\UnusableInputException;
@@ -28,6 +30,7 @@ use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
 use Livewire\Attributes\On;
@@ -300,13 +303,16 @@ abstract class ToolWizardPage extends Page implements HasForms
 
     public function start(): void
     {
-        $state = $this->form->getState();
         $scope = $this->scopeModel();
 
         try {
+            $this->assertChosenFilesUsable($scope);
+            $state = $this->form->getState();
             $run = app(StartToolRun::class)->start($scope, static::tool(), $state['files'] ?? [], $state['options'] ?? [], auth()->user());
         } catch (UnusableInputException $e) {
+            // Empty on purpose, so the default does not put the same unusable file back.
             $this->data['files'][$e->kind->value] = null;
+            $this->rememberChoice($e->kind->value, null);
             $this->refreshInputs();
             Notification::make()->title('The run did not start')->body($e->getMessage())->danger()->send();
 
@@ -314,6 +320,61 @@ abstract class ToolWizardPage extends Page implements HasForms
         }
 
         $this->runId = $run->id;
+    }
+
+    /** A file that expired since the form opened is no longer an option, so say so before the form's own validation does. */
+    private function assertChosenFilesUsable(Model $scope): void
+    {
+        $usable = app(RunInputPicker::class)->optionsFor($scope, static::tool());
+
+        foreach ($this->data['files'] ?? [] as $kind => $fileId) {
+            if (filled($fileId) && ! array_key_exists((string) $fileId, $usable[$kind] ?? [])) {
+                throw UnusableInputException::unavailable(ExportKind::from($kind));
+            }
+        }
+    }
+
+    public function currentRun(): ?ToolRun
+    {
+        return $this->runId === null ? null : ToolRun::query()->findOrFail($this->runId);
+    }
+
+    public function isRunning(): bool
+    {
+        $run = $this->currentRun();
+
+        return $run !== null && in_array($run->status, [ToolRunStatus::Queued, ToolRunStatus::Running], true);
+    }
+
+    /** @return Collection<string, ExportFile|null> */
+    public function inputFiles(): Collection
+    {
+        $named = $this->currentRun()?->inputs['files'] ?? [];
+        $files = ExportFile::query()->whereKey(array_values($named))->get()->keyBy('id');
+
+        return collect($named)->map(static fn (string $fileId): ?ExportFile => $files->get($fileId));
+    }
+
+    public function resultView(): string
+    {
+        $specific = 'filament.tool-runs.'.static::tool()->value;
+
+        return view()->exists($specific) ? $specific : 'filament.tool-runs._generic';
+    }
+
+    /** Back to the form with the same choices. */
+    public function runAgain(): void
+    {
+        $this->runId = null;
+    }
+
+    /** Back to the form with nothing carried over from the last run. */
+    public function resetWizard(): void
+    {
+        $this->runId = null;
+        $this->clearedKinds = [];
+        $this->knownFiles = [];
+        $this->mount();
     }
 
     #[Override]
