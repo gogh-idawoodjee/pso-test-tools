@@ -11,6 +11,7 @@ use App\Tools\ToolRegistry;
 use Filament\Pages\Page;
 use Filament\Resources\Resource as FilamentResource;
 use Filament\Support\Colors\Color;
+use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\Widget;
 
 class ToolCatalogue extends Widget
@@ -21,7 +22,7 @@ class ToolCatalogue extends Widget
 
     protected string $view = 'filament.widgets.tool-catalogue';
 
-    /** @return list<array{label: string, accent: string, items: list<array{label: string, question: string, needs: ?string, url: string, class: class-string<Page|FilamentResource>}>}> */
+    /** @return list<array{label: string, accent: string, items: list<array{label: string, icon: Heroicon|string|\BackedEnum, question: string, needs: ?string, url: string, class: class-string<Page|FilamentResource>}>}> */
     public function sections(): array
     {
         $registry = app(ToolRegistry::class);
@@ -73,11 +74,13 @@ class ToolCatalogue extends Widget
 
     /**
      * @param  class-string<Page|FilamentResource>  $class
-     * @return array{label: string, question: string, needs: ?string, url: string, class: class-string<Page|FilamentResource>}
+     * @return array{label: string, icon: Heroicon|string|\BackedEnum, question: string, needs: ?string, url: string, class: class-string<Page|FilamentResource>}
      */
     private function item(string $class, string $label, string $question, ?string $needs): array
     {
-        return ['label' => $label, 'question' => $question, 'needs' => $needs, 'url' => $class::getUrl(), 'class' => $class];
+        $icon = is_subclass_of($class, Pages\Tools\ToolWizardPage::class) ? $class::tool()->icon() : $class::getNavigationIcon();
+
+        return ['label' => $label, 'icon' => $icon ?? Heroicon::OutlinedSquares2x2, 'question' => $question, 'needs' => $needs, 'url' => $class::getUrl(), 'class' => $class];
     }
 
     /** @return class-string<Pages\Tools\ToolWizardPage>|null */

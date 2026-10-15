@@ -13,7 +13,7 @@ class Backups extends BaseBackups
 {
     use AdminViewable;
 
-    protected static string|null|BackedEnum $navigationIcon = Heroicon::OutlinedCpuChip;
+    protected static string|null|BackedEnum $navigationIcon = Heroicon::OutlinedArchiveBox;
 
     public function getHeading(): string|Htmlable
     {

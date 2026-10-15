@@ -3,6 +3,7 @@
 use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\Tools\LoadAuditEntry;
 use App\Filament\Widgets\QuickLaunch;
 use App\Filament\Widgets\RecentRuns;
 use App\Filament\Widgets\ToolCatalogue;
@@ -32,6 +33,17 @@ it('lists registered tools with their question and the files they need, grouped 
         ->assertDontSee(ToolId::RegionAvailability->getLabel())
         ->assertSee('Live PSO actions')
         ->assertSee('Setup');
+});
+
+it('shows an icon on every tile and shares the tool icon with the sidebar', function () {
+    app()->instance(ToolRegistry::class, new ToolRegistry);
+    app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
+
+    $html = Livewire::test(ToolCatalogue::class)->html();
+
+    expect(substr_count($html, 'data-tool-tile'))->toBeGreaterThan(0)
+        ->and(substr_count($html, '<svg'))->toBe(substr_count($html, 'data-tool-tile'))
+        ->and(LoadAuditEntry::getNavigationIcon())->toBe(ToolId::LoadAudit->icon());
 });
 
 it('lists only the admin pages the user can open, dropping an empty Admin section', function () {

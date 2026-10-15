@@ -5,6 +5,7 @@ namespace App\Enums;
 use App\Models\Dataset;
 use App\Models\Environment;
 use Filament\Support\Contracts\HasLabel;
+use Filament\Support\Icons\Heroicon;
 
 enum Tool: string implements HasLabel
 {
@@ -45,6 +46,20 @@ enum Tool: string implements HasLabel
             self::AppointmentTimeline => 'Appointment timeline',
             self::PlanTravels => 'Plan travels',
             self::SysCompare => 'PSO sys file compare',
+        };
+    }
+
+    /** Shown on the home page tile and in the sidebar. */
+    public function icon(): Heroicon
+    {
+        return match ($this) {
+            self::LoadAudit => Heroicon::OutlinedClipboardDocumentCheck,
+            self::RegionAvailability => Heroicon::OutlinedMap,
+            self::SysCompare => Heroicon::OutlinedArrowsRightLeft,
+            self::AppointmentTimeline => Heroicon::OutlinedCalendarDays,
+            self::PlanTravels => Heroicon::OutlinedTruck,
+            self::ScheduleReview => Heroicon::OutlinedChartBar,
+            self::ScheduleRollup => Heroicon::OutlinedPresentationChartLine,
         };
     }
 

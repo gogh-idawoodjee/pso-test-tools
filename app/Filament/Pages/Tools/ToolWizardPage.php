@@ -34,7 +34,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
@@ -54,8 +54,6 @@ abstract class ToolWizardPage extends Page implements HasForms
     use InteractsWithForms;
 
     protected static string|UnitEnum|null $navigationGroup = Groups::ANALYSE;
-
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedPlayCircle;
 
     protected string $view = 'filament.pages.tools.tool-wizard';
 
@@ -435,6 +433,12 @@ abstract class ToolWizardPage extends Page implements HasForms
     public static function getNavigationLabel(): string
     {
         return static::tool()->getLabel();
+    }
+
+    #[Override]
+    public static function getNavigationIcon(): string|BackedEnum|Htmlable|null
+    {
+        return static::tool()->icon();
     }
 
     #[Override]
