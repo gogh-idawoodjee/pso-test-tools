@@ -22,8 +22,8 @@ def progress(stage, percent):
 
 if mode == 'blank':
     sys.exit(2)
-progress('scanning', 0)
-progress('scanning', 100)
+progress('finding', 0)
+progress('finding', 100)
 progress('reading', 40)
 
 if mode == 'notfound':

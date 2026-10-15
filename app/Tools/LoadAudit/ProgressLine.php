@@ -11,6 +11,7 @@ class ProgressLine
         'sys' => 'Reading the SYS file',
         'checks' => 'Running the checks',
         'gather' => "Working out each technician's regions",
+        'finding' => 'Finding the activity in the audit messages',
         'scanning' => 'Finding the activity in the audit messages',
         'reading' => 'Reading the audit messages',
     ];

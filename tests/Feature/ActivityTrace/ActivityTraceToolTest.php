@@ -115,10 +115,16 @@ it('names the scripts own stage and drops the exception class name when it fails
     'one-line form' => ['eventlogfail', 'The trace stopped while reading the IFS event log: The event log has no Time column.'],
 ]);
 
-it('reports the scanning and reading progress', function () {
+it('reports the finding and reading progress', function () {
+    $labels = [];
+    $this->run::updating(static function ($run) use (&$labels): void {
+        $labels[] = $run->progress['label'] ?? null;
+    });
+
     (new ActivityTraceTool)->run($this->context, ['audits' => $this->scratch.'/audits.zip'], ['activity_id' => 'abc']);
 
-    expect($this->run->fresh()->progress['label'] ?? null)->toBe('Reading the audit messages: 40%');
+    expect($labels)->toContain('Finding the activity in the audit messages: 0%')
+        ->and($this->run->fresh()->progress['label'] ?? null)->toBe('Reading the audit messages: 40%');
 });
 
 it('says there is no error text when the not-found exit has an empty stderr', function () {
