@@ -22,10 +22,11 @@ final class ScriptRun
 
     /**
      * @param  list<string>  $argv
+     * @param  ?int  $reasonExitCode  an exit code the script uses for "nothing to show, and here is why": its last stderr line becomes the whole message
      *
      * @throws RuntimeException when the script times out or exits non-zero, in plain words
      */
-    public static function execute(ToolContext $context, string $workDir, array $argv, int $timeout, string $noun): self
+    public static function execute(ToolContext $context, string $workDir, array $argv, int $timeout, string $noun, ?int $reasonExitCode = null): self
     {
         $lastLabel = 'starting';
         $stderr = [];
@@ -71,6 +72,10 @@ final class ScriptRun
 
         if (! $process->successful()) {
             Log::warning('pso-tools script failed', ['tool_run_id' => $context->run->id, 'script' => $argv[2] ?? null, 'exit' => $process->exitCode(), 'stderr' => implode("\n", $stderr)]);
+            if ($reasonExitCode !== null && $process->exitCode() === $reasonExitCode) {
+                throw new RuntimeException(Str::limit(trim((string) collect($stderr)->last(static fn (string $line): bool => trim($line) !== '')), 300));
+            }
+
             $stage = strtolower(preg_replace('/:.*$/', '', $lastLabel));
             $lastLine = collect($stderr)->last(static fn (string $line): bool => trim($line) !== '') ?? 'no error text';
 

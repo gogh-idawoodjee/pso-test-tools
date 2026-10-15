@@ -43,6 +43,16 @@ class PsoToolsCheckout
         return $this->file('region-availability/region_availability.py');
     }
 
+    public function activityTraceScript(): string
+    {
+        return $this->file('activity-trace/trace_activity.py');
+    }
+
+    public function activityTraceTemplate(): string
+    {
+        return $this->file('activity-trace/trace_template.html');
+    }
+
     public function paramsFile(): string
     {
         return $this->file('kb/pso_parameters_reference.csv');

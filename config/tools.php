@@ -13,4 +13,8 @@ return [
         // The viewer reads one LOAD and does no checks; SaskTel's takes well under a minute.
         'timeout_seconds' => (int) env('TOOLS_REGION_AVAILABILITY_TIMEOUT_SECONDS', 600),
     ],
+    'activity_trace' => [
+        // Reads one audit zip and writes four files; under RunToolJob's 900 s so the timeout is reported in plain words.
+        'timeout_seconds' => (int) env('TOOLS_ACTIVITY_TRACE_TIMEOUT_SECONDS', 840),
+    ],
 ];

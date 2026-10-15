@@ -101,6 +101,8 @@ class ToolCatalogue extends Widget
         $need = implode(', ', array_map(static fn (ExportKind $k): string => $k->getLabel(), $required));
         $opt = implode(', ', array_map(static fn (ExportKind $k): string => $k->getLabel(), $optional));
 
-        return 'Needs a '.$need.' export'.($opt !== '' ? '; '.$opt.' optional' : '');
+        $article = preg_match('/^[aeiou]/i', $need) === 1 ? 'an' : 'a';
+
+        return "Needs {$article} {$need} export".($opt !== '' ? '; '.$opt.' optional' : '');
     }
 }

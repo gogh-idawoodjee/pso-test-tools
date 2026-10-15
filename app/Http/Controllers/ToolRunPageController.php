@@ -48,6 +48,30 @@ class ToolRunPageController extends Controller
         }, self::fileName($datasetModel, $toolRun, 'json'), ['Content-Type' => 'application/json']);
     }
 
+    public function downloadBookingCsv(string $dataset, string $run): SymfonyResponse
+    {
+        return $this->csv($dataset, $run, 'booking_csv', 'booking');
+    }
+
+    public function downloadHistoryCsv(string $dataset, string $run): SymfonyResponse
+    {
+        return $this->csv($dataset, $run, 'history_csv', 'history');
+    }
+
+    /** One of the run's stored CSV texts (`$key` in the result), named like the other downloads plus `_$suffix`. */
+    private function csv(string $dataset, string $run, string $key, string $suffix): SymfonyResponse
+    {
+        [$datasetModel, $toolRun] = $this->find($dataset, $run);
+        $text = $toolRun->result[$key] ?? null;
+        if (! is_string($text)) {
+            abort(404);
+        }
+
+        return response()->streamDownload(static function () use ($text): void {
+            echo $text;
+        }, str_replace('.csv', "_{$suffix}.csv", self::fileName($datasetModel, $toolRun, 'csv')), ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     /** @return array{0: Dataset, 1: ToolRun} the user's dataset and a finished run on it that holds a page, else 404 */
     private function find(string $dataset, string $run): array
     {
