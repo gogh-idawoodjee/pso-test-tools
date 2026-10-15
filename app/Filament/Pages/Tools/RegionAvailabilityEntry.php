@@ -4,7 +4,7 @@ namespace App\Filament\Pages\Tools;
 
 use App\Enums\Tool as ToolId;
 
-class RegionAvailabilityEntry extends ToolEntryPage
+class RegionAvailabilityEntry extends ToolWizardPage
 {
     public static function tool(): ToolId
     {

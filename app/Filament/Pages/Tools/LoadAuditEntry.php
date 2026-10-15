@@ -4,7 +4,7 @@ namespace App\Filament\Pages\Tools;
 
 use App\Enums\Tool as ToolId;
 
-class LoadAuditEntry extends ToolEntryPage
+class LoadAuditEntry extends ToolWizardPage
 {
     public static function tool(): ToolId
     {
