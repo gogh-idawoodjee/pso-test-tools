@@ -4,8 +4,8 @@
 #
 # Runs as the deploy user from cron (see deploy/README.md). For each target it
 # fetches origin, and when origin/main differs from HEAD it resets the checkout
-# to it and, for a "full" target, runs composer install, migrate, optimize and
-# queue:restart. One Pushover message per deploy; failures at high priority.
+# to it and, for a "full" target, runs composer install, assets (npm ci and npm run
+# build, only when package.json exists), migrate, optimize and queue:restart. One Pushover message per deploy; failures at high priority.
 #
 #   pull-deploy                 deploy whatever has moved
 #   pull-deploy --dry-run       say what would move, touch nothing
@@ -21,7 +21,7 @@ LOCK_FILE="${PULL_DEPLOY_LOCK:-$HOME/.pull-deploy.lock}"
 TARGETS_FILE="${PULL_DEPLOY_TARGETS:-}"
 PUSHOVER_URL="${PUSHOVER_URL:-https://api.pushover.net/1/messages.json}"
 
-# name  path  branch  full|pull   (full = composer, migrate, optimize, queue:restart after the pull)
+# name  path  branch  full|pull   (full = composer, assets, migrate, optimize, queue:restart after the pull)
 default_targets() {
     cat <<'EOF'
 pso-test-tools /var/www/pso-test-tools main full
@@ -70,6 +70,14 @@ run_step() {
     (cd "$path" && "$@" 2>&1)
 }
 
+# assets_step <path>: npm ci then npm run build; skipped silently (status 0, no output) without a package.json.
+assets_step() {
+    local path="$1" out
+    [ -f "$path/package.json" ] || return 0
+    out=$(run_step "$path" npm ci --no-audit --no-fund) || { printf '%s\n' "$out"; return 1; }
+    run_step "$path" npm run build
+}
+
 # deploy_target <name> <path> <branch> <mode> <force 0|1>
 deploy_target() {
     local name="$1" path="$2" branch="$3" mode="$4" force="$5"
@@ -101,9 +109,10 @@ deploy_target() {
     }
 
     if [ "$mode" = full ]; then
-        for step in composer migrate optimize:clear optimize queue:restart; do
+        for step in composer assets migrate optimize:clear optimize queue:restart; do
             case "$step" in
                 composer) output=$(run_step "$path" composer install --no-dev --optimize-autoloader --no-interaction --no-progress) ;;
+                assets)   output=$(assets_step "$path") ;;
                 migrate)  output=$(run_step "$path" php artisan migrate --force) ;;
                 *)        output=$(run_step "$path" php artisan "$step") ;;
             esac || {

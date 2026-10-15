@@ -19,6 +19,7 @@ setup() {
 
     make_stub composer 'composer'
     make_stub php '$2'
+    make_stub npm '"npm-$1"'
     cat > "$SANDBOX/bin/curl" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$CURL_CALLS"
@@ -54,6 +55,10 @@ add_target() {
     printf '%s %s main %s\n' "$name" "$SANDBOX/$name" "$mode" >> "$PULL_DEPLOY_TARGETS"
 }
 
+add_package_json() {
+    (cd "$SANDBOX/$1-work" && echo '{}' > package.json && git add package.json && git commit -q -m pkg && git push -q origin main)
+}
+
 push_to() {
     (cd "$SANDBOX/$1-work" && echo "$RANDOM" >> file && git add file && git commit -q -m more && git push -q origin main)
 }
@@ -72,7 +77,7 @@ calls() { cat "$CALLS" 2>/dev/null; }
     [ ! -e "$CURL_CALLS" ]
 }
 
-@test "a push to a full target runs the five steps in order and notifies at normal priority" {
+@test "a push to a full target runs the five steps in order (no package.json) and notifies at normal priority" {
     add_target app full
     push_to app
     run "$SCRIPT"
@@ -89,6 +94,45 @@ php artisan queue:restart"
     grep -q 'app deployed' "$CURL_CALLS"
     [[ "$output" == *"app "*"deploying"* ]]
     [[ "$output" == *" ok in "* ]]
+}
+
+@test "a full target with a package.json runs the six steps in order" {
+    add_target app full
+    add_package_json app
+    run "$SCRIPT"
+    [ "$status" -eq 0 ]
+    expected="composer install --no-dev --optimize-autoloader --no-interaction --no-progress
+npm ci --no-audit --no-fund
+npm run build
+php artisan migrate --force
+php artisan optimize:clear
+php artisan optimize
+php artisan queue:restart"
+    [ "$(calls)" = "$expected" ]
+    grep -q 'priority=0' "$CURL_CALLS"
+}
+
+@test "a full target without a package.json skips assets silently" {
+    add_target app full
+    push_to app
+    run "$SCRIPT"
+    [ "$status" -eq 0 ]
+    ! grep -q '^npm' "$CALLS"
+    [ "$(wc -l < "$CALLS")" -eq 5 ]
+    [[ "$output" != *assets* ]]
+}
+
+@test "an npm build failure stops before migrate, notifies at high priority, exits 1" {
+    add_target app full
+    add_package_json app
+    touch "$SANDBOX/fail-npm-run"
+    run "$SCRIPT"
+    [ "$status" -eq 1 ]
+    ! grep -q 'migrate' "$CALLS"
+    grep -q '^npm run build' "$CALLS"
+    grep -q 'priority=1' "$CURL_CALLS"
+    grep -q 'failed at assets' "$CURL_CALLS"
+    [[ "$output" == *"FAILED at assets"* ]]
 }
 
 @test "a pull-only target resets and runs nothing else" {
