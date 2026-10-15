@@ -56,6 +56,15 @@ class ToolRun extends Model
         });
     }
 
+    /** Every column except `result`, which is encrypted and 1 to 2 MB a row; lists and polls must not load it. */
+    public function scopeWithoutResult(Builder $query): void
+    {
+        $query->select([
+            'id', 'scope_type', 'scope_id', 'tool', 'run_date', 'inputs', 'started_by_user_id', 'status', 'progress',
+            'warnings', 'summary', 'error_message', 'queued_at', 'started_at', 'finished_at', 'created_at', 'updated_at',
+        ]);
+    }
+
     public function scope(): MorphTo
     {
         return $this->morphTo();

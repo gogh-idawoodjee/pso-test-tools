@@ -32,11 +32,14 @@ class ToolRunPage extends Page
     #[Locked]
     public string $run = '';
 
+    private ?ToolRun $toolRun = null;
+
     public function mount(string $scope, string $scopeId, string $run): void
     {
         $this->scope = $scope;
         $this->scopeId = $scopeId;
         $this->run = $run;
+        $this->toolRun = null;
 
         $this->getToolRun();
     }
@@ -57,6 +60,11 @@ class ToolRunPage extends Page
     }
 
     public function getToolRun(): ToolRun
+    {
+        return $this->toolRun ??= $this->loadToolRun();
+    }
+
+    private function loadToolRun(): ToolRun
     {
         $scopeModel = match ($this->scope) {
             'datasets' => Dataset::query()->ownedByCurrentUser()->findOrFail($this->scopeId),

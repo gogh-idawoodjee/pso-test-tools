@@ -21,7 +21,7 @@ class RecentRuns extends TableWidget
     {
         return $table
             ->heading('Recent runs')
-            ->query(ToolRun::query()->with(['scope', 'startedBy'])->latest('queued_at')->limit(10))
+            ->query(ToolRun::query()->withoutResult()->with(['scope', 'startedBy'])->latest('queued_at')->limit(10))
             ->paginated(false)
             ->columns([
                 TextColumn::make('tool')->badge(),

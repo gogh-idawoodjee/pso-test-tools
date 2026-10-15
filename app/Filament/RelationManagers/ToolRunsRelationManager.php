@@ -19,6 +19,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /** The Runs tab: start a tool against uploaded exports and open its dashboard. Subclasses are per resource. */
@@ -41,6 +42,7 @@ abstract class ToolRunsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(static fn (Builder $query) => $query->withoutResult())
             ->poll(fn (): ?string => $this->getOwnerRecord()->toolRuns()
                 ->whereIn('status', [ToolRunStatus::Queued, ToolRunStatus::Running])
                 ->exists() ? '5s' : null)
