@@ -22,11 +22,12 @@ class ExportSummariser
     public function summarise(ExportFile $file, string $localPath, string $timeZone): ExportSummary
     {
         $kind = $file->kind;
-        // Zips are often misnamed, so what the bytes are wins over what the file was called.
+        // An event log is a spreadsheet (csv or xlsx), read by its own extension, never sniffed as an export.
         if ($kind === ExportKind::EventLog) {
             return $this->summariseEventLog($localPath, (string) $file->content_type, $timeZone);
         }
 
+        // Zips are often misnamed, so what the bytes are wins over what the file was called.
         $contentType = $this->sniffFormat($localPath) ?? $file->content_type;
 
         if ($kind === ExportKind::Audits) {
@@ -307,6 +308,20 @@ class ExportSummariser
         }
 
         try {
+            $sheetName = $this->firstSheetName($zip);
+            if ($zip->statName($sheetName) === false) {
+                throw new InvalidExportException('The spreadsheet has no worksheet to read.');
+            }
+
+            // Both members are capped like any other zip member; the sheet is then streamed, not loaded whole.
+            $capMegabytes = (float) config('exports.max_member_megabytes', 600);
+            foreach (['xl/sharedStrings.xml', $sheetName] as $member) {
+                $stat = $zip->statName($member);
+                if ($stat !== false && $stat['size'] > $capMegabytes * 1024 * 1024) {
+                    throw new InvalidExportException('The spreadsheet is larger than '.round($capMegabytes).' MB uncompressed and could not be read here. Save the event log as csv and upload that instead.');
+                }
+            }
+
             $strings = [];
             $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
             if ($sharedXml !== false) {
@@ -320,14 +335,7 @@ class ExportSummariser
                 }
             }
 
-            $sheetName = $this->firstSheetName($zip);
-            $sheetXml = $zip->getFromName($sheetName);
-            if ($sheetXml === false) {
-                throw new InvalidExportException('The spreadsheet has no worksheet to read.');
-            }
-
-            $reader = new XMLReader;
-            $reader->XML($sheetXml, null, LIBXML_NONET | LIBXML_COMPACT);
+            $reader = $this->openReader('zip://'.$path.'#'.$sheetName);
             try {
                 while (@$reader->read()) {
                     if ($reader->nodeType !== XMLReader::ELEMENT || $reader->localName !== 'row') {
@@ -372,9 +380,25 @@ class ExportSummariser
             if ($id !== null && $rels !== false) {
                 foreach ($rels->Relationship as $relationship) {
                     if ((string) $relationship['Id'] === $id) {
-                        return 'xl/'.ltrim((string) $relationship['Target'], '/');
+                        // An absolute Target ("/xl/worksheets/sheet1.xml", as openpyxl writes) is from the zip root;
+                        // a relative one is from xl/.
+                        $target = (string) $relationship['Target'];
+                        $name = str_starts_with($target, '/') ? ltrim($target, '/') : 'xl/'.$target;
+                        if ($zip->statName($name) !== false) {
+                            return $name;
+                        }
                     }
                 }
+            }
+        }
+
+        if ($zip->statName('xl/worksheets/sheet1.xml') !== false) {
+            return 'xl/worksheets/sheet1.xml';
+        }
+        for ($index = 0; $index < $zip->numFiles; $index++) {
+            $name = (string) $zip->getNameIndex($index);
+            if (preg_match('#^xl/worksheets/[^/]+\.xml$#i', $name) === 1) {
+                return $name;
             }
         }
 

@@ -4,7 +4,7 @@ use App\Enums\ExportKind;
 use App\Support\Exports\ExportSummariser;
 use App\Support\Exports\InvalidExportException;
 
-function eventLogXlsx(array $rows, string $header = 'Created Date'): string
+function eventLogXlsx(array $rows, string $header = 'Created Date', string $sheetPath = 'xl/worksheets/sheet1.xml', ?string $relationshipTarget = null): string
 {
     $strings = [];
     $index = static function (string $text) use (&$strings): int {
@@ -32,7 +32,10 @@ function eventLogXlsx(array $rows, string $header = 'Created Date'): string
     $zip = new ZipArchive;
     $zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE);
     $zip->addFromString('xl/workbook.xml', '<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Events" sheetId="1" r:id="rId1"/></sheets></workbook>');
-    $zip->addFromString('xl/worksheets/sheet1.xml', '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'.$sheetRows.'</sheetData></worksheet>');
+    if ($relationshipTarget !== null) {
+        $zip->addFromString('xl/_rels/workbook.xml.rels', '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="'.$relationshipTarget.'"/></Relationships>');
+    }
+    $zip->addFromString($sheetPath, '<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'.$sheetRows.'</sheetData></worksheet>');
     $sharedItems = implode('', array_map(static fn (string $text): string => '<si><t>'.htmlspecialchars($text).'</t></si>', $strings));
     $zip->addFromString('xl/sharedStrings.xml', '<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'.$sharedItems.'</sst>');
     $zip->close();
@@ -97,4 +100,33 @@ it('does not read a csv date such as 20261004 as a serial', function () {
 
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::EventLog, 'csv'), $path, 'UTC'))
         ->not->toThrow(InvalidExportException::class, 'No usable');
+});
+
+it('reads the sheet an absolute relationship Target points to, as openpyxl writes it', function () {
+    $path = eventLogXlsx([['E1', '2026-10-04 08:30:00']], sheetPath: 'xl/worksheets/events.xml', relationshipTarget: '/xl/worksheets/events.xml');
+
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::EventLog, 'xlsx'), $path, 'UTC');
+
+    expect($summary->toArray()['event_count'])->toBe(1);
+});
+
+it('reads the sheet a relative relationship Target points to', function () {
+    $path = eventLogXlsx([['E1', '2026-10-04 08:30:00'], ['E2', '2026-10-04 09:30:00']], sheetPath: 'xl/worksheets/events.xml', relationshipTarget: 'worksheets/events.xml');
+
+    expect(app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::EventLog, 'xlsx'), $path, 'UTC')->toArray()['event_count'])->toBe(2);
+});
+
+it('falls back to any worksheet when the relationships do not name one that exists', function () {
+    $path = eventLogXlsx([['E1', '2026-10-04 08:30:00']], sheetPath: 'xl/worksheets/other.xml', relationshipTarget: 'worksheets/missing.xml');
+
+    expect(app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::EventLog, 'xlsx'), $path, 'UTC')->toArray()['event_count'])->toBe(1);
+});
+
+it('refuses a spreadsheet whose sheet is larger than the uncompressed cap', function () {
+    config(['exports.max_member_megabytes' => 0.0001]);
+    $rows = array_map(static fn (int $n): array => ["E{$n}", '2026-10-04 08:30:00'], range(1, 50));
+    $path = eventLogXlsx($rows);
+
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::EventLog, 'xlsx'), $path, 'UTC'))
+        ->toThrow(InvalidExportException::class, 'The spreadsheet is larger than 0 MB');
 });
