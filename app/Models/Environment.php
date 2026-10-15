@@ -7,6 +7,7 @@ use App\Rules\NoProdURL;
 use Filament\Forms;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -118,7 +119,19 @@ class Environment extends Model
                             ->autocomplete(false),
                             Forms\Components\TextInput::make('password')
                                 ->password()
+                                ->revealable()
                                 ->prefixIcon('heroicon-o-lock-closed') // Lock icon
+                                ->formatStateUsing(static function (?string $state): ?string {
+                                    if (blank($state)) {
+                                        return $state;
+                                    }
+
+                                    try {
+                                        return Crypt::decryptString($state);
+                                    } catch (DecryptException) {
+                                        return null;
+                                    }
+                                })
                                 ->dehydrateStateUsing(fn (string $state): string => Crypt::encryptString($state))
                                 ->dehydrated(static fn (?string $state): bool => filled($state))
                                 ->autocomplete(false)
