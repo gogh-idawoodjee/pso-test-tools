@@ -237,6 +237,8 @@ class ExportSummariser
                 foreach ($row as $position => $heading) {
                     if (strtolower(trim((string) $heading)) === 'created date') {
                         $column = $position;
+
+                        break;
                     }
                 }
 
@@ -258,11 +260,13 @@ class ExportSummariser
         }
 
         try {
-            if (is_numeric($value)) {
-                // Excel serial date (OADate): days since 1899-12-30, the fraction being the time of day.
-                $seconds = (int) round(((float) $value - floor((float) $value)) * 86400);
+            if (is_numeric($value) && (float) $value >= 30000 && (float) $value <= 80000) {
+                // Excel serial date (OADate): days since 1899-12-30, the fraction being the wall-clock time of day.
+                $seconds = min(86399, (int) round(((float) $value - floor((float) $value)) * 86400));
 
-                return CarbonImmutable::parse('1899-12-30', $timeZone)->addDays((int) floor((float) $value))->addSeconds($seconds);
+                return CarbonImmutable::create(1899, 12, 30, 0, 0, 0, $timeZone)
+                    ->addDays((int) floor((float) $value))
+                    ->setTime(intdiv($seconds, 3600), intdiv($seconds % 3600, 60), $seconds % 60);
             }
 
             return CarbonImmutable::parse($value, $timeZone);

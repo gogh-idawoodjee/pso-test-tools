@@ -80,3 +80,21 @@ it('fails when no row has a datable Created Date', function () {
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::EventLog, 'csv'), $path, 'UTC'))
         ->toThrow(InvalidExportException::class, 'No usable Created Date column');
 });
+
+it('reads a serial date as wall-clock time across daylight saving changes', function () {
+    // 46089.3541666667 is 2026-03-08 08:30 (spring forward day); 46327.3541666667 is 2026-11-01 08:30 (fall back day).
+    $path = eventLogXlsx([['E1', 46089.3541666667], ['E2', 46327.3541666667]]);
+
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::EventLog, 'xlsx'), $path, 'America/Toronto');
+
+    expect($summary->toArray()['first_event'])->toBe('2026-03-08T12:30:00+00:00')
+        ->and($summary->toArray()['last_event'])->toBe('2026-11-01T13:30:00+00:00');
+});
+
+it('does not read a csv date such as 20261004 as a serial', function () {
+    $path = tempnam(sys_get_temp_dir(), 'ev_').'.csv';
+    file_put_contents($path, "Created Date\n20261004\n");
+
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::EventLog, 'csv'), $path, 'UTC'))
+        ->not->toThrow(InvalidExportException::class, 'No usable');
+});
