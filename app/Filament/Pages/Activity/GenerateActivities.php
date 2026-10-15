@@ -97,7 +97,7 @@ class GenerateActivities extends PSOActivityBasePage
                                                 $set('time_zone', null);
                                             })),
 
-                            ])->columns(3),
+                            ])->columns(2),
                         Fieldset::make('scheduling')
                             ->label('Scheduling')
                             ->schema([
