@@ -6,9 +6,13 @@ Environment Variables Required
 - GOOGLE_MAPS_GEOCODING_API_KEY - required for geocoding
 - PSO_SERVICES_API - the PSO Services API base url; only the FQDN, exclude the https:// portion
 
+## Navigation
+
+The panel has four sidebar groups: **Analyse exports** (the tools that read LOAD, plan and SYS exports), **Live PSO actions** (pages that send to a live PSO environment, marked with a banner), **Setup** (environments, datasets and reference values) and **Admin**. Each analysis tool opens a short wizard (Where, Inputs, Options, Run) that remembers your last environment or dataset; the home page lists the tools and your recent runs.
+
 ## PSO Sys File Compare
 
-Compares two or more PSO system data exports (`DsSystemData` XML) and produces an HTML report, a CSV bundle and an Excel workbook, with a banner when the environments are not all on the same PSO version. Find it under **Additional Tools**.
+Compares two or more PSO system data exports (`DsSystemData` XML) and produces an HTML report, a CSV bundle and an Excel workbook, with a banner when the environments are not all on the same PSO version. Find it under **Analyse exports**.
 
 Sys files contain customer data (user accounts and a live routing API key), so:
 
@@ -38,13 +42,13 @@ The golden tests use the four reference exports, which are not in the repo. Poin
 
 Regions, skills, task types, slot usage rule sets, appointment templates and SLA types are stored per **dataset**
 (an environment can hold several), in one table, and are what the request-building pages offer in their
-selects. Open a dataset (Base Data > Datasets, or from its environment) and press **Sync from PSO** to pull
+selects. Open a dataset (Setup > Datasets, or from its environment) and press **Sync from PSO** to pull
 them from the PSO gateway through pso-services (`GET /api/v2/dataset/reference-values`). The gateway returns
 the whole dataset body, so a sync takes up to a few minutes on a large dataset and runs on the queue; a queue
 worker must be running. Rows you edit keep your values on later syncs (badge "Edited"; "Reset to PSO" hands
 them back). Rows PSO stops returning are flagged "Missing from PSO" and are never deleted automatically.
 On the dataset page they are all under one **Reference values** tab with a type switch above the table
-(Regions first); each type also has its own page under Base Data. Customers and their tasks belong to a
+(Regions first); each type also has its own page under Setup. Customers and their tasks belong to a
 dataset too, and only see that dataset's regions and task types.
 
 Task type rows carry priority, base value and base duration (minutes) as fallbacks for tasks that do not set

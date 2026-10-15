@@ -89,3 +89,8 @@ it('does not open another user run', function () {
     expect(fn () => Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $run->scope_id, 'run' => $run->id]))
         ->toThrow(ModelNotFoundException::class);
 });
+
+it('tells an empty Runs tab to start from a tool wizard', function () {
+    Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
+        ->assertSee('Start a run from a tool under Analyse exports');
+});
