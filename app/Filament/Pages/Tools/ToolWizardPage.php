@@ -7,6 +7,7 @@ use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Navigation\Groups;
+use App\Livewire\ExportDropZone;
 use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
@@ -23,9 +24,13 @@ use Filament\Forms\Contracts\HasForms;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Panel;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Livewire;
+use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
-use Filament\Schemas\Components\View;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
@@ -174,38 +179,66 @@ abstract class ToolWizardPage extends Page implements HasForms
     {
         return Step::make('Inputs')
             ->description('The exports to run against. Reuse a file already uploaded or drop a new one.')
-            ->schema(fn (): array => [...$this->inputFields(), $this->uploadBlock()]);
+            ->schema(fn (): array => $this->inputFields());
     }
 
-    /** @return list<Select> */
+    /**
+     * One row per kind the tool takes: the reuse select, and beside it a drop target that uploads
+     * that kind to where it belongs (the dataset, or the environment for a SYS export).
+     *
+     * @return list<Component>
+     */
     protected function inputFields(): array
     {
         if (! $this->hasScope()) {
-            return [];
+            return [Text::make($this->isDatasetScoped() ? 'Choose the environment and dataset first.' : 'Choose the environment first.')->color('gray')];
         }
         $tool = app(ToolRegistry::class)->for(static::tool());
         $scope = $this->scopeModel();
         $options = app(RunInputPicker::class)->optionsWithExpiryFor($scope, static::tool());
-        $fields = [];
+        $pending = $this->pendingKinds();
+        $rows = [];
 
         foreach ([...$tool->requiredKinds(), ...$tool->optionalKinds()] as $kind) {
             $required = in_array($kind, $tool->requiredKinds(), true);
             $kindOptions = $options[$kind->value] ?? [];
-            $fromEnvironment = $kind->allowedScope() === Environment::class && $scope instanceof Dataset;
-            $fields[] = Select::make("files.{$kind->value}")
-                ->label($kind->getLabel().' export')
-                ->hint($required ? 'Required' : 'Optional')
-                ->helperText($fromEnvironment ? $this->aExport($kind).' comes from the environment, not the dataset, because it describes the whole PSO system.' : null)
-                ->options($kindOptions)
-                ->getOptionLabelUsing(fn ($value): ?string => $kindOptions[$value] ?? null)
-                ->placeholder($kindOptions === [] ? 'No '.$kind->getLabel().' export uploaded yet' : 'Choose a file')
-                ->required($required)
-                ->validationMessages(['required' => $this->aExport($kind).' is required.'])
-                ->native(false)
-                ->afterStateUpdated(static fn (?string $state, self $livewire) => $livewire->rememberChoice($kind->value, $state));
+            $uploadScope = $this->uploadScopeFor($kind, $scope);
+            $helperText = array_filter([
+                in_array($kind, $pending, true) ? 'Reading the '.$kind->getLabel().' export you just uploaded. It is chosen here when ready.' : null,
+                $uploadScope !== $scope ? $this->aExport($kind).' comes from the environment, not the dataset, because it describes the whole PSO system.' : null,
+            ]);
+            $rows[] = Grid::make(['default' => 1, 'md' => 3])->schema([
+                Select::make("files.{$kind->value}")
+                    ->label($kind->getLabel().' export')
+                    ->hint($required ? 'Required' : 'Optional')
+                    ->helperText($helperText === [] ? null : implode(' ', $helperText))
+                    ->options($kindOptions)
+                    ->getOptionLabelUsing(fn ($value): ?string => $kindOptions[$value] ?? null)
+                    ->placeholder($kindOptions === [] ? 'No '.$kind->getLabel().' export uploaded yet' : 'Choose a file')
+                    ->required($required)
+                    ->validationMessages(['required' => $this->aExport($kind).' is required.'])
+                    ->native(false)
+                    ->afterStateUpdated(static fn (?string $state, self $livewire) => $livewire->rememberChoice($kind->value, $state))
+                    ->columnSpan(['default' => 1, 'md' => 2]),
+                // A new key per scope, so changing the dataset mounts a target for the new one.
+                Livewire::make(ExportDropZone::class, ['scope' => $uploadScope, 'kinds' => [$kind], 'compact' => true])
+                    ->key("drop-{$kind->value}-{$uploadScope->getKey()}")
+                    // Lines the target up with the select, below its label.
+                    ->extraAttributes(['class' => 'md:pt-8'])
+                    ->columnSpan(['default' => 1, 'md' => 1]),
+            ]);
         }
 
-        return $fields;
+        return [
+            Group::make($rows)->extraAttributes($pending === [] ? [] : ['wire:poll.5s' => 'refreshInputs']),
+            Text::make('Files are kept for '.(int) config('exports.ttl_hours', 12).' hours, then the raw file is deleted. Results from runs that used it are kept.')->color('gray'),
+        ];
+    }
+
+    /** Where an upload of this kind goes: the scope, or a dataset's environment for an environment kind. */
+    private function uploadScopeFor(ExportKind $kind, Model $scope): Model
+    {
+        return $kind->allowedScope() === Environment::class && $scope instanceof Dataset ? $scope->environment : $scope;
     }
 
     /** "A LOAD export", "An End of day export". */
@@ -214,12 +247,6 @@ abstract class ToolWizardPage extends Page implements HasForms
         $label = $kind->getLabel();
 
         return (in_array(strtolower($label[0]), ['a', 'e', 'i', 'o', 'u'], true) ? 'An ' : 'A ').$label.' export';
-    }
-
-    protected function uploadBlock(): View
-    {
-        return View::make('filament.pages.tools.wizard-upload')
-            ->viewData(fn (): array => ['scope' => $this->hasScope() ? $this->scopeModel() : null, 'pending' => $this->hasPendingUploads(), 'ttlHours' => (int) config('exports.ttl_hours', 12)]);
     }
 
     protected function hasScope(): bool
@@ -287,13 +314,24 @@ abstract class ToolWizardPage extends Page implements HasForms
 
     public function hasPendingUploads(): bool
     {
+        return $this->pendingKinds() !== [];
+    }
+
+    /** @return list<ExportKind> the tool's kinds with an upload still arriving or being read, in either scope */
+    protected function pendingKinds(): array
+    {
         if (! $this->hasScope()) {
-            return false;
+            return [];
         }
         $scope = $this->scopeModel();
 
-        return ExportFile::query()->where('scope_type', $scope->getMorphClass())->where('scope_id', $scope->getKey())
-            ->whereIn('status', [ExportFileStatus::Uploading, ExportFileStatus::Summarising])->exists();
+        return array_values(array_filter(app(RunInputPicker::class)->kindsOf(static::tool()), function (ExportKind $kind) use ($scope): bool {
+            $uploadScope = $this->uploadScopeFor($kind, $scope);
+
+            return ExportFile::query()->where('scope_type', $uploadScope->getMorphClass())->where('scope_id', $uploadScope->getKey())
+                ->where('kind', $kind)
+                ->whereIn('status', [ExportFileStatus::Uploading, ExportFileStatus::Summarising])->exists();
+        }));
     }
 
     protected function isDatasetScoped(): bool

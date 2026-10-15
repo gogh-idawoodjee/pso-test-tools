@@ -311,3 +311,27 @@ it('names the configured export lifetime by the upload box', function () {
 
     Livewire::test(LoadAuditEntry::class)->assertSee('Files are kept for 6 hours');
 });
+
+it('offers one drop target per kind the tool takes, each to its own scope', function () {
+    $html = Livewire::test(LoadAuditEntry::class)
+        ->assertSee('Drop a new LOAD')
+        ->assertSee('Drop a new SYS')
+        ->assertDontSee('Drop a new Plan')
+        ->assertDontSee('Drop a new PLAN')
+        ->assertDontSee('End of day')
+        ->assertDontSee('Audit messages')
+        ->assertDontSee('Upload a new export')
+        ->html();
+
+    expect($html)->toContain("scope_type: 'dataset', scope_id: '{$this->dataset->getKey()}', kind: this.kind")
+        ->toContain("scope_type: 'environment', scope_id: '{$this->environment->getKey()}', kind: this.kind");
+});
+
+it('polls while an upload to either scope is still being read, and says so by that field', function () {
+    $component = Livewire::test(LoadAuditEntry::class)->assertDontSeeHtml('wire:poll.5s="refreshInputs"');
+    ExportFile::factory()->for($this->environment, 'scope')->sys()->create(['status' => ExportFileStatus::Summarising]);
+
+    $component->call('refreshInputs')
+        ->assertSeeHtml('wire:poll.5s="refreshInputs"')
+        ->assertSee('Reading the SYS export you just uploaded');
+});
