@@ -14,6 +14,28 @@ return [
         // Logon goes pso-test-tools -> pso-services -> PSO, so it needs more than the 5s default.
         'timeout' => (int) env('PSO_SESSION_TIMEOUT', 20),
     ],
+    'gateway_upload' => [
+        // Defaults for the webhook Broadcast injected into an upload; these
+        // mirror Send-PsoScheduleData.ps1 (edit here to change them, as the
+        // script's param block is edited there).
+        'broadcast' => [
+            'id' => 'WEBHOOK_COMPLETE',
+            'plan_type' => 'COMPLETE',
+            'minimum_plan_quality' => 85,
+            'maximum_wait' => 'PT5M',
+            'allocation_type' => 1,
+            'required_tables' => [
+                'Allocation',
+                'Plan',
+                'Plan_Deletion',
+                'Appointment_Offer',
+                'Appointment_Summary',
+                'Suggested_Dispatch',
+                'Schedule_Exception',
+                'Schedule_Exception_Data',
+            ],
+        ],
+    ],
     'custom_key' => env('SHREDDER_KEY'),
 
     'reference_values' => [
