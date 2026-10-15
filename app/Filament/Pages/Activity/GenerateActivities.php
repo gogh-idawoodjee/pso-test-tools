@@ -121,7 +121,7 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->prefixIcon('heroicon-o-window') // Window/time slot
                                     ->options([0 => 'All Day', 3 => '3 Hour', 4 => '4 Hour'])
                                     ->live(),
-                            ])->columns(3),
+                            ])->columns(2),
                         Fieldset::make('location')
                             ->label('Location')
                             ->schema([
