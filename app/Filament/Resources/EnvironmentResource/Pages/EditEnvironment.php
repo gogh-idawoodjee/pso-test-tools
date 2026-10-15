@@ -56,6 +56,9 @@ class EditEnvironment extends EditRecord
                     if ($this->error_value === 500) {
                         $message = 'Check Configuration';
                     }
+                    if ($this->error_value && filled($this->session_error_message)) {
+                        $message .= ': '.$this->session_error_message;
+                    }
                     $this->notifyPayloadSent(! $this->error_value ? 'Looks Good' : 'Something Looks Off', $message, ! $this->error_value);
                 }),
             Actions\DeleteAction::make(),

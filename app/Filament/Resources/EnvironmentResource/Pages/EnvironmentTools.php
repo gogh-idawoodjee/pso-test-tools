@@ -12,11 +12,15 @@ use App\Enums\PsoGatewayUploadStatus;
 use App\Filament\Resources\EnvironmentResource;
 use App\Jobs\SendPsoScheduleDataJob;
 use App\Models\PsoGatewayUpload;
+use App\Models\PsoGatewayUploadLogLine;
 use App\Support\GatewayUploadPath;
+use App\Support\ScheduleData\BroadcastSettings;
 use App\Traits\EnvironmentToolsPayloadTrait;
 use App\Traits\EnvironmentToolsUsageTrait;
 use App\Traits\PSOInteractionsTrait;
+use BackedEnum;
 use Carbon\Carbon;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\CheckboxList;
@@ -25,6 +29,7 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -43,6 +48,8 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use JsonException;
 use Livewire\Attributes\Locked;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
@@ -80,6 +87,20 @@ class EnvironmentTools extends Page
     #[Locked]
     public ?string $gatewayUploadId = null;
 
+    /**
+     * Run-log lines of the tracked upload, appended to on each poll.
+     *
+     * @var array<int, array{level: string, text: string, at: string}>
+     */
+    public array $gatewayLogLines = [];
+
+    /**
+     * Newest log line id already in $gatewayLogLines, so each poll reads only
+     * the lines after it.
+     */
+    #[Locked]
+    public int $gatewayLogLastId = 0;
+
     protected static ?string $title = 'Tools';
 
     /**
@@ -88,6 +109,18 @@ class EnvironmentTools extends Page
     private const array GATEWAY_UPLOAD_EXTENSIONS = ['json', 'xml', 'zip'];
 
     private const int GATEWAY_UPLOAD_MAX_KILOBYTES = 204800; // 200MB
+
+    /**
+     * How long the status panel keeps polling after a run finishes: the job
+     * can still write log lines (the logoff) just after the final status.
+     */
+    private const int GATEWAY_LOG_GRACE_SECONDS = 30;
+
+    /**
+     * One line of text that XML 1.0 can carry: no control characters (not even
+     * tab or newline) and no U+FFFE or U+FFFF. Also fails on invalid UTF-8.
+     */
+    private const string XML_SAFE_LINE_PATTERN = '/\A[\x{20}-\x{D7FF}\x{E000}-\x{FFFD}\x{10000}-\x{10FFFF}]*\z/u';
 
     #[Override]
     protected function getHeaderActions(): array
@@ -112,7 +145,9 @@ class EnvironmentTools extends Page
         $this->loadRotaForm->fill($recordData);
         $this->systemUsageForm->fill($recordData);
         $this->servicesForm->fill($recordData);
-        $this->gatewayUploadForm->fill($recordData);
+        // Only this form's own fields: the environment record (username,
+        // password ciphertext) has no business in this form's browser state.
+        $this->gatewayUploadForm->fill($this->gatewayUploadDefaults());
     }
 
     private function setDefaults(): void
@@ -659,6 +694,50 @@ class EnvironmentTools extends Page
                     // never see those. submitGatewayUpload() re-checks
                     // required/type/size manually so both paths are covered.
                     ->columnSpanFull(),
+                TextInput::make('dataset_id_override')
+                    ->label('Dataset ID override')
+                    ->helperText('Leave blank to keep the file\'s value. When set, it replaces the dataset ID in every Input_Reference row of a modified copy; your original file is never changed.')
+                    ->maxLength(255)
+                    ->disabled(fn (): bool => $this->gatewayUploadInProgress())
+                    ->columnSpanFull(),
+                Toggle::make('skip_webhook')
+                    ->label('Skip webhook broadcast')
+                    ->helperText('Send the file as it is: no webhook endpoint is created and no Broadcast is added.')
+                    ->live()
+                    ->disabled(fn (): bool => $this->gatewayUploadInProgress())
+                    ->columnSpanFull(),
+                Section::make('Broadcast settings')
+                    ->description('The defaults match the PowerShell script. They apply only to the webhook Broadcast added to the file.')
+                    ->collapsed()
+                    ->hidden(static fn (Get $get): bool => (bool) $get('skip_webhook'))
+                    ->columns(2)
+                    ->columnSpanFull()
+                    ->schema([
+                        TextInput::make('broadcast_id')
+                            ->label('Broadcast ID')
+                            ->maxLength(255),
+                        Select::make('broadcast_plan_type')
+                            ->label('Plan Type')
+                            ->native(false)
+                            ->options(BroadcastPlanType::class),
+                        TextInput::make('broadcast_minimum_plan_quality')
+                            ->label('Minimum Plan Quality')
+                            ->numeric()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->suffix('%'),
+                        TextInput::make('broadcast_maximum_wait')
+                            ->label('Maximum Wait')
+                            ->helperText('An ISO 8601 duration, such as PT5M. The longest PSO waits for the minimum plan quality before it broadcasts anyway.'),
+                        Select::make('broadcast_allocation_type')
+                            ->label('Allocation Type')
+                            ->native(false)
+                            ->options(BroadcastAllocationType::class),
+                        TagsInput::make('broadcast_required_tables')
+                            ->label('Required Tables')
+                            ->helperText('Sent as the required_tables parameter, joined with commas. Table names only (letters, digits and underscores).')
+                            ->columnSpanFull(),
+                    ]),
                 Hidden::make('gateway_upload_original_filename')
                     ->dehydrated(false),
                 Actions::make([
@@ -674,6 +753,8 @@ class EnvironmentTools extends Page
                     ->viewData(fn (): array => [
                         'upload' => $this->currentGatewayUpload(),
                         'history' => $this->gatewayUploadHistory(),
+                        'logLines' => $this->gatewayLogLines,
+                        'keepPolling' => $this->gatewayLogShouldPoll(),
                     ])
                     ->columnSpanFull(),
             ])
@@ -871,6 +952,31 @@ class EnvironmentTools extends Page
             return;
         }
 
+        $datasetIdOverride = filled($get('dataset_id_override')) ? trim((string) $get('dataset_id_override')) : null;
+        $skipWebhook = (bool) $get('skip_webhook');
+
+        if ($datasetIdOverride !== null && mb_strlen($datasetIdOverride) > 255) {
+            $this->notifyPayloadSent('Upload Failed', 'The dataset ID override can be at most 255 characters.', false);
+
+            return;
+        }
+
+        if ($datasetIdOverride !== null && preg_match(self::XML_SAFE_LINE_PATTERN, $datasetIdOverride) !== 1) {
+            $this->notifyPayloadSent('Upload Failed', 'The dataset ID override contains a character that cannot be sent (a control character such as a tab or line break).', false);
+
+            return;
+        }
+
+        $broadcastSettings = null;
+
+        if (! $skipWebhook) {
+            $broadcastSettings = $this->validatedBroadcastSettings($get);
+
+            if ($broadcastSettings === null) {
+                return;
+            }
+        }
+
         $upload = PsoGatewayUpload::create([
             'pso_environment_id' => $this->record->id,
             'initiated_by_user_id' => auth()->id(),
@@ -879,6 +985,9 @@ class EnvironmentTools extends Page
             'file_size_bytes' => $fileSizeBytes,
             'status' => PsoGatewayUploadStatus::QUEUED,
             'queued_at' => now(),
+            'dataset_id_override' => $datasetIdOverride,
+            'skip_webhook' => $skipWebhook,
+            'broadcast_settings' => $broadcastSettings,
         ]);
 
         SendPsoScheduleDataJob::dispatch(
@@ -890,8 +999,11 @@ class EnvironmentTools extends Page
         );
 
         $this->gatewayUploadId = $upload->id;
+        $this->gatewayLogLines = [];
+        $this->gatewayLogLastId = 0;
         $set('gateway_upload_file', null);
         $set('gateway_upload_original_filename', null);
+        $set('dataset_id_override', null);
 
         $this->notifyPayloadSent('Upload Queued', "\"{$upload->original_filename}\" has been queued for upload to PSO.", true);
     }
@@ -918,6 +1030,164 @@ class EnvironmentTools extends Page
             ->where('pso_environment_id', $this->record->id)
             ->whereKey($this->gatewayUploadId)
             ->first();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function gatewayUploadDefaults(): array
+    {
+        $settings = BroadcastSettings::defaults();
+
+        return [
+            'dataset_id_override' => null,
+            'skip_webhook' => false,
+            'broadcast_id' => $settings->broadcastId,
+            'broadcast_plan_type' => $settings->planType,
+            'broadcast_minimum_plan_quality' => $settings->minimumPlanQuality,
+            'broadcast_maximum_wait' => $settings->maximumWait,
+            'broadcast_allocation_type' => $settings->allocationType,
+            'broadcast_required_tables' => $settings->requiredTables,
+        ];
+    }
+
+    /**
+     * Appends the log lines written since the last poll. Cheap on purpose:
+     * the panel calls this every two seconds while a run is in progress, so
+     * it reads only lines after the newest id already shown.
+     */
+    public function pollGatewayUploadLog(): void
+    {
+        $upload = $this->currentGatewayUpload();
+
+        if ($upload === null) {
+            return;
+        }
+
+        $newLines = PsoGatewayUploadLogLine::query()
+            ->where('pso_gateway_upload_id', $upload->id)
+            ->where('id', '>', $this->gatewayLogLastId)
+            ->orderBy('id')
+            ->limit(500)
+            ->get(['id', 'level', 'text', 'created_at']);
+
+        foreach ($newLines as $line) {
+            $this->gatewayLogLines[] = [
+                'level' => $line->level->value,
+                'text' => $line->text,
+                'at' => $line->created_at->format('H:i:s'),
+            ];
+            $this->gatewayLogLastId = $line->id;
+        }
+    }
+
+    /**
+     * Whether the status panel should keep polling: while the run is in
+     * progress, and for a short while after it finishes so lines written just
+     * after the final status (the logoff) still arrive.
+     */
+    public function gatewayLogShouldPoll(): bool
+    {
+        $upload = $this->currentGatewayUpload();
+
+        if ($upload === null) {
+            return false;
+        }
+
+        if (! $upload->status->isTerminal()) {
+            return true;
+        }
+
+        return $upload->completed_at !== null
+            && $upload->completed_at->greaterThan(now()->subSeconds(self::GATEWAY_LOG_GRACE_SECONDS));
+    }
+
+    /**
+     * Shows one of this environment's uploads (its summary and stored log) in
+     * the status panel. Any other id is ignored.
+     */
+    public function viewGatewayUpload(string $uploadId): void
+    {
+        $upload = PsoGatewayUpload::query()
+            ->where('pso_environment_id', $this->record->id)
+            ->whereKey($uploadId)
+            ->first();
+
+        if ($upload === null) {
+            return;
+        }
+
+        $this->gatewayUploadId = $upload->id;
+        $this->gatewayLogLines = [];
+        $this->gatewayLogLastId = 0;
+
+        $this->pollGatewayUploadLog();
+    }
+
+    /**
+     * Validates the broadcast part of the form. BroadcastSettings::fromArray()
+     * casts silently, so anything it would mangle is refused here. Returns
+     * null (after raising a notification) when a value is invalid.
+     *
+     * @return array{id: string, plan_type: string, minimum_plan_quality: int, maximum_wait: string, allocation_type: int, required_tables: list<string>}|null
+     */
+    private function validatedBroadcastSettings(Get $get): ?array
+    {
+        $normalise = static fn (mixed $value): mixed => $value instanceof BackedEnum ? $value->value : $value;
+
+        $values = [
+            'broadcast_id' => is_string($get('broadcast_id')) ? trim($get('broadcast_id')) : $get('broadcast_id'),
+            'broadcast_plan_type' => $normalise($get('broadcast_plan_type')),
+            'broadcast_minimum_plan_quality' => $get('broadcast_minimum_plan_quality'),
+            'broadcast_maximum_wait' => is_string($get('broadcast_maximum_wait')) ? trim($get('broadcast_maximum_wait')) : $get('broadcast_maximum_wait'),
+            'broadcast_allocation_type' => $normalise($get('broadcast_allocation_type')),
+            'broadcast_required_tables' => $get('broadcast_required_tables'),
+        ];
+
+        $validator = Validator::make($values, [
+            'broadcast_id' => ['required', 'string', 'max:255', 'regex:'.self::XML_SAFE_LINE_PATTERN],
+            'broadcast_plan_type' => ['required', Rule::enum(BroadcastPlanType::class)],
+            'broadcast_minimum_plan_quality' => ['required', 'integer', 'between:0,100'],
+            'broadcast_maximum_wait' => [
+                'required',
+                'string',
+                static function (string $attribute, mixed $value, Closure $fail): void {
+                    if (! is_string($value) || ! BroadcastSettings::isValidDuration($value)) {
+                        $fail('Maximum Wait must be an ISO 8601 duration, such as PT5M.');
+                    }
+                },
+            ],
+            'broadcast_allocation_type' => ['required', Rule::enum(BroadcastAllocationType::class)],
+            'broadcast_required_tables' => ['required', 'array', 'min:1'],
+            'broadcast_required_tables.*' => ['required', 'string', 'max:255', 'regex:/\A[A-Za-z0-9_]+\z/'],
+        ], [
+            'broadcast_id.regex' => 'Broadcast ID contains a character that cannot be sent (a control character such as a tab or line break).',
+            'broadcast_required_tables.required' => 'Required Tables needs at least one table name.',
+            'broadcast_required_tables.min' => 'Required Tables needs at least one table name.',
+            'broadcast_required_tables.*.regex' => 'Each required table must be a single table name (letters, digits and underscores), such as Allocation.',
+        ], [
+            'broadcast_id' => 'Broadcast ID',
+            'broadcast_plan_type' => 'Plan Type',
+            'broadcast_minimum_plan_quality' => 'Minimum Plan Quality',
+            'broadcast_maximum_wait' => 'Maximum Wait',
+            'broadcast_allocation_type' => 'Allocation Type',
+            'broadcast_required_tables' => 'Required Tables',
+        ]);
+
+        if ($validator->fails()) {
+            $this->notifyPayloadSent('Upload Failed', (string) $validator->errors()->first(), false);
+
+            return null;
+        }
+
+        return BroadcastSettings::fromArray([
+            'id' => $values['broadcast_id'],
+            'plan_type' => $values['broadcast_plan_type'],
+            'minimum_plan_quality' => (int) $values['broadcast_minimum_plan_quality'],
+            'maximum_wait' => $values['broadcast_maximum_wait'],
+            'allocation_type' => (int) $values['broadcast_allocation_type'],
+            'required_tables' => array_values($values['broadcast_required_tables']),
+        ])->toArray();
     }
 
     public function gatewayUploadHistory(): Collection
