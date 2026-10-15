@@ -19,14 +19,17 @@ class FakeTool implements Tool
         return ToolId::LoadAudit;
     }
 
+    /** @var array{0: list<ExportKind>, 1: list<ExportKind>}|null required, optional */
+    public static ?array $kinds = null;
+
     public function requiredKinds(): array
     {
-        return [ExportKind::Load];
+        return self::$kinds[0] ?? [ExportKind::Load];
     }
 
     public function optionalKinds(): array
     {
-        return [ExportKind::Sys];
+        return self::$kinds[1] ?? [ExportKind::Sys];
     }
 
     /** @var list<Component> */

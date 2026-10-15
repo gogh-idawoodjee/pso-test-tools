@@ -5,14 +5,16 @@ namespace App\Filament\RelationManagers;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Pages\ToolRunPage;
-use App\Jobs\RunToolJob;
 use App\Models\ToolRun;
 use App\Support\Exports\RunInputPicker;
+use App\Support\Tools\StartToolRun;
+use App\Support\Tools\UnusableInputException;
 use App\Tools\ToolRegistry;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
@@ -109,17 +111,11 @@ abstract class ToolRunsRelationManager extends RelationManager
                 ->icon('heroicon-o-play')
                 ->schema($fields)
                 ->action(function (array $data) use ($toolId): void {
-                    $run = $this->getOwnerRecord()->toolRuns()->create([
-                        'tool' => $toolId,
-                        'inputs' => [
-                            'files' => array_filter($data['files'] ?? [], static fn ($fileId): bool => filled($fileId)),
-                            'options' => $data['options'] ?? [],
-                        ],
-                        'started_by_user_id' => auth()->id(),
-                        'status' => ToolRunStatus::Queued,
-                    ]);
-
-                    RunToolJob::dispatch($run->id);
+                    try {
+                        app(StartToolRun::class)->start($this->getOwnerRecord(), $toolId, $data['files'] ?? [], $data['options'] ?? [], auth()->user());
+                    } catch (UnusableInputException $e) {
+                        Notification::make()->title('The run did not start')->body($e->getMessage())->danger()->send();
+                    }
                 });
         }
 

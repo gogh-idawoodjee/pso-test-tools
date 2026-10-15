@@ -56,8 +56,8 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
-    /** @param  int|null  $datasetId  null for environment-scoped tools */
-    public function rememberToolContext(?int $environmentId, ?int $datasetId): void
+    /** @param  string|null  $datasetId  null for environment-scoped tools */
+    public function rememberToolContext(?string $environmentId, ?string $datasetId): void
     {
         $this->forceFill(['last_tool_context' => ['environment_id' => $environmentId, 'dataset_id' => $datasetId]])->save();
     }

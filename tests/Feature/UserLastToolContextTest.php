@@ -7,14 +7,14 @@ it('remembers the last environment and dataset used in a tool', function () {
 
     expect($user->last_tool_context)->toBeNull();
 
-    $user->rememberToolContext(environmentId: 7, datasetId: 12);
+    $user->rememberToolContext(environmentId: 'env-7', datasetId: 'ds-12');
 
-    expect($user->fresh()->last_tool_context)->toBe(['environment_id' => 7, 'dataset_id' => 12]);
+    expect($user->fresh()->last_tool_context)->toBe(['environment_id' => 'env-7', 'dataset_id' => 'ds-12']);
 });
 
 it('stores a null dataset for environment-scoped tools', function () {
     $user = User::factory()->create();
-    $user->rememberToolContext(environmentId: 7, datasetId: null);
+    $user->rememberToolContext(environmentId: 'env-7', datasetId: null);
 
-    expect($user->fresh()->last_tool_context)->toBe(['environment_id' => 7, 'dataset_id' => null]);
+    expect($user->fresh()->last_tool_context)->toBe(['environment_id' => 'env-7', 'dataset_id' => null]);
 });
