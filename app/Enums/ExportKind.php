@@ -13,6 +13,7 @@ enum ExportKind: string implements HasLabel
     case Eod = 'eod';
     case Audits = 'audits';
     case Sys = 'sys';
+    case EventLog = 'event_log';
 
     /** The model class an export of this kind hangs off. */
     public function allowedScope(): string
@@ -25,6 +26,7 @@ enum ExportKind: string implements HasLabel
     {
         return match ($this) {
             self::Audits => ['zip'],
+            self::EventLog => ['xlsx', 'csv'],
             default => ['xml', 'json', 'zip'],
         };
     }
@@ -34,7 +36,7 @@ enum ExportKind: string implements HasLabel
     {
         return match ($this) {
             self::Sys => 'DsSystemData',
-            self::Audits => null,
+            self::Audits, self::EventLog => null,
             default => 'dsScheduleData',
         };
     }
@@ -47,6 +49,7 @@ enum ExportKind: string implements HasLabel
             self::Eod => 'End of day',
             self::Audits => 'Audit messages',
             self::Sys => 'SYS',
+            self::EventLog => 'IFS event log',
         };
     }
 

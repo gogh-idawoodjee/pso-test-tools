@@ -23,6 +23,10 @@ class ExportSummariser
     {
         $kind = $file->kind;
         // Zips are often misnamed, so what the bytes are wins over what the file was called.
+        if ($kind === ExportKind::EventLog) {
+            return $this->summariseEventLog($localPath, (string) $file->content_type, $timeZone);
+        }
+
         $contentType = $this->sniffFormat($localPath) ?? $file->content_type;
 
         if ($kind === ExportKind::Audits) {
@@ -197,6 +201,192 @@ class ExportSummariser
             'parameter_count' => $parameters,
             'exception_type_count' => $exceptionTypes,
         ]);
+    }
+
+    /** Reads only the Created Date column. $timeZone is the zone the log was written in; the summary keeps UTC. */
+    private function summariseEventLog(string $path, string $extension, string $timeZone): ExportSummary
+    {
+        $count = 0;
+        $first = null;
+        $last = null;
+
+        foreach ($this->eventLogDates($path, $extension, $timeZone) as $time) {
+            $count++;
+            $first = $first === null || $time < $first ? $time : $first;
+            $last = $last === null || $time > $last ? $time : $last;
+        }
+
+        if ($count === 0) {
+            throw new InvalidExportException('No usable Created Date column was found in this event log.');
+        }
+
+        return new ExportSummary([
+            'event_count' => $count,
+            'first_event' => $first->setTimezone('UTC')->toIso8601String(),
+            'last_event' => $last->setTimezone('UTC')->toIso8601String(),
+        ]);
+    }
+
+    /** @return \Generator<int, CarbonImmutable> one entry per row with a readable Created Date */
+    private function eventLogDates(string $path, string $extension, string $timeZone): \Generator
+    {
+        $column = null;
+
+        foreach ($extension === 'csv' ? $this->csvRows($path) : $this->xlsxRows($path) as $row) {
+            if ($column === null) {
+                foreach ($row as $position => $heading) {
+                    if (strtolower(trim((string) $heading)) === 'created date') {
+                        $column = $position;
+                    }
+                }
+
+                continue;
+            }
+
+            $time = $this->eventTime($row[$column] ?? null, $timeZone);
+            if ($time !== null) {
+                yield $time;
+            }
+        }
+    }
+
+    private function eventTime(mixed $value, string $timeZone): ?CarbonImmutable
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            if (is_numeric($value)) {
+                // Excel serial date (OADate): days since 1899-12-30, the fraction being the time of day.
+                $seconds = (int) round(((float) $value - floor((float) $value)) * 86400);
+
+                return CarbonImmutable::parse('1899-12-30', $timeZone)->addDays((int) floor((float) $value))->addSeconds($seconds);
+            }
+
+            return CarbonImmutable::parse($value, $timeZone);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** @return \Generator<int, array<int, string>> */
+    private function csvRows(string $path): \Generator
+    {
+        $handle = fopen($path, 'rb');
+        if ($handle === false) {
+            throw new InvalidExportException('The file could not be read.');
+        }
+
+        try {
+            $first = true;
+            while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
+                if ($first && isset($row[0])) {
+                    $row[0] = preg_replace('/^\xEF\xBB\xBF/', '', (string) $row[0]);
+                }
+                $first = false;
+
+                yield array_map(static fn ($cell): string => (string) $cell, $row);
+            }
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /** @return \Generator<int, array<int, string>> rows of the first worksheet, cells keyed by column position */
+    private function xlsxRows(string $path): \Generator
+    {
+        $zip = new ZipArchive;
+        if ($zip->open($path) !== true) {
+            throw new InvalidExportException('The spreadsheet could not be opened. It may be damaged or incomplete.');
+        }
+
+        try {
+            $strings = [];
+            $sharedXml = $zip->getFromName('xl/sharedStrings.xml');
+            if ($sharedXml !== false) {
+                $shared = @simplexml_load_string($sharedXml, 'SimpleXMLElement', LIBXML_NONET);
+                foreach ($shared === false ? [] : $shared->si as $item) {
+                    $text = '';
+                    foreach ($item->xpath('.//*[local-name()="t"]') ?: [] as $part) {
+                        $text .= (string) $part;
+                    }
+                    $strings[] = $text;
+                }
+            }
+
+            $sheetName = $this->firstSheetName($zip);
+            $sheetXml = $zip->getFromName($sheetName);
+            if ($sheetXml === false) {
+                throw new InvalidExportException('The spreadsheet has no worksheet to read.');
+            }
+
+            $reader = new XMLReader;
+            $reader->XML($sheetXml, null, LIBXML_NONET | LIBXML_COMPACT);
+            try {
+                while (@$reader->read()) {
+                    if ($reader->nodeType !== XMLReader::ELEMENT || $reader->localName !== 'row') {
+                        continue;
+                    }
+
+                    $row = [];
+                    $node = simplexml_import_dom($reader->expand(new \DOMDocument));
+                    $next = 0;
+                    foreach ($node->children() as $cell) {
+                        $reference = (string) $cell['r'];
+                        $position = $reference !== '' ? $this->columnIndex($reference) : $next;
+                        $next = $position + 1;
+                        $raw = (string) $cell->v;
+                        $type = (string) $cell['t'];
+                        $row[$position] = match ($type) {
+                            's' => $strings[(int) $raw] ?? '',
+                            'inlineStr' => (string) $cell->is->t,
+                            default => $raw,
+                        };
+                    }
+
+                    yield $row;
+                }
+            } finally {
+                $reader->close();
+            }
+        } finally {
+            $zip->close();
+        }
+    }
+
+    private function firstSheetName(ZipArchive $zip): string
+    {
+        $workbook = $zip->getFromName('xl/workbook.xml');
+        $relationships = $zip->getFromName('xl/_rels/workbook.xml.rels');
+        if ($workbook !== false && $relationships !== false) {
+            $book = @simplexml_load_string($workbook, 'SimpleXMLElement', LIBXML_NONET);
+            $rels = @simplexml_load_string($relationships, 'SimpleXMLElement', LIBXML_NONET);
+            $sheet = $book === false ? null : ($book->xpath('//*[local-name()="sheet"]')[0] ?? null);
+            $id = $sheet === null ? null : (string) $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships')['id'];
+            if ($id !== null && $rels !== false) {
+                foreach ($rels->Relationship as $relationship) {
+                    if ((string) $relationship['Id'] === $id) {
+                        return 'xl/'.ltrim((string) $relationship['Target'], '/');
+                    }
+                }
+            }
+        }
+
+        return 'xl/worksheets/sheet1.xml';
+    }
+
+    /** "C12" gives 2. */
+    private function columnIndex(string $reference): int
+    {
+        $letters = strtoupper((string) preg_replace('/[^A-Za-z]/', '', $reference));
+        $index = 0;
+        foreach (str_split($letters) as $letter) {
+            $index = $index * 26 + (ord($letter) - 64);
+        }
+
+        return $index - 1;
     }
 
     private function summariseAudits(string $contentType, string $zipPath): ExportSummary

@@ -27,7 +27,7 @@ class ExportStorage
         $this->assertUuid((string) $file->id);
         $this->assertUuid((string) $file->scope_id);
         $scope = preg_replace('/[^a-z]/', '', strtolower(class_basename((string) $file->scope_type))) ?: 'scope';
-        $extension = in_array($file->content_type, ['xml', 'json', 'zip'], true) ? $file->content_type : 'bin';
+        $extension = in_array($file->content_type, ['xml', 'json', 'zip', 'xlsx', 'csv'], true) ? $file->content_type : 'bin';
 
         return "exports/{$scope}/{$file->scope_id}/{$file->id}.{$extension}";
     }
@@ -47,6 +47,8 @@ class ExportStorage
         return match ($contentType) {
             'json' => 'application/json',
             'zip' => 'application/zip',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'csv' => 'text/csv',
             default => 'application/xml',
         };
     }

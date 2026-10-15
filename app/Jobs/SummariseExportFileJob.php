@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\ExportFileStatus;
+use App\Enums\ExportKind;
 use App\Models\Dataset;
 use App\Models\ExportFile;
 use App\Support\Exports\ExportStorage;
@@ -74,7 +75,8 @@ class SummariseExportFileJob implements ShouldQueue
         if ($file->scope_type === (new Dataset)->getMorphClass()) {
             $dataset = Dataset::query()->withoutGlobalScopes()->find($file->scope_id);
             if ($dataset !== null) {
-                return $dataset->timeZone();
+                // IFS event log times are written in the IFS zone, which may differ from the dataset zone.
+                return $file->kind === ExportKind::EventLog ? $dataset->ifsTimeZone() : $dataset->timeZone();
             }
         }
 

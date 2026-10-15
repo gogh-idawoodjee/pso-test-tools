@@ -17,7 +17,7 @@ class DatasetSettings implements Arrayable, JsonSerializable
     public const array KEYS = [
         'display_name', 'dataset_display_name', 'coverage_km', 'eod_cutoff_hour', 'exclude_resource_types',
         'resource_type_names', 'attribute_labels', 'region_pivot', 'region_labels', 'supervisor_label',
-        'supervisor_label_plural', 'notes', 'windows_time_zone', 'time_zone',
+        'supervisor_label_plural', 'notes', 'windows_time_zone', 'time_zone', 'ifs_time_zone',
     ];
 
     /** Keys as they appear in a pso-tools account file that differ from ours. */
@@ -42,6 +42,7 @@ class DatasetSettings implements Arrayable, JsonSerializable
         public array $notes = [],
         public ?string $windowsTimeZone = null,
         public ?string $timeZone = null,
+        public ?string $ifsTimeZone = null,
     ) {}
 
     public static function fromArray(array $values): self
@@ -79,6 +80,11 @@ class DatasetSettings implements Arrayable, JsonSerializable
             throw new InvalidArgumentException("time_zone must be an IANA zone name, got {$timeZone}.");
         }
 
+        $ifsTimeZone = $values['ifs_time_zone'] ?? null;
+        if ($ifsTimeZone !== null && $ifsTimeZone !== '' && ! in_array($ifsTimeZone, DateTimeZone::listIdentifiers(), true)) {
+            throw new InvalidArgumentException("ifs_time_zone must be an IANA zone name, got {$ifsTimeZone}.");
+        }
+
         $pivot = $values['region_pivot'] ?? ['red_below' => 1, 'amber_below' => 3];
 
         return new self(
@@ -96,6 +102,7 @@ class DatasetSettings implements Arrayable, JsonSerializable
             notes: $map($values['notes'] ?? []),
             windowsTimeZone: self::stringOrNull($values['windows_time_zone'] ?? null),
             timeZone: self::stringOrNull($timeZone),
+            ifsTimeZone: self::stringOrNull($ifsTimeZone),
         );
     }
 
@@ -149,6 +156,7 @@ class DatasetSettings implements Arrayable, JsonSerializable
             'notes' => $this->notes,
             'windows_time_zone' => $this->windowsTimeZone,
             'time_zone' => $this->timeZone,
+            'ifs_time_zone' => $this->ifsTimeZone,
         ];
     }
 

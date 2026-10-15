@@ -43,6 +43,12 @@ class Dataset extends Model
         return $this->settings->timeZone ?? (string) config('app.timezone', 'UTC');
     }
 
+    /** The zone IFS event log times are written in; blank means the dataset time zone. */
+    public function ifsTimeZone(): string
+    {
+        return $this->settings->ifsTimeZone ?? $this->timeZone();
+    }
+
     public function environment(): BelongsTo
     {
         return $this->belongsTo(Environment::class);
@@ -97,6 +103,11 @@ class Dataset extends Model
                     Forms\Components\TextInput::make('settings.eod_cutoff_hour')->label('End of day cut-off hour')->numeric()->integer()->minValue(0)->maxValue(23),
                     Forms\Components\Select::make('settings.time_zone')
                         ->label('Time zone')
+                        ->searchable()
+                        ->options(array_combine(DateTimeZone::listIdentifiers(), DateTimeZone::listIdentifiers())),
+                    Forms\Components\Select::make('settings.ifs_time_zone')
+                        ->label('IFS event log time zone')
+                        ->helperText('Zone the IFS event log times are written in. Blank means the dataset time zone.')
                         ->searchable()
                         ->options(array_combine(DateTimeZone::listIdentifiers(), DateTimeZone::listIdentifiers())),
                     Forms\Components\TextInput::make('settings.windows_time_zone')->label('Windows time zone'),
