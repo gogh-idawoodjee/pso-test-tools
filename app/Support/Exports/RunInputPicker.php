@@ -38,6 +38,31 @@ class RunInputPicker
     }
 
     /**
+     * Options with the raw-file purge countdown appended, for places that show one file set at a time.
+     *
+     * @return array<string, array<string, string>> kind value => [export file id => label]
+     */
+    public function optionsWithExpiryFor(Model $scope, ToolId $toolId): array
+    {
+        $options = [];
+
+        foreach ($this->kindsOf($toolId) as $kind) {
+            $options[$kind->value] = $this->candidates($scope, $kind)
+                ->mapWithKeys(fn (ExportFile $file): array => [$file->id => $this->labelFor($file, $scope).'  '.$this->purgeCountdown($file)])
+                ->all();
+        }
+
+        return $options;
+    }
+
+    public function purgeCountdown(ExportFile $file): string
+    {
+        $minutes = (int) floor(now()->diffInMinutes($file->expires_at, false));
+
+        return $minutes <= 0 ? 'Purging soon' : 'Purges in '.intdiv($minutes, 60).' h '.($minutes % 60).' m';
+    }
+
+    /**
      * @return array<string, string> kind value => export file id
      */
     public function defaultsFor(Model $scope, ToolId $toolId): array

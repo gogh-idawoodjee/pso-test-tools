@@ -6,6 +6,8 @@ use App\Filament\Pages\Tools\LoadAuditEntry;
 use App\Filament\Pages\Tools\SysCompareEntry;
 use App\Models\Dataset;
 use App\Models\Environment;
+use App\Models\ExportFile;
+use App\Models\ToolRun;
 use App\Models\User;
 use App\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Crypt;
@@ -98,4 +100,53 @@ it('creates a dataset inline in the chosen environment and selects it', function
     $created = Dataset::query()->where('name', 'SOUTH')->first();
     expect($created?->environment_id)->toBe($this->environment->id);
     $page->assertFormSet(['dataset_id' => $created->id]);
+});
+
+it('offers the newest usable file per kind, preselected, and names the time left', function () {
+    $this->travelTo(now()->startOfMinute());
+    $old = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'old-load.zip', 'created_at' => now()->subHours(3), 'expires_at' => now()->addHours(9)]);
+    $new = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'new-load.zip', 'expires_at' => now()->addHours(11)]);
+    ExportFile::factory()->for($this->dataset, 'scope')->purged()->create(['kind' => ExportKind::Load, 'original_filename' => 'gone.zip']);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->assertFormSet(['files.load' => $new->id])
+        ->assertSee('new-load.zip')
+        ->assertSee('old-load.zip')
+        ->assertDontSee('gone.zip')
+        ->assertSee('Purges in 11 h 0 m');
+});
+
+it('blocks the run while a required export is missing and names it', function () {
+    Livewire::test(LoadAuditEntry::class)
+        ->call('start')
+        ->assertHasFormErrors(['files.load' => 'required'])
+        ->assertSee('A LOAD export is required.');
+    expect(ToolRun::count())->toBe(0);
+});
+
+it('marks the required kind and shows where a sys export comes from', function () {
+    Livewire::test(LoadAuditEntry::class)
+        ->assertSee('LOAD export')
+        ->assertSee('Required')
+        ->assertSee('Optional')
+        ->assertSee('from the environment');
+});
+
+it('picks up a file that finished uploading after the step opened', function () {
+    $component = Livewire::test(LoadAuditEntry::class)->assertFormSet(['files.load' => null]);
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    $component->dispatch('export-uploaded')->assertFormSet(['files.load' => $load->id]);
+});
+
+it('swaps the chosen files when the dataset changes', function () {
+    $south = Dataset::factory()->for($this->environment)->create(['name' => 'SOUTH']);
+    $northLoad = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+    $southLoad = ExportFile::factory()->for($south, 'scope')->create(['kind' => ExportKind::Load]);
+    $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->assertFormSet(['files.load' => $northLoad->id])
+        ->fillForm(['dataset_id' => $south->id])
+        ->assertFormSet(['files.load' => $southLoad->id]);
 });
