@@ -74,7 +74,7 @@ forms onto the wizard base. They are regrouped in the sidebar now and migrate in
 ## 3. Data
 
 One migration: nullable JSON `last_tool_context` on `users`, shape
-`{"environment_id": int|null, "dataset_id": int|null}`. Written on Run, read on the Where step. No other
+`{"environment_id": string|null, "dataset_id": string|null}` (UUID strings). Written on Run, read on the Where step. No other
 schema change.
 
 ## 4. Errors
