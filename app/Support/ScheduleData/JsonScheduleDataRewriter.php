@@ -37,6 +37,14 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
             throw new RuntimeException("The schedule data file could not be opened: {$sourcePath}");
         }
 
+        $sourceRealPath = realpath($sourcePath);
+
+        if ($sourceRealPath !== false && $sourceRealPath === realpath($destinationPath)) {
+            fclose($source);
+
+            throw new RuntimeException('The rewritten schedule data cannot be written over the original file.');
+        }
+
         $destination = @fopen($destinationPath, 'wb');
 
         if ($destination === false) {
@@ -193,7 +201,8 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
 
                 $decodedKey = json_decode($token);
                 $memberName = is_string($decodedKey) ? $decodedKey : '';
-                $strippingMember = in_array($memberName, self::STRIPPED_ENTITIES, true);
+                // Old broadcasts are only stripped when a new one replaces them (as in the script).
+                $strippingMember = $injection !== null && in_array($memberName, self::STRIPPED_ENTITIES, true);
                 $memberRows = 0;
                 $memberIsArray = false;
 
@@ -320,14 +329,15 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
             throw new RuntimeException("The schedule data file ended inside the '{$format}' wrapper - it looks truncated.");
         }
 
-        if ($format === null) {
+        if ($format === null && $injection !== null) {
             throw new RuntimeException("Expected a top-level 'ScheduleData' or 'dsScheduleData' wrapper in the file - can't inject a Broadcast.");
         }
 
         $flush();
 
+        // No wrapper and nothing to inject: the copy is the file unchanged (as in the script).
         return new RewriteReport(
-            format: $format,
+            format: $format ?? 'json',
             datasetIds: array_values(array_unique($datasetIds)),
             datasetIdChanged: $datasetIdChanged,
             strippedBroadcasts: $strippedBroadcasts,

@@ -286,3 +286,39 @@ it('never modifies the source file', function () {
         @unlink($destination);
     }
 });
+
+it('keeps existing Broadcast and Broadcast_Parameter rows byte for byte when nothing is injected', function () {
+    $json = "{\"ScheduleData\":{\"Input_Reference\":[{\"dataset_id\":\"OLD\"}],\n  \"Broadcast\" : [ {\"id\":\"MINE\", \"active\":true} ],\n  \"Broadcast_Parameter\":[{\"broadcast_id\":\"MINE\",\"parameter_name\":\"url\",\"parameter_value\":\"https://x/y\"}]\n}}";
+
+    [$output, $report] = rewriteJson($json, 'NEW');
+
+    expect($output)->toBe(str_replace('"OLD"', '"NEW"', $json));
+    expect($report->strippedBroadcasts)->toBe(0);
+    expect($report->strippedBroadcastParameters)->toBe(0);
+    expect($report->datasetIdChanged)->toBeTrue();
+});
+
+it('copies a file without a wrapper unchanged when only an override is given', function () {
+    $json = '{"Other":{"Input_Reference":[{"dataset_id":"OLD"}]}}';
+
+    [$output, $report] = rewriteJson($json, 'NEW');
+
+    expect($output)->toBe($json);
+    expect($report->datasetIds)->toBe([]);
+    expect($report->datasetIdChanged)->toBeFalse();
+    expect($report->bytesWritten)->toBe(strlen($json));
+});
+
+it('refuses to write over the source file', function () {
+    $json = '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}]}}';
+    $source = tempnam(sys_get_temp_dir(), 'rwsrc');
+    file_put_contents($source, $json);
+
+    try {
+        expect(static fn () => app(JsonScheduleDataRewriter::class)->rewrite($source, $source, 'NEW', webhookInjection()))
+            ->toThrow(RuntimeException::class, 'cannot be written over the original');
+        expect(file_get_contents($source))->toBe($json);
+    } finally {
+        @unlink($source);
+    }
+});
