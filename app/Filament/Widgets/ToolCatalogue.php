@@ -8,6 +8,8 @@ use App\Filament\Navigation\Groups;
 use App\Filament\Pages;
 use App\Filament\Resources;
 use App\Tools\ToolRegistry;
+use Filament\Pages\Page;
+use Filament\Resources\Resource as FilamentResource;
 use Filament\Support\Colors\Color;
 use Filament\Widgets\Widget;
 
@@ -19,7 +21,7 @@ class ToolCatalogue extends Widget
 
     protected string $view = 'filament.widgets.tool-catalogue';
 
-    /** @return list<array{label: string, accent: string, items: list<array{label: string, question: string, needs: ?string, url: string}>}> */
+    /** @return list<array{label: string, accent: string, items: list<array{label: string, question: string, needs: ?string, url: string, class: class-string<Page|FilamentResource>}>}> */
     public function sections(): array
     {
         $registry = app(ToolRegistry::class);
@@ -30,35 +32,52 @@ class ToolCatalogue extends Widget
                 continue;
             }
             $impl = $registry->for($tool);
-            $analyse[] = ['label' => $tool->getLabel(), 'question' => $tool->question(), 'needs' => $this->needs($impl->requiredKinds(), $impl->optionalKinds()), 'url' => $page::getUrl()];
+            $analyse[] = $this->item($page, $tool->getLabel(), $tool->question(), $this->needs($impl->requiredKinds(), $impl->optionalKinds()));
         }
-        $analyse[] = ['label' => 'PSO Sys File Compare', 'question' => 'What differs between two or more SYS exports?', 'needs' => 'Needs two or more '.ExportKind::Sys->getLabel().' exports', 'url' => Pages\SysFileCompare::getUrl()];
-        $analyse[] = ['label' => 'Filter Load File', 'question' => 'Can I cut a LOAD file down to chosen regions, resources or activities?', 'needs' => 'Needs a '.ExportKind::Load->getLabel().' file', 'url' => Pages\FilterLoadFile::getUrl()];
-        $analyse[] = ['label' => 'Preference Calculator', 'question' => 'Which of two technicians will PSO prefer for an activity, given costs, distances and preference values?', 'needs' => null, 'url' => Pages\PreferenceCalculator::getUrl()];
+        $analyse[] = $this->item(Pages\SysFileCompare::class, 'PSO Sys File Compare', 'What differs between two or more SYS exports?', 'Needs two or more '.ExportKind::Sys->getLabel().' exports');
+        $analyse[] = $this->item(Pages\FilterLoadFile::class, 'Filter Load File', 'Can I cut a LOAD file down to chosen regions, resources or activities?', 'Needs a '.ExportKind::Load->getLabel().' file');
+        $analyse[] = $this->item(Pages\PreferenceCalculator::class, 'Preference Calculator', 'Which of two technicians will PSO prefer for an activity, given costs, distances and preference values?', null);
 
-        return [
+        $sections = [
             ['label' => Groups::ANALYSE, 'accent' => Color::Cyan[500], 'items' => $analyse],
             ['label' => Groups::LIVE, 'accent' => Color::Rose[500], 'items' => [
-                ['label' => 'Activity Services', 'question' => 'Create, update or delete activities in a live environment.', 'needs' => null, 'url' => Pages\HomePages\PSOActivityHome::getUrl()],
-                ['label' => 'Resource Services', 'question' => 'Change shifts, events and unavailability for a resource.', 'needs' => null, 'url' => Pages\HomePages\PSOResourceHome::getUrl()],
-                ['label' => 'Modelling Services', 'question' => 'Generate regions and resources for a model.', 'needs' => null, 'url' => Pages\HomePages\PSOModellingHome::getUrl()],
-                ['label' => 'Gateway upload', 'question' => 'Send a schedule data file to an environment.', 'needs' => 'Open an environment, then its Tools tab', 'url' => Resources\EnvironmentResource::getUrl()],
-                ['label' => 'Travel Analyzer', 'question' => 'How do PSO travel times compare with the map provider?', 'needs' => null, 'url' => Pages\TravelAnalyzer::getUrl()],
-                ['label' => 'Generic Delete', 'question' => 'Delete one object from a live environment.', 'needs' => null, 'url' => Pages\GenericDelete::getUrl()],
-                ['label' => 'Generate Custom Exception', 'question' => 'Raise a custom exception in a live environment.', 'needs' => null, 'url' => Pages\GenerateCustomException::getUrl()],
+                $this->item(Pages\HomePages\PSOActivityHome::class, 'Activity Services', 'Create, update or delete activities in a live environment.', null),
+                $this->item(Pages\HomePages\PSOResourceHome::class, 'Resource Services', 'Change shifts, events and unavailability for a resource.', null),
+                $this->item(Pages\HomePages\PSOModellingHome::class, 'Modelling Services', 'Generate regions and resources for a model.', null),
+                $this->item(Resources\EnvironmentResource::class, 'Gateway upload', 'Send a schedule data file to an environment.', 'Open an environment, then its Tools tab'),
+                $this->item(Pages\TravelAnalyzer::class, 'Travel Analyzer', 'How do PSO travel times compare with the map provider?', null),
+                $this->item(Pages\GenericDelete::class, 'Generic Delete', 'Delete one object from a live environment.', null),
+                $this->item(Pages\GenerateCustomException::class, 'Generate Custom Exception', 'Raise a custom exception in a live environment.', null),
             ]],
             ['label' => Groups::SETUP, 'accent' => Color::Amber[500], 'items' => [
-                ['label' => 'Environments', 'question' => 'The PSO systems you connect to.', 'needs' => null, 'url' => Resources\EnvironmentResource::getUrl()],
-                ['label' => 'Datasets', 'question' => 'One per customer dataset: settings, exports and run history.', 'needs' => null, 'url' => Resources\DatasetResource::getUrl()],
-                ['label' => 'Reference values', 'question' => 'Regions, skills and types synced from PSO.', 'needs' => null, 'url' => Resources\RegionResource::getUrl()],
+                $this->item(Resources\EnvironmentResource::class, 'Environments', 'The PSO systems you connect to.', null),
+                $this->item(Resources\DatasetResource::class, 'Datasets', 'One per customer dataset: settings, exports and run history.', null),
+                $this->item(Resources\RegionResource::class, 'Reference values', 'Regions, skills and types synced from PSO.', null),
             ]],
             ['label' => Groups::ADMIN, 'accent' => Color::Emerald[500], 'items' => [
-                ['label' => 'Token usage', 'question' => 'API calls made through this app.', 'needs' => null, 'url' => Resources\TokenUsageLogResource::getUrl()],
-                ['label' => 'Issue token', 'question' => 'Create an API token.', 'needs' => null, 'url' => Pages\IssueToken::getUrl()],
-                ['label' => 'Health', 'question' => 'Is this app healthy?', 'needs' => null, 'url' => Pages\HealthCheckResults::getUrl()],
-                ['label' => 'Backups', 'question' => 'Database and file backups.', 'needs' => null, 'url' => Pages\Backups::getUrl()],
+                $this->item(Resources\TokenUsageLogResource::class, 'Token usage', 'API calls made through this app.', null),
+                $this->item(Pages\IssueToken::class, 'Issue token', 'Create an API token.', null),
+                $this->item(Pages\HealthCheckResults::class, 'Health', 'Is this app healthy?', null),
+                $this->item(Pages\Backups::class, 'Backups', 'Database and file backups.', null),
             ]],
         ];
+
+        // Only what this user can open, as the sidebar does; a section left with nothing is dropped.
+        $sections = array_map(static fn (array $section): array => [
+            ...$section,
+            'items' => array_values(array_filter($section['items'], static fn (array $item): bool => $item['class']::canAccess())),
+        ], $sections);
+
+        return array_values(array_filter($sections, static fn (array $section): bool => $section['items'] !== []));
+    }
+
+    /**
+     * @param  class-string<Page|FilamentResource>  $class
+     * @return array{label: string, question: string, needs: ?string, url: string, class: class-string<Page|FilamentResource>}
+     */
+    private function item(string $class, string $label, string $question, ?string $needs): array
+    {
+        return ['label' => $label, 'question' => $question, 'needs' => $needs, 'url' => $class::getUrl(), 'class' => $class];
     }
 
     /** @return class-string<Pages\Tools\ToolWizardPage>|null */

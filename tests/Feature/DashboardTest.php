@@ -31,8 +31,23 @@ it('lists registered tools with their question and the files they need, grouped 
         ->assertSee('Needs a '.ExportKind::Load->getLabel().' export; '.ExportKind::Sys->getLabel().' optional')
         ->assertDontSee(ToolId::RegionAvailability->getLabel())
         ->assertSee('Live PSO actions')
-        ->assertSee('Setup')
-        ->assertSee('Admin');
+        ->assertSee('Setup');
+});
+
+it('lists only the admin pages the user can open, dropping an empty Admin section', function () {
+    Livewire::test(ToolCatalogue::class)
+        ->assertDontSee('Token usage')
+        ->assertDontSee('Backups')
+        ->assertDontSee('>Admin<', false)
+        ->assertSee('Environments');
+
+    $this->actingAs(User::factory()->create(['email' => 'idawoodjee@mac.com']));
+    Livewire::test(ToolCatalogue::class)
+        ->assertSee('Admin')
+        ->assertSee('Token usage')
+        ->assertSee('Issue token')
+        ->assertSee('Health')
+        ->assertSee('Backups');
 });
 
 it('hides unregistered tools and still renders with an empty registry', function () {
