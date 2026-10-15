@@ -311,11 +311,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
 
     protected function generateDownloadUrl(string $filename): string
     {
-        if (str_ends_with($filename, '.zip')) {
-            return route('download.filtered', compact('filename'));
-        }
-
-        return config('app.url').'/download/'.urlencode($filename);
+        return route('download.filtered', compact('filename'));
     }
 
     /**
