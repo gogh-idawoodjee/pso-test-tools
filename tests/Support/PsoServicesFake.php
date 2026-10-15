@@ -33,7 +33,9 @@ class PsoServicesFake
 
                 return $logonStatus === 200
                     ? Http::response(['data' => 'Auth was successful.', 'message' => ['SessionToken' => $token], 'status' => 200], 200)
-                    : Http::response(['error' => 'Unauthorized. Please check your session or login credentials.', 'details' => null], $logonStatus);
+                    : ($logonStatus >= 500
+                        ? Http::response(['error' => 'Internal server error. Try again later.', 'details' => null], $logonStatus)
+                        : Http::response(['error' => 'Unauthorized. Please check your session or login credentials.', 'details' => null], $logonStatus));
             },
         ];
     }

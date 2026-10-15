@@ -5,6 +5,7 @@ use App\Support\PsoServices\PsoServicesSessionException;
 use App\Traits\PSOInteractionsTrait;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Tests\Support\PsoServicesFake;
 
 it('logs on through pso-services and returns the session token', function () {
@@ -19,6 +20,7 @@ it('logs on through pso-services and returns the session token', function () {
         && $request->hasHeader('baseUrl', 'https://example.test')
         && $request->hasHeader('accountId', 'acc-1')
         && $request->hasHeader('username', 'test-user')
+        && $request->hasHeader('Accept', 'application/json')
         && $request->hasHeader('password', 'secret-password'));
 });
 
@@ -29,6 +31,7 @@ it('logs off through pso-services with the token header', function () {
 
     Http::assertSent(static fn ($request) => $request->method() === 'DELETE'
         && $request->url() === PsoServicesFake::sessionUrl()
+        && $request->hasHeader('Accept', 'application/json')
         && $request->hasHeader('token', 'tok-abc')
         && $request->hasHeader('baseUrl', 'https://example.test'));
 });
@@ -131,4 +134,64 @@ it('reports error_value 500 when pso-services is unreachable', function () {
 
     expect($probe->authenticate())->toBeNull();
     expect($probe->errorValue())->toBe(500);
+});
+
+it('keeps a 5xx logon status and maps it to error_value 500 with a message, not 401', function () {
+    Http::fake(PsoServicesFake::session(logonStatus: 504));
+
+    try {
+        app(PsoServicesSessionClient::class)->logon('https://example.test', 'acc-1', 'user', 'password');
+        $this->fail('Expected a PsoServicesSessionException');
+    } catch (PsoServicesSessionException $exception) {
+        expect($exception->statusCode)->toBe(504);
+        expect($exception->getMessage())->toContain('Internal server error');
+    }
+
+    $probe = new class
+    {
+        use PSOInteractionsTrait;
+
+        public function authenticate(): ?string
+        {
+            return $this->authenticatePSO('https://example.test', 'acc-1', 'user', 'password');
+        }
+
+        public function errorValue(): ?int
+        {
+            return $this->error_value;
+        }
+
+        public function errorMessage(): ?string
+        {
+            return $this->session_error_message;
+        }
+    };
+
+    expect($probe->authenticate())->toBeNull();
+    expect($probe->errorValue())->toBe(500);
+    expect($probe->errorMessage())->toContain('Internal server error');
+});
+
+it('returns false and logs a warning when logoffPSO() fails', function () {
+    Http::fake(PsoServicesFake::session(logoffStatus: 500));
+    Log::spy();
+
+    $probe = new class
+    {
+        use PSOInteractionsTrait;
+
+        public function logoff(): bool
+        {
+            return $this->logoffPSO('https://example.test', 'tok-abc');
+        }
+
+        public function errorMessage(): ?string
+        {
+            return $this->session_error_message;
+        }
+    };
+
+    expect($probe->logoff())->toBeFalse();
+    expect($probe->errorMessage())->not->toBeNull();
+    Log::shouldHaveReceived('warning')->once();
 });
