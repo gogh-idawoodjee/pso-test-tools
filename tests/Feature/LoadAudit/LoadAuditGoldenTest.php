@@ -67,7 +67,7 @@ it('produces the same findings through the web as the command line', function ()
 
         // The command line, with the same arguments the tool used, into a folder of its own.
         mkdir($work.'/'.LoadAuditCommand::ACCOUNTS_DIR, 0770, true);
-        $argv = LoadAuditCommand::build(PsoToolsCheckout::fromConfig(), $work, $paths, [], 'America/Regina', 'Example Org', 'about:blank');
+        $argv = LoadAuditCommand::build(PsoToolsCheckout::fromConfig(), $work, $paths, [], 'America/Regina', 'Example Org');
         $process = Process::path($work)->timeout(840)->run($argv);
         expect($process->successful())->toBeTrue($process->errorOutput());
 

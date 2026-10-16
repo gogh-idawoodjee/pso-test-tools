@@ -12,7 +12,7 @@ it('builds the full command for a LOAD, plan and SYS', function () {
     $argv = LoadAuditCommand::build(checkoutForCommand(), '/scratch/run1',
         ['load' => '/scratch/run1/a.zip', 'plan' => '/scratch/run1/b.xml', 'sys' => '/scratch/run1/c.xml'],
         ['ifs_release' => '25.2.7', 'complete_grace_hours' => 12],
-        'America/Regina', 'SaskTel', 'https://app/datasets/1?relation=toolRuns');
+        'America/Regina', 'SaskTel');
 
     $root = dirname(__DIR__, 2).'/Fixtures/pso-tools';
     expect($argv)->toBe([
@@ -27,7 +27,7 @@ it('builds the full command for a LOAD, plan and SYS', function () {
         '--watchlist', "{$root}/kb/28-release-notes-watchlist.md",
         '--ifs-release', '25.2.7',
         '--complete-grace-hours', '12',
-        '--review', 'https://app/datasets/1?relation=toolRuns',
+        '--review', 'none',
         '--out', '/scratch/run1/load_audit.md',
         '--json', '/scratch/run1/load_audit.json',
         '--html', '/scratch/run1/load_audit.html',
@@ -35,14 +35,14 @@ it('builds the full command for a LOAD, plan and SYS', function () {
 });
 
 it('omits plan, sys, org and ifs release when absent and defaults the grace hours', function () {
-    $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], [], 'UTC', null, 'https://app/r');
+    $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], [], 'UTC', null);
 
     expect($argv)->not->toContain('--plan')->not->toContain('--sys')->not->toContain('--org')->not->toContain('--ifs-release')
         ->and(array_slice($argv, array_search('--complete-grace-hours', $argv, true), 2))->toBe(['--complete-grace-hours', '24']);
 });
 
 it('treats a blank display name or ifs release as absent', function () {
-    $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], ['ifs_release' => '  '], 'UTC', '', 'https://app/r');
+    $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], ['ifs_release' => '  '], 'UTC', '');
 
     expect($argv)->not->toContain('--org')->not->toContain('--ifs-release');
 });

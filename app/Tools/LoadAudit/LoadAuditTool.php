@@ -4,8 +4,6 @@ namespace App\Tools\LoadAudit;
 
 use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
-use App\Filament\Resources\DatasetResource;
-use App\Models\Dataset;
 use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolResult;
 use App\Tools\ScriptRun;
@@ -64,7 +62,7 @@ class LoadAuditTool implements Tool
 
         $argv = LoadAuditCommand::build(
             $checkout, $workDir, $inputPaths, $options, $context->timeZone,
-            $context->settings?->displayName, $this->reviewUrl($context->scope),
+            $context->settings?->displayName,
         );
         $timeout = (int) config('tools.load_audit.timeout_seconds', 840);
 
@@ -97,13 +95,5 @@ class LoadAuditTool implements Tool
             warnings: $warnings,
             summary: ['counts' => $counts],
         );
-    }
-
-    /** Where the dashboard's "Open the schedule review" button goes until that tool is ported: the dataset's Runs tab. */
-    private function reviewUrl(mixed $scope): string
-    {
-        return $scope instanceof Dataset
-            ? DatasetResource::getUrl('view', ['record' => $scope]).'?relation=toolRuns'
-            : url('/');
     }
 }

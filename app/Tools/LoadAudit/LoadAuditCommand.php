@@ -24,7 +24,7 @@ class LoadAuditCommand
      * @param  array<string, mixed>  $options  ifs_release, complete_grace_hours
      * @return list<string>
      */
-    public static function build(PsoToolsCheckout $checkout, string $workDir, array $inputPaths, array $options, string $timeZone, ?string $displayName, string $reviewUrl): array
+    public static function build(PsoToolsCheckout $checkout, string $workDir, array $inputPaths, array $options, string $timeZone, ?string $displayName): array
     {
         $workDir = rtrim($workDir, '/');
         $argv = [$checkout->python(), '-I', $checkout->script(), '--load', $inputPaths['load']];
@@ -57,7 +57,8 @@ class LoadAuditCommand
         $grace = $options['complete_grace_hours'] ?? null;
         array_push($argv, '--complete-grace-hours', (string) (is_numeric($grace) ? (int) $grace : self::DEFAULT_GRACE_HOURS));
 
-        array_push($argv, '--review', $reviewUrl,
+        // No schedule review on the web (it is a separate product), so the dashboard hides its button.
+        array_push($argv, '--review', 'none',
             '--out', $workDir.'/'.self::OUT_MD,
             '--json', $workDir.'/'.self::OUT_JSON,
             '--html', $workDir.'/'.self::OUT_HTML);
