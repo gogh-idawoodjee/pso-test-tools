@@ -6,6 +6,7 @@ use App\Enums\Tool as ToolId;
 use App\Models\ExternalSanctumToken;
 use App\Tools\ActivityTrace\ActivityTraceTool;
 use App\Tools\LoadAudit\LoadAuditTool;
+use App\Tools\PlanTravels\PlanTravelsTool;
 use App\Tools\RegionAvailability\RegionAvailabilityTool;
 use App\Tools\ToolRegistry;
 use Illuminate\Database\Eloquent\Model;
@@ -32,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(ToolId::LoadAudit, LoadAuditTool::class);
             $registry->register(ToolId::RegionAvailability, RegionAvailabilityTool::class);
             $registry->register(ToolId::AppointmentTimeline, ActivityTraceTool::class);
+            $registry->register(ToolId::PlanTravels, PlanTravelsTool::class);
         });
 
         if ($this->app->environment('local') && class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)) {

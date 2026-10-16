@@ -17,6 +17,8 @@ return [
     'routes' => [
         // One chunk of up to 200 trips to pso-services /routes/compute; cache misses call Google one by one with a 150 ms gap.
         'timeout' => (int) env('PSO_SERVICES_ROUTES_TIMEOUT', 300),
+        // Sent as X-PSO-Routes-Token when set; pso-services checks it only when its own token is set.
+        'token' => env('PSO_ROUTES_TOKEN'),
     ],
     'gateway_upload' => [
         // Defaults for the webhook Broadcast injected into an upload; these

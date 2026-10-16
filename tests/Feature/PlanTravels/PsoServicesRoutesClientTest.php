@@ -68,3 +68,15 @@ it('refuses a 200 without a results array', function () {
     expect(fn () => app(PsoServicesRoutesClient::class)->compute($this->legs, 'DRIVE', 'TRAFFIC_UNAWARE'))
         ->toThrow(PsoServicesRoutesException::class, 'The PSO services API answered without route results.');
 });
+
+it('sends the routes token header only when one is configured', function () {
+    Http::fake(['*' => Http::response(['results' => [], 'counts' => []])]);
+
+    app(PsoServicesRoutesClient::class)->compute($this->legs, 'DRIVE', 'TRAFFIC_UNAWARE');
+    config(['psott.routes.token' => 'shared-secret']);
+    app(PsoServicesRoutesClient::class)->compute($this->legs, 'DRIVE', 'TRAFFIC_UNAWARE');
+
+    $requests = Http::recorded()->all();
+    expect($requests[0][0]->hasHeader('X-PSO-Routes-Token'))->toBeFalse()
+        ->and($requests[1][0]->header('X-PSO-Routes-Token'))->toBe(['shared-secret']);
+});

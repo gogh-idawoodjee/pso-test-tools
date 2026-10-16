@@ -24,8 +24,10 @@ class PsoServicesRoutesClient
         $url = $this->url();
 
         try {
+            $token = config('psott.routes.token');
             $response = Http::acceptJson()
                 ->asJson()
+                ->when(filled($token), static fn ($request) => $request->withHeaders(['X-PSO-Routes-Token' => (string) $token]))
                 ->timeout((int) config('psott.routes.timeout', 300))
                 ->connectTimeout(10)
                 ->post($url, ['travelMode' => $travelMode, 'routingPreference' => $routingPreference, 'legs' => $legs]);

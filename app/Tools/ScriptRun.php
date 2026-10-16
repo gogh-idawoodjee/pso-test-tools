@@ -23,21 +23,25 @@ final class ScriptRun
     /**
      * @param  list<string>  $argv
      * @param  ?int  $reasonExitCode  an exit code the script uses for "nothing to show, and here is why": its last stderr line becomes the whole message
+     * @param  ?string  $progressLabel  names what the script is doing in place of ProgressLine's stage label ("Building legs: 40%")
      *
      * @throws RuntimeException when the script times out or exits non-zero, in plain words
      */
-    public static function execute(ToolContext $context, string $workDir, array $argv, int $timeout, string $noun, ?int $reasonExitCode = null): self
+    public static function execute(ToolContext $context, string $workDir, array $argv, int $timeout, string $noun, ?int $reasonExitCode = null, ?string $progressLabel = null): self
     {
         $lastLabel = 'starting';
         $stderr = [];
         $stdout = '';
         $pending = '';
 
-        $handleLine = static function (string $line) use (&$lastLabel, &$stderr, $context): void {
+        $handleLine = static function (string $line) use (&$lastLabel, &$stderr, $context, $progressLabel): void {
             if ($line === '') {
                 return;
             }
             $progress = ProgressLine::parse($line);
+            if ($progress !== null && $progressLabel !== null) {
+                $progress['label'] = $progress['percent'] === null ? $progressLabel : "{$progressLabel}: {$progress['percent']}%";
+            }
             if ($progress !== null) {
                 $lastLabel = $progress['label'];
                 $context->reportProgress($progress['label'], $progress['percent'], $progress['seconds_left'], $progress['stage']);

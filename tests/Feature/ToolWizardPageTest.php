@@ -6,7 +6,7 @@ use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Pages\ToolRunPage;
 use App\Filament\Pages\Tools\LoadAuditEntry;
-use App\Filament\Pages\Tools\PlanTravelsEntry;
+use App\Filament\Pages\Tools\ScheduleReviewEntry;
 use App\Filament\Pages\Tools\SysCompareEntry;
 use App\Filament\Resources\DatasetResource;
 use App\Jobs\RunToolJob;
@@ -269,11 +269,11 @@ it('refuses a file that is no longer usable and sends the user back to choose an
 });
 
 it('refuses an unregistered tool URL instead of crashing, and opens a registered one', function () {
-    expect(app(ToolRegistry::class)->has(ToolId::PlanTravels))->toBeFalse();
+    expect(app(ToolRegistry::class)->has(ToolId::ScheduleReview))->toBeFalse();
     // A user the panel admits, so the 403 is the page's own refusal.
     $this->actingAs(User::factory()->create(['email' => 'consultant@mac.com']));
 
-    $this->get(PlanTravelsEntry::getUrl())->assertForbidden();
+    $this->get(ScheduleReviewEntry::getUrl())->assertForbidden();
     $this->get(LoadAuditEntry::getUrl())->assertOk();
 });
 
