@@ -1,10 +1,64 @@
 # PSO Test Tools
 
-Eventually a suite of web based tools to simply sending test transactions to PSO.
+A web app for IFS Cloud PSO (Planning and Scheduling Optimization) consultants. It has two families of tools.
 
-Environment Variables Required
-- GOOGLE_MAPS_GEOCODING_API_KEY - required for geocoding
-- PSO_SERVICES_API - the PSO Services API base url; only the FQDN, exclude the https:// portion
+**Analysis tools** read exported PSO data files (LOAD, plan and SYS exports). You upload the files per environment or dataset. The run goes on a queue, and the app keeps each run's page, downloads and warnings.
+
+- Load Health Audit: what is wrong with the data and configuration in a LOAD.
+- Visualize Resource Regions (region availability): who works in which region, and when.
+- Trace an activity: how one activity was booked and how PSO scheduled it.
+- Plan travels: every planned travel leg, optionally checked against Google Routes.
+- Sys compare: parameter differences between PSO environments.
+- Filter Load File: trim a LOAD to regions, resources, activities or dates, with referential cascade.
+
+**Live PSO actions** send to a live PSO environment through the companion pso-services API: Load from File (gateway upload with webhook status), appointment booking, unavailability and event generation, and Travel Analyzer. Production PSO URLs are refused by policy.
+
+Several analysis tools run Python scripts from a checkout of the sibling pso-tools repo, so the server needs that checkout and Python 3.
+
+## Environment Variables Required
+
+Laravel's standard variables (`APP_KEY`, `DB_*`, `MAIL_*` and so on) are not repeated here. See `.env.example` for the full list.
+
+**pso-services connection and tokens**
+
+- `PSO_SERVICES_API`: base URL of the pso-services API. Only the host name is used; the `https://` part is removed. Required.
+- `PSO_SERVICES_API_VERSION`: API version to call, for example `2`.
+- `PSO_SESSION_TIMEOUT`: seconds allowed for a session logon or logoff through pso-services. Default 20.
+- `PSO_SERVICES_ROUTES_TIMEOUT`: seconds allowed for one chunk of 200 trips sent for Google Routes. Default 300.
+- `PSO_ROUTES_TOKEN`: shared token sent to pso-services as `X-PSO-Routes-Token`. Leave empty if pso-services sets none.
+- `WEBHOOK_BASE_URL`: the self-hosted webhook.site that receives PSO's broadcast after a Load from File upload.
+- `WEBHOOK_ALIAS_KEY`: the webhook server's `ALIAS_API_KEY`. Without it, each Load from File run gets a one-off token.
+
+**Google**
+
+- `GOOGLE_MAPS_GEOCODING_API_KEY`: required for geocoding.
+
+**Analysis tool scripts (pso-tools checkout)**
+
+- `TOOLS_PSO_TOOLS_PATH`: path to the pso-tools checkout. Required for the analysis tools that run Python.
+- `TOOLS_PYTHON`: the Python command to run them. Default `python3`.
+- `TOOLS_LOAD_AUDIT_TIMEOUT_SECONDS`, `TOOLS_REGION_AVAILABILITY_TIMEOUT_SECONDS`, `TOOLS_ACTIVITY_TRACE_TIMEOUT_SECONDS`: how long each script may run. Defaults 840, 600 and 840.
+- `TOOLS_PLAN_TRAVELS_TIMEOUT_SECONDS`: how long the Plan travels script may run. Default 600.
+- `TOOLS_PLAN_TRAVELS_GOOGLE_DEADLINE_SECONDS`: how long the Google Routes check may take before it stops. Default 720.
+
+**Queue**
+
+- `QUEUE_CONNECTION`: the analysis tools run on the queue, so a worker must be running. The app uses `database`.
+- `DB_QUEUE_RETRY_AFTER`: seconds before a running job is retried. Keep it above the longest script timeout. Default 960.
+
+**Storage**
+
+- `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_REGION`, `R2_BUCKET`, `R2_URL`: the Cloudflare R2 disk.
+- `LIVEWIRE_TEMPORARY_UPLOAD_DISK`: set to `r2` so large uploads go to R2.
+- `EXPORTS_DISK`: where uploaded exports are kept. Default `r2`.
+- `EXPORTS_TTL_HOURS`: how long kept exports last. Default 12.
+- `EXPORTS_MAX_FILE_MEGABYTES`, `EXPORTS_MAX_MEMBER_MEGABYTES`: size limits for an upload and for a file inside a zip. Defaults 400 and 600.
+- `SYS_COMPARE_DISK`: private local disk for SYS uploads. Default `sys-compare`. See the Sys compare section.
+
+**Other**
+
+- `MAIN_PASSWORD`: password for the main user created by the seeder.
+- `SENTRY_LARAVEL_DSN`: Sentry error reporting. Optional.
 
 ## Navigation
 
