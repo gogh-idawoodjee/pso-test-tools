@@ -4,8 +4,12 @@
 @source '../../../../resources/views/filament/**/*';
 @source '../../../../resources/views/livewire/**/*';
 
-/* The drop target while the server reads an uploaded file: a bar that slides across and repeats. */
+/* Theme fonts (font-display, font-sans, font-mono), and the drop target's bar that slides across while the server reads an upload. */
 @theme {
+    --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --font-display: 'Anton', sans-serif;
+
     --animate-indeterminate: indeterminate 1.4s ease-in-out infinite;
 
     @keyframes indeterminate {
@@ -16,6 +20,686 @@
             transform: translateX(300%);
         }
     }
+}
+
+/*
+ * PSO theme (docs/pso-theme/CLAUDE-THEME.md). Light is the default; dark applies when Filament puts
+ * .dark on <html> (or under [data-theme="dark"]).
+ *
+ * The brief's tokens carry a --pso- prefix here: Filament already uses --bg and --text as per-element
+ * colour variables on buttons, badges and toggles, and Tailwind owns --radius-lg, so unprefixed names
+ * would leak into Filament's own components. The values are the brief's, one for one.
+ *
+ * Filament's primary and gray palettes are remapped in AppPanelProvider::colors(); the rules below
+ * cover what a palette alone does not reach. They sit outside any cascade layer, so they win over
+ * Filament's layered component styles without !important.
+ */
+:root {
+    --pso-violet: #2a1b4f;
+    --pso-lime: #c7f53a;
+    --pso-iris: #8567da;
+    --pso-bone: #f6f3ec;
+
+    --pso-bg: #f6f3ec;
+    --pso-surface: #ffffff;
+    --pso-surface-2: #fbf9f5;
+    --pso-border: #e7e1d6;
+    --pso-border-strong: #d3cbbb;
+    --pso-text: #1b1830;
+    --pso-text-muted: #6b6578;
+    --pso-link: #5b3fbf;
+
+    --pso-chrome-bg: #2a1b4f;
+    --pso-chrome-text: #f6f3ec;
+    --pso-chrome-muted: #a99fc4;
+    --pso-sidebar-bg: var(--pso-chrome-bg);
+    --pso-sidebar-edge: transparent;
+    --pso-nav-active-bg: #c7f53a;
+    --pso-nav-active-text: #2a1b4f;
+
+    --pso-primary-bg: #2a1b4f;
+    --pso-primary-text: #c7f53a;
+    --pso-primary-hover: #3a2869;
+    --pso-accent: #8567da;
+    --pso-tab-active-bg: #efeafb;
+    --pso-tab-active-text: #5b3fbf;
+    --pso-focus-ring: 0 0 0 3px rgba(133, 103, 218, 0.35);
+
+    --pso-success: #1c7c45;
+    --pso-success-bg: #e3f4e8;
+    --pso-warning: #a15c07;
+    --pso-warning-bg: #fcefd9;
+    --pso-danger: #b42318;
+    --pso-danger-bg: #fde7e4;
+    --pso-info: #5b3fbf;
+    --pso-info-bg: #efeafb;
+
+    --pso-radius-sm: 4px;
+    --pso-radius: 6px;
+    --pso-radius-lg: 10px;
+    --pso-shadow-card: 0 1px 2px rgba(42, 27, 79, 0.06);
+}
+
+:root.dark,
+[data-theme='dark'] {
+    --pso-bg: #120c24;
+    --pso-surface: #1c1433;
+    --pso-surface-2: #251c42;
+    --pso-border: #2e2552;
+    --pso-border-strong: #3d3368;
+    --pso-text: #f6f3ec;
+    --pso-text-muted: #a99fc4;
+    --pso-link: #b9a4f5;
+
+    --pso-chrome-bg: #2a1b4f;
+    --pso-sidebar-bg: #1a1233;
+    --pso-sidebar-edge: var(--pso-border);
+
+    --pso-primary-bg: #c7f53a;
+    --pso-primary-text: #2a1b4f;
+    --pso-primary-hover: #d6fa66;
+    --pso-tab-active-bg: #2e2552;
+    --pso-tab-active-text: #b9a4f5;
+
+    --pso-success: #6ee7a0;
+    --pso-success-bg: #143826;
+    --pso-warning: #fbbf5a;
+    --pso-warning-bg: #3a2a10;
+    --pso-danger: #ff8a7a;
+    --pso-danger-bg: #3d1712;
+    --pso-info: #b9a4f5;
+    --pso-info-bg: #2e2552;
+    /* The brief's "none", as a shadow that can sit in a list. */
+    --pso-shadow-card: 0 0 #0000;
+}
+
+/* Page */
+.fi-body {
+    background-color: var(--pso-bg);
+    color: var(--pso-text);
+}
+
+code,
+kbd,
+samp,
+pre {
+    font-family: var(--font-mono);
+}
+
+/* Wordmark: live text. Filament wraps it in the home link in the top bar. */
+.brand {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    text-decoration: none;
+}
+
+.brand-word {
+    font-family: var(--font-display);
+    font-size: 28px;
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.005em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--pso-bone);
+}
+
+.brand-accent {
+    color: var(--pso-lime);
+}
+
+.brand-by {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 9px;
+    line-height: 1;
+    letter-spacing: 0.18em;
+    white-space: nowrap;
+    color: var(--pso-bone);
+}
+
+/* On a light background (the sign-in card) the wordmark turns violet and TEST TOOLS gets a lime box. */
+.fi-simple-header .brand {
+    align-items: center;
+    gap: 6px;
+}
+
+:root:not(.dark) .fi-simple-header .brand-word,
+:root:not(.dark) .fi-simple-header .brand-by {
+    color: var(--pso-violet);
+}
+
+:root:not(.dark) .fi-simple-header .brand-accent {
+    background: var(--pso-lime);
+    color: var(--pso-violet);
+    padding: 0 0.16em;
+    border-radius: 4px;
+}
+
+/* The sign-in card shows the full lockup instead, so the text wordmark is left out there. */
+.fi-simple-page:has(.pso-login-lockup) .fi-simple-header .fi-logo {
+    display: none;
+}
+
+.pso-login-lockup {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+
+    & img {
+        width: 220px;
+        height: auto;
+        border-radius: var(--pso-radius-lg);
+    }
+}
+
+/* Top bar: 64px of brand violet, no bottom edge. */
+.fi-topbar {
+    min-height: 64px;
+    background-color: var(--pso-chrome-bg);
+    box-shadow: none;
+
+    & .fi-icon-btn {
+        color: var(--pso-chrome-muted);
+
+        &:hover,
+        &:focus-visible {
+            color: var(--pso-chrome-text);
+            background-color: rgba(255, 255, 255, 0.06);
+        }
+    }
+}
+
+/* Below the desktop breakpoint Filament hides the top bar's brand; show a smaller wordmark beside the menu button. */
+@media (max-width: 1023px) {
+    .fi-topbar-start {
+        display: flex;
+        margin-inline-end: 0;
+        min-width: 0;
+
+        & .fi-topbar-collapse-sidebar-btn-ctn {
+            display: none;
+        }
+
+        & .fi-logo {
+            margin-inline-start: 0.5rem;
+        }
+    }
+
+    .fi-topbar .brand-word {
+        font-size: 20px;
+    }
+
+    .fi-topbar .brand-by {
+        font-size: 7px;
+    }
+}
+
+/* Sidebar */
+.fi-sidebar {
+    background-color: var(--pso-sidebar-bg);
+    box-shadow: inset -1px 0 0 var(--pso-sidebar-edge);
+}
+
+@media (min-width: 1024px) {
+    .fi-sidebar,
+    .fi-body:not(.fi-body-has-top-navigation) .fi-sidebar {
+        background-color: var(--pso-sidebar-bg);
+    }
+}
+
+.fi-sidebar-header,
+.fi-body-has-topbar .fi-sidebar-header {
+    background-color: var(--pso-chrome-bg);
+    box-shadow: none;
+}
+
+.fi-sidebar .fi-icon-btn {
+    color: var(--pso-chrome-muted);
+
+    &:hover,
+    &:focus-visible {
+        color: var(--pso-chrome-text);
+        background-color: rgba(255, 255, 255, 0.06);
+    }
+}
+
+.fi-sidebar-nav {
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.fi-sidebar-group-label {
+    font-size: 11px;
+    line-height: 1.5rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--pso-chrome-muted);
+}
+
+.fi-sidebar-group-btn .fi-icon,
+.fi-sidebar-group-dropdown-trigger-btn .fi-icon {
+    color: var(--pso-chrome-muted);
+}
+
+.fi-sidebar-group-dropdown-trigger-btn:hover,
+.fi-sidebar-group-dropdown-trigger-btn:focus-visible {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.fi-sidebar-item-btn {
+    padding: 8px 10px;
+    border-radius: var(--pso-radius);
+
+    & > .fi-icon {
+        color: var(--pso-chrome-muted);
+    }
+}
+
+.fi-sidebar-item-label {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--pso-chrome-text);
+}
+
+.fi-sidebar-item.fi-sidebar-item-has-url > .fi-sidebar-item-btn:hover,
+.fi-sidebar-item.fi-sidebar-item-has-url > .fi-sidebar-item-btn:focus-visible {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn,
+.fi-sidebar-item.fi-active.fi-sidebar-item-has-url > .fi-sidebar-item-btn:hover {
+    background-color: var(--pso-nav-active-bg);
+
+    & > .fi-icon,
+    & > .fi-sidebar-item-label {
+        color: var(--pso-nav-active-text);
+    }
+
+    & > .fi-sidebar-item-label {
+        font-weight: 500;
+    }
+}
+
+.fi-sidebar-item-grouped-border-part,
+.fi-sidebar-item.fi-active > .fi-sidebar-item-btn > .fi-sidebar-item-grouped-border > .fi-sidebar-item-grouped-border-part {
+    background-color: var(--pso-chrome-muted);
+}
+
+.fi-sidebar-item-grouped-border-part-not-first,
+.fi-sidebar-item-grouped-border-part-not-last {
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Nav counts: plain mono numbers, no pill. */
+.fi-sidebar-item-badge-ctn .fi-badge {
+    min-width: 0;
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--pso-chrome-muted);
+}
+
+.fi-sidebar-item.fi-active .fi-sidebar-item-badge-ctn .fi-badge {
+    color: var(--pso-nav-active-text);
+}
+
+/* Page title */
+.fi-header-heading {
+    font-family: var(--font-display);
+    font-size: 36px;
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: 0.005em;
+    text-transform: uppercase;
+    color: var(--pso-text);
+}
+
+.fi-header-subheading {
+    font-size: 16px;
+    color: var(--pso-text-muted);
+}
+
+.fi-simple-header-heading {
+    color: var(--pso-text);
+}
+
+/* Large stat numbers */
+.fi-wi-stats-overview-stat-value {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: 0.005em;
+    text-transform: uppercase;
+}
+
+/* Cards */
+.fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.fi-section:not(.fi-section-not-contained).fi-aside > .fi-section-content-ctn,
+.fi-sc-wizard.fi-contained,
+.fi-sc-wizard:not(.fi-contained) .fi-sc-wizard-header,
+.fi-sc-tabs.fi-contained,
+.fi-simple-main,
+.fi-ta-ctn,
+.fi-wi-stats-overview-stat {
+    background-color: var(--pso-surface);
+    border-radius: var(--pso-radius-lg);
+    box-shadow:
+        0 0 0 1px var(--pso-border),
+        var(--pso-shadow-card);
+}
+
+/* A card inside a card is a nested panel. */
+.fi-section .fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.fi-sc-tabs.fi-contained .fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.fi-sc-wizard.fi-contained .fi-section:not(.fi-section-not-contained):not(.fi-aside),
+.fi-section .fi-sc-tabs.fi-contained {
+    background-color: var(--pso-surface-2);
+    box-shadow: 0 0 0 1px var(--pso-border);
+}
+
+.fi-section:not(.fi-section-not-contained):not(.fi-aside).fi-section-has-header:not(.fi-collapsed)
+    > .fi-section-content-ctn,
+.fi-section > .fi-section-content-ctn > .fi-section-footer,
+.fi-sc-wizard.fi-contained .fi-sc-wizard-header,
+.fi-tabs.fi-contained {
+    border-color: var(--pso-border);
+}
+
+.fi-section-header-heading {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--pso-text);
+}
+
+.fi-section-header-description {
+    color: var(--pso-text-muted);
+}
+
+/* Segmented tabs */
+.fi-tabs:not(.fi-contained) {
+    padding: 4px;
+    gap: 2px;
+    background-color: var(--pso-surface);
+    border-radius: 8px;
+    box-shadow: 0 0 0 1px var(--pso-border);
+}
+
+.fi-tabs-item {
+    border-radius: var(--pso-radius);
+
+    &.fi-active {
+        background-color: var(--pso-tab-active-bg);
+
+        & .fi-tabs-item-label,
+        & > .fi-icon {
+            color: var(--pso-tab-active-text);
+        }
+
+        & .fi-tabs-item-label {
+            font-weight: 500;
+        }
+    }
+
+    &:not(.fi-active) .fi-tabs-item-label {
+        font-weight: 400;
+        color: var(--pso-text-muted);
+    }
+}
+
+/* Buttons */
+.fi-btn {
+    border-radius: var(--pso-radius);
+    font-weight: 500;
+
+    &.fi-size-md {
+        padding: 9px 16px;
+    }
+}
+
+.fi-btn.fi-color-primary:not(.fi-outlined):not(label) {
+    background-color: var(--pso-primary-bg);
+    color: var(--pso-primary-text);
+
+    & > .fi-icon {
+        color: var(--pso-primary-text);
+    }
+
+    &:not(.fi-disabled):not([disabled]):hover {
+        background-color: var(--pso-primary-hover);
+        color: var(--pso-primary-text);
+    }
+
+    &:focus-visible {
+        box-shadow: var(--pso-focus-ring);
+    }
+
+    /* Disabled: a solid muted button with a readable label, not a faded primary. */
+    &.fi-disabled:not(.fi-force-enabled),
+    &[disabled]:not(.fi-force-enabled) {
+        background-color: var(--pso-border-strong);
+        color: var(--pso-text-muted);
+        opacity: 1;
+
+        & > .fi-icon {
+            color: var(--pso-text-muted);
+        }
+    }
+}
+
+.fi-btn.fi-color-danger:not(.fi-outlined):not(label) {
+    background-color: var(--pso-danger);
+    color: #ffffff;
+
+    & > .fi-icon {
+        color: #ffffff;
+    }
+
+    &:not(.fi-disabled):not([disabled]):hover {
+        background-color: color-mix(in srgb, var(--pso-danger) 88%, #000000);
+        color: #ffffff;
+    }
+}
+
+:root.dark .fi-btn.fi-color-danger:not(.fi-outlined):not(label) {
+    color: #1b1830;
+
+    & > .fi-icon {
+        color: #1b1830;
+    }
+
+    &:not(.fi-disabled):not([disabled]):hover {
+        background-color: color-mix(in srgb, var(--pso-danger) 88%, #ffffff);
+        color: #1b1830;
+    }
+}
+
+/* Secondary: grey and plain buttons, and outlined ones. */
+.fi-btn:not(.fi-color):not(label),
+.fi-btn.fi-color-gray:not(label),
+.fi-btn.fi-outlined {
+    background-color: transparent;
+    color: var(--pso-text);
+    box-shadow: 0 0 0 1px var(--pso-border-strong);
+
+    & > .fi-icon {
+        color: var(--pso-text-muted);
+    }
+
+    &:not(.fi-disabled):not([disabled]):hover {
+        background-color: var(--pso-surface-2);
+        color: var(--pso-text);
+    }
+
+    &:focus-visible {
+        box-shadow:
+            0 0 0 1px var(--pso-accent),
+            var(--pso-focus-ring);
+    }
+}
+
+/* Inputs */
+.fi-input-wrp {
+    background-color: var(--pso-surface);
+    border-radius: var(--pso-radius);
+    box-shadow: 0 0 0 1px var(--pso-border-strong);
+
+    &:not(.fi-disabled):not(:has(.fi-ac-action:focus)):focus-within {
+        box-shadow:
+            0 0 0 1px var(--pso-accent),
+            var(--pso-focus-ring);
+    }
+
+    &.fi-invalid,
+    &.fi-invalid:not(.fi-disabled):focus-within {
+        box-shadow: 0 0 0 1px var(--pso-danger);
+    }
+
+    &.fi-disabled {
+        background-color: var(--pso-surface-2);
+    }
+
+    & .fi-input-wrp-prefix:not(.fi-inline),
+    & .fi-input-wrp-suffix:not(.fi-inline) {
+        border-color: var(--pso-border);
+    }
+}
+
+.fi-input {
+    color: var(--pso-text);
+}
+
+.fi-fo-field .fi-sc-text,
+.fi-fo-field-wrp-helper-text {
+    font-size: 13px;
+    color: var(--pso-text-muted);
+}
+
+/* Upload drop zones (export drop zone, SYS compare) */
+.pso-dropzone {
+    border: 1px dashed var(--pso-border-strong);
+    border-radius: 8px;
+    background-color: var(--pso-surface);
+    box-shadow: none;
+
+    &:hover {
+        border-color: var(--pso-accent);
+        box-shadow: none;
+    }
+
+    &:focus-within,
+    &[data-state='drag'] {
+        border-color: var(--pso-accent);
+        box-shadow: var(--pso-focus-ring);
+    }
+
+    &[data-state='drag'] {
+        background-color: var(--pso-tab-active-bg);
+    }
+
+    &[data-state='error'],
+    &[data-state='error']:hover {
+        border-color: var(--pso-danger);
+    }
+
+    & .pso-browse {
+        font-weight: 500;
+        color: var(--pso-link);
+    }
+}
+
+/* Toggles: iris when on, a plain track when off. */
+.fi-toggle.fi-toggle-on {
+    background-color: var(--pso-accent);
+}
+
+.fi-toggle.fi-toggle-off {
+    background-color: var(--pso-border-strong);
+}
+
+.fi-toggle > :first-child {
+    background-color: #ffffff;
+}
+
+/* Badges: status text on its tint. The environment indicator keeps its own colours. */
+.fi-badge:not(.environment-indicator):not(.fi-sidebar-item-badge-ctn .fi-badge) {
+    font-size: 12px;
+    border-radius: var(--pso-radius-sm);
+    padding: 3px 8px;
+    box-shadow: none;
+    color: var(--pso-text-muted);
+    background-color: var(--pso-surface-2);
+
+    &.fi-color-primary,
+    &.fi-color-info {
+        color: var(--pso-info);
+        background-color: var(--pso-info-bg);
+    }
+
+    &.fi-color-success {
+        color: var(--pso-success);
+        background-color: var(--pso-success-bg);
+    }
+
+    &.fi-color-warning {
+        color: var(--pso-warning);
+        background-color: var(--pso-warning-bg);
+    }
+
+    &.fi-color-danger {
+        color: var(--pso-danger);
+        background-color: var(--pso-danger-bg);
+    }
+
+    & .fi-icon {
+        color: currentColor;
+    }
+}
+
+/* Links */
+.fi-link.fi-color-primary,
+.fi-link.fi-color-info {
+    color: var(--pso-link);
+
+    & > .fi-icon {
+        color: var(--pso-link);
+    }
+}
+
+.fi-link {
+    text-decoration: none;
+
+    &:not(.fi-disabled):not([disabled]):hover {
+        text-decoration: underline;
+    }
+}
+
+/* Home page tool tiles: one iris accent for every group. */
+.pso-tool-section-dot {
+    background-color: var(--pso-accent);
+}
+
+.pso-tool-tile {
+    background-color: var(--pso-surface-2);
+    box-shadow: 0 0 0 1px var(--pso-border);
+
+    &:hover {
+        box-shadow: 0 0 0 1px var(--pso-border-strong);
+    }
+
+    &:focus-visible {
+        box-shadow:
+            0 0 0 1px var(--pso-accent),
+            var(--pso-focus-ring);
+    }
+}
+
+.pso-tool-tile-icon {
+    background-color: var(--pso-tab-active-bg);
+    color: var(--pso-tab-active-text);
 }
 
 /* Force Highlight.js styles */

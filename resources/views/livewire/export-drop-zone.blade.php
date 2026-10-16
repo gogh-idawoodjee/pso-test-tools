@@ -164,7 +164,7 @@
                 data-state="{{ $serverState ?? 'idle' }}"
                 @if ($compact) title="{{ $hint($extensionsByKind[$kindValue]) }}" @endif
                 @class([
-                    'relative flex items-center gap-x-2 overflow-hidden rounded-lg bg-white px-3 text-sm ring-1 ring-gray-950/10 cursor-pointer transition duration-75 motion-reduce:transition-none',
+                    'pso-dropzone relative flex items-center gap-x-2 overflow-hidden rounded-lg bg-white px-3 text-sm ring-1 ring-gray-950/10 cursor-pointer transition duration-75 motion-reduce:transition-none',
                     'hover:ring-gray-950/20 focus-within:ring-2 focus-within:ring-primary-500 focus-within:hover:ring-primary-500',
                     'dark:bg-white/5 dark:ring-white/20 dark:hover:ring-white/30 dark:focus-within:ring-primary-500 dark:focus-within:hover:ring-primary-500',
                     'data-[state=drag]:ring-2 data-[state=drag]:ring-primary-500 data-[state=drag]:hover:ring-primary-500 dark:data-[state=drag]:ring-primary-500 dark:data-[state=drag]:hover:ring-primary-500 data-[state=drag]:bg-primary-50 dark:data-[state=drag]:bg-primary-500/10',
@@ -211,7 +211,7 @@
                         </span>
                     @else
                         <span x-show="! single()" class="block">
-                            <span class="block truncate text-gray-950 dark:text-white">Drop a new {{ $kindLabel }} here or <span class="font-medium text-primary-600 dark:text-primary-400">browse</span></span>
+                            <span class="block truncate text-gray-950 dark:text-white">Drop a new {{ $kindLabel }} here or <span class="pso-browse font-medium text-primary-600 dark:text-primary-400">browse</span></span>
                             @unless ($compact)
                                 <span class="block text-xs text-gray-500 dark:text-gray-400">{{ $hint($extensionsByKind[$kindValue]) }}</span>
                             @endunless

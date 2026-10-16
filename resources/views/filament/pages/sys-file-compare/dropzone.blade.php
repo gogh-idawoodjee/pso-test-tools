@@ -141,7 +141,7 @@
         x-bind:data-state="state()"
         data-state="idle"
         @class([
-            'relative flex min-h-14 items-center gap-x-2 rounded-lg bg-white px-3 py-2.5 text-sm ring-1 ring-gray-950/10 cursor-pointer transition duration-75 motion-reduce:transition-none',
+            'pso-dropzone relative flex min-h-14 items-center gap-x-2 rounded-lg bg-white px-3 py-2.5 text-sm ring-1 ring-gray-950/10 cursor-pointer transition duration-75 motion-reduce:transition-none',
             'hover:ring-gray-950/20 focus-within:ring-2 focus-within:ring-primary-500 focus-within:hover:ring-primary-500',
             'dark:bg-white/5 dark:ring-white/20 dark:hover:ring-white/30 dark:focus-within:ring-primary-500 dark:focus-within:hover:ring-primary-500',
             'data-[state=drag]:ring-2 data-[state=drag]:ring-primary-500 data-[state=drag]:hover:ring-primary-500 dark:data-[state=drag]:ring-primary-500 dark:data-[state=drag]:hover:ring-primary-500 data-[state=drag]:bg-primary-50 dark:data-[state=drag]:bg-primary-500/10',
@@ -153,9 +153,9 @@
         <span class="min-w-0 flex-1">
             <span class="block text-gray-950 dark:text-white">
                 @if ($isSys)
-                    Drop PSO system data exports here or <span class="font-medium text-primary-600 dark:text-primary-400">browse</span>
+                    Drop PSO system data exports here or <span class="pso-browse font-medium text-primary-600 dark:text-primary-400">browse</span>
                 @else
-                    Drop a ParamDefinitions.csv here or <span class="font-medium text-primary-600 dark:text-primary-400">browse</span>
+                    Drop a ParamDefinitions.csv here or <span class="pso-browse font-medium text-primary-600 dark:text-primary-400">browse</span>
                 @endif
             </span>
 
