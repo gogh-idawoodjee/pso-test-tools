@@ -29,7 +29,7 @@ class EnvironmentResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = Groups::SETUP;
 
-    protected static ?int $navigationSort = 1;
+    protected static ?int $navigationSort = -2;
 
     protected static string|Htmlable|null $navigationBadgeTooltip = 'The number of configured environments';
 
