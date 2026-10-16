@@ -118,7 +118,7 @@ it('builds the legs without Google and stores the page, CSV, data, summary and w
         ->and($calls[0]['progress_env'])->toBe('lines')
         ->and($result->result['html'])->toContain('Plan travels page without Google')
         ->and($result->result['csv'])->toStartWith("Resource ID,Flag\n")
-        ->and($result->result['data']['legs'])->toHaveCount(6)
+        ->and($result->result)->toHaveKeys(['html', 'csv'])->not->toHaveKey('data')
         ->and($result->warnings)->toBe(['1 travel fragment warning: open the page for details.'])
         ->and($result->summary)->toBe([
             'leg_count' => 6, 'resource_count' => 5, 'review_count' => 0, 'missing_count' => 0,
@@ -205,7 +205,7 @@ it('fails with the pso-services message and keeps the legs without Google', func
     } catch (ToolFailedWithResult $e) {
         expect($e->getMessage())->toBe('The Google Routes check did not finish: Google Routes is not configured on pso-services.')
             ->and($e->partial->result['html'])->toContain('Plan travels page without Google')
-            ->and($e->partial->result['data']['legs'])->toHaveCount(6)
+            ->and($e->partial->result)->not->toHaveKey('data')
             ->and($e->partial->warnings)->toBe(['1 travel fragment warning: open the page for details.', 'Google Routes was not checked, so the legs have no Google columns: Google Routes is not configured on pso-services.'])
             ->and($e->partial->summary['google'])->toBeNull()
             ->and(planCalls($this->argsFile))->toHaveCount(1);
@@ -260,7 +260,7 @@ it('keeps the built legs when merge-google fails or writes nothing after the Goo
             ->and($calls[1]['argv'][0])->toBe('merge-google')
             ->and($e->partial->result['html'])->toContain('Plan travels page without Google')
             ->and($e->partial->result['csv'])->toStartWith("Resource ID,Flag\n")
-            ->and($e->partial->result['data']['legs'])->toHaveCount(6)
+            ->and($e->partial->result)->not->toHaveKey('data')
             ->and($e->partial->warnings)->toBe(['1 travel fragment warning: open the page for details.', 'The Google results could not be added to the legs, so the legs have no Google columns.'])
             ->and($e->partial->summary['google'])->toBeNull()
             ->and($e->partial->summary['leg_count'])->toBe(6);

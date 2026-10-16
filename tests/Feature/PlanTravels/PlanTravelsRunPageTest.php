@@ -14,7 +14,8 @@ beforeEach(function () {
     $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create(['name' => 'NORTH']);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::PlanTravels, 'run_date' => '2026-10-06',
-        'result' => ['html' => '<!doctype html><html><body>Plan travels page</body></html>', 'csv' => "Resource ID,Flag\nR1,Review\n", 'data' => ['meta' => [], 'legs' => [['resource_id' => 'R1', 'flag' => 'Review']]]],
+        // The page carries the legs JSON the way plan_travels.py writes it: one compact line, '<' escaped.
+        'result' => ['html' => "<!doctype html><html><body>Plan travels page<script>\nconst DATA = {\"meta\":{\"warnings\":[]},\"legs\":[{\"resource_id\":\"R1\",\"flag\":\"Review\",\"note\":\"a \\u003c b\"}]};\n</script></body></html>", 'csv' => "Resource ID,Flag\nR1,Review\n"],
         'summary' => ['leg_count' => 1781, 'resource_count' => 412, 'review_count' => 37, 'missing_count' => 4, 'first_date' => '2026-10-05', 'last_date' => '2026-10-09', 'days' => 5, 'google' => null, 'line' => '1,781 legs for 412 resources, 2026-10-05 to 2026-10-09'],
     ]);
     $this->actingAs($this->user);
@@ -48,7 +49,9 @@ it('serves the CSV named after the account, dataset and first date', function ()
         ->assertHeader('Content-Type', 'text/csv; charset=UTF-8')
         ->assertStreamedContent("Resource ID,Flag\nR1,Review\n");
     $this->get(route('tool-runs.download-json', [$this->dataset, $this->run]))
-        ->assertOk()->assertDownload('plan_travels_SATE_NORTH_2026-10-05.json');
+        ->assertOk()->assertDownload('plan_travels_SATE_NORTH_2026-10-05.json')
+        ->assertJsonPath('legs.0.resource_id', 'R1')
+        ->assertJsonPath('legs.0.note', 'a < b');
 });
 
 it('keeps the CSV behind the panel login and the owner', function () {
@@ -73,4 +76,12 @@ it('keeps the other tools on the unchanged sandbox', function () {
 
     $this->get(route('tool-runs.page', [$this->dataset, $audit]))
         ->assertHeader('Content-Security-Policy', 'sandbox allow-scripts allow-downloads allow-popups allow-top-navigation-by-user-activation');
+});
+
+it('downloads an empty JSON document when the page carries no data block', function () {
+    $this->run->update(['result' => ['html' => '<!doctype html><html><body>No data here</body></html>', 'csv' => '']]);
+
+    $this->get(route('tool-runs.download-json', [$this->dataset, $this->run]))
+        ->assertOk()
+        ->assertExactJson([]);
 });

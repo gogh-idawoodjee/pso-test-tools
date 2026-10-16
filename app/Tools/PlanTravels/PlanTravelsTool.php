@@ -28,10 +28,12 @@ use RuntimeException;
 /**
  * Runs pso-tools/plan-travels/plan_travels.py on a plan export (the legs), optionally checks each distinct
  * trip with Google Routes through pso-services, merges the answers back in with the script, and keeps the
- * page, the CSV and legs.json. Google (or the merge) failing after the build fails the run but keeps the legs.
+ * page and the CSV (legs.json is not stored: the page carries the same data and the JSON download reads it
+ * back from there, see EmbeddedPageData). Google (or the merge) failing after the build fails the run but
+ * keeps the legs.
  *
  * Only the warnings that name no resource, shift or activity reach ToolRun.warnings (an unencrypted column);
- * the full list stays in legs.json and on the page, inside the encrypted result.
+ * the full list stays on the page, inside the encrypted result.
  */
 class PlanTravelsTool implements Tool
 {
@@ -390,7 +392,8 @@ class PlanTravelsTool implements Tool
 
         $warnings = $outputs['data']['meta']['warnings'] ?? [];
 
-        return new ToolResult(result: $outputs, warnings: [...self::storedWarnings(is_array($warnings) ? $warnings : []), ...$extraWarnings], summary: $summary);
+        // The page embeds the same JSON; storing legs.json too made a 5-day SaskTel run 9.9 MB encrypted (#40).
+        return new ToolResult(result: ['html' => $outputs['html'], 'csv' => $outputs['csv']], warnings: [...self::storedWarnings(is_array($warnings) ? $warnings : []), ...$extraWarnings], summary: $summary);
     }
 
     /** "6 legs for 5 resources, 2026-10-05 to 2026-10-09; Google, by trip: 2 from the cache, 1 fetched, 1 without a Google answer" */

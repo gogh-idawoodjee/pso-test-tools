@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Enums\Tool as ToolId;
 use App\Models\Dataset;
 use App\Models\ToolRun;
+use App\Support\Tools\EmbeddedPageData;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
@@ -41,11 +42,14 @@ class ToolRunPageController extends Controller
         }, self::fileName($datasetModel, $toolRun, 'html'), ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
-    /** The run's data file: the viewer's gathered JSON (`data`) or the audit's findings (`findings`). */
+    /**
+     * The run's data file: the viewer's gathered JSON (`data`), the audit's findings (`findings`), or for a
+     * run that stored only its page (Plan travels) the data the page embeds.
+     */
     public function downloadJson(string $dataset, string $run): SymfonyResponse
     {
         [$datasetModel, $toolRun] = $this->find($dataset, $run);
-        $payload = $toolRun->result['data'] ?? $toolRun->result['findings'] ?? [];
+        $payload = $toolRun->result['data'] ?? $toolRun->result['findings'] ?? EmbeddedPageData::fromHtml($toolRun->result['html']) ?? [];
 
         return response()->streamDownload(static function () use ($payload): void {
             echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
