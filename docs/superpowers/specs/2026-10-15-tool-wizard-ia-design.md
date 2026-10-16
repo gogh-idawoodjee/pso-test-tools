@@ -29,7 +29,7 @@ Four sidebar groups replace the current ones:
 
 | Group | Contents |
 |---|---|
-| Analyse exports | Load audit, Region availability, Sys compare, Appointment timeline, Plan travels; later Trim export, Find XML matches, Travel tuning. Each opens its wizard. Tools with no registered implementation stay hidden (existing `ToolRegistry::has` rule). |
+| Analysis tools | Load audit, Region availability, Sys compare, Appointment timeline, Plan travels; later Trim export, Find XML matches, Travel tuning. Each opens its wizard. Tools with no registered implementation stay hidden (existing `ToolRegistry::has` rule). |
 | Live PSO actions | Existing API pages (Activity, Resource, Modelling homes and their sub-pages, Generic delete, Custom exception), Gateway upload, Travel Analyzer (until it merges with Plan travels, #29). Internals untouched. Each page gets a one-line banner: this changes a live PSO environment. |
 | Setup | Environments, Datasets, Reference values. Dataset tabs (Reference values, Customers, Exports, Runs) unchanged. |
 | Admin | Token usage log, Backups, Issue token. |

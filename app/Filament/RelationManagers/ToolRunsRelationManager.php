@@ -48,7 +48,7 @@ abstract class ToolRunsRelationManager extends RelationManager
                 ->exists() ? '5s' : null)
             ->defaultSort('queued_at', 'desc')
             ->emptyStateHeading('No runs yet')
-            ->emptyStateDescription('Start a run from a tool under Analyse exports; it will appear here.')
+            ->emptyStateDescription('Start a run from a tool under Analysis tools; it will appear here.')
             ->columns([
                 Tables\Columns\TextColumn::make('tool')->badge(),
                 Tables\Columns\TextColumn::make('run_date')->date()->placeholder('-'),

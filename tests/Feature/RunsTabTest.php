@@ -113,5 +113,5 @@ it('does not open another user run', function () {
 
 it('tells an empty Runs tab to start from a tool wizard', function () {
     Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
-        ->assertSee('Start a run from a tool under Analyse exports');
+        ->assertSee('Start a run from a tool under Analysis tools');
 });

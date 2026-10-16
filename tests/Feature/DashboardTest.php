@@ -26,7 +26,7 @@ it('lists registered tools with their question and the files they need, grouped 
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
 
     Livewire::test(ToolCatalogue::class)
-        ->assertSee('Analyse exports')
+        ->assertSee('Analysis tools')
         ->assertSee(ToolId::LoadAudit->getLabel())
         ->assertSee(ToolId::LoadAudit->question())
         ->assertSee('Needs a '.ExportKind::Load->getLabel().' export; '.ExportKind::Sys->getLabel().' optional')
@@ -79,6 +79,6 @@ it('shows the current user recent runs with a link to each result, newest first'
 });
 
 it('replaces the default dashboard', function () {
-    $this->get(Dashboard::getUrl())->assertOk()->assertSee('Analyse exports')->assertSee('Recent runs');
+    $this->get(Dashboard::getUrl())->assertOk()->assertSee('Analysis tools')->assertSee('Recent runs');
     expect(class_exists(QuickLaunch::class))->toBeFalse();
 });

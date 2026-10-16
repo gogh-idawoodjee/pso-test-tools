@@ -8,11 +8,11 @@ Environment Variables Required
 
 ## Navigation
 
-The panel has four sidebar groups: **Analyse exports** (the tools that read LOAD, plan and SYS exports), **Live PSO actions** (pages that send to a live PSO environment, marked with a banner), **Setup** (environments, datasets and reference values) and **Admin**. Each analysis tool opens a short wizard (Where, Inputs, Options, Run) that remembers your last environment or dataset; the home page lists the tools and your recent runs.
+The panel has four sidebar groups: **Analysis tools** (the tools that read LOAD, plan and SYS exports), **Live PSO actions** (pages that send to a live PSO environment, marked with a banner), **Setup** (environments, datasets and reference values) and **Admin**. Each analysis tool opens a short wizard (Where, Inputs, Options, Run) that remembers your last environment or dataset; the home page lists the tools and your recent runs.
 
 ## PSO Sys File Compare
 
-Compares two or more PSO system data exports (`DsSystemData` XML) and produces an HTML report, a CSV bundle and an Excel workbook, with a banner when the environments are not all on the same PSO version. Find it under **Analyse exports**.
+Compares two or more PSO system data exports (`DsSystemData` XML) and produces an HTML report, a CSV bundle and an Excel workbook, with a banner when the environments are not all on the same PSO version. Find it under **Analysis tools**.
 
 Sys files contain customer data (user accounts and a live routing API key), so:
 

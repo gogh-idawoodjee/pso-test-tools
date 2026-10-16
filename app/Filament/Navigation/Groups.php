@@ -5,7 +5,7 @@ namespace App\Filament\Navigation;
 /** Sidebar groups, named by what the consultant is trying to do. Order here is the sidebar order. */
 final class Groups
 {
-    public const ANALYSE = 'Analyse exports';
+    public const ANALYSE = 'Analysis tools';
 
     public const LIVE = 'Live PSO actions';
 
