@@ -90,14 +90,20 @@ Live text, not an image. Replace the current purple circle icon + "PSO Test Tool
 On a light background (login page, emails): violet text, and "TEST TOOLS" gets a lime box (`background:var(--lime); color:var(--violet); padding:0 .16em; border-radius:4px`). Never put lime text on bone/white — it fails contrast.
 
 ## Favicon
-Copy `favicon.svg` to `public/`. Generate `favicon-32.png`, `apple-touch-icon.png` (180×180) and `favicon.ico` (16+32) from it.
+Copy `favicon.svg`, `favicon-32.png`, `favicon-180.png` (rename to `apple-touch-icon.png`) and `favicon-512.png` to `public/`. Generate `favicon.ico` (16+32) from the SVG.
 ```html
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <meta name="theme-color" content="#2A1B4F">
 ```
-`pso-mark-lime.svg` (lime tile, violet P) is the alternate for dark surfaces where the violet tile would disappear.
+Favicon is the lime tile with violet P. `pso-mark-violet.svg` is the alternate for light surfaces.
+
+## Logo files (`logo/`)
+Text outlined to paths, no font needed. PNGs at 4x.
+- `pso-logo-dark.svg` — primary lockup (mark + wordmark) on #120C24 card. Login screen, README, slides.
+- `pso-logo-dark-transparent.svg` — same lockup, no background. Use on any dark surface.
+- `pso-wordmark-header.svg` — wordmark only, for the app top bar if you prefer an image over live text.
 
 ## Component rules
 - **Top bar**: 64px, `--chrome-bg`, logo left, avatar right (`#09090B` circle). No bottom border.
