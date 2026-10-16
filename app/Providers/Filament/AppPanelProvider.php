@@ -146,6 +146,8 @@ class AppPanelProvider extends PanelProvider
         );
         FilamentView::registerRenderHook(PanelsRenderHook::HEAD_END,
             fn (): string => view('filament.head')->render());
+        FilamentView::registerRenderHook(PanelsRenderHook::BODY_END,
+            fn (): string => view('filament.scroll-to-top')->render());
         FilamentView::registerRenderHook(
             PanelsRenderHook::SIMPLE_PAGE_START,
             fn (): string => view('filament.login-lockup')->render(),
