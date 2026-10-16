@@ -40,7 +40,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, PSOInteractionsTrait, Queueable, SerializesModels;
 
-    // Download, unzip, stream-rewrite, gzip, logon, a POST of up to 240s and
+    // Download, unzip, stream-rewrite, logon, gzip, a POST of up to 240s and
     // logoff all run inside this. The queue connection's retry_after must be
     // larger than this value (see config/queue.php).
     public int $timeout = 900;
@@ -337,7 +337,8 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         $this->logRewrite($log, $report, $datasetIdOverride, $injection);
 
         if ($report->datasetIds !== []) {
-            $upload->update(['dataset_id_in_file' => implode(', ', $report->datasetIds)]);
+            // VARCHAR(255): several or long ids must not overflow under strict mode.
+            $upload->update(['dataset_id_in_file' => StoredText::cap(implode(', ', $report->datasetIds), StoredText::DATASET_ID_BYTES)]);
         }
 
         if ($injection === null && ! $report->datasetIdChanged) {

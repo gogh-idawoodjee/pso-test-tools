@@ -15,6 +15,8 @@ class StoredText
 
     public const int RESPONSE_BODY_BYTES = 1048576;
 
+    public const int DATASET_ID_BYTES = 255;
+
     public const string TRUNCATED_MARKER = "\n(truncated)";
 
     public static function cap(string $text, int $limitBytes): string

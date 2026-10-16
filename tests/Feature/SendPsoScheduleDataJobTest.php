@@ -991,3 +991,23 @@ it('shows Preparing during the webhook and rewrite steps and Compressing only fo
     expect(PsoGatewayUploadStatus::PREPARING->getLabel())->toBe('Preparing');
     expect($statusesSeen)->toBe([PsoGatewayUploadStatus::PREPARING, PsoGatewayUploadStatus::UPLOADING]);
 });
+
+it('caps the dataset ids in the file to the column width and still succeeds', function () {
+    fakeWebhookAndGateway();
+    $inputReferences = collect(range(1, 6))
+        ->map(static fn (int $number): array => ['dataset_id' => str_repeat("DS{$number}", 30)])
+        ->all();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        json_encode(['ScheduleData' => ['Input_Reference' => $inputReferences]]),
+        ['dataset_id_override' => 'NEW'],
+    );
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect(strlen($upload->dataset_id_in_file))->toBeLessThanOrEqual(StoredText::DATASET_ID_BYTES);
+    expect($upload->dataset_id_in_file)->toStartWith(str_repeat('DS1', 30).', ')->toEndWith(StoredText::TRUNCATED_MARKER);
+});
