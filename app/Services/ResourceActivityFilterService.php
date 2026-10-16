@@ -34,6 +34,32 @@ class ResourceActivityFilterService extends HasScopedCache
 
     protected array $validActivityIds = [];
 
+    /** @var array<int, string> Tables the generic pass cascaded, for the summary. */
+    protected array $cascadedTables = [];
+
+    /**
+     * Tables assembleFilteredData() rebuilds explicitly. Everything else goes
+     * through the generic cascade pass.
+     */
+    protected const REBUILT_TABLES = [
+        'Resources', 'Location', 'Shift', 'Shift_Break', 'Resource_Region', 'Resource_Skill',
+        'Resource_Region_Availability', 'Availability', 'Activity', 'Activity_SLA',
+        'Activity_Status', 'Activity_Group',
+    ];
+
+    /**
+     * Foreign keys the cascade and the final referential check understand,
+     * confirmed against load-audit/audit_load.py REFS in pso-tools. Each maps
+     * to the table and column that hold the target ids.
+     */
+    protected const REFERENCE_KEYS = [
+        'activity_id' => ['Activity', 'id'],
+        'resource_id' => ['Resources', 'id'],
+        'availability_id' => ['Availability', 'id'],
+        'location_id' => ['Location', 'id'],
+        'shift_id' => ['Shift', 'id'],
+    ];
+
     protected int $progressStart = 0;
 
     protected int $progressEnd = 100;
@@ -139,9 +165,20 @@ class ResourceActivityFilterService extends HasScopedCache
             'shiftsAfter' => count($filtered['Shift']),
         ]);
 
+        $summary = $this->generateSummary($filtered);
+        $summary['dangling'] = $this->findDanglingReferences($filtered);
+
+        if ($summary['dangling'] !== []) {
+            Log::warning('Filter Load File: dangling references in the filtered file', [
+                'tables' => count(array_unique(array_column($summary['dangling'], 'table'))),
+                'findings' => count($summary['dangling']),
+                'rows' => array_sum(array_column($summary['dangling'], 'count')),
+            ]);
+        }
+
         return [
             'filtered' => $filtered,
-            'summary' => $this->generateSummary($filtered),
+            'summary' => $summary,
         ];
     }
 
@@ -151,7 +188,7 @@ class ResourceActivityFilterService extends HasScopedCache
      */
     protected function handleDryRun(): array
     {
-        return ['filtered' => $this->data, 'summary' => $this->generateSummary($this->data)];
+        return ['filtered' => $this->data, 'summary' => $this->generateSummary($this->data) + ['dangling' => []]];
     }
 
     /**
@@ -166,7 +203,9 @@ class ResourceActivityFilterService extends HasScopedCache
 
         $referencedLocationIds = $this->collectReferencedLocationIds($filteredResources, $filteredActivities);
 
-        return array_merge(
+        $this->cascadedTables = [];
+
+        $assembled = array_merge(
             $this->data,
             [
                 'Resources' => $filteredResources,
@@ -176,13 +215,157 @@ class ResourceActivityFilterService extends HasScopedCache
                 'Resource_Region' => $this->getFilteredData('Resource_Region', 'resource_id', $this->validResourceIds),
                 'Resource_Skill' => $this->getFilteredData('Resource_Skill', 'resource_id', $this->validResourceIds),
                 'Resource_Region_Availability' => $this->getFilteredData('Resource_Region_Availability', 'resource_id', $this->validResourceIds),
-                'Availability' => $this->getFilteredData('Availability', 'id', $this->filteredAvailabilityIds),
                 'Activity' => $filteredActivities,
                 'Activity_SLA' => $this->getFilteredData('Activity_SLA', 'activity_id', $this->validActivityIds),
                 'Activity_Status' => $this->getFilteredData('Activity_Status', 'activity_id', $this->validActivityIds),
                 'Activity_Group' => $this->getFilteredActivityGroupData($this->validActivityIds),
             ]
         );
+
+        // Generic pass: every table not rebuilt above (Activity_Skill,
+        // Additional_Attribute, custom URLs, Resource_Skill_Availability, plan
+        // output, anything unknown) loses rows whose parent was removed.
+        $parentSets = [
+            'activity_id' => array_flip($this->validActivityIds),
+            'resource_id' => array_flip($this->validResourceIds),
+            'location_id' => array_flip($referencedLocationIds),
+            'shift_id' => array_flip($this->validShiftIds),
+        ];
+        foreach (array_keys($assembled) as $table) {
+            if (in_array($table, self::REBUILT_TABLES, true)) {
+                continue;
+            }
+            $before = is_array($assembled[$table]) ? count($assembled[$table]) : 0;
+            $assembled[$table] = $this->cascadeTable($assembled[$table], $parentSets);
+            if ($before > 0 && is_array($assembled[$table])) {
+                $this->cascadedTables[] = $table;
+            }
+        }
+
+        // Availability: kept when ANY kept table references it (never by date),
+        // or when it belongs to a kept activity.
+        $assembled['Availability'] = $this->filterAvailabilityRows($assembled);
+        $this->filteredAvailabilityIds = array_column($assembled['Availability'], 'id');
+
+        return $assembled;
+    }
+
+    /**
+     * Drop rows that carry a parent key (activity_id, resource_id, location_id,
+     * shift_id) whose value is not in the kept set. A null, blank or missing key
+     * is not a reference. A table with no such key, or that is not a list of
+     * rows, is returned as it came in. availability_id is not cascaded here:
+     * Availability is kept by being referenced, so a row pointing at a missing
+     * Availability is reported as dangling instead of silently dropped.
+     *
+     * @param  array<string, array<int|string, int>>  $parentSets  key => flipped kept ids
+     */
+    protected function cascadeTable(mixed $rows, array $parentSets): mixed
+    {
+        if (! is_array($rows) || $rows === [] || ! array_is_list($rows)) {
+            return $rows;
+        }
+
+        $dropIndexes = [];
+        foreach ($rows as $index => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            foreach ($parentSets as $key => $keptSet) {
+                $value = $row[$key] ?? null;
+                if (is_scalar($value) && $value !== '' && ! isset($keptSet[$value])) {
+                    $dropIndexes[] = $index;
+                    break;
+                }
+            }
+        }
+
+        if ($dropIndexes === []) {
+            return $rows;
+        }
+
+        foreach ($dropIndexes as $index) {
+            unset($rows[$index]);
+        }
+
+        return array_values($rows);
+    }
+
+    /**
+     * Keep Availability rows referenced by any kept row (Resource_Region_Availability,
+     * Resource_Skill_Availability, or any other table with an availability_id),
+     * plus rows that belong to a kept activity.
+     */
+    protected function filterAvailabilityRows(array $assembled): array
+    {
+        $referenced = [];
+        foreach ($assembled as $table => $rows) {
+            if ($table === 'Availability' || ! is_array($rows) || ! array_is_list($rows)) {
+                continue;
+            }
+            foreach ($rows as $row) {
+                $value = is_array($row) ? ($row['availability_id'] ?? null) : null;
+                if (is_scalar($value) && $value !== '') {
+                    $referenced[$value] = true;
+                }
+            }
+        }
+        $activitySet = array_flip($this->validActivityIds);
+
+        return array_values(array_filter(
+            $assembled['Availability'] ?? [],
+            static fn ($row) => isset($referenced[$row['id'] ?? null])
+                || (isset($row['activity_id']) && isset($activitySet[$row['activity_id']]))
+        ));
+    }
+
+    /**
+     * Final referential check: for every kept table, find rows whose
+     * activity_id, resource_id, availability_id, location_id or shift_id points
+     * at an id that is not in the kept target table. A target table that is not
+     * in the data at all is not checked.
+     *
+     * @return list<array{table: string, key: string, count: int, examples: list<string>}>
+     */
+    protected function findDanglingReferences(array $filtered): array
+    {
+        $targetSets = [];
+        foreach (self::REFERENCE_KEYS as $key => [$targetTable, $targetColumn]) {
+            if (isset($filtered[$targetTable]) && is_array($filtered[$targetTable])) {
+                $targetSets[$key] = array_flip(array_column($filtered[$targetTable], $targetColumn));
+            }
+        }
+
+        $found = [];
+        foreach ($filtered as $table => $rows) {
+            if (! is_array($rows) || $rows === [] || ! array_is_list($rows)) {
+                continue;
+            }
+            foreach ($rows as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                foreach ($targetSets as $key => $keptSet) {
+                    $value = $row[$key] ?? null;
+                    if (! is_scalar($value) || $value === '' || isset($keptSet[$value])) {
+                        continue;
+                    }
+                    $found[$table][$key]['count'] = ($found[$table][$key]['count'] ?? 0) + 1;
+                    if (count($found[$table][$key]['examples'] ?? []) < 5) {
+                        $found[$table][$key]['examples'][] = (string) $value;
+                    }
+                }
+            }
+        }
+
+        $dangling = [];
+        foreach ($found as $table => $keys) {
+            foreach ($keys as $key => $info) {
+                $dangling[] = ['table' => $table, 'key' => $key, 'count' => $info['count'], 'examples' => $info['examples']];
+            }
+        }
+
+        return $dangling;
     }
 
     /**
@@ -335,9 +518,25 @@ class ResourceActivityFilterService extends HasScopedCache
             'activity_slas' => 'Activity_SLA',
             'activity_statuses' => 'Activity_Status',
             'activity_groups' => 'Activity_Group',
+            'activity_skills' => 'Activity_Skill',
+            'additional_attributes' => 'Additional_Attribute',
+            'activity_custom_urls' => 'Activity_Custom_URL',
+            'resource_skill_availability' => 'Resource_Skill_Availability',
+            'resource_custom_urls' => 'Resource_Custom_URL',
         ];
+        // The cascaded tables only appear when the export has them; any other
+        // table the generic pass touched gets a row labelled by its own name.
+        foreach ($this->cascadedTables as $table) {
+            if (! in_array($table, $sections, true)) {
+                $sections[strtolower($table)] = $table;
+            }
+        }
+        $alwaysShown = array_slice($sections, 0, 12, true);
         $summary = [];
         foreach ($sections as $label => $section) {
+            if (! isset($alwaysShown[$label]) && ! isset($this->data[$section])) {
+                continue;
+            }
             $total = count($this->data[$section] ?? []);
             $kept = count($data[$section] ?? []);
             $summary[$label] = compact('total', 'kept') + ['skipped' => $total - $kept];

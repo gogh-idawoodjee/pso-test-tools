@@ -26,7 +26,7 @@ class PreviewSummaryFormatter
             'activity_statuses' => 'heroicon-o-information-circle',
         ];
 
-        return collect($summary)->map(static function ($stats, $key) use ($iconMap) {
+        return collect($summary)->except('dangling')->map(static function ($stats, $key) use ($iconMap) {
             return [
                 'entity' => ucwords(str_replace('_', ' ', $key)),
                 'icon' => $iconMap[$key] ?? 'heroicon-o-question-mark-circle',
