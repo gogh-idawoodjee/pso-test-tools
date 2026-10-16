@@ -65,8 +65,8 @@ class ResourceUnavailability extends PSOResourceBasePage
                         TextInput::make('description')
                             ->prefixIcon('heroicon-s-document-text'),
 
-                        Actions::make([Action::make('generate_event')
-                            ->label('Generate Event')
+                        Actions::make([Action::make('generate_unavailability')
+                            ->label('Generate Unavailability')
                             ->action(function () {
                                 $this->generateUnavailability();
 

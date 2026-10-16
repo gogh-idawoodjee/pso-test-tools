@@ -103,7 +103,7 @@ class ResourceEvent extends PSOResourceBasePage
                                 ->action(function () {
                                     $this->generateEvent();
                                 }),
-                        ]),
+                        ])->columnSpanFull(),
                     ])
                     ->columns(3),
             ])
