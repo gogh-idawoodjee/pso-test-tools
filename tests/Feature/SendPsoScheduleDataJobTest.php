@@ -723,12 +723,12 @@ it('writes the log steps in the script order', function () {
     }
 });
 
-it('keeps the customer broadcast rows when the webhook is skipped', function () {
+it('keeps the customer broadcast rows when the webhook is skipped and removal is off', function () {
     fakeWebhookAndGateway();
     $upload = webhookJobUpload(
         'gateway-uploads/schedule.json',
         '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}],"Broadcast":[{"id":"CUSTOMER"}],"Broadcast_Parameter":[{"broadcast_id":"CUSTOMER"}]}}',
-        ['skip_webhook' => true, 'dataset_id_override' => 'NEW'],
+        ['skip_webhook' => true, 'dataset_id_override' => 'NEW', 'strip_existing_broadcast' => false],
     );
 
     runUploadJob($upload);
@@ -738,7 +738,46 @@ it('keeps the customer broadcast rows when the webhook is skipped', function () 
     expect($payload['ScheduleData']['Broadcast'])->toBe([['id' => 'CUSTOMER']]);
     expect($payload['ScheduleData']['Broadcast_Parameter'])->toBe([['broadcast_id' => 'CUSTOMER']]);
     expect($payload['ScheduleData']['Input_Reference'][0]['dataset_id'])->toBe('NEW');
-    expect($upload->refresh()->logLines->pluck('text')->implode("\n"))->not->toContain('Stripped existing broadcast');
+    expect($upload->refresh()->logLines->pluck('text')->implode("\n"))
+        ->not->toContain('Stripped existing broadcast')
+        ->toContain('Existing Broadcast rows: kept')
+        ->toContain(SendPsoScheduleDataJob::KEPT_BROADCAST_WARNING);
+});
+
+it('removes the customer broadcast rows when the webhook is skipped and removal is on', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        '{"ScheduleData":{"Resources":[{"id":"R1"}],"Broadcast":[{"id":"CUSTOMER"}],"Broadcast_Parameter":[{"broadcast_id":"CUSTOMER"},{"broadcast_id":"CUSTOMER"}]}}',
+        ['skip_webhook' => true],
+    );
+
+    runUploadJob($upload);
+
+    $payload = sentPayload();
+
+    expect($payload['ScheduleData'])->toBe(['Resources' => [['id' => 'R1']]]);
+    expect($upload->refresh()->webhook_url)->toBeNull();
+    expect($upload->logLines->pluck('text')->implode("\n"))
+        ->toContain('Existing Broadcast rows: removed (1 Broadcast, 2 Broadcast_Parameter)')
+        ->not->toContain(SendPsoScheduleDataJob::KEPT_BROADCAST_WARNING);
+    Http::assertNotSent(static fn ($request) => str_contains((string) $request->url(), 'webhook.example.test'));
+});
+
+it('sends the original bytes and warns when the webhook is skipped, removal is off and nothing else changes', function () {
+    fakeWebhookAndGateway();
+    $original = '{"ScheduleData":{"Broadcast":[{"id":"CUSTOMER"}]}}';
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', $original, ['skip_webhook' => true, 'strip_existing_broadcast' => false]);
+
+    runUploadJob($upload);
+
+    $lines = $upload->refresh()->logLines()->orderBy('id')->get();
+
+    expect(json_encode(sentPayload()))->toBe(json_encode(json_decode($original, true)));
+    expect($lines->pluck('text')->implode("\n"))
+        ->toContain('Existing Broadcast rows: kept')
+        ->toContain('sending the file exactly as uploaded');
+    expect($lines->firstWhere('text', SendPsoScheduleDataJob::KEPT_BROADCAST_WARNING)?->level)->toBe(GatewayUploadLogLevel::WARN);
 });
 
 it('sends a json file with no wrapper unchanged when only a dataset id override is set', function () {
@@ -778,7 +817,7 @@ it('removes a partial rewrite and sends nothing when the rewriter throws', funct
     {
         public function __construct(private ArrayObject $destinations) {}
 
-        public function rewrite(string $sourcePath, string $destinationPath, ?string $datasetIdOverride, ?BroadcastInjection $injection): RewriteReport
+        public function rewrite(string $sourcePath, string $destinationPath, ?string $datasetIdOverride, ?BroadcastInjection $injection, bool $stripExisting = true): RewriteReport
         {
             $this->destinations[] = $destinationPath;
             file_put_contents($destinationPath, '{"ScheduleData":{"Resou');

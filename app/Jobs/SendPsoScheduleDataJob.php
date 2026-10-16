@@ -49,6 +49,8 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 
     private const int CHUNK_SIZE = 1024 * 1024; // 1MB
 
+    public const string KEPT_BROADCAST_WARNING = "The file's own Broadcast rows will be sent as they are. Check that their parameters (the url and required tables) are not pointed at a production environment before you upload.";
+
     public function __construct(
         public string $psoGatewayUploadId,
         public string $baseUrl,
@@ -301,7 +303,11 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             );
         }
 
-        if ($datasetIdOverride === null && $injection === null) {
+        // The column defaults to true; only an explicit false keeps the file's own rows.
+        $stripExisting = $upload->strip_existing_broadcast !== false;
+
+        if ($datasetIdOverride === null && $injection === null && ! $stripExisting) {
+            $this->logBroadcastRowsKept($log);
             $log->sub('No dataset ID override and no webhook - sending the file exactly as uploaded.');
 
             return $rawPath;
@@ -315,7 +321,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         try {
             $report = app(ScheduleDataRewriterFactory::class)
                 ->forFormat($format)
-                ->rewrite($rawPath, $destinationPath, $datasetIdOverride, $injection);
+                ->rewrite($rawPath, $destinationPath, $datasetIdOverride, $injection, $stripExisting);
         } catch (Throwable $exception) {
             // A rewriter can stop part-way through; never leave a truncated
             // copy behind that a later step could pick up and send.
@@ -334,14 +340,15 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             $log->warn("No top-level 'ScheduleData' or 'dsScheduleData' wrapper in the file - sending it unchanged.");
         }
 
-        $this->logRewrite($log, $report, $datasetIdOverride, $injection);
+        $this->logRewrite($log, $report, $datasetIdOverride, $injection, $stripExisting);
 
         if ($report->datasetIds !== []) {
             // VARCHAR(255): several or long ids must not overflow under strict mode.
             $upload->update(['dataset_id_in_file' => StoredText::cap(implode(', ', $report->datasetIds), StoredText::DATASET_ID_BYTES)]);
         }
 
-        if ($injection === null && ! $report->datasetIdChanged) {
+        if ($injection === null && ! $report->datasetIdChanged
+            && $report->strippedBroadcasts === 0 && $report->strippedBroadcastParameters === 0) {
             File::delete($destinationPath);
             $log->sub('Nothing changed - sending the file exactly as uploaded.');
 
@@ -353,7 +360,13 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         return $destinationPath;
     }
 
-    private function logRewrite(UploadRunLog $log, RewriteReport $report, ?string $datasetIdOverride, ?BroadcastInjection $injection): void
+    private function logBroadcastRowsKept(UploadRunLog $log): void
+    {
+        $log->sub('Existing Broadcast rows: kept');
+        $log->warn(self::KEPT_BROADCAST_WARNING);
+    }
+
+    private function logRewrite(UploadRunLog $log, RewriteReport $report, ?string $datasetIdOverride, ?BroadcastInjection $injection, bool $stripExisting): void
     {
         if ($report->datasetIds === []) {
             $log->sub('No Input_Reference.dataset_id in the file - nothing to keep or change.');
@@ -368,6 +381,13 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         }
 
         if ($injection === null) {
+            // With the webhook injected, the lines below report the stripping.
+            if ($stripExisting) {
+                $log->sub("Existing Broadcast rows: removed ({$report->strippedBroadcasts} Broadcast, {$report->strippedBroadcastParameters} Broadcast_Parameter)");
+            } else {
+                $this->logBroadcastRowsKept($log);
+            }
+
             return;
         }
 

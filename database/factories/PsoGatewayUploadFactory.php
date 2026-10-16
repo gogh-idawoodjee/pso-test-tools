@@ -25,6 +25,7 @@ class PsoGatewayUploadFactory extends Factory
             // Existing job tests send the file as-is; tests of the webhook
             // flow set this to false explicitly.
             'skip_webhook' => true,
+            'strip_existing_broadcast' => true,
         ];
     }
 }
