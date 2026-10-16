@@ -12,7 +12,7 @@ use App\Support\Exports\ExportStorage;
 use Illuminate\Http\JsonResponse;
 
 /**
- * Hands the browser a presigned PUT url so the file goes straight to R2. No
+ * Hands the browser a presigned PUT url so the file goes straight to R2, filed on a dataset, an environment or the user (Unfiled). No
  * route in this app ever receives a file body.
  */
 class ExportSlotController extends Controller
@@ -20,9 +20,11 @@ class ExportSlotController extends Controller
     public function __invoke(ExportSlotRequest $request, ExportStorage $storage): JsonResponse
     {
         $scopeId = (string) $request->validated('scope_id');
-        $scope = $request->validated('scope_type') === 'dataset'
-            ? Dataset::query()->ownedByCurrentUser()->findOrFail($scopeId)
-            : Environment::query()->findOrFail($scopeId);
+        $scope = match ($request->validated('scope_type')) {
+            'dataset' => Dataset::query()->ownedByCurrentUser()->findOrFail($scopeId),
+            'environment' => Environment::query()->findOrFail($scopeId),
+            'unfiled' => $request->user(),
+        };
 
         $kind = $request->exportKind();
         $fileName = basename((string) $request->validated('file_name'));

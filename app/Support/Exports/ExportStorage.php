@@ -3,6 +3,7 @@
 namespace App\Support\Exports;
 
 use App\Models\ExportFile;
+use App\Models\User;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -25,11 +26,25 @@ class ExportStorage
     public function objectKey(ExportFile $file): string
     {
         $this->assertUuid((string) $file->id);
-        $this->assertUuid((string) $file->scope_id);
+        $this->assertScopeKey((string) $file->scope_type, (string) $file->scope_id);
         $scope = preg_replace('/[^a-z]/', '', strtolower(class_basename((string) $file->scope_type))) ?: 'scope';
         $extension = in_array($file->content_type, ['xml', 'json', 'zip', 'xlsx', 'csv'], true) ? $file->content_type : 'bin';
 
         return "exports/{$scope}/{$file->scope_id}/{$file->id}.{$extension}";
+    }
+
+    /** Datasets and environments have uuid keys; a user (the Unfiled scope) has a positive whole-number key. */
+    private function assertScopeKey(string $scopeType, string $scopeId): void
+    {
+        if ($scopeType !== (new User)->getMorphClass()) {
+            $this->assertUuid($scopeId);
+
+            return;
+        }
+
+        if (preg_match('/^[1-9]\d{0,19}$/', $scopeId) !== 1) {
+            throw new InvalidArgumentException('An unfiled export must belong to a user id.');
+        }
     }
 
     /** @return array{url: string, headers: array<string, string>} */

@@ -5,15 +5,18 @@ namespace App\Http\Requests;
 use App\Enums\ExportKind;
 use App\Models\Dataset;
 use App\Models\Environment;
+use App\Models\User;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ExportSlotRequest extends FormRequest
 {
+    /** Unfiled is always the signed-in user, so its scope_id is ignored (the drop zone sends "me"). */
     public const array SCOPES = [
         'dataset' => Dataset::class,
         'environment' => Environment::class,
+        'unfiled' => User::class,
     ];
 
     public function authorize(): bool
@@ -27,7 +30,7 @@ class ExportSlotRequest extends FormRequest
 
         return [
             'scope_type' => ['required', Rule::in(array_keys(self::SCOPES))],
-            'scope_id' => ['required', 'uuid'],
+            'scope_id' => $this->input('scope_type') === 'unfiled' ? ['nullable', 'string', 'max:64'] : ['required', 'uuid'],
             'kind' => ['required', Rule::enum(ExportKind::class)],
             'file_name' => ['required', 'string', 'max:255'],
             'file_size' => ['required', 'integer', 'min:1', 'max:'.$maximumBytes],

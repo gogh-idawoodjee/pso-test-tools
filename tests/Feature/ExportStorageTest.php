@@ -2,6 +2,7 @@
 
 use App\Models\Dataset;
 use App\Models\ExportFile;
+use App\Models\User;
 use App\Support\Exports\ExportStorage;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
@@ -66,3 +67,23 @@ it('issues a presigned PUT url for the object key', function () {
 
     expect($upload['url'])->toContain($key);
 });
+
+it('builds an unfiled object key from the user id and the file uuid', function () {
+    $file = ExportFile::factory()->make(['id' => '0f8fad5b-d9cb-469f-a165-70867728950e', 'content_type' => 'xml']);
+    $file->scope_type = (new User)->getMorphClass();
+    $file->scope_id = '42';
+
+    expect(app(ExportStorage::class)->objectKey($file))->toBe('exports/user/42/0f8fad5b-d9cb-469f-a165-70867728950e.xml');
+});
+
+it('takes a number as the scope id only for a user', function (string $scopeType, string $scopeId) {
+    $file = ExportFile::factory()->make(['id' => '0f8fad5b-d9cb-469f-a165-70867728950e']);
+    $file->scope_type = $scopeType;
+    $file->scope_id = $scopeId;
+
+    expect(fn () => app(ExportStorage::class)->objectKey($file))->toThrow(InvalidArgumentException::class);
+})->with([
+    'a dataset with a number' => [Dataset::class, '42'],
+    'a user with a path' => [User::class, '../42'],
+    'a user with zero' => [User::class, '0'],
+]);

@@ -129,3 +129,19 @@ it('still shows a slow upload inside the slot and its grace as being read', func
     Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Load]])
         ->assertSee('Reading north_load.zip');
 });
+
+it('offers every kind Unfiled and posts it as unfiled for me', function () {
+    Livewire::test(ExportDropZone::class, ['scope' => $this->user])
+        ->assertSee('Drop a new LOAD')->assertSee('Drop a new SYS')->assertSee('Drop a new IFS event log')->assertSee('Drop a new Audit messages')
+        ->assertSeeHtml("scope_type: 'unfiled'")
+        ->assertSeeHtml("scope_id: 'me'")
+        ->assertDontSeeHtml("scope_id: '{$this->user->id}'");
+});
+
+it('shows an unfiled upload the server is still reading', function () {
+    ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'prod_load.zip', 'status' => ExportFileStatus::Summarising]);
+
+    Livewire::test(ExportDropZone::class, ['scope' => $this->user, 'kinds' => [ExportKind::Load], 'compact' => true])
+        ->assertSee('Reading prod_load.zip')
+        ->assertSet('serverStates', ['load' => 'reading']);
+});

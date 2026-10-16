@@ -3,6 +3,7 @@
 use App\Enums\ExportFileStatus;
 use App\Models\Dataset;
 use App\Models\ExportFile;
+use App\Models\User;
 use App\Support\Exports\ExportStorage;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Storage;
@@ -60,4 +61,15 @@ it('marks an upload that never finished as failed once the slot and its grace ha
     expect($stale->refresh()->status)->toBe(ExportFileStatus::Failed)
         ->and($stale->error_message)->toBe('The upload did not finish.')
         ->and($slow->refresh()->status)->toBe(ExportFileStatus::Uploading);
+});
+
+it('purges an expired unfiled export like any other', function () {
+    $storage = app(ExportStorage::class);
+    $expired = ExportFile::factory()->for(User::factory()->create(), 'scope')->create(['expires_at' => now()->subMinute()]);
+    Storage::disk('r2')->put($storage->objectKey($expired), 'x');
+
+    Artisan::call('exports:purge');
+
+    expect($expired->refresh()->status)->toBe(ExportFileStatus::Purged)
+        ->and($storage->exists($expired))->toBeFalse();
 });

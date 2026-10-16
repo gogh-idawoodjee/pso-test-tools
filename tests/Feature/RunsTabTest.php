@@ -115,3 +115,16 @@ it('tells an empty Runs tab to start from a tool wizard', function () {
     Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
         ->assertSee('Start a run from a tool under Analysis tools');
 });
+
+it('offers an unfiled run only the user own unfiled files, SYS included', function () {
+    $load = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load, 'summary' => ['export_date' => '2026-10-10']]);
+    $sys = ExportFile::factory()->for($this->user, 'scope')->sys()->create();
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+    ExportFile::factory()->for($this->dataset->environment, 'scope')->sys()->create();
+    ExportFile::factory()->for(User::factory()->create(), 'scope')->create(['kind' => ExportKind::Load]);
+
+    $picker = app(RunInputPicker::class);
+    expect(array_keys($picker->optionsFor($this->user, ToolId::LoadAudit)['load']))->toBe([$load->id])
+        ->and(array_keys($picker->optionsFor($this->user, ToolId::LoadAudit)['sys']))->toBe([$sys->id])
+        ->and($picker->defaultsFor($this->user, ToolId::LoadAudit))->toBe(['load' => $load->id, 'sys' => $sys->id]);
+});

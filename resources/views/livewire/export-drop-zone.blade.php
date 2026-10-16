@@ -81,7 +81,7 @@
                     const slotResponse = await fetch(@js(route('filament.app.exports.slots.store')), {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': this.csrf },
-                        body: JSON.stringify({ scope_type: @js($scopeType), scope_id: @js($scope->getKey()), kind: this.kind, file_name: file.name, file_size: file.size }),
+                        body: JSON.stringify({ scope_type: @js($scopeType), scope_id: @js($scopeId), kind: this.kind, file_name: file.name, file_size: file.size }),
                     })
                     const slot = await slotResponse.json().catch(() => ({}))
 

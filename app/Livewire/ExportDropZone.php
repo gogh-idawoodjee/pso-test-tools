@@ -5,7 +5,9 @@ namespace App\Livewire;
 use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Models\Dataset;
+use App\Models\Environment;
 use App\Models\ExportFile;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
@@ -14,7 +16,7 @@ use Livewire\Attributes\On;
 use Livewire\Component;
 
 /**
- * One drop target per export kind (all the scope accepts, or the ones given).
+ * One drop target per export kind (all the scope accepts, or the ones given), on a dataset, an environment or Unfiled (the user).
  * Files go from the browser straight to R2 through a presigned url; this
  * component only renders the targets, the upload itself is JavaScript (see the view).
  * After the upload the server reads the file (SummariseExportFileJob): each target shows
@@ -83,7 +85,7 @@ class ExportDropZone extends Component
 
         foreach (array_keys($this->targets) as $kind) {
             $files = ExportFile::query()
-                ->where('scope_type', $this->scope->getMorphClass())->where('scope_id', $this->scope->getKey())
+                ->where('scope_type', $this->scope->getMorphClass())->where('scope_id', (string) $this->scope->getKey())
                 ->where('kind', $kind);
 
             $pending = (clone $files)->pending()->latest()->first(['id', 'original_filename', 'status']);
@@ -123,7 +125,13 @@ class ExportDropZone extends Component
 
         return view('livewire.export-drop-zone', [
             'serverFiles' => $serverFiles,
-            'scopeType' => $this->scope instanceof Dataset ? 'dataset' : 'environment',
+            'scopeType' => match (true) {
+                $this->scope instanceof Dataset => 'dataset',
+                $this->scope instanceof Environment => 'environment',
+                default => 'unfiled',
+            },
+            // Unfiled is always the signed-in user's own, so the slot request names no id.
+            'scopeId' => $this->scope instanceof User ? 'me' : (string) $this->scope->getKey(),
             'maxMegabytes' => (int) config('exports.max_file_megabytes', 400),
             'ttlHours' => (int) config('exports.ttl_hours', 12),
             'extensionsByKind' => collect(array_keys($this->targets))

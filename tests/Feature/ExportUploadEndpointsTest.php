@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ExportFileStatus;
+use App\Enums\ExportKind;
 use App\Jobs\SummariseExportFileJob;
 use App\Models\Dataset;
 use App\Models\Environment;
@@ -106,4 +107,42 @@ it('does not complete another user file', function () {
     $foreign = ExportFile::factory()->for(Dataset::factory(), 'scope')->uploading()->create();
 
     $this->postJson(route('filament.app.exports.complete', $foreign))->assertStatus(404);
+});
+
+it('files an unfiled upload on the current user and ignores the scope id it is sent', function () {
+    fakeUploadUrl();
+    $other = User::factory()->create();
+
+    $this->postJson(route('filament.app.exports.slots.store'), ['scope_type' => 'unfiled', 'scope_id' => (string) $other->id, 'kind' => 'sys', 'file_name' => 'prod-sys.xml', 'file_size' => 2048])
+        ->assertCreated();
+
+    $file = ExportFile::sole();
+    expect($file->scope_type)->toBe($this->user->getMorphClass())
+        ->and((string) $file->scope_id)->toBe((string) $this->user->id)
+        ->and($file->kind)->toBe(ExportKind::Sys)
+        ->and($file->stored_path)->toBe("exports/user/{$this->user->id}/{$file->id}.xml");
+});
+
+it('takes me or no scope id for an unfiled upload, and still checks the extension', function () {
+    fakeUploadUrl();
+    $route = route('filament.app.exports.slots.store');
+
+    $this->postJson($route, ['scope_type' => 'unfiled', 'scope_id' => 'me', 'kind' => 'load', 'file_name' => 'load.xml', 'file_size' => 10])->assertCreated();
+    $this->postJson($route, ['scope_type' => 'unfiled', 'kind' => 'audits', 'file_name' => 'audits.zip', 'file_size' => 10])->assertCreated();
+    $this->postJson($route, ['scope_type' => 'unfiled', 'scope_id' => 'me', 'kind' => 'audits', 'file_name' => 'audits.xml', 'file_size' => 10])
+        ->assertStatus(422)->assertJsonValidationErrors('file_name');
+
+    expect(ExportFile::count())->toBe(2);
+});
+
+it('completes an unfiled upload the user owns, and not another user one', function () {
+    Queue::fake();
+    $mine = ExportFile::factory()->for($this->user, 'scope')->uploading()->create(['file_size_bytes' => 17, 'content_type' => 'xml']);
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($mine), '<dsScheduleData/>');
+    $theirs = ExportFile::factory()->for(User::factory()->create(), 'scope')->uploading()->create();
+
+    $this->postJson(route('filament.app.exports.complete', $mine))->assertStatus(202);
+    $this->postJson(route('filament.app.exports.complete', $theirs))->assertNotFound();
+
+    expect($mine->refresh()->status)->toBe(ExportFileStatus::Summarising);
 });
