@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Pages\ToolRunPage;
 use App\Models\ToolRun;
+use App\Models\User;
 use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -25,7 +26,9 @@ class RecentRuns extends TableWidget
             ->paginated(false)
             ->columns([
                 TextColumn::make('tool')->badge(),
-                TextColumn::make('scope.name')->label('Dataset or environment'),
+                TextColumn::make('where')
+                    ->label('Where')
+                    ->state(static fn (ToolRun $record): ?string => $record->scope instanceof User ? 'Unfiled' : $record->scope?->name),
                 TextColumn::make('status')->badge(),
                 TextColumn::make('queued_at')->label('Started')->since(),
             ])

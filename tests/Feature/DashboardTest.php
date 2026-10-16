@@ -3,6 +3,7 @@
 use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Filament\Pages\Dashboard;
+use App\Filament\Pages\ToolRunPage;
 use App\Filament\Pages\Tools\LoadAuditEntry;
 use App\Filament\Widgets\QuickLaunch;
 use App\Filament\Widgets\RecentRuns;
@@ -81,4 +82,17 @@ it('shows the current user recent runs with a link to each result, newest first'
 it('replaces the default dashboard', function () {
     $this->get(Dashboard::getUrl())->assertOk()->assertSee('Analysis tools')->assertSee('Recent runs');
     expect(class_exists(QuickLaunch::class))->toBeFalse();
+});
+
+it('says Unfiled under Where for a run on the user own files', function () {
+    $unfiled = ToolRun::factory()->for($this->user, 'scope')->create(['tool' => ToolId::LoadAudit, 'queued_at' => now()]);
+    $datasetRun = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'queued_at' => now()->subMinute()]);
+
+    Livewire::test(RecentRuns::class)
+        ->assertCanSeeTableRecords([$unfiled, $datasetRun], inOrder: true)
+        ->assertSee('Where')
+        ->assertDontSee('Dataset or environment')
+        ->assertTableColumnStateSet('where', 'Unfiled', record: $unfiled)
+        ->assertTableColumnStateSet('where', 'NORTH', record: $datasetRun)
+        ->assertTableActionHasUrl('open', ToolRunPage::urlFor($this->user, $unfiled), record: $unfiled);
 });
