@@ -32,7 +32,7 @@ it('offers Unfiled or a dataset, defaults to Unfiled and hides the environment a
         ->assertFormFieldExists('where')
         ->assertFormSet(['where' => 'unfiled'])
         ->assertSee('Where the exports live.')
-        ->assertSee('Just the file. Nothing is sent anywhere and the run is listed under My files.')
+        ->assertSee('Just the file. Nothing is sent to PSO and the run is listed under My files.')
         ->assertSee('The exports belong to an environment and dataset you have set up.')
         ->assertFormFieldHidden('environment_id')
         ->assertFormFieldHidden('dataset_id');
@@ -123,7 +123,8 @@ it('asks for the time zone on Options for an Unfiled run, defaulting to the reme
         ->assertFormFieldExists('options.time_zone')
         ->assertFormFieldVisible('options.time_zone')
         ->assertFormSet(['options.time_zone' => 'America/Toronto'])
-        ->assertSee('The zone the pages show times in.');
+        ->assertSee('The zone the pages show times in.')
+        ->assertSee('An Unfiled run needs a time zone.');
 
     $this->user->rememberToolContext(null, null, unfiled: true, timeZone: 'America/Regina');
     Livewire::test(LoadAuditEntry::class)->assertFormSet(['options.time_zone' => 'America/Regina']);

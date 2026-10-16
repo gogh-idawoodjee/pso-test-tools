@@ -8,6 +8,9 @@ FAKE_TRACE_ARGS_FILE: where to write the received argv and cwd, as JSON (optiona
 import json, os, sys
 
 def arg(name):
+    for item in sys.argv:
+        if item.startswith(name + '='):
+            return item[len(name) + 1:]
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else None
 
 mode = os.environ.get('FAKE_TRACE_MODE', 'ok')

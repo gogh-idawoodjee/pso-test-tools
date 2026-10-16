@@ -84,6 +84,7 @@ class StartToolRun
         $user->rememberToolContext(
             environmentId: $scope instanceof Dataset ? $scope->environment_id : (string) $scope->getKey(),
             datasetId: $scope instanceof Dataset ? $scope->getKey() : null,
+            timeZone: $user->last_tool_context['time_zone'] ?? null,
         );
     }
 

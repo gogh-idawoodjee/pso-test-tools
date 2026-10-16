@@ -73,7 +73,7 @@ it('runs the script and stores the page, data, both CSVs, counts, summary and wa
     $result = (new ActivityTraceTool)->run($this->context, ['audits' => $this->scratch.'/audits.zip'], ['activity_id' => 'abc']);
 
     $args = json_decode(file_get_contents($argsFile), true);
-    expect($args['argv'])->toContain('--activity', 'abc', '--tz', 'America/Regina', '--ifs-tz', 'America/Toronto', '--dataset-name', 'NORTH')
+    expect($args['argv'])->toContain('--activity', 'abc', '--tz', 'America/Regina', '--ifs-tz', 'America/Toronto', '--dataset-name=NORTH')
         ->and($args['progress_env'])->toBe('lines')
         ->and($result->result['html'])->toContain('Trace page')
         ->and($result->result['data']['findings'])->toHaveCount(4)
@@ -225,7 +225,7 @@ it('names an unfiled trace after the audits file and passes the chosen zone, wit
     (new ActivityTraceTool)->run(new ToolContext($run, $this->user, null, 'America/Regina'), ['audits' => $this->scratch.'/audits.zip'], ['activity_id' => 'abc']);
 
     $argv = json_decode(file_get_contents($argsFile), true)['argv'];
-    expect($argv[array_search('--dataset-name', $argv, true) + 1])->toBe('audits_1004.zip')
+    expect($argv)->toContain('--dataset-name=audits_1004.zip')
         ->and($argv[array_search('--tz', $argv, true) + 1])->toBe('America/Regina')
         ->and($argv)->not->toContain('--ifs-tz');
 });

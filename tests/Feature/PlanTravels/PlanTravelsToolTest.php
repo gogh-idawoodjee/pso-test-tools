@@ -114,7 +114,7 @@ it('builds the legs without Google and stores the page, CSV, data, summary and w
 
     $calls = planCalls($this->argsFile);
     expect($calls)->toHaveCount(1)
-        ->and($calls[0]['argv'])->toContain('build', '--export', $this->scratch.'/plan.xml', '--date', '2026-10-05', '--days', '1', '--dataset-name', 'NORTH', '--out-dir', $this->scratch)
+        ->and($calls[0]['argv'])->toContain('build', '--export', $this->scratch.'/plan.xml', '--date', '2026-10-05', '--days', '1', '--dataset-name=NORTH', '--out-dir', $this->scratch)
         ->and($calls[0]['progress_env'])->toBe('lines')
         ->and($result->result['html'])->toContain('Plan travels page without Google')
         ->and($result->result['csv'])->toStartWith("Resource ID,Flag\n")
@@ -404,5 +404,5 @@ it('names an unfiled run after the plan export file', function () {
     app(PlanTravelsTool::class)->run(new ToolContext($run, $this->user, null, 'America/Regina'), $this->inputs, ['first_date' => '2026-10-05', 'days' => 1, 'google' => false]);
 
     $argv = planCalls($this->argsFile)[0]['argv'];
-    expect($argv[array_search('--dataset-name', $argv, true) + 1])->toBe('north_plan_1005.xml');
+    expect($argv)->toContain('--dataset-name=north_plan_1005.xml');
 });

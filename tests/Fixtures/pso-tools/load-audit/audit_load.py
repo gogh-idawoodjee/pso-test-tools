@@ -7,6 +7,9 @@ import json, os, sys, time
 
 
 def arg(name):
+    for item in sys.argv:
+        if item.startswith(name + '='):
+            return item[len(name) + 1:]
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else None
 
 

@@ -28,6 +28,9 @@ LEG_KEYS = (
 )
 
 def arg(name, default=None):
+    for item in sys.argv:
+        if item.startswith(name + '='):
+            return item[len(name) + 1:]
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else default
 
 command = sys.argv[1] if len(sys.argv) > 1 else ''

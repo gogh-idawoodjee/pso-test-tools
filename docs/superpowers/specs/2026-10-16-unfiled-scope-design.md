@@ -59,7 +59,7 @@ relying on the remembered dataset (one click, but still the wrong home for the f
 For a tool with `acceptsUnfiled()`:
 
 - The Where step starts with a `Radio` `where` with two options: **Unfiled** ("Just the file. Nothing is
-  sent anywhere and the run is listed under My files.") and **A dataset** ("The exports belong to an
+  sent to PSO and the run is listed under My files.") and **A dataset** ("The exports belong to an
   environment and dataset you have set up."). Default: the remembered choice, else Unfiled. The
   environment and dataset selects are shown only for "A dataset" and keep their current behaviour.
   The step's description becomes "Where the exports live."
@@ -150,3 +150,4 @@ The job's `resolveInputs()` reads files by the run's scope and does not care whi
 - User ids are integers in a char morph column: every scope id comparison casts to string (MySQL would otherwise compare numerically).
 - Plan travels names an Unfiled run after its Plan file (the spec said LOAD; the tool takes only a Plan export).
 - The time zone select always sits on the accepting tools' Options step and is hidden for dataset runs, because Filament builds the form once per request.
+- A dataset run keeps the previously remembered time zone (spec section 5 said no zone); friendlier for the next Unfiled run.

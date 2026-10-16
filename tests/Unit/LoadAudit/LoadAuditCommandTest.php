@@ -21,7 +21,7 @@ it('builds the full command for a LOAD, plan and SYS', function () {
         '--plan', '/scratch/run1/b.xml',
         '--sys', '/scratch/run1/c.xml',
         '--tz', 'America/Regina',
-        '--org', 'SaskTel',
+        '--org=SaskTel',
         '--accounts-dir', '/scratch/run1/accounts',
         '--params', "{$root}/kb/pso_parameters_reference.csv",
         '--watchlist', "{$root}/kb/28-release-notes-watchlist.md",
@@ -37,12 +37,20 @@ it('builds the full command for a LOAD, plan and SYS', function () {
 it('omits plan, sys, org and ifs release when absent and defaults the grace hours', function () {
     $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], [], 'UTC', null);
 
-    expect($argv)->not->toContain('--plan')->not->toContain('--sys')->not->toContain('--org')->not->toContain('--ifs-release')
+    expect(preg_grep('/^--org=/', $argv))->toBeEmpty();
+    expect($argv)->not->toContain('--plan')->not->toContain('--sys')->not->toContain('--ifs-release')
         ->and(array_slice($argv, array_search('--complete-grace-hours', $argv, true), 2))->toBe(['--complete-grace-hours', '24']);
 });
 
 it('treats a blank display name or ifs release as absent', function () {
     $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], ['ifs_release' => '  '], 'UTC', '');
 
-    expect($argv)->not->toContain('--org')->not->toContain('--ifs-release');
+    expect(preg_grep('/^--org=/', $argv))->toBeEmpty();
+    expect($argv)->not->toContain('--ifs-release');
+});
+
+it('passes a label that starts with a dash as one joined item so argparse accepts it', function () {
+    $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], [], 'UTC', '-load.xml');
+
+    expect($argv)->toContain('--org=-load.xml')->not->toContain('-load.xml');
 });

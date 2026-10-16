@@ -25,6 +25,6 @@ class MyFiles extends Page
 
     public function getSubheading(): ?string
     {
-        return 'Exports and runs that belong to no environment or dataset. Only you can see them, and nothing here is sent anywhere.';
+        return 'Exports and runs that belong to no environment or dataset. Only you can see them, and nothing here is sent to PSO.';
     }
 }

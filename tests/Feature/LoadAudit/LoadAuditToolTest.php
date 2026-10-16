@@ -63,7 +63,7 @@ it('runs the script in the scratch folder and stores html, findings, counts and 
     $args = json_decode(file_get_contents($argsFile), true);
     expect($args['cwd'])->toBe(realpath($this->scratch))
         ->and($args['progress_env'])->toBe('lines')
-        ->and($args['argv'])->toContain('--org', 'SaskTel', '--tz', 'America/Regina', '--ifs-release', '25.2.7')
+        ->and($args['argv'])->toContain('--org=SaskTel', '--tz', 'America/Regina', '--ifs-release', '25.2.7')
         ->and(is_dir($this->scratch.'/accounts'))->toBeTrue()
         ->and($result->result['html'])->toContain('<h1>SaskTel</h1>')
         ->and($result->result['findings'])->toHaveCount(3)
@@ -204,7 +204,7 @@ it('labels an unfiled audit with the LOAD file name', function () {
     (new LoadAuditTool)->run(new ToolContext($run, $user, null, 'America/Regina'), ['load' => $this->scratch.'/load.xml'], []);
 
     $argv = json_decode(file_get_contents($argsFile), true)['argv'];
-    expect($argv[array_search('--org', $argv, true) + 1])->toBe('prod_north_load_1013.xml')
+    expect($argv)->toContain('--org=prod_north_load_1013.xml')
         ->and($argv[array_search('--tz', $argv, true) + 1])->toBe('America/Regina');
 });
 
@@ -217,5 +217,5 @@ it('still passes no label for a dataset with no display name', function () {
 
     (new LoadAuditTool)->run(new ToolContext($run, $dataset, $dataset->settings, 'America/Regina'), ['load' => $this->scratch.'/load.xml'], []);
 
-    expect(json_decode(file_get_contents($argsFile), true)['argv'])->not->toContain('--org');
+    expect(preg_grep('/^--org=/', json_decode(file_get_contents($argsFile), true)['argv']))->toBeEmpty();
 });

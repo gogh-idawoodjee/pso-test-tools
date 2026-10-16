@@ -143,7 +143,7 @@ abstract class ToolWizardPage extends Page implements HasForms
         }
 
         return Step::make('Options')
-            ->description('Settings for this run. Leave blank for the defaults. An Unfiled run needs a time zone.')
+            ->description('Settings for this run. Leave blank for the defaults.'.(static::tool()->acceptsUnfiled() ? ' An Unfiled run needs a time zone.' : ''))
             ->schema($fields)
             ->hidden($fields === []);
     }
@@ -200,7 +200,7 @@ abstract class ToolWizardPage extends Page implements HasForms
                     ->hiddenLabel()
                     ->options([self::WHERE_UNFILED => 'Unfiled', self::WHERE_DATASET => 'A dataset'])
                     ->descriptions([
-                        self::WHERE_UNFILED => 'Just the file. Nothing is sent anywhere and the run is listed under My files.',
+                        self::WHERE_UNFILED => 'Just the file. Nothing is sent to PSO and the run is listed under My files.',
                         self::WHERE_DATASET => 'The exports belong to an environment and dataset you have set up.',
                     ])
                     ->required()

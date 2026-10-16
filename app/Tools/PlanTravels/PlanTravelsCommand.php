@@ -22,7 +22,7 @@ class PlanTravelsCommand
 
         // Shown in the page header; the script prints none when it is not given.
         if (filled(trim((string) $datasetName))) {
-            array_push($argv, '--dataset-name', trim((string) $datasetName));
+            $argv[] = '--dataset-name='.trim((string) $datasetName);
         }
 
         array_push($argv, '--out-dir', rtrim($workDir, '/'), '--template', $checkout->planTravelsTemplate());

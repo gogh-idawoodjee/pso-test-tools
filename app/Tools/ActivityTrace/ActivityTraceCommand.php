@@ -47,7 +47,7 @@ class ActivityTraceCommand
         }
 
         if (filled(trim((string) $datasetName))) {
-            array_push($argv, '--dataset-name', trim((string) $datasetName));
+            $argv[] = '--dataset-name='.trim((string) $datasetName);
         }
 
         array_push($argv, '--out-dir', rtrim($workDir, '/'), '--template', $checkout->activityTraceTemplate());

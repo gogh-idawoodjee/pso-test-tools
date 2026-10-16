@@ -67,6 +67,15 @@ it('remembers the context on the user, with a null dataset for an environment-sc
     expect($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->dataset->environment_id, 'dataset_id' => null, 'unfiled' => false, 'time_zone' => null]);
 });
 
+it('keeps the remembered time zone when a dataset run follows an unfiled one', function () {
+    $this->user->rememberToolContext($this->dataset->environment_id, $this->dataset->id, true, 'America/Regina');
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    app(StartToolRun::class)->start($this->dataset, ToolId::LoadAudit, ['load' => $load->id], [], $this->user);
+
+    expect($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->dataset->environment_id, 'dataset_id' => $this->dataset->id, 'unfiled' => false, 'time_zone' => 'America/Regina']);
+});
+
 it('checks chosen files are usable, skipping blanks and keys the tool does not take', function () {
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
     $purged = ExportFile::factory()->for($this->dataset, 'scope')->purged()->create(['kind' => ExportKind::Load]);

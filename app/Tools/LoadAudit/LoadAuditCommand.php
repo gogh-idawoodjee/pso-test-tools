@@ -40,8 +40,7 @@ class LoadAuditCommand
         $argv[] = $timeZone;
 
         if (filled(trim((string) $displayName))) {
-            $argv[] = '--org';
-            $argv[] = trim((string) $displayName);
+            $argv[] = '--org='.trim((string) $displayName);
         }
 
         array_push($argv, '--accounts-dir', $workDir.'/'.self::ACCOUNTS_DIR,

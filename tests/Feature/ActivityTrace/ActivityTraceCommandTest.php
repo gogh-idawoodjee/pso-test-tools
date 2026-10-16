@@ -20,7 +20,7 @@ it('builds the argument list for audits and an activity id only', function () {
     expect($argv)->toBe([
         $this->checkout->python(), $this->checkout->activityTraceScript(),
         '--audits', '/w/audits.zip', '--activity', 'abc-1',
-        '--tz', 'America/Regina', '--dataset-name', 'NORTH',
+        '--tz', 'America/Regina', '--dataset-name=NORTH',
         '--out-dir', '/w', '--template', $this->checkout->activityTraceTemplate(),
     ]);
 });
@@ -51,7 +51,7 @@ it('passes the IFS time zone only when set', function () {
 it('leaves out the dataset name when blank', function () {
     $argv = ActivityTraceCommand::build($this->checkout, '/w', $this->audits, ['activity_id' => 'a'], 'UTC', null, ' ');
 
-    expect($argv)->not->toContain('--dataset-name');
+    expect($argv)->not->toContain('--dataset-name=NORTH');
 });
 
 it('leaves out --tz when the dataset has no time zone, so the page says times are UTC', function () {
@@ -59,4 +59,10 @@ it('leaves out --tz when the dataset has no time zone, so the page says times ar
 
     expect($argv)->not->toContain('--tz')->not->toContain('--ifs-tz')
         ->and(traceArgv($this->audits, ['activity_id' => 'a']))->toContain('--tz', 'America/Regina');
+});
+
+it('passes a dataset name that starts with a dash as one joined item so argparse accepts it', function () {
+    $argv = ActivityTraceCommand::build($this->checkout, '/w', $this->audits, ['activity_id' => 'a'], 'UTC', null, '-audits.zip');
+
+    expect($argv)->toContain('--dataset-name=-audits.zip')->not->toContain('-audits.zip');
 });

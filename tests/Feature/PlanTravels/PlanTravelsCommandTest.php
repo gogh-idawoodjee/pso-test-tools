@@ -14,13 +14,13 @@ it('builds the build argument list with the date, days, dataset name, out dir an
 
     expect($argv)->toBe([
         $this->checkout->python(), $this->checkout->planTravelsScript(), 'build',
-        '--export', '/w/plan.xml', '--date', '2026-10-05', '--days', '5', '--dataset-name', 'NORTH',
+        '--export', '/w/plan.xml', '--date', '2026-10-05', '--days', '5', '--dataset-name=NORTH',
         '--out-dir', '/w', '--template', $this->checkout->planTravelsTemplate(),
     ]);
 });
 
 it('leaves out the dataset name when there is none', function (?string $name) {
-    expect(PlanTravelsCommand::build($this->checkout, '/w', '/w/plan.xml', '2026-10-05', 1, $name))->not->toContain('--dataset-name');
+    expect(PlanTravelsCommand::build($this->checkout, '/w', '/w/plan.xml', '2026-10-05', 1, $name))->not->toContain('--dataset-name=NORTH');
 })->with(['null' => [null], 'blank' => ['  ']]);
 
 it('builds the merge-google argument list from the work dir with both thresholds', function () {
@@ -43,4 +43,10 @@ it('names the missing script as a setup problem', function () {
 
     expect(fn () => PsoToolsCheckout::fromConfig()->planTravelsScript())
         ->toThrow(ToolSetupException::class, 'plan-travels/plan_travels.py is missing');
+});
+
+it('passes a dataset name that starts with a dash as one joined item so argparse accepts it', function () {
+    $argv = PlanTravelsCommand::build($this->checkout, '/w', '/w/plan.xml', '2026-10-05', 1, '-plan.xml');
+
+    expect($argv)->toContain('--dataset-name=-plan.xml')->not->toContain('-plan.xml');
 });
