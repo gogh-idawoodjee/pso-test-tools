@@ -9,6 +9,7 @@ use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Support\Exports\ExportStorage;
+use App\Tools\Contracts\ToolFailedWithResult;
 use App\Tools\ToolContext;
 use App\Tools\ToolRegistry;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -80,6 +81,18 @@ class RunToolJob implements ShouldQueue
                 'error_message' => null,
                 'finished_at' => now(),
             ])->save();
+        } catch (ToolFailedWithResult $exception) {
+            $summary = $exception->partial->summary;
+            if ($meta !== []) {
+                $summary['meta'] = [...(is_array($summary['meta'] ?? null) ? $summary['meta'] : []), ...$meta];
+            }
+            $run->forceFill([
+                'result' => $exception->partial->result ?: null,
+                'warnings' => $exception->partial->warnings,
+                'summary' => $summary ?: null,
+            ])->save();
+
+            $this->markFailed($run, $exception->getMessage());
         } catch (Throwable $exception) {
             if (! $exception instanceof RuntimeException) {
                 Log::warning('Tool run failed', ['tool_run_id' => $run->id, 'error' => $exception->getMessage()]);

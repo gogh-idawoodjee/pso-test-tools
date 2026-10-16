@@ -9,6 +9,8 @@ use App\Models\Dataset;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Support\Exports\ExportStorage;
+use App\Tools\Contracts\ToolFailedWithResult;
+use App\Tools\Contracts\ToolResult;
 use App\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\FakeTool;
@@ -158,4 +160,24 @@ it('records the default zone at start, so a failed run says it too', function ()
 
     expect($run->refresh()->status)->toBe(ToolRunStatus::Failed)
         ->and($run->summary)->toBe(['meta' => ['time_zone_default' => true]]);
+});
+
+it('keeps the partial result of a run that failed after building', function () {
+    FakeTool::$throw = new ToolFailedWithResult(
+        'The Google Routes check did not finish: Google Routes is not configured on pso-services.',
+        new ToolResult(['html' => '<p>legs</p>', 'csv' => "a\n"], ['Legs shown without Google'], ['leg_count' => 3]),
+    );
+    $run = runFor($this->dataset, $this->load);
+
+    (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
+    FakeTool::$throw = null;
+
+    $run->refresh();
+    expect($run->status)->toBe(ToolRunStatus::Failed)
+        ->and($run->error_message)->toBe('The Google Routes check did not finish: Google Routes is not configured on pso-services.')
+        ->and($run->result)->toBe(['html' => '<p>legs</p>', 'csv' => "a\n"])
+        ->and($run->warnings)->toBe(['Legs shown without Google'])
+        ->and($run->summary['leg_count'])->toBe(3)
+        ->and($run->progress)->toBeNull()
+        ->and(glob(config('exports.scratch_path').'/*'))->toBe([]);
 });
