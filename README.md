@@ -153,7 +153,7 @@ the Travel Analyzer in a new tab with the leg's coordinates filled in. Downloads
 plus 11 Google columns when Google ran; named `plan_travels_<account>_<dataset>_<first date>.csv`) and the JSON.
 Timeouts: `TOOLS_PLAN_TRAVELS_TIMEOUT_SECONDS` (600, per script run) and `PSO_SERVICES_ROUTES_TIMEOUT` (300, per
 chunk of 200 trips). The whole Google check also has an overall time limit, `TOOLS_PLAN_TRAVELS_GOOGLE_DEADLINE_SECONDS`
-(600): when it runs out, the run fails the same way and keeps the legs. If pso-services has `PSO_ROUTES_TOKEN` set,
+(720 by default, under the job's 900 s): when it runs out, the trips not yet sent are left without a Google answer and the run finishes with a warning saying how many were not checked. Running the tool again picks up the trips pso-services has cached since. If pso-services has `PSO_ROUTES_TOKEN` set,
 set the same value here; it is optional and left blank when pso-services has none.
 
 ## Deploying

@@ -22,6 +22,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
+use JsonException;
 use RuntimeException;
 
 /**
@@ -143,7 +144,7 @@ class PlanTravelsTool implements Tool
         $firstDate = $this->firstDate($context, $options);
         $days = max(1, min(31, (int) ($options['days'] ?? 1)));
         $timeout = (int) config('tools.plan_travels.timeout_seconds', 600);
-        $this->googleDeadline = Carbon::now()->addSeconds((int) config('tools.plan_travels.google_deadline_seconds', 600));
+        $this->googleDeadline = Carbon::now()->addSeconds((int) config('tools.plan_travels.google_deadline_seconds', 720));
 
         $context->reportProgress('Building legs', 0, null, 'build');
         $datasetName = $context->settings?->displayName ?: ($context->scope instanceof Dataset ? $context->scope->name : null);
@@ -169,23 +170,23 @@ class PlanTravelsTool implements Tool
             );
         }
 
-        $json = json_encode((object) $google, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
-        if (file_put_contents($workDir.'/'.PlanTravelsCommand::GOOGLE_JSON, $json) === false) {
-            throw new RuntimeException('Plan travels could not save the Google Routes answers for the merge.');
-        }
-
         $context->reportProgress('Merging Google results', 95, null, 'merge');
-        // The built page and CSV are in memory: removing them means a merge that writes nothing cannot pass for one
-        // that did. legs.json stays, because merge-google reads it.
-        @unlink($workDir.'/'.PlanTravelsCommand::OUT_HTML);
-        @unlink($workDir.'/'.PlanTravelsCommand::OUT_CSV);
-        $argv = PlanTravelsCommand::mergeGoogle($checkout, $workDir, filled($options['review_minutes'] ?? null) ? (float) $options['review_minutes'] : 20.0, filled($options['review_pct'] ?? null) ? (float) $options['review_pct'] : 0.0);
 
         try {
+            $json = json_encode((object) $google, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+            if (file_put_contents($workDir.'/'.PlanTravelsCommand::GOOGLE_JSON, $json) === false) {
+                throw new RuntimeException('Plan travels could not save the Google Routes answers for the merge.');
+            }
+
+            // The built page and CSV are in memory: removing them means a merge that writes nothing cannot pass for one
+            // that did. legs.json stays, because merge-google reads it.
+            @unlink($workDir.'/'.PlanTravelsCommand::OUT_HTML);
+            @unlink($workDir.'/'.PlanTravelsCommand::OUT_CSV);
+            $argv = PlanTravelsCommand::mergeGoogle($checkout, $workDir, filled($options['review_minutes'] ?? null) ? (float) $options['review_minutes'] : 20.0, filled($options['review_pct'] ?? null) ? (float) $options['review_pct'] : 0.0);
             ScriptRun::execute($context, $workDir, $argv, $timeout, 'Plan travels', progressLabel: 'Merging Google results');
             $merged = $this->readOutputs($workDir);
             unset($built);
-        } catch (RuntimeException $e) {
+        } catch (RuntimeException|JsonException $e) {
             $partial = $this->result($built, $firstDate, $days, null);
 
             throw new ToolFailedWithResult(
@@ -194,9 +195,21 @@ class PlanTravelsTool implements Tool
             );
         }
 
-        $stoppedEarly = $unchecked > 0 ? ["Google Routes check stopped early: {$unchecked} trips were not checked before the run's time limit."] : [];
+        $extra = [];
+        if ($unchecked > 0) {
+            $extra[] = "Google Routes check stopped early: {$unchecked} ".Str::plural('trip', $unchecked).' '.($unchecked === 1 ? 'was' : 'were')." not checked before the run's time limit.";
+        }
+        if ($counts['error'] > 0 && $counts['error'] === count($google) && $counts['cache'] + $counts['google'] === 0) {
+            foreach ($google as $answer) {
+                if (isset($answer['error'])) {
+                    $extra[] = 'Google answered no trips: '.$answer['error'];
 
-        return $this->result($merged, $firstDate, $days, $counts, $stoppedEarly);
+                    break;
+                }
+            }
+        }
+
+        return $this->result($merged, $firstDate, $days, $counts, $extra);
     }
 
     /**
@@ -221,7 +234,7 @@ class PlanTravelsTool implements Tool
             }
         }
         if ($others > 0) {
-            $stored[] = "{$others} travel fragment warning(s): open the page for details.";
+            $stored[] = "{$others} travel fragment ".Str::plural('warning', $others).': open the page for details.';
         }
 
         return $stored;
@@ -280,12 +293,13 @@ class PlanTravelsTool implements Tool
         return [$google, $counts, $unchecked];
     }
 
-    /** True when less than one pso-services request's timeout is left before the Google deadline. */
+    /** True when less than the margin (the request timeout, at most 270 s) is left before the Google deadline. */
     private function timeIsShort(): bool
     {
         $left = ($this->googleDeadline ?? Carbon::now())->getTimestamp() - Carbon::now()->getTimestamp();
 
-        return $left < (int) config('psott.routes.timeout', 300);
+        // pso-services gives up after its own 240 s budget, so 270 s is enough margin whatever the client timeout.
+        return $left < min((int) config('psott.routes.timeout', 300), 270);
     }
 
     /**
@@ -379,7 +393,7 @@ class PlanTravelsTool implements Tool
         return new ToolResult(result: $outputs, warnings: [...self::storedWarnings(is_array($warnings) ? $warnings : []), ...$extraWarnings], summary: $summary);
     }
 
-    /** "6 legs for 5 resources, 2026-10-05 to 2026-10-09; Google: 2 from the cache, 1 fetched, 1 without a route" */
+    /** "6 legs for 5 resources, 2026-10-05 to 2026-10-09; Google, by trip: 2 from the cache, 1 fetched, 1 without a Google answer" */
     private static function line(array $summary): string
     {
         $line = number_format($summary['leg_count']).' '.Str::plural('leg', $summary['leg_count'])
@@ -388,7 +402,7 @@ class PlanTravelsTool implements Tool
 
         if ($summary['google'] !== null) {
             $g = $summary['google'];
-            $line .= '; Google: '.number_format($g['cache']).' from the cache, '.number_format($g['google']).' fetched, '.number_format($g['error']).' without a Google answer';
+            $line .= '; Google, by trip: '.number_format($g['cache']).' from the cache, '.number_format($g['google']).' fetched, '.number_format($g['error']).' without a Google answer';
         }
 
         return $line;

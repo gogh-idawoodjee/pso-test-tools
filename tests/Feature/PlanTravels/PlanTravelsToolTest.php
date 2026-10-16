@@ -119,7 +119,7 @@ it('builds the legs without Google and stores the page, CSV, data, summary and w
         ->and($result->result['html'])->toContain('Plan travels page without Google')
         ->and($result->result['csv'])->toStartWith("Resource ID,Flag\n")
         ->and($result->result['data']['legs'])->toHaveCount(6)
-        ->and($result->warnings)->toBe(['1 travel fragment warning(s): open the page for details.'])
+        ->and($result->warnings)->toBe(['1 travel fragment warning: open the page for details.'])
         ->and($result->summary)->toBe([
             'leg_count' => 6, 'resource_count' => 5, 'review_count' => 0, 'missing_count' => 0,
             'first_date' => '2026-10-05', 'last_date' => '2026-10-05', 'days' => 1, 'google' => null,
@@ -171,7 +171,7 @@ it('checks each distinct route key with Google once, writes google.json keyed by
         ->and($result->summary)->toBe([
             'leg_count' => 6, 'resource_count' => 5, 'review_count' => 2, 'missing_count' => 1,
             'first_date' => '2026-10-05', 'last_date' => '2026-10-05', 'days' => 1, 'google' => ['cache' => 2, 'google' => 1, 'error' => 1],
-            'line' => '6 legs for 5 resources, 2026-10-05; Google: 2 from the cache, 1 fetched, 1 without a Google answer',
+            'line' => '6 legs for 5 resources, 2026-10-05; Google, by trip: 2 from the cache, 1 fetched, 1 without a Google answer',
         ]);
 });
 
@@ -206,7 +206,7 @@ it('fails with the pso-services message and keeps the legs without Google', func
         expect($e->getMessage())->toBe('The Google Routes check did not finish: Google Routes is not configured on pso-services.')
             ->and($e->partial->result['html'])->toContain('Plan travels page without Google')
             ->and($e->partial->result['data']['legs'])->toHaveCount(6)
-            ->and($e->partial->warnings)->toBe(['1 travel fragment warning(s): open the page for details.', 'Google Routes was not checked, so the legs have no Google columns: Google Routes is not configured on pso-services.'])
+            ->and($e->partial->warnings)->toBe(['1 travel fragment warning: open the page for details.', 'Google Routes was not checked, so the legs have no Google columns: Google Routes is not configured on pso-services.'])
             ->and($e->partial->summary['google'])->toBeNull()
             ->and(planCalls($this->argsFile))->toHaveCount(1);
     }
@@ -235,7 +235,7 @@ it('keeps the script warnings out of the unencrypted warnings column, except the
     expect(PlanTravelsTool::storedWarnings($warnings))->toBe([
         'The export has no Plan_Travel rows, so there are no legs to show.',
         'No Plan_Travel rows start on 2026-10-05 to 2026-10-05; the export covers 2026-10-06 to 2026-10-08.',
-        '2 travel fragment warning(s): open the page for details.',
+        '2 travel fragment warnings: open the page for details.',
     ])
         ->and(PlanTravelsTool::storedWarnings([]))->toBe([])
         ->and(PlanTravelsTool::storedWarnings(['The export has no Plan_Travel rows.']))->toBe(['The export has no Plan_Travel rows.']);
@@ -261,7 +261,7 @@ it('keeps the built legs when merge-google fails or writes nothing after the Goo
             ->and($e->partial->result['html'])->toContain('Plan travels page without Google')
             ->and($e->partial->result['csv'])->toStartWith("Resource ID,Flag\n")
             ->and($e->partial->result['data']['legs'])->toHaveCount(6)
-            ->and($e->partial->warnings)->toBe(['1 travel fragment warning(s): open the page for details.', 'The Google results could not be added to the legs, so the legs have no Google columns.'])
+            ->and($e->partial->warnings)->toBe(['1 travel fragment warning: open the page for details.', 'The Google results could not be added to the legs, so the legs have no Google columns.'])
             ->and($e->partial->summary['google'])->toBeNull()
             ->and($e->partial->summary['leg_count'])->toBe(6);
     }
@@ -319,8 +319,8 @@ it('stops calling pso-services when too little of the run time is left, and stil
     fakePlanEnv('FAKE_PLAN_LEGS', '449');
     $routes = routesFake()['https://pso-services.test/api/v2/routes/compute'];
     Http::fake(['https://pso-services.test/api/v2/routes/compute' => static function (Request $request) use ($routes) {
-        // The first chunk takes 301 s: 299 s are left, under one request's 300 s timeout.
-        Carbon\Carbon::setTestNow(Carbon\Carbon::now()->addSeconds(301));
+        // The first chunk takes 340 s: 260 s are left, under the 270 s margin.
+        Carbon\Carbon::setTestNow(Carbon\Carbon::now()->addSeconds(340));
 
         return $routes($request);
     }]);
@@ -345,7 +345,7 @@ it('skips the retry pass when the time left is short', function () {
     config(['tools.plan_travels.google_deadline_seconds' => 600, 'psott.routes.timeout' => 300]);
     $missed = '50.001000,-106.000000|51.001000,-106.100000';
     Http::fake(['https://pso-services.test/api/v2/routes/compute' => static function (Request $request) use ($missed) {
-        Carbon\Carbon::setTestNow(Carbon\Carbon::now()->addSeconds(301));
+        Carbon\Carbon::setTestNow(Carbon\Carbon::now()->addSeconds(340));
 
         return Http::response(['results' => array_map(static fn (array $leg): array => $leg['id'] === $missed
             ? ['id' => $leg['id'], 'error' => 'Not attempted: HTTP 429']
@@ -361,7 +361,19 @@ it('skips the retry pass when the time left is short', function () {
     Http::assertSentCount(1);
     expect(planCalls($this->argsFile)[1]['google'][$missed])->toBe(['error' => 'Not attempted: HTTP 429'])
         ->and($result->summary['google'])->toBe(['cache' => 3, 'google' => 0, 'error' => 1])
-        ->and($result->warnings)->toContain("Google Routes check stopped early: 1 trips were not checked before the run's time limit.");
+        ->and($result->warnings)->toContain("Google Routes check stopped early: 1 trip was not checked before the run's time limit.");
+});
+
+it('adds one warning with the first error text when Google answered no trip at all', function () {
+    Http::fake(['https://pso-services.test/api/v2/routes/compute' => static fn (Request $request) => Http::response([
+        'results' => array_map(static fn (array $leg): array => ['id' => $leg['id'], 'error' => 'API key not valid'], $request->data()['legs']),
+        'counts' => [],
+    ])]);
+
+    $result = app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+
+    expect($result->summary['google'])->toBe(['cache' => 0, 'google' => 0, 'error' => 4])
+        ->and(array_values(array_filter($result->warnings, static fn (string $w): bool => str_starts_with($w, 'Google answered'))))->toBe(['Google answered no trips: API key not valid']);
 });
 
 it('writes an error for an unreadable answer and for a trip pso-services left out', function () {

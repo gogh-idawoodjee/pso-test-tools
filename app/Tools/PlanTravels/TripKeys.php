@@ -51,7 +51,8 @@ final class TripKeys
                 continue;
             }
             $trip = self::split($key);
-            if ($trip !== null && $trip['origin'] !== $trip['destination']) {
+            $ends = explode('|', $key);
+            if ($trip !== null && $ends[0] !== $ends[1]) {
                 $trips[$key] = $trip;
             }
         }

@@ -177,6 +177,7 @@ it('keeps the partial result of a run that failed after building', function () {
         ->and($run->error_message)->toBe('The Google Routes check did not finish: Google Routes is not configured on pso-services.')
         ->and($run->result)->toBe(['html' => '<p>legs</p>', 'csv' => "a\n"])
         ->and($run->warnings)->toBe(['Legs shown without Google'])
+        ->and($run->run_date?->toDateString())->toBe('2026-10-10')
         ->and($run->summary['leg_count'])->toBe(3)
         ->and($run->progress)->toBeNull()
         ->and(glob(config('exports.scratch_path').'/*'))->toBe([]);

@@ -90,6 +90,7 @@ class RunToolJob implements ShouldQueue
                 'result' => $exception->partial->result ?: null,
                 'warnings' => $exception->partial->warnings,
                 'summary' => $summary ?: null,
+                'run_date' => $run->run_date ?? $this->exportDateOf($files, $timeZone),
             ])->save();
 
             $this->markFailed($run, $exception->getMessage());
