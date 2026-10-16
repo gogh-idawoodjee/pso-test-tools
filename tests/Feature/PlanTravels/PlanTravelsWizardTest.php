@@ -11,6 +11,7 @@ use Livewire\Livewire;
 beforeEach(function () {
     $this->user = User::factory()->create();
     $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user))->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina']]);
+    $this->user->rememberToolContext($this->dataset->environment_id, $this->dataset->id);
     $this->actingAs($this->user);
 });
 

@@ -30,6 +30,7 @@ beforeEach(function () {
     $this->user = User::factory()->create();
     $this->environment = Environment::factory()->for($this->user)->create(['name' => 'SaskTel PROD']);
     $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH']);
+    $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
     $this->actingAs($this->user);
 });
 
@@ -55,9 +56,11 @@ it('shows the tool question and only the user own environments and datasets', fu
         ->assertDontSee('THEIRS');
 });
 
-it('pre-fills the only environment and dataset when nothing was remembered', function () {
+it('pre-fills the only environment and dataset when nothing was remembered, behind Unfiled', function () {
+    $this->user->forceFill(['last_tool_context' => null])->save();
+
     Livewire::test(LoadAuditEntry::class)
-        ->assertFormSet(['environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id, 'unfiled' => false, 'time_zone' => null]);
+        ->assertFormSet(['where' => 'unfiled', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
 });
 
 it('pre-fills the remembered environment and dataset', function () {

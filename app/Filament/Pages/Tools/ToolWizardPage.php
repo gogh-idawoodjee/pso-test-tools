@@ -18,6 +18,7 @@ use App\Support\Tools\UnusableInputException;
 use App\Support\Tools\WeekLink;
 use App\Tools\ToolRegistry;
 use BackedEnum;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Concerns\InteractsWithForms;
@@ -46,8 +47,8 @@ use Override;
 use UnitEnum;
 
 /**
- * One guided page per tool: Where (environment, dataset), Inputs (exports),
- * Options (when the tool has any), Run. Subclasses only name their tool.
+ * One guided page per tool: Where (Unfiled, or environment and dataset), Inputs (exports),
+ * Options (when the tool has any, or for an Unfiled run's time zone), Run. Subclasses only name their tool.
  * Hidden from navigation until the tool has an implementation registered.
  */
 abstract class ToolWizardPage extends Page implements HasForms
@@ -71,6 +72,11 @@ abstract class ToolWizardPage extends Page implements HasForms
     public array $knownFiles = [];
 
     private const WIZARD_KEY = 'tool-wizard';
+
+    /** The Where choice of a tool that accepts Unfiled: the user's own files, or a dataset. */
+    public const WHERE_UNFILED = 'unfiled';
+
+    public const WHERE_DATASET = 'dataset';
 
     abstract public static function tool(): ToolId;
 
@@ -96,6 +102,10 @@ abstract class ToolWizardPage extends Page implements HasForms
         // fill() with no state applies the fields' own defaults (an option's default value); the scope and files go on top.
         $this->form->fill();
         $this->data = [...$this->data ?? [], 'environment_id' => $environmentId, 'dataset_id' => $datasetId, 'files' => $this->emptyFiles()];
+        if (static::tool()->acceptsUnfiled()) {
+            // The remembered choice, else Unfiled: a context saved before Unfiled existed has no `unfiled` key.
+            $this->data['where'] = ($remembered['unfiled'] ?? true) === true ? self::WHERE_UNFILED : self::WHERE_DATASET;
+        }
         $this->refreshInputs();
     }
 
@@ -134,15 +144,35 @@ abstract class ToolWizardPage extends Page implements HasForms
 
     protected function whereStep(): Step
     {
+        $acceptsUnfiled = static::tool()->acceptsUnfiled();
+        // Only shown for "A dataset" when the tool accepts Unfiled; always shown otherwise (where is then unset).
+        $showsSelects = static fn (Get $get): bool => $get('where') !== self::WHERE_UNFILED;
+
         return Step::make('Where')
-            ->description($this->isDatasetScoped() ? 'The environment and dataset the exports belong to.' : 'The environment the exports belong to.')
+            ->description(match (true) {
+                $acceptsUnfiled => 'Where the exports live.',
+                $this->isDatasetScoped() => 'The environment and dataset the exports belong to.',
+                default => 'The environment the exports belong to.',
+            })
             ->schema(array_values(array_filter([
+                $acceptsUnfiled ? Radio::make('where')
+                    ->hiddenLabel()
+                    ->options([self::WHERE_UNFILED => 'Unfiled', self::WHERE_DATASET => 'A dataset'])
+                    ->descriptions([
+                        self::WHERE_UNFILED => 'Just the file. Nothing is sent anywhere and the run is listed under My files.',
+                        self::WHERE_DATASET => 'The exports belong to an environment and dataset you have set up.',
+                    ])
+                    ->required()
+                    ->live()
+                    ->afterStateUpdated(static fn (self $livewire) => $livewire->resetInputs())
+                    : null,
                 Select::make('environment_id')
                     ->label('Environment')
                     ->options(fn (): array => Environment::query()->orderBy('name')->pluck('name', 'id')->all())
                     ->required()
                     ->live()
                     ->native(false)
+                    ->visible($showsSelects)
                     ->afterStateUpdated(static function (Set $set, self $livewire): void {
                         $set('dataset_id', null);
                         $livewire->resetInputs();
@@ -158,6 +188,7 @@ abstract class ToolWizardPage extends Page implements HasForms
                     ->required()
                     ->live()
                     ->native(false)
+                    ->visible($showsSelects)
                     ->disabled(static fn (Get $get): bool => blank($get('environment_id')))
                     ->afterStateUpdated(static fn (self $livewire) => $livewire->resetInputs())
                     ->belowContent(static fn (Get $get): ?Text => self::missingTimeZoneWarning($get('environment_id'), $get('dataset_id')))
@@ -271,7 +302,17 @@ abstract class ToolWizardPage extends Page implements HasForms
 
     protected function hasScope(): bool
     {
+        if ($this->isUnfiled()) {
+            return true;
+        }
+
         return filled($this->data['environment_id'] ?? null) && (! $this->isDatasetScoped() || filled($this->data['dataset_id'] ?? null));
+    }
+
+    /** An accepting tool with Unfiled chosen. A forced `where` on any other tool is ignored. */
+    protected function isUnfiled(): bool
+    {
+        return static::tool()->acceptsUnfiled() && ($this->data['where'] ?? null) === self::WHERE_UNFILED;
     }
 
     /** @return array<string, null> one empty entry per kind the tool takes */
@@ -353,7 +394,7 @@ abstract class ToolWizardPage extends Page implements HasForms
         return array_values(array_filter(app(RunInputPicker::class)->kindsOf(static::tool()), function (ExportKind $kind) use ($scope): bool {
             $uploadScope = $this->uploadScopeFor($kind, $scope);
 
-            return ExportFile::query()->where('scope_type', $uploadScope->getMorphClass())->where('scope_id', $uploadScope->getKey())
+            return ExportFile::query()->where('scope_type', $uploadScope->getMorphClass())->where('scope_id', (string) $uploadScope->getKey())
                 ->where('kind', $kind)->pending()->exists();
         }));
     }
@@ -363,9 +404,13 @@ abstract class ToolWizardPage extends Page implements HasForms
         return static::tool()->scope() === Dataset::class;
     }
 
-    /** The chosen scope, or 404 when it is not one of the user's own. */
+    /** The chosen scope: the user for Unfiled, else the environment or dataset, or 404 when it is not one of the user's own. */
     protected function scopeModel(): Model
     {
+        if ($this->isUnfiled()) {
+            return auth()->user();
+        }
+
         $environment = Environment::query()->findOrFail($this->data['environment_id'] ?? null);
         if (! $this->isDatasetScoped()) {
             return $environment;
