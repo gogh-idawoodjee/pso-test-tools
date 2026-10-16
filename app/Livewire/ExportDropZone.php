@@ -50,7 +50,7 @@ class ExportDropZone extends Component
         $kinds ??= ExportKind::forScope($scope::class);
 
         foreach ($kinds as $kind) {
-            if ($kind->allowedScope() !== $scope::class) {
+            if (! $kind->allows($scope::class)) {
                 throw new InvalidArgumentException("A {$kind->getLabel()} export cannot be uploaded to a ".class_basename($scope).'.');
             }
         }

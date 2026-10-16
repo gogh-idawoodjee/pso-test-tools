@@ -4,6 +4,7 @@ namespace App\Enums;
 
 use App\Models\Dataset;
 use App\Models\Environment;
+use App\Models\User;
 use Filament\Support\Contracts\HasLabel;
 
 enum ExportKind: string implements HasLabel
@@ -15,10 +16,15 @@ enum ExportKind: string implements HasLabel
     case Sys = 'sys';
     case EventLog = 'event_log';
 
-    /** The model class an export of this kind hangs off. */
-    public function allowedScope(): string
+    /** Whether an export of this kind may be stored on $scopeClass: SYS on an environment, the rest on a dataset, any kind Unfiled (on a user). */
+    public function allows(string $scopeClass): bool
     {
-        return $this === self::Sys ? Environment::class : Dataset::class;
+        return match ($scopeClass) {
+            User::class => true,
+            Environment::class => $this === self::Sys,
+            Dataset::class => $this !== self::Sys,
+            default => false,
+        };
     }
 
     /** @return list<string> */
@@ -56,6 +62,6 @@ enum ExportKind: string implements HasLabel
     /** @return list<self> */
     public static function forScope(string $scopeClass): array
     {
-        return array_values(array_filter(self::cases(), static fn (self $kind): bool => $kind->allowedScope() === $scopeClass));
+        return array_values(array_filter(self::cases(), static fn (self $kind): bool => $kind->allows($scopeClass)));
     }
 }

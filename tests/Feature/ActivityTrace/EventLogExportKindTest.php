@@ -22,7 +22,7 @@ beforeEach(function () {
 
 it('is a dataset export of xlsx or csv with a plain label', function () {
     expect(ExportKind::EventLog->value)->toBe('event_log')
-        ->and(ExportKind::EventLog->allowedScope())->toBe(Dataset::class)
+        ->and(ExportKind::EventLog->allows(Dataset::class))->toBeTrue()
         ->and(ExportKind::EventLog->extensions())->toBe(['xlsx', 'csv'])
         ->and(ExportKind::EventLog->expectedRoot())->toBeNull()
         ->and(ExportKind::EventLog->getLabel())->toBe('IFS event log')

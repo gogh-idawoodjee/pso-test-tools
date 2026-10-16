@@ -255,10 +255,10 @@ abstract class ToolWizardPage extends Page implements HasForms
         ];
     }
 
-    /** Where an upload of this kind goes: the scope, or a dataset's environment for an environment kind. */
+    /** Where an upload of this kind goes: the scope, or a dataset's environment for a kind a dataset cannot hold (SYS). */
     private function uploadScopeFor(ExportKind $kind, Model $scope): Model
     {
-        return $kind->allowedScope() === Environment::class && $scope instanceof Dataset ? $scope->environment : $scope;
+        return $scope instanceof Dataset && ! $kind->allows(Dataset::class) ? $scope->environment : $scope;
     }
 
     /** "A LOAD export", "An End of day export". */

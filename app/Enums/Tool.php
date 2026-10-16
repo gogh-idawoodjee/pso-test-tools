@@ -22,6 +22,12 @@ enum Tool: string implements HasLabel
         return $this === self::SysCompare ? Environment::class : Dataset::class;
     }
 
+    /** Tools that only read the files: they may run Unfiled, with no environment or dataset. */
+    public function acceptsUnfiled(): bool
+    {
+        return in_array($this, [self::LoadAudit, self::AppointmentTimeline, self::PlanTravels], true);
+    }
+
     /** The question a consultant has in mind when they reach for this tool; shown in the catalogue and the wizard. */
     public function question(): string
     {

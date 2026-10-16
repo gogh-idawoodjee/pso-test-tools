@@ -1,13 +1,13 @@
 <?php
 
 use App\Enums\ExportKind;
-use App\Enums\ExportFileStatus;
 use App\Enums\Tool;
 use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 it('creates the tables and the settings column', function () {
@@ -17,8 +17,8 @@ it('creates the tables and the settings column', function () {
 });
 
 it('maps kinds to the scope they are allowed on', function () {
-    expect(ExportKind::Sys->allowedScope())->toBe(Environment::class)
-        ->and(ExportKind::Load->allowedScope())->toBe(Dataset::class)
+    expect(ExportKind::Sys->allows(Environment::class))->toBeTrue()
+        ->and(ExportKind::Load->allows(Dataset::class))->toBeTrue()
         ->and(ExportKind::Audits->extensions())->toBe(['zip'])
         ->and(ExportKind::Load->extensions())->toBe(['xml', 'json', 'zip'])
         ->and(Tool::LoadAudit->scope())->toBe(Dataset::class)
@@ -56,6 +56,33 @@ it('scopes export files and runs to the logged-in user through the dataset or en
         ->and($myEnvironment->exportFiles()->count())->toBe(1);
 });
 
+it('stores any kind unfiled on a user and shows it only to that user', function () {
+    $me = User::factory()->create();
+    $them = User::factory()->create();
+    $mySys = ExportFile::factory()->for($me, 'scope')->sys()->create(['original_filename' => 'my-sys.xml']);
+    ExportFile::factory()->for($me, 'scope')->create(['kind' => ExportKind::Audits, 'original_filename' => 'my-audits.zip', 'content_type' => 'zip']);
+    ExportFile::factory()->for($them, 'scope')->create(['original_filename' => 'their-load.xml']);
+    ToolRun::factory()->for($me, 'scope')->create();
+    ToolRun::factory()->for($them, 'scope')->create();
+
+    $this->actingAs($me);
+
+    expect(ExportFile::pluck('original_filename')->sort()->values()->all())->toBe(['my-audits.zip', 'my-sys.xml'])
+        ->and(ToolRun::count())->toBe(1)
+        ->and($me->exportFiles()->count())->toBe(2)
+        ->and($me->toolRuns()->count())->toBe(1)
+        ->and($mySys->fresh()->scope)->toBeInstanceOf(User::class)
+        ->and((string) $mySys->fresh()->scope_id)->toBe((string) $me->id);
+});
+
+it('matches the unfiled owner on the user id as a string', function () {
+    $me = User::factory()->create();
+    $this->actingAs($me);
+
+    expect(ExportFile::query()->getBindings())->toContain((string) $me->id)
+        ->and(ToolRun::query()->getBindings())->toContain((string) $me->id);
+});
+
 it('sets expires_at twelve hours after creation and knows when it is expired', function () {
     config(['exports.ttl_hours' => 12]);
     $this->travelTo(now()->startOfMinute());
@@ -71,7 +98,7 @@ it('sets expires_at twelve hours after creation and knows when it is expired', f
 it('stores the result encrypted', function () {
     $run = ToolRun::factory()->create(['result' => ['findings' => ['one']]]);
 
-    $raw = \Illuminate\Support\Facades\DB::table('tool_runs')->where('id', $run->id)->value('result');
+    $raw = DB::table('tool_runs')->where('id', $run->id)->value('result');
 
     expect($raw)->not->toContain('findings')
         ->and($run->fresh()->result)->toBe(['findings' => ['one']]);

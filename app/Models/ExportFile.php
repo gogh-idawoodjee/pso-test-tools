@@ -18,7 +18,7 @@ use Throwable;
 
 /**
  * One uploaded PSO export (LOAD, plan, EOD, audits zip on a dataset; SYS on an
- * environment). The object lives on R2 until expires_at; the row stays as history.
+ * environment; any kind Unfiled, on the user). The object lives on R2 until expires_at; the row stays as history.
  *
  * @mixin Builder
  */
@@ -54,11 +54,8 @@ class ExportFile extends Model
 
         static::saving(static function (self $file): void {
             $kind = $file->kind instanceof ExportKind ? $file->kind : ExportKind::from($file->kind);
-            if ($file->scope_type !== $kind->allowedScope()) {
-                $label = $kind->getLabel();
-                $scope = class_basename($kind->allowedScope());
-
-                throw new InvalidArgumentException("A {$label} export belongs on a {$scope}, not a ".class_basename($file->scope_type).'.');
+            if (! $kind->allows((string) $file->scope_type)) {
+                throw new InvalidArgumentException("A {$kind->getLabel()} export cannot be stored on a ".class_basename((string) $file->scope_type).'.');
             }
         });
     }

@@ -50,7 +50,7 @@ class ExportSlotRequest extends FormRequest
 
             $kind = ExportKind::from((string) $this->input('kind'));
 
-            if (self::SCOPES[$this->input('scope_type')] !== $kind->allowedScope()) {
+            if (! $kind->allows(self::SCOPES[$this->input('scope_type')])) {
                 $validator->errors()->add('kind', ucfirst(self::withArticle($kind->getLabel())).' export cannot be uploaded to '.self::withArticle((string) $this->input('scope_type')).'.');
 
                 return;

@@ -10,6 +10,7 @@ use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -56,10 +57,31 @@ class User extends Authenticatable implements FilamentUser
         ];
     }
 
-    /** @param  string|null  $datasetId  null for environment-scoped tools */
-    public function rememberToolContext(?string $environmentId, ?string $datasetId): void
+    /**
+     * @param  string|null  $datasetId  null for environment-scoped tools
+     * @param  bool  $unfiled  the last run was on the user's own Unfiled files
+     * @param  string|null  $timeZone  the zone chosen for that Unfiled run
+     */
+    public function rememberToolContext(?string $environmentId, ?string $datasetId, bool $unfiled = false, ?string $timeZone = null): void
     {
-        $this->forceFill(['last_tool_context' => ['environment_id' => $environmentId, 'dataset_id' => $datasetId]])->save();
+        $this->forceFill(['last_tool_context' => [
+            'environment_id' => $environmentId,
+            'dataset_id' => $datasetId,
+            'unfiled' => $unfiled,
+            'time_zone' => $timeZone,
+        ]])->save();
+    }
+
+    /** Unfiled exports: files that belong to no environment or dataset. */
+    public function exportFiles(): MorphMany
+    {
+        return $this->morphMany(ExportFile::class, 'scope');
+    }
+
+    /** Unfiled runs. */
+    public function toolRuns(): MorphMany
+    {
+        return $this->morphMany(ToolRun::class, 'scope');
     }
 
     #[Override]

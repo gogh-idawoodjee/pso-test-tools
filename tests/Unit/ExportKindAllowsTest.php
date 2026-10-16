@@ -1,0 +1,26 @@
+<?php
+
+use App\Enums\ExportKind;
+use App\Models\Dataset;
+use App\Models\Environment;
+use App\Models\User;
+
+it('says which scopes each kind may be stored on', function (ExportKind $kind, bool $onDataset, bool $onEnvironment) {
+    expect($kind->allows(Dataset::class))->toBe($onDataset)
+        ->and($kind->allows(Environment::class))->toBe($onEnvironment)
+        ->and($kind->allows(User::class))->toBeTrue()
+        ->and($kind->allows(stdClass::class))->toBeFalse();
+})->with([
+    'LOAD' => [ExportKind::Load, true, false],
+    'Plan' => [ExportKind::Plan, true, false],
+    'End of day' => [ExportKind::Eod, true, false],
+    'Audit messages' => [ExportKind::Audits, true, false],
+    'IFS event log' => [ExportKind::EventLog, true, false],
+    'SYS' => [ExportKind::Sys, false, true],
+]);
+
+it('lists every kind for the Unfiled scope and keeps SYS apart from a dataset', function () {
+    expect(ExportKind::forScope(User::class))->toBe(ExportKind::cases())
+        ->and(ExportKind::forScope(Dataset::class))->not->toContain(ExportKind::Sys)
+        ->and(ExportKind::forScope(Environment::class))->toBe([ExportKind::Sys]);
+});

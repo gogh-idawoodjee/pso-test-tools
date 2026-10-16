@@ -57,14 +57,14 @@ it('refuses a required file that is missing', function () {
 it('remembers the context on the user, with a null dataset for an environment-scoped run', function () {
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
     app(StartToolRun::class)->start($this->dataset, ToolId::LoadAudit, ['load' => $load->id], [], $this->user);
-    expect($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->dataset->environment_id, 'dataset_id' => $this->dataset->id]);
+    expect($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->dataset->environment_id, 'dataset_id' => $this->dataset->id, 'unfiled' => false, 'time_zone' => null]);
 
     $sys = ExportFile::factory()->for($this->dataset->environment, 'scope')->sys()->create();
     FakeTool::$kinds = [[ExportKind::Sys], []];
     app(ToolRegistry::class)->register(ToolId::SysCompare, FakeTool::class);
     app(StartToolRun::class)->start($this->dataset->environment, ToolId::SysCompare, ['sys' => $sys->id], [], $this->user);
     FakeTool::$kinds = null;
-    expect($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->dataset->environment_id, 'dataset_id' => null]);
+    expect($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->dataset->environment_id, 'dataset_id' => null, 'unfiled' => false, 'time_zone' => null]);
 });
 
 it('checks chosen files are usable, skipping blanks and keys the tool does not take', function () {

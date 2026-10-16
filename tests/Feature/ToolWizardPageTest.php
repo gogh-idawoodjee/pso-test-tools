@@ -57,7 +57,7 @@ it('shows the tool question and only the user own environments and datasets', fu
 
 it('pre-fills the only environment and dataset when nothing was remembered', function () {
     Livewire::test(LoadAuditEntry::class)
-        ->assertFormSet(['environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
+        ->assertFormSet(['environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id, 'unfiled' => false, 'time_zone' => null]);
 });
 
 it('pre-fills the remembered environment and dataset', function () {
@@ -208,7 +208,7 @@ it('starts a run with the chosen file and options, remembers the context and sho
     expect($run->tool)->toBe(ToolId::LoadAudit)
         ->and($run->inputs)->toBe(['files' => ['load' => $load->id], 'options' => ['ifs_release' => '25.2.7']])
         ->and($component->get('runId'))->toBe($run->id)
-        ->and($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
+        ->and($this->user->fresh()->last_tool_context)->toBe(['environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id, 'unfiled' => false, 'time_zone' => null]);
     Queue::assertPushed(RunToolJob::class);
 });
 

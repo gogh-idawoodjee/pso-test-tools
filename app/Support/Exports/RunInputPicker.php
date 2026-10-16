@@ -108,9 +108,9 @@ class RunInputPicker
     /** @return Collection<int, ExportFile> */
     private function candidates(Model $scope, ExportKind $kind): Collection
     {
-        [$scopeType, $scopeId] = $kind->allowedScope() === Environment::class && $scope instanceof Dataset
+        [$scopeType, $scopeId] = $scope instanceof Dataset && ! $kind->allows(Dataset::class)
             ? [(new Environment)->getMorphClass(), $scope->environment_id]
-            : [$scope->getMorphClass(), $scope->getKey()];
+            : [$scope->getMorphClass(), (string) $scope->getKey()];
 
         return ExportFile::query()
             ->where('scope_type', $scopeType)
