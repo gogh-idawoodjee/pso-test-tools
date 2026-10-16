@@ -142,3 +142,11 @@ The job's `resolveInputs()` reads files by the run's scope and does not care whi
 - My files page lists the user's exports and runs and not another user's.
 - Load audit, Plan travels and Trace: the page label falls back to the file name for a User scope
   (unit level, on the argv or the name passed to the script).
+
+## 10. Corrections found while planning (2026-10-16)
+
+- The ownership global scope on exports and runs would hide every user-filed row, the user's own included; it gets a branch for the User scope.
+- `ExportStorage::objectKey()` only accepts uuid scope ids; unfiled files use `exports/user/<id>/<uuid>.<ext>` so purge and runs do not throw.
+- User ids are integers in a char morph column: every scope id comparison casts to string (MySQL would otherwise compare numerically).
+- Plan travels names an Unfiled run after its Plan file (the spec said LOAD; the tool takes only a Plan export).
+- The time zone select always sits on the accepting tools' Options step and is hidden for dataset runs, because Filament builds the form once per request.
