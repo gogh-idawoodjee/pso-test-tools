@@ -12,7 +12,6 @@ use App\Enums\PsoGatewayUploadStatus;
 use App\Filament\Resources\EnvironmentResource;
 use App\Jobs\SendPsoScheduleDataJob;
 use App\Models\PsoGatewayUpload;
-use App\Models\PsoGatewayUploadLogLine;
 use App\Support\GatewayUploadPath;
 use App\Support\ScheduleData\BroadcastSettings;
 use App\Traits\EnvironmentToolsPayloadTrait;
@@ -54,6 +53,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use JsonException;
 use Livewire\Attributes\Locked;
+use Livewire\Attributes\On;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Override;
 
@@ -89,20 +89,6 @@ class EnvironmentTools extends Page
     #[Locked]
     public ?string $gatewayUploadId = null;
 
-    /**
-     * Run-log lines of the tracked upload, appended to on each poll.
-     *
-     * @var array<int, array{level: string, text: string, at: string}>
-     */
-    public array $gatewayLogLines = [];
-
-    /**
-     * Newest log line id already in $gatewayLogLines, so each poll reads only
-     * the lines after it.
-     */
-    #[Locked]
-    public int $gatewayLogLastId = 0;
-
     protected static ?string $title = 'Tools';
 
     /**
@@ -111,12 +97,6 @@ class EnvironmentTools extends Page
     private const array GATEWAY_UPLOAD_EXTENSIONS = ['json', 'xml', 'zip'];
 
     private const int GATEWAY_UPLOAD_MAX_KILOBYTES = 204800; // 200MB
-
-    /**
-     * How long the status panel keeps polling after a run finishes: the job
-     * can still write log lines (the logoff) just after the final status.
-     */
-    private const int GATEWAY_LOG_GRACE_SECONDS = 30;
 
     /**
      * One line of text that XML 1.0 can carry: no control characters (not even
@@ -797,10 +777,8 @@ class EnvironmentTools extends Page
                 ])->columnSpanFull(),
                 View::make('filament.resources.environment-resource.pages.partials.gateway-upload-status')
                     ->viewData(fn (): array => [
-                        'upload' => $this->currentGatewayUpload(),
+                        'uploadId' => $this->currentGatewayUpload()?->id,
                         'history' => $this->gatewayUploadHistory(),
-                        'logLines' => $this->gatewayLogLines,
-                        'keepPolling' => $this->gatewayLogShouldPoll(),
                     ])
                     ->columnSpanFull(),
             ])
@@ -1055,8 +1033,6 @@ class EnvironmentTools extends Page
         );
 
         $this->gatewayUploadId = $upload->id;
-        $this->gatewayLogLines = [];
-        $this->gatewayLogLastId = 0;
         $set('gateway_upload_file', null);
         $set('gateway_upload_original_filename', null);
         $set('dataset_id_override', null);
@@ -1109,55 +1085,13 @@ class EnvironmentTools extends Page
     }
 
     /**
-     * Appends the log lines written since the last poll. Cheap on purpose:
-     * the panel calls this every two seconds while a run is in progress, so
-     * it reads only lines after the newest id already shown.
+     * The status panel (App\Livewire\GatewayUploadStatus) polls itself and
+     * tells the page once when the run finishes: the page re-renders then so
+     * the form, disabled while the run was in progress, opens again and the
+     * recent uploads list shows the final status.
      */
-    public function pollGatewayUploadLog(): void
-    {
-        $upload = $this->currentGatewayUpload();
-
-        if ($upload === null) {
-            return;
-        }
-
-        $newLines = PsoGatewayUploadLogLine::query()
-            ->where('pso_gateway_upload_id', $upload->id)
-            ->where('id', '>', $this->gatewayLogLastId)
-            ->orderBy('id')
-            ->limit(500)
-            ->get(['id', 'level', 'text', 'created_at']);
-
-        foreach ($newLines as $line) {
-            $this->gatewayLogLines[] = [
-                'level' => $line->level->value,
-                'text' => $line->text,
-                'at' => $line->created_at->format('H:i:s'),
-            ];
-            $this->gatewayLogLastId = $line->id;
-        }
-    }
-
-    /**
-     * Whether the status panel should keep polling: while the run is in
-     * progress, and for a short while after it finishes so lines written just
-     * after the final status (the logoff) still arrive.
-     */
-    public function gatewayLogShouldPoll(): bool
-    {
-        $upload = $this->currentGatewayUpload();
-
-        if ($upload === null) {
-            return false;
-        }
-
-        if (! $upload->status->isTerminal()) {
-            return true;
-        }
-
-        return $upload->completed_at !== null
-            && $upload->completed_at->greaterThan(now()->subSeconds(self::GATEWAY_LOG_GRACE_SECONDS));
-    }
+    #[On('gateway-upload-finished')]
+    public function gatewayUploadFinished(): void {}
 
     /**
      * Shows one of this environment's uploads (its summary and stored log) in
@@ -1175,10 +1109,6 @@ class EnvironmentTools extends Page
         }
 
         $this->gatewayUploadId = $upload->id;
-        $this->gatewayLogLines = [];
-        $this->gatewayLogLastId = 0;
-
-        $this->pollGatewayUploadLog();
     }
 
     /**

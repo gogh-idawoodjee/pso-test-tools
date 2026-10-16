@@ -7,6 +7,7 @@ use App\Enums\PsoGatewayUploadStatus;
 use App\Filament\Resources\EnvironmentResource\Pages\EditEnvironment;
 use App\Filament\Resources\EnvironmentResource\Pages\EnvironmentTools;
 use App\Jobs\SendPsoScheduleDataJob;
+use App\Livewire\GatewayUploadStatus;
 use App\Models\Environment;
 use App\Models\PsoGatewayUpload;
 use App\Models\PsoGatewayUploadLogLine;
@@ -20,6 +21,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportEvents\SupportEvents;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
@@ -234,16 +236,16 @@ it('appends only new log lines on each poll', function () {
 
     $line('first');
 
-    $component = Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->call('viewGatewayUpload', $upload->id);
+    $component = Livewire::test(GatewayUploadStatus::class, ['uploadId' => $upload->id]);
 
-    expect($component->get('gatewayLogLines'))->toHaveCount(1);
+    expect($component->get('logLines'))->toHaveCount(1);
 
     $line('second');
-    $component->call('pollGatewayUploadLog');
-    $component->call('pollGatewayUploadLog');
+    $component->call('poll');
+    $component->call('poll');
 
-    expect(collect($component->get('gatewayLogLines'))->pluck('text')->all())->toBe(['first', 'second']);
+    expect(collect($component->get('logLines'))->pluck('text')->all())->toBe(['first', 'second']);
+    $component->assertSee('second');
 });
 
 it('will not show another environment\'s upload', function () {
@@ -308,19 +310,106 @@ it('polls a run in progress and stops polling a run that finished long ago', fun
         'completed_at' => now()->subHour(),
     ]);
 
-    Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->call('viewGatewayUpload', $running->id)
-        ->assertSeeHtml('wire:poll.2s="pollGatewayUploadLog"')
-        ->call('viewGatewayUpload', $finished->id)
-        ->assertDontSeeHtml('wire:poll.2s="pollGatewayUploadLog"');
+    Livewire::test(GatewayUploadStatus::class, ['uploadId' => $running->id])
+        ->assertSeeHtml('wire:poll.2s="poll"');
+    Livewire::test(GatewayUploadStatus::class, ['uploadId' => $finished->id])
+        ->assertDontSeeHtml('wire:poll');
 });
 
-it('does not let the client rewrite the last seen log line id', function () {
+it('keeps polling for a short while after a run finishes, then stops', function () {
     $environment = webhookFormEnvironment();
 
-    Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
-        ->set('gatewayLogLastId', 99);
-})->throws(CannotUpdateLockedPropertyException::class);
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'status' => PsoGatewayUploadStatus::SUCCEEDED,
+        'completed_at' => now(),
+    ]);
+
+    $component = Livewire::test(GatewayUploadStatus::class, ['uploadId' => $upload->id])
+        ->assertSeeHtml('wire:poll.2s="poll"');
+
+    $this->travel(GatewayUploadStatus::LOG_GRACE_SECONDS + 1)->seconds();
+
+    $component->call('poll')->assertDontSeeHtml('wire:poll');
+});
+
+it('never polls the page itself while an upload runs', function () {
+    $environment = webhookFormEnvironment();
+
+    $running = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'status' => PsoGatewayUploadStatus::UPLOADING,
+    ]);
+
+    $page = Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->call('viewGatewayUpload', $running->id)
+        ->assertSeeLivewire(GatewayUploadStatus::class);
+
+    // The rendered page includes the status panel: its poll is the only one.
+    $html = $page->html();
+    expect(substr_count($html, 'wire:poll'))->toBe(1)
+        ->and(substr_count($html, 'wire:poll.2s="poll"'))->toBe(1)
+        ->and($html)->not->toContain('pollGatewayUploadLog');
+});
+
+it('tells the page once when the run it is watching finishes', function () {
+    $environment = webhookFormEnvironment();
+
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'status' => PsoGatewayUploadStatus::UPLOADING,
+    ]);
+
+    $component = Livewire::test(GatewayUploadStatus::class, ['uploadId' => $upload->id])
+        ->call('poll')
+        ->assertNotDispatched('gateway-upload-finished');
+
+    $upload->update(['status' => PsoGatewayUploadStatus::SUCCEEDED, 'completed_at' => now()]);
+
+    $component->call('poll')->assertDispatched('gateway-upload-finished');
+    $component->call('poll')->assertNotDispatched('gateway-upload-finished');
+});
+
+it('does not tell the page about a run that had already finished when the panel opened', function () {
+    $environment = webhookFormEnvironment();
+
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'status' => PsoGatewayUploadStatus::FAILED,
+        'completed_at' => now(),
+    ]);
+
+    Livewire::test(GatewayUploadStatus::class, ['uploadId' => $upload->id])
+        ->call('poll')
+        ->assertNotDispatched('gateway-upload-finished');
+});
+
+it('re-renders the page and opens the form again when the status panel says the run finished', function () {
+    $environment = webhookFormEnvironment();
+
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'status' => PsoGatewayUploadStatus::UPLOADING,
+    ]);
+
+    $page = Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->call('viewGatewayUpload', $upload->id);
+
+    expect(SupportEvents::getListenerEventNames($page->instance()))->toContain('gateway-upload-finished')
+        ->and($page->instance()->gatewayUploadInProgress())->toBeTrue();
+
+    $upload->update(['status' => PsoGatewayUploadStatus::SUCCEEDED, 'completed_at' => now()]);
+
+    $page->dispatch('gateway-upload-finished');
+
+    expect($page->instance()->gatewayUploadInProgress())->toBeFalse();
+});
+
+it('does not let the client rewrite the status panel\'s upload or last seen log line id', function (string $property, mixed $value) {
+    $environment = webhookFormEnvironment();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create();
+
+    Livewire::test(GatewayUploadStatus::class, ['uploadId' => $upload->id])
+        ->set($property, $value);
+})->with([
+    'last log line id' => ['lastLogId', 99],
+    'upload id' => ['uploadId', 'another-upload'],
+])->throws(CannotUpdateLockedPropertyException::class);
 
 it('shows the reason from pso-services when the environment credentials test fails', function () {
     $environment = webhookFormEnvironment();
