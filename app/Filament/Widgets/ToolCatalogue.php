@@ -10,7 +10,6 @@ use App\Filament\Resources;
 use App\Tools\ToolRegistry;
 use Filament\Pages\Page;
 use Filament\Resources\Resource as FilamentResource;
-use Filament\Support\Colors\Color;
 use Filament\Support\Icons\Heroicon;
 use Filament\Widgets\Widget;
 
@@ -22,7 +21,7 @@ class ToolCatalogue extends Widget
 
     protected string $view = 'filament.widgets.tool-catalogue';
 
-    /** @return list<array{label: string, accent: string, items: list<array{label: string, icon: Heroicon|string|\BackedEnum, question: string, needs: ?string, url: string, class: class-string<Page|FilamentResource>}>}> */
+    /** @return list<array{label: string, items: list<array{label: string, icon: Heroicon|string|\BackedEnum, question: string, needs: ?string, url: string, class: class-string<Page|FilamentResource>}>}> */
     public function sections(): array
     {
         $registry = app(ToolRegistry::class);
@@ -40,8 +39,8 @@ class ToolCatalogue extends Widget
         $analyse[] = $this->item(Pages\PreferenceCalculator::class, 'Preference Calculator', 'Which of two technicians will PSO prefer for an activity, given costs, distances and preference values?', null);
 
         $sections = [
-            ['label' => Groups::ANALYSE, 'accent' => Color::Cyan[500], 'items' => $analyse],
-            ['label' => Groups::LIVE, 'accent' => Color::Rose[500], 'items' => [
+            ['label' => Groups::ANALYSE, 'items' => $analyse],
+            ['label' => Groups::LIVE, 'items' => [
                 $this->item(Pages\HomePages\PSOActivityHome::class, 'Activity Services', 'Create, update or delete activities in a live environment.', null),
                 $this->item(Pages\HomePages\PSOResourceHome::class, 'Resource Services', 'Change shifts, events and unavailability for a resource.', null),
                 $this->item(Pages\HomePages\PSOModellingHome::class, 'Modelling Services', 'Generate regions and resources for a model.', null),
@@ -50,12 +49,12 @@ class ToolCatalogue extends Widget
                 $this->item(Pages\GenericDelete::class, 'Generic Delete', 'Delete one object from a live environment.', null),
                 $this->item(Pages\GenerateCustomException::class, 'Generate Custom Exception', 'Raise a custom exception in a live environment.', null),
             ]],
-            ['label' => Groups::SETUP, 'accent' => Color::Amber[500], 'items' => [
+            ['label' => Groups::SETUP, 'items' => [
                 $this->item(Resources\EnvironmentResource::class, 'Environments', 'The PSO systems you connect to.', null),
                 $this->item(Resources\DatasetResource::class, 'Datasets', 'One per customer dataset: settings, exports and run history.', null),
                 $this->item(Resources\RegionResource::class, 'Reference values', 'Regions, skills and types synced from PSO.', null),
             ]],
-            ['label' => Groups::ADMIN, 'accent' => Color::Emerald[500], 'items' => [
+            ['label' => Groups::ADMIN, 'items' => [
                 $this->item(Resources\TokenUsageLogResource::class, 'Token usage', 'API calls made through this app.', null),
                 $this->item(Pages\IssueToken::class, 'Issue token', 'Create an API token.', null),
                 $this->item(Pages\HealthCheckResults::class, 'Health', 'Is this app healthy?', null),

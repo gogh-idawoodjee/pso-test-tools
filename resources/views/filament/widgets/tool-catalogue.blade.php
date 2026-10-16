@@ -1,14 +1,14 @@
 <x-filament-widgets::widget>
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
         @foreach ($this->sections() as $section)
-            <x-filament::section style="--accent: {{ $section['accent'] }}">
+            <x-filament::section class="pso-tool-section">
                 <x-slot name="heading">
-                    <span class="inline-flex items-center gap-2"><span class="h-2 w-2 rounded-full" style="background-color: var(--accent)"></span>{{ $section['label'] }}</span>
+                    <span class="inline-flex items-center gap-2"><span class="pso-tool-section-dot h-2 w-2 rounded-full"></span>{{ $section['label'] }}</span>
                 </x-slot>
                 <div class="grid gap-3 sm:grid-cols-2">
                     @foreach ($section['items'] as $item)
-                        <a href="{{ $item['url'] }}" data-tool-tile class="flex gap-3 rounded-xl bg-white p-3 ring-1 ring-gray-950/5 outline-none transition hover:ring-gray-950/15 focus-visible:ring-2 focus-visible:ring-primary-500 motion-reduce:transition-none dark:bg-white/5 dark:ring-white/10 dark:hover:ring-white/20">
-                            <span class="flex size-10 shrink-0 items-center justify-center rounded-lg" style="background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent)">
+                        <a href="{{ $item['url'] }}" data-tool-tile class="pso-tool-tile flex gap-3 rounded-xl bg-white p-3 ring-1 ring-gray-950/5 outline-none transition hover:ring-gray-950/15 focus-visible:ring-2 focus-visible:ring-primary-500 motion-reduce:transition-none dark:bg-white/5 dark:ring-white/10 dark:hover:ring-white/20">
+                            <span class="pso-tool-tile-icon flex size-10 shrink-0 items-center justify-center rounded-lg">
                                 <x-filament::icon :icon="$item['icon']" class="size-5" />
                             </span>
                             <span class="min-w-0">

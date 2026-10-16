@@ -11,6 +11,9 @@ use App\Http\Controllers\Exports\ExportCompleteController;
 use App\Http\Controllers\Exports\ExportSlotController;
 use App\Http\Controllers\SysCompare\SysCompareDownloadController;
 use App\Http\Controllers\SysCompare\SysCompareUploadController;
+use Filament\Auth\Pages\Login;
+use Filament\FontProviders\GoogleFontProvider;
+use Filament\FontProviders\LocalFontProvider;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -35,6 +38,36 @@ use ShuvroRoy\FilamentSpatieLaravelHealth\FilamentSpatieLaravelHealthPlugin;
 
 class AppPanelProvider extends PanelProvider
 {
+    /** Anton (display), IBM Plex Sans (UI) and IBM Plex Mono (IDs, counts, files), per docs/pso-theme/CLAUDE-THEME.md. */
+    public const FONTS_URL = 'https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap';
+
+    /**
+     * The PSO theme palettes. Primary runs from the tab tint through iris (#8567DA, 500) and the link
+     * violet (#5B3FBF, 600) to brand violet (#2A1B4F, 900). Gray is warm bone in the light shades and the
+     * dark-mode violet surfaces in the deep ones (#1C1433 cards, #120C24 page).
+     *
+     * @return array<string, array<int, string>>
+     */
+    public static function colors(): array
+    {
+        $palette = static fn (array $hex): array => array_map(Color::convertToOklch(...), $hex);
+
+        return [
+            'primary' => $palette([
+                50 => '#F7F4FE', 100 => '#EFEAFB', 200 => '#DDD3F7', 300 => '#C5B5F0', 400 => '#B9A4F5',
+                500 => '#8567DA', 600 => '#5B3FBF', 700 => '#4A31A3', 800 => '#3A2869', 900 => '#2A1B4F', 950 => '#1C1236',
+            ]),
+            'gray' => $palette([
+                50 => '#FBF9F5', 100 => '#F6F3EC', 200 => '#E7E1D6', 300 => '#D3CBBB', 400 => '#A39DAF',
+                500 => '#6B6578', 600 => '#524C61', 700 => '#3D3654', 800 => '#2E2552', 900 => '#1C1433', 950 => '#120C24',
+            ]),
+            'success' => Color::hex('#1C7C45'),
+            'warning' => Color::hex('#A15C07'),
+            'danger' => Color::hex('#B42318'),
+            'info' => Color::hex('#5B3FBF'),
+        ];
+    }
+
     public function panel(Panel $panel): Panel
     {
         return $panel
@@ -45,16 +78,12 @@ class AppPanelProvider extends PanelProvider
             ->sidebarCollapsibleOnDesktop()
             ->navigationGroups(Groups::ordered())
             ->brandLogoHeight('auto')
-            ->brandLogo(asset('images/pso_test_tools_logo_final.svg'))
-            ->favicon(asset('images/favicon.png'))
-            ->colors([
-                'primary' => Color::Violet,
-                'gray' => Color::Slate,
-                'analyse' => Color::Cyan,
-                'live' => Color::Rose,
-                'setup' => Color::Amber,
-                'admin' => Color::Emerald,
-            ])
+            ->brandLogo(fn () => view('filament.brand'))
+            ->favicon(asset('favicon.svg'))
+            // IBM Plex Sans for the UI; the one Google Fonts link also loads Anton and IBM Plex Mono.
+            ->font('IBM Plex Sans', url: self::FONTS_URL, provider: GoogleFontProvider::class)
+            ->monoFont('IBM Plex Mono', provider: LocalFontProvider::class)
+            ->colors(self::colors())
             ->viteTheme('resources/css/filament/app/theme.css')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
@@ -114,6 +143,13 @@ class AppPanelProvider extends PanelProvider
             PanelsRenderHook::PAGE_START,
             fn (): string => view('filament.live-environment-banner')->render(),
             scopes: LivePsoActionPages::all(),
+        );
+        FilamentView::registerRenderHook(PanelsRenderHook::HEAD_END,
+            fn (): string => view('filament.head')->render());
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::SIMPLE_PAGE_START,
+            fn (): string => view('filament.login-lockup')->render(),
+            scopes: Login::class,
         );
 
     }
