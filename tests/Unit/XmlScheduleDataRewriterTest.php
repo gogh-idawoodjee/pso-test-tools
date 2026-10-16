@@ -13,14 +13,14 @@ const XML_NS = 'http://360Scheduling.com/Schema/dsScheduleData.xsd';
 /**
  * @return array{0: string, 1: RewriteReport}
  */
-function rewriteXml(string $xml, ?string $datasetIdOverride = null, ?BroadcastInjection $injection = null): array
+function rewriteXml(string $xml, ?string $datasetIdOverride = null, ?BroadcastInjection $injection = null, bool $stripExisting = true): array
 {
     $source = tempnam(sys_get_temp_dir(), 'xmlsrc');
     $destination = tempnam(sys_get_temp_dir(), 'xmldst');
     file_put_contents($source, $xml);
 
     try {
-        $report = app(XmlScheduleDataRewriter::class)->rewrite($source, $destination, $datasetIdOverride, $injection);
+        $report = app(XmlScheduleDataRewriter::class)->rewrite($source, $destination, $datasetIdOverride, $injection, $stripExisting);
 
         return [file_get_contents($destination), $report];
     } finally {
@@ -104,13 +104,13 @@ it('does not strip a Broadcast element nested below the root children', function
     expect(xpathFor($output)->evaluate('string(/s:dsScheduleData/s:Resources/s:Broadcast)'))->toBe('DEEP');
 });
 
-it('keeps existing Broadcast and Broadcast_Parameter elements byte for byte when nothing is injected', function () {
+it('keeps existing Broadcast and Broadcast_Parameter elements byte for byte when stripping is off and nothing is injected', function () {
     $xml = '<dsScheduleData xmlns="'.XML_NS."\">\n  <Input_Reference><dataset_id>OLD</dataset_id></Input_Reference>\n"
         ."  <Broadcast ><id>MINE</id><active>true</active></Broadcast>\n"
         ."  <Broadcast_Parameter><broadcast_id>MINE</broadcast_id><parameter_value>https://x/y?a=1&amp;b=2</parameter_value></Broadcast_Parameter>\n"
         .'</dsScheduleData>';
 
-    [$output, $report] = rewriteXml($xml, 'NEW');
+    [$output, $report] = rewriteXml($xml, 'NEW', null, stripExisting: false);
 
     expect($output)->toBe(str_replace('>OLD<', '>NEW<', $xml));
     expect($report->strippedBroadcasts)->toBe(0);
@@ -385,4 +385,43 @@ it('reports the same wrapperless shape as the JSON rewriter', function () {
 
     expect([$xmlReport->format, $xmlReport->wrapperFound])->toBe([null, false]);
     expect([$jsonReport->format, $jsonReport->wrapperFound])->toBe([null, false]);
+});
+
+it('strips existing Broadcast elements without injecting when asked, leaving every other byte as it was', function () {
+    $prefix = "<?xml version='1.0' encoding='utf-8'?>\r\n<dsScheduleData xmlns='".XML_NS."'>\r\n"
+        ."\t<Input_Reference><dataset_id>OLD</dataset_id></Input_Reference>";
+    $middle = "\r\n\t<Resources><id>R1</id></Resources>";
+    $suffix = "\r\n</dsScheduleData>\r\n";
+    $xml = $prefix."\r\n\t<Broadcast><id>MINE</id></Broadcast>".$middle
+        ."\r\n\t<Broadcast_Parameter><broadcast_id>MINE</broadcast_id></Broadcast_Parameter>"
+        ."\r\n\t<Broadcast_Parameter/>".$suffix;
+
+    [$output, $report] = rewriteXml($xml);
+
+    expect($output)->toBe($prefix.$middle.$suffix);
+    expect($report->strippedBroadcasts)->toBe(1);
+    expect($report->strippedBroadcastParameters)->toBe(2);
+    expect($report->datasetIdChanged)->toBeFalse();
+});
+
+it('strips existing Broadcast elements when injecting even if stripping is off', function () {
+    $xml = '<dsScheduleData xmlns="'.XML_NS.'"><Broadcast><id>OLD1</id></Broadcast>'
+        .'<Broadcast_Parameter><broadcast_id>OLD1</broadcast_id></Broadcast_Parameter></dsScheduleData>';
+
+    [$output, $report] = rewriteXml($xml, null, xmlWebhookInjection(), stripExisting: false);
+
+    expect($report->strippedBroadcasts)->toBe(1);
+    expect($report->strippedBroadcastParameters)->toBe(1);
+    expect($output)->not->toContain('OLD1');
+    expect(xpathFor($output)->evaluate('count(/s:dsScheduleData/s:Broadcast)'))->toBe(1.0);
+});
+
+it('copies a file without a schedule data root unchanged when only stripping is asked for', function () {
+    $xml = '<other><Broadcast><id>OLD</id></Broadcast></other>';
+
+    [$output, $report] = rewriteXml($xml);
+
+    expect($output)->toBe($xml);
+    expect($report->wrapperFound)->toBeFalse();
+    expect($report->strippedBroadcasts)->toBe(0);
 });

@@ -30,6 +30,7 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
         string $destinationPath,
         ?string $datasetIdOverride,
         ?BroadcastInjection $injection,
+        bool $stripExisting = true,
     ): RewriteReport {
         $source = @fopen($sourcePath, 'rb');
 
@@ -54,7 +55,7 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
         }
 
         try {
-            return $this->copy($source, $destination, $datasetIdOverride, $injection);
+            return $this->copy($source, $destination, $datasetIdOverride, $injection, $stripExisting || $injection !== null);
         } finally {
             fclose($source);
             fclose($destination);
@@ -65,7 +66,7 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
      * @param  resource  $source
      * @param  resource  $destination
      */
-    private function copy($source, $destination, ?string $datasetIdOverride, ?BroadcastInjection $injection): RewriteReport
+    private function copy($source, $destination, ?string $datasetIdOverride, ?BroadcastInjection $injection, bool $strip): RewriteReport
     {
         $bytesWritten = 0;
         $pending = '';
@@ -201,8 +202,8 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
 
                 $decodedKey = json_decode($token);
                 $memberName = is_string($decodedKey) ? $decodedKey : '';
-                // Old broadcasts are only stripped when a new one replaces them (as in the script).
-                $strippingMember = $injection !== null && in_array($memberName, self::STRIPPED_ENTITIES, true);
+                // Old broadcasts go when asked, and always when a new one replaces them.
+                $strippingMember = $strip && in_array($memberName, self::STRIPPED_ENTITIES, true);
                 $memberRows = 0;
                 $memberIsArray = false;
 

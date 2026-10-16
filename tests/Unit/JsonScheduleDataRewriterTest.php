@@ -9,14 +9,14 @@ use App\Support\ScheduleData\RewriteReport;
 /**
  * @return array{0: string, 1: RewriteReport}
  */
-function rewriteJson(string $json, ?string $datasetIdOverride = null, ?BroadcastInjection $injection = null): array
+function rewriteJson(string $json, ?string $datasetIdOverride = null, ?BroadcastInjection $injection = null, bool $stripExisting = true): array
 {
     $source = tempnam(sys_get_temp_dir(), 'rwsrc');
     $destination = tempnam(sys_get_temp_dir(), 'rwdst');
     file_put_contents($source, $json);
 
     try {
-        $report = app(JsonScheduleDataRewriter::class)->rewrite($source, $destination, $datasetIdOverride, $injection);
+        $report = app(JsonScheduleDataRewriter::class)->rewrite($source, $destination, $datasetIdOverride, $injection, $stripExisting);
 
         return [file_get_contents($destination), $report];
     } finally {
@@ -289,10 +289,10 @@ it('never modifies the source file', function () {
     }
 });
 
-it('keeps existing Broadcast and Broadcast_Parameter rows byte for byte when nothing is injected', function () {
+it('keeps existing Broadcast and Broadcast_Parameter rows byte for byte when stripping is off and nothing is injected', function () {
     $json = "{\"ScheduleData\":{\"Input_Reference\":[{\"dataset_id\":\"OLD\"}],\n  \"Broadcast\" : [ {\"id\":\"MINE\", \"active\":true} ],\n  \"Broadcast_Parameter\":[{\"broadcast_id\":\"MINE\",\"parameter_name\":\"url\",\"parameter_value\":\"https://x/y\"}]\n}}";
 
-    [$output, $report] = rewriteJson($json, 'NEW');
+    [$output, $report] = rewriteJson($json, 'NEW', null, stripExisting: false);
 
     expect($output)->toBe(str_replace('"OLD"', '"NEW"', $json));
     expect($report->strippedBroadcasts)->toBe(0);
@@ -325,4 +325,37 @@ it('refuses to write over the source file', function () {
     } finally {
         @unlink($source);
     }
+});
+
+it('strips existing Broadcast rows without injecting when asked, leaving every other byte as it was', function () {
+    $kept = "{\"ScheduleData\":{\"Input_Reference\":[{\"dataset_id\":\"OLD\"}],\n  \"Resources\" : [ {\"id\":\"R\u00e9\"} ]";
+    $json = $kept.",\n  \"Broadcast\" : [ {\"id\":\"MINE\"} ],\n  \"Broadcast_Parameter\":[{\"broadcast_id\":\"MINE\"},{\"broadcast_id\":\"MINE\"}]\n}}";
+
+    [$output, $report] = rewriteJson($json);
+
+    expect($output)->toBe($kept."\n}}");
+    expect($report->strippedBroadcasts)->toBe(1);
+    expect($report->strippedBroadcastParameters)->toBe(2);
+    expect($report->datasetIdChanged)->toBeFalse();
+});
+
+it('strips existing Broadcast rows when injecting even if stripping is off', function () {
+    $json = '{"ScheduleData":{"Broadcast":[{"id":"OLD1"}],"Broadcast_Parameter":[{"broadcast_id":"OLD1"}]}}';
+
+    [$output, $report] = rewriteJson($json, null, webhookInjection(), stripExisting: false);
+
+    expect($report->strippedBroadcasts)->toBe(1);
+    expect($report->strippedBroadcastParameters)->toBe(1);
+    expect($output)->not->toContain('OLD1');
+    expect(json_decode($output, true, flags: JSON_THROW_ON_ERROR)['ScheduleData']['Broadcast'])->toHaveCount(1);
+});
+
+it('copies a file without a wrapper unchanged when only stripping is asked for', function () {
+    $json = '{"Other":{"Broadcast":[{"id":"OLD"}]}}';
+
+    [$output, $report] = rewriteJson($json);
+
+    expect($output)->toBe($json);
+    expect($report->wrapperFound)->toBeFalse();
+    expect($report->strippedBroadcasts)->toBe(0);
 });

@@ -56,6 +56,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
         string $destinationPath,
         ?string $datasetIdOverride,
         ?BroadcastInjection $injection,
+        bool $stripExisting = true,
     ): RewriteReport {
         $escapedOverride = $datasetIdOverride === null ? null : $this->escapeText($datasetIdOverride, rejectInvalid: true);
 
@@ -88,7 +89,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
         $this->bytesWritten = 0;
 
         try {
-            return $this->copy($datasetIdOverride, $escapedOverride, $injection);
+            return $this->copy($datasetIdOverride, $escapedOverride, $injection, $stripExisting || $injection !== null);
         } finally {
             fclose($source);
             fclose($destination);
@@ -96,7 +97,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
         }
     }
 
-    private function copy(?string $datasetIdOverride, ?string $escapedOverride, ?BroadcastInjection $injection): RewriteReport
+    private function copy(?string $datasetIdOverride, ?string $escapedOverride, ?BroadcastInjection $injection, bool $strip): RewriteReport
     {
         $this->readChunk();
 
@@ -275,7 +276,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
                     $textRun = substr($this->buffer, $textStart, $tagStart - $textStart);
                     $whitespaceOnly = strspn($textRun, " \t\r\n") === strlen($textRun);
 
-                    if ($injection !== null && in_array($localName, self::STRIPPED_ENTITIES, true)) {
+                    if ($strip && in_array($localName, self::STRIPPED_ENTITIES, true)) {
                         $keepUntil = $whitespaceOnly ? $textStart : $tagStart;
                         $this->write(substr($this->buffer, $copyFrom, $keepUntil - $copyFrom));
                         $copyFrom = $position;

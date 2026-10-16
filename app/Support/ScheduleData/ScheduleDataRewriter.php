@@ -6,8 +6,10 @@ interface ScheduleDataRewriter
 {
     /**
      * Writes a modified copy of the schedule data file: optionally with every
-     * Input_Reference dataset_id replaced, and optionally with every existing
-     * Broadcast and Broadcast_Parameter row replaced by the injected one.
+     * Input_Reference dataset_id replaced, optionally with the injected
+     * Broadcast added, and with every existing Broadcast and
+     * Broadcast_Parameter row removed when $stripExisting is true or a
+     * Broadcast is injected (so the file never carries two).
      * The source file is never modified. Streams; memory does not grow with
      * the file.
      *
@@ -18,5 +20,6 @@ interface ScheduleDataRewriter
         string $destinationPath,
         ?string $datasetIdOverride,
         ?BroadcastInjection $injection,
+        bool $stripExisting = true,
     ): RewriteReport;
 }
