@@ -88,7 +88,7 @@ Per-dataset settings (display names, coverage, exclusions, labels, time zone) li
 form. Seed one from a pso-tools account file with
 `php artisan datasets:seed-settings <dataset id> accounts/SATE.json --time-zone=America/Regina`.
 
-### Load and configuration health audit
+### Load Health Audit
 
 The audit is the Python script in the private `pso-tools` repo, run as a child process; nothing is ported.
 The server needs Python 3 (3.13 on the server) and a checkout of that repo:

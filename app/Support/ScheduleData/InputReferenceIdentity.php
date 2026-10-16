@@ -31,21 +31,20 @@ readonly class InputReferenceIdentity
     }
 
     /**
-     * One plain line, e.g. "Sent from PSO Test Tools (Load from File) by Ish
-     * Dawoodjee, environment SaskTel TST, file load.xml, 2026-10-16 13:40Z".
+     * One plain line, e.g. "Sent from PSO Test Tools (Load from File),
+     * environment SaskTel TST, file load.xml, 2026-10-16 13:40Z".
      *
      * Capped at DESCRIPTION_MAX_CHARACTERS: the file name is shortened first
      * (keeping its extension), then the environment name, so the fixed text,
-     * the user name and the time survive.
+     * and the time survive.
      */
-    public static function forLoadFromFile(string $userName, string $environmentName, string $fileName, DateTimeInterface $queuedAt): self
+    public static function forLoadFromFile(string $environmentName, string $fileName, DateTimeInterface $queuedAt): self
     {
         $utc = (clone $queuedAt)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i');
-        $userName = self::clean($userName);
         $environmentName = self::clean($environmentName);
         $fileName = self::clean($fileName);
 
-        $compose = static fn (string $environment, string $file): string => 'Sent from '.self::USER_ID." (Load from File) by {$userName}, environment {$environment}, file {$file}, {$utc}Z";
+        $compose = static fn (string $environment, string $file): string => 'Sent from '.self::USER_ID." (Load from File), environment {$environment}, file {$file}, {$utc}Z";
 
         $budget = self::DESCRIPTION_MAX_CHARACTERS - mb_strlen($compose('', ''));
 
@@ -54,7 +53,7 @@ readonly class InputReferenceIdentity
             $environmentName = self::shorten($environmentName, max($budget - mb_strlen($fileName), 0), keepExtension: false);
         }
 
-        // Only an absurdly long user name gets here; cut the line itself.
+        // Only an absurdly long environment name gets here; cut the line itself.
         return new self(self::USER_ID, mb_substr($compose($environmentName, $fileName), 0, self::DESCRIPTION_MAX_CHARACTERS));
     }
 

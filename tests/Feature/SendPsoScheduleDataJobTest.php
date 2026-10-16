@@ -1057,7 +1057,7 @@ it('caps the dataset ids in the file to the column width and still succeeds', fu
     expect($upload->dataset_id_in_file)->toStartWith(str_repeat('DS1', 30).', ')->toEndWith(StoredText::TRUNCATED_MARKER);
 });
 
-it('marks the Input_Reference it sends as sent from PSO Test Tools, by whom, where, which file and when', function () {
+it('marks the Input_Reference it sends as sent from PSO Test Tools, from where, which file and when', function () {
     fakeWebhookAndGateway();
     $user = User::factory()->create(['name' => 'Ish Dawoodjee']);
     $upload = webhookJobUpload(
@@ -1074,7 +1074,7 @@ it('marks the Input_Reference it sends as sent from PSO Test Tools, by whom, whe
     runUploadJob($upload);
 
     $inputReference = sentPayload()['ScheduleData']['Input_Reference'][0];
-    $expectedDescription = 'Sent from PSO Test Tools (Load from File) by Ish Dawoodjee, environment SaskTel TST, file north_load.json, 2026-10-16 13:40Z';
+    $expectedDescription = 'Sent from PSO Test Tools (Load from File), environment SaskTel TST, file north_load.json, 2026-10-16 13:40Z';
 
     expect($inputReference['user_id'])->toBe('PSO Test Tools');
     expect($inputReference['description'])->toBe($expectedDescription);
@@ -1108,7 +1108,7 @@ it('sends a marked copy even when the webhook is skipped, removal is off and the
         return false;
     });
 
-    expect($sentXml)->toContain('<dataset_id>N</dataset_id><user_id>PSO Test Tools</user_id><description>Sent from PSO Test Tools (Load from File) by ')
+    expect($sentXml)->toContain('<dataset_id>N</dataset_id><user_id>PSO Test Tools</user_id><description>Sent from PSO Test Tools (Load from File), environment ')
         ->toContain('<Broadcast><id>CUSTOMER</id></Broadcast>');
     expect($upload->refresh()->logLines->pluck('text')->implode("\n"))
         ->toContain('Existing Broadcast rows: kept')

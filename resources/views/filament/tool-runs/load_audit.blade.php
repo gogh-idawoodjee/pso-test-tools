@@ -24,7 +24,7 @@
 @if ($hasPage)
 <iframe
     src="{{ route('tool-runs.page', [$dataset, $run]) }}"
-    title="Load and configuration health audit"
+    title="Load Health Audit"
     sandbox="allow-scripts allow-downloads allow-popups allow-top-navigation-by-user-activation"
     class="w-full rounded-xl bg-white ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
     style="height: calc(100vh - 14rem); min-height: 600px;"

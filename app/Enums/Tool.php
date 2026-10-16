@@ -29,7 +29,7 @@ enum Tool: string implements HasLabel
             self::LoadAudit => 'What is wrong with the data and configuration in this LOAD?',
             self::ScheduleReview => 'How did today\'s schedule come out, and what needs attention?',
             self::ScheduleRollup => 'How has the schedule trended over the last weeks?',
-            self::RegionAvailability => 'Which regions have enough technicians available on each day?',
+            self::RegionAvailability => 'Visualize Resource Regions',
             self::AppointmentTimeline => 'What happened to one activity: how it was booked and how PSO scheduled it?',
             self::PlanTravels => 'How long are the planned travels, and do they match real road times?',
             self::SysCompare => 'What differs between these SYS exports and the baseline?',
@@ -39,7 +39,7 @@ enum Tool: string implements HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::LoadAudit => 'Load and configuration health audit',
+            self::LoadAudit => 'Load Health Audit',
             self::ScheduleReview => 'Daily schedule review',
             self::ScheduleRollup => 'Schedule review roll-up',
             self::RegionAvailability => 'Region availability',

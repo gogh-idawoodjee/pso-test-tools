@@ -429,10 +429,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
      */
     private function inputReferenceIdentity(PsoGatewayUpload $upload): InputReferenceIdentity
     {
-        $userName = User::query()->whereKey($upload->initiated_by_user_id)->value('name');
-
         return InputReferenceIdentity::forLoadFromFile(
-            filled($userName) ? (string) $userName : '(unknown user)',
             $this->environmentName($upload) ?? '(unknown environment)',
             (string) $upload->original_filename,
             $upload->queued_at ?? $upload->created_at ?? now(),
