@@ -177,6 +177,11 @@ pre {
     border-radius: 4px;
 }
 
+/* The sign-in card shows the full lockup instead, so the text wordmark is left out there. */
+.fi-simple-page:has(.pso-login-lockup) .fi-simple-header .fi-logo {
+    display: none;
+}
+
 .pso-login-lockup {
     display: flex;
     justify-content: center;
@@ -203,6 +208,31 @@ pre {
             color: var(--pso-chrome-text);
             background-color: rgba(255, 255, 255, 0.06);
         }
+    }
+}
+
+/* Below the desktop breakpoint Filament hides the top bar's brand; show a smaller wordmark beside the menu button. */
+@media (max-width: 1023px) {
+    .fi-topbar-start {
+        display: flex;
+        margin-inline-end: 0;
+        min-width: 0;
+
+        & .fi-topbar-collapse-sidebar-btn-ctn {
+            display: none;
+        }
+
+        & .fi-logo {
+            margin-inline-start: 0.5rem;
+        }
+    }
+
+    .fi-topbar .brand-word {
+        font-size: 20px;
+    }
+
+    .fi-topbar .brand-by {
+        font-size: 7px;
     }
 }
 
@@ -445,6 +475,14 @@ pre {
 
     &:focus-visible {
         box-shadow: var(--pso-focus-ring);
+    }
+
+    /* Disabled: the same colours, faded, rather than a different grey-violet. */
+    &.fi-disabled:not(.fi-force-enabled),
+    &[disabled]:not(.fi-force-enabled) {
+        background-color: var(--pso-primary-bg);
+        color: var(--pso-primary-text);
+        opacity: 0.5;
     }
 }
 
