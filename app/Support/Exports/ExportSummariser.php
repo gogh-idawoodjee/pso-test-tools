@@ -8,6 +8,7 @@ use App\Support\ScheduleData\JsonTokenReader;
 use App\Support\ScheduleDataSummaryExtractor;
 use App\Support\SysCompare\VersionAnalyzer;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 use XMLReader;
@@ -215,7 +216,10 @@ class ExportSummariser
                     }
                 }
             }
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            // A truncated or corrupt file reads as "no Plan block"; keep the real reason in the log.
+            Log::warning('Plan block scan failed: '.$e->getMessage(), ['path' => basename($path)]);
+
             return null;
         } finally {
             fclose($handle);
