@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\EnvironmentResource\Pages;
 
 use App\Filament\Resources\EnvironmentResource;
+use App\Filament\Widgets\GoogleRoutesCache;
 use App\Models\Environment;
 use App\Support\PsoEnvironmentsExporter;
 use Filament\Actions;
@@ -14,6 +15,16 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ListEnvironments extends ListRecords
 {
     protected static string $resource = EnvironmentResource::class;
+
+    protected function getHeaderWidgets(): array
+    {
+        return [GoogleRoutesCache::class];
+    }
+
+    public function getHeaderWidgetsColumns(): int|array
+    {
+        return 1;
+    }
 
     protected function getHeaderActions(): array
     {

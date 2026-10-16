@@ -21,7 +21,7 @@ class PsoServicesRoutesClient
      */
     public function compute(array $legs, string $travelMode, string $routingPreference): array
     {
-        $url = $this->url();
+        $url = $this->url('routes/compute');
 
         try {
             $token = config('psott.routes.token');
@@ -54,11 +54,49 @@ class PsoServicesRoutesClient
         ];
     }
 
-    private function url(): string
+    /**
+     * What the shared cache holds (GET /routes/stats): counts and dates only.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws PsoServicesRoutesException
+     */
+    public function stats(): array
+    {
+        $url = $this->url('routes/stats');
+
+        try {
+            $token = config('psott.routes.token');
+            $response = Http::acceptJson()
+                ->when(filled($token), static fn ($request) => $request->withHeaders(['X-PSO-Routes-Token' => (string) $token]))
+                ->timeout(10)
+                ->connectTimeout(5)
+                ->get($url);
+        } catch (ConnectionException $exception) {
+            Log::warning('PSO services routes: the stats could not be fetched', ['url' => $url, 'message' => $exception->getMessage()]);
+
+            throw new PsoServicesRoutesException('The PSO services API could not be reached (timed out or unreachable).', 0, $exception);
+        }
+
+        if (! $response->successful()) {
+            Log::warning('PSO services routes: the stats request failed', ['url' => $url, 'message' => $this->errorMessage($response)]);
+
+            throw new PsoServicesRoutesException($this->errorMessage($response), $response->status());
+        }
+
+        $body = $response->json();
+        if (! is_array($body) || ! array_key_exists('rows', $body)) {
+            throw new PsoServicesRoutesException('The PSO services API answered without cache stats.', $response->status());
+        }
+
+        return $body;
+    }
+
+    private function url(string $path): string
     {
         $version = config('psott.pso-services-api-version');
 
-        return 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').'routes/compute';
+        return 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').$path;
     }
 
     private function errorMessage(Response $response): string
