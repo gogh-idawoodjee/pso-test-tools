@@ -3,7 +3,6 @@
 namespace App\Support\PsoServices;
 
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -21,7 +20,7 @@ class PsoServicesRoutesClient
      */
     public function compute(array $legs, string $travelMode, string $routingPreference): array
     {
-        $url = $this->url('routes/compute');
+        $url = PsoServicesApi::url('routes/compute');
 
         try {
             $token = config('psott.routes.token');
@@ -38,7 +37,7 @@ class PsoServicesRoutesClient
         }
 
         if (! $response->successful()) {
-            throw new PsoServicesRoutesException($this->errorMessage($response), $response->status());
+            throw new PsoServicesRoutesException(PsoServicesApi::errorMessage($response), $response->status());
         }
 
         $results = $response->json('results');
@@ -63,7 +62,7 @@ class PsoServicesRoutesClient
      */
     public function stats(): array
     {
-        $url = $this->url('routes/stats');
+        $url = PsoServicesApi::url('routes/stats');
 
         try {
             $token = config('psott.routes.token');
@@ -79,9 +78,9 @@ class PsoServicesRoutesClient
         }
 
         if (! $response->successful()) {
-            Log::warning('PSO services routes: the stats request failed', ['url' => $url, 'message' => $this->errorMessage($response)]);
+            Log::warning('PSO services routes: the stats request failed', ['url' => $url, 'message' => PsoServicesApi::errorMessage($response)]);
 
-            throw new PsoServicesRoutesException($this->errorMessage($response), $response->status());
+            throw new PsoServicesRoutesException(PsoServicesApi::errorMessage($response), $response->status());
         }
 
         $body = $response->json();
@@ -90,26 +89,5 @@ class PsoServicesRoutesClient
         }
 
         return $body;
-    }
-
-    private function url(string $path): string
-    {
-        $version = config('psott.pso-services-api-version');
-
-        return 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').$path;
-    }
-
-    private function errorMessage(Response $response): string
-    {
-        $body = $response->json();
-        $candidates = [data_get($body, 'error'), data_get($body, 'message')];
-        $validationErrors = data_get($body, 'errors');
-        if (is_array($validationErrors)) {
-            $candidates[] = collect($validationErrors)->flatten()->first();
-        }
-
-        $parts = array_values(array_unique(array_filter($candidates, static fn (mixed $candidate): bool => is_string($candidate) && $candidate !== '')));
-
-        return $parts === [] ? "The PSO services API returned {$response->status()}." : implode(' ', $parts);
     }
 }

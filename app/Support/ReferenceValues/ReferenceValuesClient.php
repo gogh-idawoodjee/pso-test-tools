@@ -3,6 +3,7 @@
 namespace App\Support\ReferenceValues;
 
 use App\Models\Environment;
+use App\Support\PsoServices\PsoServicesApi;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
@@ -22,7 +23,7 @@ class ReferenceValuesClient
      */
     public function fetch(Environment $environment, string $datasetName): array
     {
-        $url = $this->url();
+        $url = PsoServicesApi::url('dataset/reference-values');
 
         try {
             $response = Http::acceptJson()
@@ -43,7 +44,7 @@ class ReferenceValuesClient
         }
 
         if (! $response->successful()) {
-            throw new ReferenceValuesFetchException($this->errorMessage($response->json(), $response->status()));
+            throw new ReferenceValuesFetchException(PsoServicesApi::errorMessage($response));
         }
 
         $tables = $response->json('data.tables');
@@ -52,25 +53,5 @@ class ReferenceValuesClient
         }
 
         return $tables;
-    }
-
-    private function url(): string
-    {
-        $version = config('psott.pso-services-api-version');
-
-        return 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').'dataset/reference-values';
-    }
-
-    private function errorMessage(mixed $body, int $status): string
-    {
-        $error = data_get($body, 'message.error') ?? data_get($body, 'message');
-        $details = data_get($body, 'message.details');
-
-        $text = is_string($error) ? $error : "The PSO services API returned {$status}.";
-        if (is_string($details) && $details !== '') {
-            $text .= ' '.$details;
-        }
-
-        return $text;
     }
 }

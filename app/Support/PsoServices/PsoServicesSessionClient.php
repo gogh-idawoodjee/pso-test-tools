@@ -55,7 +55,7 @@ class PsoServicesSessionClient
      */
     private function send(string $method, #[SensitiveParameter] array $headers): Response
     {
-        $url = $this->url();
+        $url = PsoServicesApi::url('session');
 
         try {
             $response = Http::acceptJson()
@@ -74,43 +74,9 @@ class PsoServicesSessionClient
         }
 
         if (! $response->successful()) {
-            throw new PsoServicesSessionException($this->errorMessage($response), $response->status());
+            throw new PsoServicesSessionException(PsoServicesApi::errorMessage($response), $response->status());
         }
 
         return $response;
-    }
-
-    private function url(): string
-    {
-        $version = config('psott.pso-services-api-version');
-
-        return 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').'session';
-    }
-
-    private function errorMessage(Response $response): string
-    {
-        $body = $response->json();
-
-        $candidates = [
-            data_get($body, 'error'),
-            data_get($body, 'message'),
-            data_get($body, 'details'),
-            data_get($body, 'details.Message'),
-        ];
-
-        $validationErrors = data_get($body, 'errors');
-
-        if (is_array($validationErrors)) {
-            $candidates[] = collect($validationErrors)->flatten()->first();
-        }
-
-        $parts = array_values(array_unique(array_filter(
-            $candidates,
-            static fn (mixed $candidate): bool => is_string($candidate) && $candidate !== '',
-        )));
-
-        return $parts === []
-            ? "The PSO services API returned {$response->status()}."
-            : implode(' ', $parts);
     }
 }
