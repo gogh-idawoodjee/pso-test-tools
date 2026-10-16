@@ -241,3 +241,51 @@ it('refuses Livewire file uploads, which would stage customer data on the shared
 it('makes the results unreachable by tampering with the locked properties', function (): void {
     Livewire::test(SysFileCompare::class)->set('runId', SysCompareStorage::newId());
 })->throws(CannotUpdateLockedPropertyException::class);
+
+it('reports a failure while checking the status once and stops polling, instead of repeating the error', function (): void {
+    $page = pageWithFiles(['prod.xml', 'tst.xml'])->call('run');
+    $reads = new ArrayObject(['count' => 0]);
+
+    // From here the web process cannot read the results the worker wrote.
+    $this->app->bind(SysCompareStorage::class, fn () => new class($reads) extends SysCompareStorage
+    {
+        public function __construct(private readonly ArrayObject $reads) {}
+
+        public function readRunFile(int $userId, string $runId, string $fileName): ?string
+        {
+            $this->reads['count']++;
+
+            throw new ErrorException('simulated: Permission denied');
+        }
+    });
+
+    $page->call('checkStatus')
+        ->assertSet('jobId', null)
+        ->assertSee('Something went wrong while checking the comparison')
+        ->assertNotified('Comparison failed');
+
+    // Every later poll returns early: the failing read is not attempted again, so no more toasts.
+    $page->call('checkStatus')->call('checkStatus')->call('checkStatus');
+
+    expect($reads['count'])->toBe(1);
+});
+
+it('explains when the results exist but this process may not read them', function (): void {
+    if (function_exists('posix_geteuid') && posix_geteuid() === 0) {
+        $this->markTestSkipped('Root can read any file, so permissions cannot be simulated.');
+    }
+
+    $page = pageWithFiles(['prod.xml', 'tst.xml'])->call('run');
+    $summaryPath = app(SysCompareStorage::class)->runFile(303, $page->get('runId'), SysCompareStorage::SUMMARY_FILE);
+
+    chmod($summaryPath, 0000);
+
+    try {
+        $page->call('checkStatus')
+            ->assertSet('jobId', null)
+            ->assertSee('not allowed to read the results')
+            ->assertSee('different users');
+    } finally {
+        chmod($summaryPath, 0660);
+    }
+});
