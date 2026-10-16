@@ -161,27 +161,27 @@ it('shows badges, the summary line, four downloads and the sandboxed page on the
         ->assertSee('Booked after 2 offers')
         ->assertSee('Download HTML')->assertSee('Download JSON')->assertSee('Download booking CSV')->assertSee('Download history CSV')
         ->assertSeeHtml('sandbox="allow-scripts allow-downloads allow-popups allow-top-navigation-by-user-activation"')
-        ->assertSeeHtml(e(route('tool-runs.page', [$this->dataset, $run])));
+        ->assertSeeHtml(e(route('tool-runs.page', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $run])));
 });
 
 it('serves the stored CSVs as downloads', function () {
     $run = storedTrace();
 
-    $this->get(route('tool-runs.download-booking-csv', [$this->dataset, $run]))
+    $this->get(route('tool-runs.download-booking-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $run]))
         ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_activity813775_booking.csv')
         ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
-    $this->get(route('tool-runs.download-history-csv', [$this->dataset, $run]))
+    $this->get(route('tool-runs.download-history-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $run]))
         ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_activity813775_history.csv');
-    $this->get(route('tool-runs.download-html', [$this->dataset, $run]))
+    $this->get(route('tool-runs.download-html', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $run]))
         ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_activity813775.html');
 });
 
 it('gives 404 on the CSV routes for another user or a missing file', function () {
     $other = ToolRun::factory()->for(Dataset::factory(), 'scope')->create(['tool' => ToolId::AppointmentTimeline, 'result' => ['html' => '<p>x</p>', 'booking_csv' => 'a', 'history_csv' => 'b']]);
-    $this->get(route('tool-runs.download-booking-csv', [$other->scope_id, $other]))->assertNotFound();
+    $this->get(route('tool-runs.download-booking-csv', ['scopeType' => 'datasets', 'scopeId' => $other->scope_id, 'run' => $other]))->assertNotFound();
 
     $none = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::AppointmentTimeline, 'result' => ['html' => '<p>x</p>']]);
-    $this->get(route('tool-runs.download-history-csv', [$this->dataset, $none]))->assertNotFound();
+    $this->get(route('tool-runs.download-history-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $none]))->assertNotFound();
 });
 
 it('shows three input rows and the two option fields in the wizard', function () {

@@ -18,7 +18,8 @@ Route::get('/download/{filename}', static function (string $filename) {
 })->middleware(['web', Authenticate::class])->name('download.filtered')->where('filename', '[A-Za-z0-9._-]+');
 
 Route::middleware(['web', Authenticate::class])
-    ->prefix('datasets/{dataset}/runs/{run}')
+    ->prefix('{scopeType}/{scopeId}/runs/{run}')
+    ->where(['scopeType' => 'datasets|unfiled'])
     ->controller(ToolRunPageController::class)
     ->group(static function (): void {
         Route::get('page', 'page')->name('tool-runs.page');

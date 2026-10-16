@@ -27,9 +27,9 @@ it('shows the summary line, the legs, Review and Missing badges, both downloads 
         ->assertSee('1,781 legs for 412 resources, 2026-10-05 to 2026-10-09')
         ->assertSee('1,781 legs')->assertSee('37 to review')->assertSee('4 missing a time')
         ->assertSee('Download CSV')->assertSee('Download JSON')
-        ->assertSeeHtml(e(route('tool-runs.download-csv', [$this->dataset, $this->run])))
+        ->assertSeeHtml(e(route('tool-runs.download-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run])))
         ->assertSeeHtml('sandbox="allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"')
-        ->assertSeeHtml(e(route('tool-runs.page', [$this->dataset, $this->run])));
+        ->assertSeeHtml(e(route('tool-runs.page', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run])));
 });
 
 it('shows the kept legs and the reason on a run that failed at the Google step', function () {
@@ -39,16 +39,16 @@ it('shows the kept legs and the reason on a run that failed at the Google step',
         ->assertSee('This run did not finish')
         ->assertSee('The Google Routes check did not finish: Google Routes is not configured on pso-services.')
         ->assertSee('Download CSV')
-        ->assertSeeHtml(e(route('tool-runs.page', [$this->dataset, $this->run])));
+        ->assertSeeHtml(e(route('tool-runs.page', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run])));
 });
 
 it('serves the CSV named after the account, dataset and first date', function () {
-    $this->get(route('tool-runs.download-csv', [$this->dataset, $this->run]))
+    $this->get(route('tool-runs.download-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
         ->assertDownload('plan_travels_SATE_NORTH_2026-10-05.csv')
         ->assertHeader('Content-Type', 'text/csv; charset=UTF-8')
         ->assertStreamedContent("Resource ID,Flag\nR1,Review\n");
-    $this->get(route('tool-runs.download-json', [$this->dataset, $this->run]))
+    $this->get(route('tool-runs.download-json', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()->assertDownload('plan_travels_SATE_NORTH_2026-10-05.json')
         ->assertJsonPath('legs.0.resource_id', 'R1')
         ->assertJsonPath('legs.0.note', 'a < b');
@@ -56,17 +56,17 @@ it('serves the CSV named after the account, dataset and first date', function ()
 
 it('keeps the CSV behind the panel login and the owner', function () {
     $other = ToolRun::factory()->for(Dataset::factory(), 'scope')->create(['tool' => ToolId::PlanTravels, 'result' => ['html' => '<p>x</p>', 'csv' => 'a']]);
-    $this->get(route('tool-runs.download-csv', [$other->scope_id, $other]))->assertNotFound();
+    $this->get(route('tool-runs.download-csv', ['scopeType' => 'datasets', 'scopeId' => $other->scope_id, 'run' => $other]))->assertNotFound();
 
     $noCsv = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::PlanTravels, 'result' => ['html' => '<p>x</p>']]);
-    $this->get(route('tool-runs.download-csv', [$this->dataset, $noCsv]))->assertNotFound();
+    $this->get(route('tool-runs.download-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $noCsv]))->assertNotFound();
 
     auth()->logout();
-    $this->get(route('tool-runs.download-csv', [$this->dataset, $this->run]))->assertRedirect();
+    $this->get(route('tool-runs.download-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))->assertRedirect();
 });
 
 it('serves the plan travels page with links that can leave the sandbox', function () {
-    $this->get(route('tool-runs.page', [$this->dataset, $this->run]))
+    $this->get(route('tool-runs.page', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
         ->assertHeader('Content-Security-Policy', 'sandbox allow-scripts allow-downloads allow-popups allow-top-navigation-by-user-activation allow-popups-to-escape-sandbox');
 });
@@ -74,14 +74,14 @@ it('serves the plan travels page with links that can leave the sandbox', functio
 it('keeps the other tools on the unchanged sandbox', function () {
     $audit = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'result' => ['html' => '<p>audit</p>']]);
 
-    $this->get(route('tool-runs.page', [$this->dataset, $audit]))
+    $this->get(route('tool-runs.page', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $audit]))
         ->assertHeader('Content-Security-Policy', 'sandbox allow-scripts allow-downloads allow-popups allow-top-navigation-by-user-activation');
 });
 
 it('downloads an empty JSON document when the page carries no data block', function () {
     $this->run->update(['result' => ['html' => '<!doctype html><html><body>No data here</body></html>', 'csv' => '']]);
 
-    $this->get(route('tool-runs.download-json', [$this->dataset, $this->run]))
+    $this->get(route('tool-runs.download-json', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
         ->assertExactJson([]);
 });

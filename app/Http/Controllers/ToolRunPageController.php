@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Enums\Tool as ToolId;
 use App\Models\Dataset;
 use App\Models\ToolRun;
+use App\Models\User;
 use App\Support\Tools\EmbeddedPageData;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Response;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
@@ -21,9 +24,9 @@ class ToolRunPageController extends Controller
     /** Plan travels links to the app's own Travel Analyzer: the new tab must leave the sandbox to use the session. */
     public const SANDBOX_WITH_APP_LINKS = self::SANDBOX.' allow-popups-to-escape-sandbox';
 
-    public function page(string $dataset, string $run): Response
+    public function page(string $scopeType, string $scopeId, string $run): Response
     {
-        [, $toolRun] = $this->find($dataset, $run);
+        [, $toolRun] = $this->find($scopeType, $scopeId, $run);
 
         return response($toolRun->result['html'], 200, [
             'Content-Type' => 'text/html; charset=UTF-8',
@@ -33,54 +36,54 @@ class ToolRunPageController extends Controller
         ]);
     }
 
-    public function downloadHtml(string $dataset, string $run): SymfonyResponse
+    public function downloadHtml(string $scopeType, string $scopeId, string $run): SymfonyResponse
     {
-        [$datasetModel, $toolRun] = $this->find($dataset, $run);
+        [$scope, $toolRun] = $this->find($scopeType, $scopeId, $run);
 
         return response()->streamDownload(static function () use ($toolRun): void {
             echo $toolRun->result['html'];
-        }, self::fileName($datasetModel, $toolRun, 'html'), ['Content-Type' => 'text/html; charset=UTF-8']);
+        }, self::fileName($scope, $toolRun, 'html'), ['Content-Type' => 'text/html; charset=UTF-8']);
     }
 
     /**
      * The run's data file: the viewer's gathered JSON (`data`), the audit's findings (`findings`), or for a
      * run that stored only its page (Plan travels) the data the page embeds.
      */
-    public function downloadJson(string $dataset, string $run): SymfonyResponse
+    public function downloadJson(string $scopeType, string $scopeId, string $run): SymfonyResponse
     {
-        [$datasetModel, $toolRun] = $this->find($dataset, $run);
+        [$scope, $toolRun] = $this->find($scopeType, $scopeId, $run);
         $payload = $toolRun->result['data'] ?? $toolRun->result['findings'] ?? EmbeddedPageData::fromHtml($toolRun->result['html']) ?? [];
 
         return response()->streamDownload(static function () use ($payload): void {
             echo json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
-        }, self::fileName($datasetModel, $toolRun, 'json'), ['Content-Type' => 'application/json']);
+        }, self::fileName($scope, $toolRun, 'json'), ['Content-Type' => 'application/json']);
     }
 
-    public function downloadBookingCsv(string $dataset, string $run): SymfonyResponse
+    public function downloadBookingCsv(string $scopeType, string $scopeId, string $run): SymfonyResponse
     {
-        return $this->csv($dataset, $run, 'booking_csv', 'booking');
+        return $this->csv($scopeType, $scopeId, $run, 'booking_csv', 'booking');
     }
 
-    public function downloadHistoryCsv(string $dataset, string $run): SymfonyResponse
+    public function downloadHistoryCsv(string $scopeType, string $scopeId, string $run): SymfonyResponse
     {
-        return $this->csv($dataset, $run, 'history_csv', 'history');
+        return $this->csv($scopeType, $scopeId, $run, 'history_csv', 'history');
     }
 
-    public function downloadCsv(string $dataset, string $run): SymfonyResponse
+    public function downloadCsv(string $scopeType, string $scopeId, string $run): SymfonyResponse
     {
-        return $this->csv($dataset, $run, 'csv', null);
+        return $this->csv($scopeType, $scopeId, $run, 'csv', null);
     }
 
     /** One of the run's stored CSV texts (`$key` in the result), named like the other downloads plus `_$suffix`. */
-    private function csv(string $dataset, string $run, string $key, ?string $suffix): SymfonyResponse
+    private function csv(string $scopeType, string $scopeId, string $run, string $key, ?string $suffix): SymfonyResponse
     {
-        [$datasetModel, $toolRun] = $this->find($dataset, $run);
+        [$scope, $toolRun] = $this->find($scopeType, $scopeId, $run);
         $text = $toolRun->result[$key] ?? null;
         if (! is_string($text)) {
             abort(404);
         }
 
-        $name = self::fileName($datasetModel, $toolRun, 'csv');
+        $name = self::fileName($scope, $toolRun, 'csv');
         if ($suffix !== null) {
             $name = str_replace('.csv', "_{$suffix}.csv", $name);
         }
@@ -90,27 +93,47 @@ class ToolRunPageController extends Controller
         }, $name, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    /** @return array{0: Dataset, 1: ToolRun} the user's dataset and a finished run on it that holds a page, else 404 */
-    private function find(string $dataset, string $run): array
+    /**
+     * The route parameters of a run's page and downloads: a dataset by id, or Unfiled as `unfiled/me`
+     * (always the signed-in user's own, so the url names no id).
+     *
+     * @return array{scopeType: string, scopeId: string, run: string}
+     */
+    public static function params(Model $scope, ToolRun $run): array
     {
-        $datasetModel = Dataset::query()->ownedByCurrentUser()->findOrFail($dataset);
+        return match (true) {
+            $scope instanceof User => ['scopeType' => 'unfiled', 'scopeId' => 'me', 'run' => (string) $run->getKey()],
+            $scope instanceof Dataset => ['scopeType' => 'datasets', 'scopeId' => (string) $scope->getRouteKey(), 'run' => (string) $run->getKey()],
+            default => throw new InvalidArgumentException('Only dataset and unfiled runs have a page here.'),
+        };
+    }
+
+    /** @return array{0: Dataset|User, 1: ToolRun} the user's dataset (or the user for Unfiled) and a finished run on it that holds a page, else 404 */
+    private function find(string $scopeType, string $scopeId, string $run): array
+    {
+        $scope = match ($scopeType) {
+            'datasets' => Dataset::query()->ownedByCurrentUser()->findOrFail($scopeId),
+            'unfiled' => $scopeId === 'me' ? auth()->user() : abort(404),
+            default => abort(404),
+        };
         $toolRun = ToolRun::query()
-            ->where('scope_type', $datasetModel->getMorphClass())
-            ->where('scope_id', $datasetModel->getKey())
+            ->where('scope_type', $scope->getMorphClass())
+            ->where('scope_id', (string) $scope->getKey())
             ->findOrFail($run);
 
         if (blank($toolRun->result['html'] ?? null)) {
             abort(404);
         }
 
-        return [$datasetModel, $toolRun];
+        return [$scope, $toolRun];
     }
 
     /**
-     * <tool>_<account>_<dataset>_<week Monday or run date>[_activity<id> or _worktask<id>].<ext>, cleaned to
-     * letters, digits, _ and -. The activity part names what a trace run traced.
+     * <tool>_<account>_<dataset>_<week Monday or run date>[_activity<id> or _worktask<id>].<ext>, with `unfiled`
+     * in place of <account>_<dataset> for an Unfiled run, cleaned to letters, digits, _ and -. The activity part
+     * names what a trace run traced.
      */
-    public static function fileName(Dataset $dataset, ToolRun $run, string $extension): string
+    public static function fileName(Model $scope, ToolRun $run, string $extension): string
     {
         $clean = static fn (?string $part): string => preg_replace('/[^A-Za-z0-9_-]/', '_', (string) $part);
         $date = $run->summary['week'] ?? $run->summary['first_date'] ?? $run->run_date?->toDateString() ?? 'undated';
@@ -122,7 +145,8 @@ class ToolRunPageController extends Controller
             is_scalar($workTaskId) && trim((string) $workTaskId) !== '' => '_worktask'.$clean(trim((string) $workTaskId)),
             default => '',
         };
+        $where = $scope instanceof Dataset ? $clean($scope->environment?->account_id).'_'.$clean($scope->name) : 'unfiled';
 
-        return $run->tool->value.'_'.$clean($dataset->environment?->account_id).'_'.$clean($dataset->name).'_'.$clean($date).$subject.'.'.$extension;
+        return $run->tool->value.'_'.$where.'_'.$clean($date).$subject.'.'.$extension;
     }
 }

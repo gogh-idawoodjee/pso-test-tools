@@ -30,18 +30,18 @@ beforeEach(function () {
 });
 
 it('serves the stored page to its owner inside a sandbox', function () {
-    $this->get(route('tool-runs.page', [$this->dataset, $this->run]))
+    $this->get(route('tool-runs.page', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
         ->assertHeader('Content-Security-Policy', 'sandbox allow-scripts allow-downloads allow-popups allow-top-navigation-by-user-activation')
         ->assertSee('Regions page', false);
 });
 
 it('downloads the page and the data under the tool, account, dataset and week', function () {
-    $this->get(route('tool-runs.download-html', [$this->dataset, $this->run]))
+    $this->get(route('tool-runs.download-html', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
         ->assertDownload('region_availability_SATE_NORTH_2026-10-05.html');
 
-    $this->get(route('tool-runs.download-json', [$this->dataset, $this->run]))
+    $this->get(route('tool-runs.download-json', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
         ->assertDownload('region_availability_SATE_NORTH_2026-10-05.json')
         ->assertJsonPath('meta.week', '2026-10-05');
@@ -49,10 +49,10 @@ it('downloads the page and the data under the tool, account, dataset and week', 
 
 it('gives 404 to another user and to a run without a page yet', function () {
     $running = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::RegionAvailability, 'status' => ToolRunStatus::Running, 'result' => null]);
-    $this->get(route('tool-runs.page', [$this->dataset, $running]))->assertNotFound();
+    $this->get(route('tool-runs.page', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $running]))->assertNotFound();
 
     $this->actingAs(User::factory()->create(['email' => 'other@mac.com']));
-    $this->get(route('tool-runs.page', [$this->dataset, $this->run]))->assertNotFound();
+    $this->get(route('tool-runs.page', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))->assertNotFound();
 });
 
 it('shows the summary line on the Runs tab next to the load audit counts', function () {
@@ -73,7 +73,7 @@ it('shows the counts, the week, the download buttons and the sandboxed iframe on
         ->assertSee('Week of 2026-10-05')
         ->assertSee('Download HTML')->assertSee('Download JSON')
         ->assertSeeHtml('sandbox="allow-scripts allow-downloads allow-popups allow-top-navigation-by-user-activation"')
-        ->assertSeeHtml(e(route('tool-runs.page', [$this->dataset, $this->run])));
+        ->assertSeeHtml(e(route('tool-runs.page', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run])));
 });
 
 it('renders a run without a page without an iframe or download buttons', function () {

@@ -7,6 +7,7 @@ use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
+use App\Models\User;
 use App\Support\Tools\StartToolRun;
 use App\Support\Tools\UnusableInputException;
 use App\Support\Tools\WeekLink;
@@ -18,8 +19,8 @@ use Livewire\Attributes\Locked;
 use Override;
 
 /**
- * The dashboard of one tool run, reached from a dataset's or an environment's
- * Runs tab. The ToolRun global scope means another user's run is a 404.
+ * The dashboard of one tool run, reached from a dataset's or an environment's Runs tab, My files
+ * (Unfiled, at unfiled/me) or the recent runs. The ToolRun global scope means another user's run is a 404.
  */
 class ToolRunPage extends Page
 {
@@ -51,8 +52,13 @@ class ToolRunPage extends Page
     public static function urlFor(Model $scope, ToolRun $run): string
     {
         return static::getUrl([
-            'scope' => $scope instanceof Dataset ? 'datasets' : 'environments',
-            'scopeId' => $scope->getRouteKey(),
+            'scope' => match (true) {
+                $scope instanceof User => 'unfiled',
+                $scope instanceof Dataset => 'datasets',
+                default => 'environments',
+            },
+            // Unfiled is always the signed-in user's own, so the url names no id.
+            'scopeId' => $scope instanceof User ? 'me' : $scope->getRouteKey(),
             'run' => $run->getKey(),
         ]);
     }
@@ -73,12 +79,13 @@ class ToolRunPage extends Page
         $scopeModel = match ($this->scope) {
             'datasets' => Dataset::query()->ownedByCurrentUser()->findOrFail($this->scopeId),
             'environments' => Environment::query()->where('slug', $this->scopeId)->firstOrFail(),
+            'unfiled' => $this->scopeId === 'me' ? auth()->user() : abort(404),
             default => abort(404),
         };
 
         return ToolRun::query()
             ->where('scope_type', $scopeModel->getMorphClass())
-            ->where('scope_id', $scopeModel->getKey())
+            ->where('scope_id', (string) $scopeModel->getKey())
             ->findOrFail($this->run);
     }
 
