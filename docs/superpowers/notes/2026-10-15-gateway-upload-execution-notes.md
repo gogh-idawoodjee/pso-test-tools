@@ -21,13 +21,17 @@ Plan: `docs/superpowers/plans/2026-10-11-gateway-upload-webhook-broadcast.md`. S
 - Old Broadcast rows are stripped only when a new one is injected (as the PowerShell does). A dataset-only rewrite would otherwise delete the customer's Broadcast. A file with no recognised wrapper is copied unchanged, and the rewriter refuses to overwrite its source.
 - The XML rewriter is a byte-level scanner rather than XMLReader/XMLWriter. It keeps the bytes as they were and is faster (100 MB in about 1.4 s).
 - The webhook alias is built per character with a Unicode-aware match, so an accented environment name gives the same alias as the PowerShell script.
-- Order of the job: webhook, rewrite, summary and gzip, logon, POST, logoff. The spec's order was corrected to match (logon comes after gzip, as in the script).
+- Order of the job: webhook, rewrite, summary, logon, gzip, POST, logoff. Logon comes before gzip, as in the script; the spec and README were corrected to match in the final fix wave.
 - Queue `retry_after` raised to 960 on all connections, because an upload can run for several minutes.
 - The Environment global scope made the alias "pso-" in the queue (no logged-in user); the job now resolves the name without the scope.
 - The gateway form is filled with its own defaults only, so the username and password ciphertext are not copied into browser state.
 - Dataset ID override and broadcast ID must be one line of valid XML 1.0 characters; required tables match `\A[A-Za-z0-9_]+\z`.
 - The log panel keeps polling for 30 seconds after a run finishes so the logoff lines written after the final status are not lost.
 - Verified by inspection rather than a second review: Task 1 test-only fix, Task 6 fix round.
+
+## Behaviour changes
+
+- Production-looking PSO URLs are refused (policy confirmed by Ish): every logon now goes through pso-services, whose `DisallowProdUrl` rejects any base URL containing `prd`, `prod` or `pd`, so the gateway upload, Test configuration and System Usage no longer work for such environments, and the run log shows pso-services' "Production URLs are not allowed" reason.
 
 ## ExportSummariser behaviour changed (Task 7)
 
@@ -40,14 +44,15 @@ This was not "unchanged". JSON LOAD and EOD exports over 20 MB are now accepted 
 - `BroadcastSettings::fromArray` casts non-numeric quality to 0 silently (form validation catches it); an empty required tables array falls back to the default.
 - XML scanner: a comment or processing instruction inside a DOCTYPE internal subset breaks the scan (should refuse a DOCTYPE with a subset); injected values are escaped without `rejectInvalid`; chunk-boundary tests miss CDATA, self-closing `dataset_id`, quoted `>` and elements spanning chunks; UTF-32 is not detected.
 - ExportSummariser: no test for valid JSON with neither wrapper; numeric `dataset_id` is ignored.
-- Job: add the "Broadcast compression: none (self-hosted webhook can't store gzipped bodies)" log line; replace the string match for the missing-wrapper case and the undocumented 'json' format with a `wrapperFound` flag on `RewriteReport`; test a throw between logon and POST; `environmentName()` is queried twice; confirm pso-services never echoes headers in `details`.
+- Job: test a throw between logon and POST; `environmentName()` is queried twice; confirm pso-services never echoes headers in `details`.
 - Tab: lock `gatewayLogLines`; cache the current-upload lookup per request (about 9 identical queries per 2 s poll); `viewGatewayUpload` reads only 500 lines; `is_string` guard on `dataset_id_override`; refusal tests should `assertNotified`; explicit `<script>` escaping test.
-- Pre-existing, not from this branch: `context_data`, `load_rota_data`, `system_usage_data` and `services_data` fill from `record->toArray()` and put the password ciphertext in browser state; EditEnvironment's "test configuration" logs on but never logs off.
+- Pre-existing, not from this branch: `context_data`, `load_rota_data`, `system_usage_data` and `services_data` fill from `record->toArray()` and put the password ciphertext in browser state; EditEnvironment's "test configuration" logged on but never logged off (fixed in the final fix wave, as was System Usage).
 
 ## Deploy notes
 
 - Set `WEBHOOK_ALIAS_KEY` in the production `.env` (the webhook server's `ALIAS_API_KEY`). Without it every run gets a one-off webhook token instead of a stable per-environment alias. `WEBHOOK_BASE_URL` and `PSO_SESSION_TIMEOUT` have defaults.
-- Queue `retry_after` now defaults to 960. If the server sets `DB_QUEUE_RETRY_AFTER`, it must be greater than 900. The supervisor worker's `--timeout` must be at least 900: check `/etc/supervisor/conf.d/pso-test-tools-worker.conf` on the box.
+- Queue `retry_after` now defaults to 960. If the server sets `DB_QUEUE_RETRY_AFTER`, it must be greater than 900. The job's own `$timeout` (900) wins over the supervisor worker's `--timeout`, so that needs no change.
+- When the 15 minute timeout fires, the worker kills the job outright: `finally` does not run, so the session is not logged off and the work directory is not removed (best-effort cleanup is impossible). The run is marked failed with "The upload did not finish within 15 minutes; check PSO before resending.", because the POST may already have landed.
 - The two migrations (run log table, webhook/response columns) run automatically through the deploy cron.
 - After deploy: `php artisan optimize:clear` and restart the queue worker.
 

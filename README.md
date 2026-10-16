@@ -60,9 +60,9 @@ Tests run on an in-memory SQLite database (`phpunit.xml`), so they never touch t
 
 ## Gateway Upload and the webhook broadcast
 
-An environment's **Gateway Upload** tab sends a schedule data file to the PSO gateway on the queue (a queue worker must be running). Before sending, the job can change the dataset ID in the file (an override field; blank leaves it alone) and inject a Broadcast that points PSO's plan output at a webhook endpoint, so the plan PSO sends back can be inspected. Tick "Skip webhook" to send the file as it is.
+An environment's **Gateway Upload** tab sends a schedule data file to the PSO gateway on the queue (a queue worker must be running). Before sending, the job can change the dataset ID in the file (an override field; blank leaves it alone) and inject a Broadcast that points PSO's plan output at a webhook endpoint, so the plan PSO sends back can be inspected. Turn on "Skip webhook broadcast" to send the file as it is. Every logon goes through pso-services, which refuses any base URL containing `prd`, `prod` or `pd`, so uploads, Test configuration and System Usage do not work for production-looking environments (agreed policy).
 
-Order of a run: header, download, webhook endpoint provisioned (needs its URL first), one streaming rewrite of the file, summary and gzip, logon through pso-services, POST to the gateway, logoff (always, even after a failed POST). Every step is written to a run log shown live on the tab and kept per run.
+Order of a run: header, download, webhook endpoint provisioned (needs its URL first), one streaming rewrite of the file, summary, logon through pso-services, gzip, POST to the gateway, logoff (always, even after a failed POST). Every step is written to a run log shown live on the tab and kept per run.
 
 Configuration (`.env`):
 
@@ -70,7 +70,7 @@ Configuration (`.env`):
 - `WEBHOOK_ALIAS_KEY`: the webhook server's `ALIAS_API_KEY`. With it each environment gets a stable alias; without it every run gets a fresh one-off token.
 - `PSO_SESSION_TIMEOUT`: seconds allowed for a session logon or logoff through pso-services (default 20).
 
-Queue note: the job can run for several minutes, so the queue `retry_after` defaults to 960 seconds. On a server, `DB_QUEUE_RETRY_AFTER` must be greater than 900 and the worker's `--timeout` at least 900.
+Queue note: the job can run for several minutes, so the queue `retry_after` defaults to 960 seconds. On a server, `DB_QUEUE_RETRY_AFTER` must be greater than 900. The job sets its own 900 second timeout, which wins over the worker's `--timeout`.
 
 ## Exports and tool runs
 
