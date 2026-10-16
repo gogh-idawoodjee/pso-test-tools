@@ -36,6 +36,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Callout;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
@@ -702,12 +703,32 @@ class EnvironmentTools extends Page
                     ->columnSpanFull(),
                 Toggle::make('skip_webhook')
                     ->label('Skip webhook broadcast')
-                    ->helperText('Send the file as it is: no webhook endpoint is created, no Broadcast is added, and any Broadcast rows already in the file are kept.')
+                    ->helperText('Send the file without the webhook: no webhook endpoint is created and no Broadcast is added.')
                     ->live()
+                    ->afterStateUpdated(static function (Set $set, $state): void {
+                        // With the webhook added, the file's own rows always go.
+                        if (! $state) {
+                            $set('strip_existing_broadcast', true);
+                        }
+                    })
                     ->disabled(fn (): bool => $this->gatewayUploadInProgress())
                     ->columnSpanFull(),
+                Toggle::make('strip_existing_broadcast')
+                    ->label('Remove existing Broadcast rows')
+                    ->default(true)
+                    ->helperText(static fn (Get $get): string => $get('skip_webhook')
+                        ? 'Turn off to send the file\'s own Broadcast rows unchanged.'
+                        : 'Always on when the webhook Broadcast is added, so the file never carries two.')
+                    ->live()
+                    ->disabled(fn (Get $get): bool => ! $get('skip_webhook') || $this->gatewayUploadInProgress())
+                    ->columnSpanFull(),
+                Callout::make('Existing Broadcast rows will be kept')
+                    ->description(SendPsoScheduleDataJob::KEPT_BROADCAST_WARNING)
+                    ->danger()
+                    ->visible(static fn (Get $get): bool => (bool) $get('skip_webhook') && ! $get('strip_existing_broadcast'))
+                    ->columnSpanFull(),
                 Section::make('Broadcast settings')
-                    ->description('Any Broadcast and Broadcast_Parameter rows already in the file are removed and replaced by this webhook Broadcast. Turn on Skip webhook broadcast to send the file with its own rows unchanged.')
+                    ->description('Any Broadcast and Broadcast_Parameter rows already in the file are removed and replaced by this webhook Broadcast. To send the file with its own rows unchanged, turn on Skip webhook broadcast and turn off Remove existing Broadcast rows.')
                     ->collapsed()
                     ->hidden(static fn (Get $get): bool => (bool) $get('skip_webhook'))
                     ->columns(2)
@@ -959,6 +980,8 @@ class EnvironmentTools extends Page
 
         $datasetIdOverride = filled($get('dataset_id_override')) ? trim((string) $get('dataset_id_override')) : null;
         $skipWebhook = (bool) $get('skip_webhook');
+        // Forced on whenever the webhook is added, whatever the client sent.
+        $stripExistingBroadcast = ! $skipWebhook || (bool) $get('strip_existing_broadcast');
 
         if ($datasetIdOverride !== null && mb_strlen($datasetIdOverride) > 255) {
             $this->notifyPayloadSent('Upload Failed', 'The dataset ID override can be at most 255 characters.', false);
@@ -992,6 +1015,7 @@ class EnvironmentTools extends Page
             'queued_at' => now(),
             'dataset_id_override' => $datasetIdOverride,
             'skip_webhook' => $skipWebhook,
+            'strip_existing_broadcast' => $stripExistingBroadcast,
             'broadcast_settings' => $broadcastSettings,
         ]);
 
@@ -1047,6 +1071,7 @@ class EnvironmentTools extends Page
         return [
             'dataset_id_override' => null,
             'skip_webhook' => false,
+            'strip_existing_broadcast' => true,
             'broadcast_id' => $settings->broadcastId,
             'broadcast_plan_type' => $settings->planType,
             'broadcast_minimum_plan_quality' => $settings->minimumPlanQuality,

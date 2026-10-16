@@ -18,7 +18,7 @@ Plan: `docs/superpowers/plans/2026-10-11-gateway-upload-webhook-broadcast.md`. S
 ## Rulings made during the work
 
 - The briefs were requirements, not patches: the codebase had moved since the plan was written, so each task re-read the current files first.
-- Old Broadcast rows are stripped only when a new one is injected (as the PowerShell does). A dataset-only rewrite would otherwise delete the customer's Broadcast. A file with no recognised wrapper is copied unchanged, and the rewriter refuses to overwrite its source.
+- Old Broadcast rows were first stripped only when a new one was injected (as the PowerShell does). Since 2026-10-16 the "Remove existing Broadcast rows" toggle (column `strip_existing_broadcast`, on by default) strips them whether or not the webhook Broadcast is injected; it is forced on when injecting and can only be turned off with the webhook skipped. A file with no recognised wrapper is copied unchanged, and the rewriter refuses to overwrite its source.
 - The XML rewriter is a byte-level scanner rather than XMLReader/XMLWriter. It keeps the bytes as they were and is faster (100 MB in about 1.4 s).
 - The webhook alias is built per character with a Unicode-aware match, so an accented environment name gives the same alias as the PowerShell script.
 - Order of the job: webhook, rewrite, summary, logon, gzip, POST, logoff. Logon comes before gzip, as in the script; the spec and README were corrected to match in the final fix wave.

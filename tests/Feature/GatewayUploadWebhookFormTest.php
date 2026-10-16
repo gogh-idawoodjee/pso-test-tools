@@ -65,6 +65,7 @@ it('defaults the broadcast settings to the script values', function () {
             'broadcast_maximum_wait' => 'PT5M',
             'broadcast_allocation_type' => BroadcastAllocationType::DYNAMIC_SCHEDULING,
             'skip_webhook' => false,
+            'strip_existing_broadcast' => true,
             'broadcast_required_tables' => ['Allocation', 'Plan', 'Plan_Deletion', 'Appointment_Offer', 'Appointment_Summary', 'Suggested_Dispatch', 'Schedule_Exception', 'Schedule_Exception_Data'],
             'dataset_id_override' => null,
         ], 'gatewayUploadForm');
@@ -104,6 +105,64 @@ it('stores the skip toggle and ignores broadcast settings when skipped', functio
 
     expect($upload->skip_webhook)->toBeTrue();
     expect($upload->broadcast_settings)->toBeNull();
+});
+
+it('defaults Remove existing Broadcast rows to on, locked while the webhook is added', function () {
+    $environment = webhookFormEnvironment();
+
+    Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->assertSchemaStateSet(['strip_existing_broadcast' => true], 'gatewayUploadForm')
+        ->assertFormFieldDisabled('strip_existing_broadcast', 'gatewayUploadForm')
+        ->assertSee('Always on when the webhook Broadcast is added, so the file never carries two.')
+        ->assertDontSee(SendPsoScheduleDataJob::KEPT_BROADCAST_WARNING);
+});
+
+it('stores Remove existing Broadcast rows as on when the webhook is added, even if the client sends off', function () {
+    $environment = webhookFormEnvironment();
+
+    submitWebhookForm($environment, ['skip_webhook' => false, 'strip_existing_broadcast' => false]);
+
+    $upload = PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->firstOrFail();
+
+    expect($upload->skip_webhook)->toBeFalse();
+    expect($upload->strip_existing_broadcast)->toBeTrue();
+});
+
+it('lets Remove existing Broadcast rows be turned off when the webhook is skipped, with a warning', function () {
+    $environment = webhookFormEnvironment();
+
+    Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->fillForm(['skip_webhook' => true], 'gatewayUploadForm')
+        ->assertFormFieldEnabled('strip_existing_broadcast', 'gatewayUploadForm')
+        ->assertSchemaStateSet(['strip_existing_broadcast' => true], 'gatewayUploadForm')
+        ->assertSee('Turn off to send the file&#039;s own Broadcast rows unchanged.', false)
+        ->assertDontSee(SendPsoScheduleDataJob::KEPT_BROADCAST_WARNING)
+        ->fillForm(['strip_existing_broadcast' => false], 'gatewayUploadForm')
+        ->assertSee(SendPsoScheduleDataJob::KEPT_BROADCAST_WARNING)
+        ->fillForm(['strip_existing_broadcast' => true], 'gatewayUploadForm')
+        ->assertDontSee(SendPsoScheduleDataJob::KEPT_BROADCAST_WARNING);
+});
+
+it('turns Remove existing Broadcast rows back on when the webhook is added again', function () {
+    $environment = webhookFormEnvironment();
+
+    Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->fillForm(['skip_webhook' => true], 'gatewayUploadForm')
+        ->fillForm(['strip_existing_broadcast' => false], 'gatewayUploadForm')
+        ->fillForm(['skip_webhook' => false], 'gatewayUploadForm')
+        ->assertSchemaStateSet(['strip_existing_broadcast' => true], 'gatewayUploadForm')
+        ->assertDontSee(SendPsoScheduleDataJob::KEPT_BROADCAST_WARNING);
+});
+
+it('stores Remove existing Broadcast rows as off for the job when the webhook is skipped', function () {
+    $environment = webhookFormEnvironment();
+
+    submitWebhookForm($environment, ['skip_webhook' => true, 'strip_existing_broadcast' => false]);
+
+    $upload = PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->firstOrFail();
+
+    expect($upload->strip_existing_broadcast)->toBeFalse();
+    Queue::assertPushed(SendPsoScheduleDataJob::class, static fn (SendPsoScheduleDataJob $job): bool => $job->psoGatewayUploadId === $upload->id);
 });
 
 it('refuses an invalid maximum wait and creates no upload', function () {
