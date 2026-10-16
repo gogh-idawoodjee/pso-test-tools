@@ -443,24 +443,32 @@ class ResourceActivityFilterService extends HasScopedCache
     }
 
     /**
-     * Collect every location id referenced by a kept row in any table other
-     * than Location itself: location_id, location_id_start and location_id_end
-     * (resources, activities, shifts, Resource_Type, and so on). Used to strip
-     * unreferenced locations from the output.
+     * Collect the location ids that kept rows genuinely use: Activity.location_id
+     * and the location_id_start / location_id_end columns of Resources, Shift and
+     * Resource_Type. Location itself and Location_Region (rows that only describe
+     * a Location) are deliberately not walked, or every location would count as
+     * referenced. Used to strip unreferenced locations from the output.
      */
     protected function collectReferencedLocationIds(array $assembled): array
     {
+        $columnsByTable = [
+            'Resources' => ['location_id_start', 'location_id_end'],
+            'Shift' => ['location_id_start', 'location_id_end'],
+            'Resource_Type' => ['location_id_start', 'location_id_end'],
+            'Activity' => ['location_id'],
+        ];
         $locationIds = [];
 
-        foreach ($assembled as $table => $rows) {
-            if ($table === 'Location' || ! is_array($rows) || ! array_is_list($rows)) {
+        foreach ($columnsByTable as $table => $columns) {
+            $rows = $assembled[$table] ?? null;
+            if (! is_array($rows) || ! array_is_list($rows)) {
                 continue;
             }
             foreach ($rows as $row) {
                 if (! is_array($row)) {
                     continue;
                 }
-                foreach (['location_id', 'location_id_start', 'location_id_end'] as $key) {
+                foreach ($columns as $key) {
                     $value = $row[$key] ?? null;
                     if (is_scalar($value) && $value !== '') {
                         $locationIds[$value] = true;

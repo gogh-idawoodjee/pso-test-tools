@@ -280,3 +280,21 @@ it('counts summary totals before the resource relations are trimmed', function (
         ->and($summary['resource_regions']['skipped'])->toBe(1)
         ->and($summary['resource_region_availability']['skipped'])->toBe(1);
 });
+
+it('drops a location and its Location_Region row when nothing but Location_Region refers to it', function () {
+    $data = cascadeFixture();
+    $data['Location'][] = ['id' => 'L3', 'region_id' => 'NORTH'];
+    $data['Location'][] = ['id' => 'L4', 'region_id' => 'NORTH'];
+    $data['Shift'][0]['location_id_start'] = 'L4';
+    $data['Location_Region'] = [
+        ['location_id' => 'L1', 'region_id' => 'NORTH'],
+        ['location_id' => 'L3', 'region_id' => 'NORTH'],
+        ['location_id' => 'L4', 'region_id' => 'NORTH'],
+    ];
+
+    $result = runCascade($data);
+
+    expect(collect($result['filtered']['Location'])->pluck('id')->sort()->values()->all())->toBe(['L1', 'L4'])
+        ->and(collect($result['filtered']['Location_Region'])->pluck('location_id')->sort()->values()->all())->toBe(['L1', 'L4'])
+        ->and($result['summary']['dangling'])->toBe([]);
+});
