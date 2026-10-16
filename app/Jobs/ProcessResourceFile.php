@@ -103,6 +103,7 @@ class ProcessResourceFile extends HasScopedCache implements ShouldQueue
             $formatted = PreviewSummaryFormatter::format($result['summary']);
             Log::debug("[ProcessResourceFile][{$this->jobId}] 👀 Preview summary", $formatted); // ← logging
             $this->updateCache('preview', $formatted);
+            $this->updateCache('dangling', $result['summary']['dangling'] ?? []);
             $this->updateProgress(90);
 
             if ($this->dryRun) {

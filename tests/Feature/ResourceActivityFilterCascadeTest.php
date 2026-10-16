@@ -210,3 +210,73 @@ it('caps dangling examples at five', function () {
     expect($dangling[0]['count'])->toBe(8)
         ->and($dangling[0]['examples'])->toHaveCount(5);
 });
+
+it('keeps a location referenced only by a kept shift or a resource type', function () {
+    $data = cascadeFixture();
+    $data['Location'][] = ['id' => 'L3', 'region_id' => 'NORTH'];
+    $data['Location'][] = ['id' => 'L4', 'region_id' => 'NORTH'];
+    $data['Location'][] = ['id' => 'L5', 'region_id' => 'NORTH'];
+    $data['Shift'][0]['location_id_start'] = 'L3';
+    $data['Resource_Type'] = [['id' => 'T1', 'location_id_start' => 'L4', 'location_id_end' => 'L4']];
+
+    $result = runCascade($data);
+
+    expect(collect($result['filtered']['Location'])->pluck('id')->sort()->values()->all())->toBe(['L1', 'L3', 'L4'])
+        ->and($result['summary']['dangling'])->toBe([]);
+});
+
+it('reports a kept row whose location_id_start points at a removed location', function () {
+    $data = cascadeFixture();
+    $data['Shift'][0]['location_id_start'] = 'L2';
+    // L2 is only referenced by R2 and A2, both removed, plus this shift which is kept: it stays.
+    expect(runCascade($data)['summary']['dangling'])->toBe([]);
+
+    $data = cascadeFixture();
+    $data['Location'] = [['id' => 'L1', 'region_id' => 'NORTH'], ['id' => 'L2', 'region_id' => 'SOUTH']];
+    $data['Resource_Type'] = [['id' => 'T1', 'location_id_start' => 'GHOST']];
+    $dangling = runCascade($data)['summary']['dangling'];
+
+    expect($dangling)->toHaveCount(1)
+        ->and($dangling[0])->toMatchArray(['table' => 'Resource_Type', 'key' => 'location_id_start', 'examples' => ['GHOST']]);
+});
+
+it('cascades a one-row table that arrives as a plain object, and writes the shape back', function () {
+    $data = cascadeFixture();
+    $data['Resource_Custom_URL'] = ['resource_id' => 'R2', 'custom_url_id' => 'U1'];
+    $data['Activity_Custom_URL'] = ['activity_id' => 'A1', 'custom_url_id' => 'U1'];
+
+    $filtered = runCascade($data)['filtered'];
+
+    expect($filtered['Resource_Custom_URL'])->toBe([])
+        ->and($filtered['Activity_Custom_URL'])->toBe(['activity_id' => 'A1', 'custom_url_id' => 'U1']);
+});
+
+it('reports a dangling reference inside a one-row table', function () {
+    $data = cascadeFixture();
+    $data['Resource_Skill_Availability'] = ['resource_id' => 'R1', 'skill_id' => 'S1', 'availability_id' => 'GHOST'];
+
+    $dangling = runCascade($data)['summary']['dangling'];
+
+    expect($dangling[0])->toMatchArray(['table' => 'Resource_Skill_Availability', 'key' => 'availability_id', 'count' => 1]);
+});
+
+it('reports, but does not drop or edit, a kept activity status fixed to a removed resource', function () {
+    $data = cascadeFixture();
+    $data['Activity_Status'][0]['resource_id'] = 'R2';
+
+    $result = runCascade($data);
+
+    expect($result['filtered']['Activity_Status'][0]['resource_id'])->toBe('R2')
+        ->and($result['summary']['dangling'])->toHaveCount(1)
+        ->and($result['summary']['dangling'][0])->toMatchArray([
+            'table' => 'Activity_Status', 'key' => 'resource_id', 'count' => 1, 'examples' => ['R2'],
+        ]);
+});
+
+it('counts summary totals before the resource relations are trimmed', function () {
+    $summary = runCascade(cascadeFixture())['summary'];
+
+    expect($summary['resource_skills'])->toBe(['total' => 2, 'kept' => 1, 'skipped' => 1])
+        ->and($summary['resource_regions']['skipped'])->toBe(1)
+        ->and($summary['resource_region_availability']['skipped'])->toBe(1);
+});

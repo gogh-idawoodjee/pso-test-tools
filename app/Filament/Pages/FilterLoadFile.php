@@ -73,6 +73,9 @@ class FilterLoadFile extends Page
 
     public array $preview = [];
 
+    /** @var list<array{table: string, key: string, count: int, examples: list<string>}> */
+    public array $dangling = [];
+
     public array $availableActivityIds = [];
 
     public array $availableResourceIds = [];
@@ -401,6 +404,7 @@ class FilterLoadFile extends Page
 
         // Reset preview + dryRun toggle
         $this->preview = [];
+        $this->dangling = [];
         $this->dryRun = true;
     }
 
@@ -408,6 +412,7 @@ class FilterLoadFile extends Page
     {
         $this->downloadUrl = null;
         $this->preview = [];
+        $this->dangling = [];
         $this->progress = 0;
     }
 
@@ -513,6 +518,7 @@ class FilterLoadFile extends Page
         $this->status = null;
         $this->downloadUrl = null;
         $this->preview = [];
+        $this->dangling = [];
 
         // Keep the form data if you want to allow easy reuse,
         // or reset it if you want a completely fresh start
@@ -582,6 +588,7 @@ class FilterLoadFile extends Page
         $this->loadAvailableIds();
         $this->downloadUrl = $this->getFromJobCache('download');
         $this->preview = $this->getFromJobCache('preview', []);
+        $this->dangling = $this->getFromJobCache('dangling', []);
 
         $this->notifySuccess(
             'Done!',

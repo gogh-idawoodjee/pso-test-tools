@@ -109,6 +109,21 @@
             </div>
         </div>
     </form>
+    {{-- Rows whose references no longer resolve --}}
+    @if (! empty($dangling))
+        <div class="mt-6 rounded-lg border border-warning-300 bg-warning-50 p-4 text-sm text-warning-800 dark:border-warning-700 dark:bg-warning-950 dark:text-warning-200"
+             data-testid="dangling-warning">
+            <p class="font-medium">
+                These rows were kept because the filter does not remove them, but their references no longer resolve. PSO may reject the file or ignore the rows.
+            </p>
+            <ul class="mt-2 list-disc pl-5">
+                @foreach ($dangling as $finding)
+                    <li>{{ $finding['table'] }}.{{ $finding['key'] }}: {{ number_format($finding['count']) }} {{ $finding['count'] === 1 ? 'row points' : 'rows point' }} at nothing kept (for example {{ implode(', ', $finding['examples']) }})</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     {{-- Download button --}}
     @if ($downloadUrl)
         <div class="mt-6">

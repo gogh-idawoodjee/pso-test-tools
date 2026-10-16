@@ -57,7 +57,22 @@ class ResourceActivityFilterService extends HasScopedCache
         'resource_id' => ['Resources', 'id'],
         'availability_id' => ['Availability', 'id'],
         'location_id' => ['Location', 'id'],
+        'location_id_start' => ['Location', 'id'],
+        'location_id_end' => ['Location', 'id'],
         'shift_id' => ['Shift', 'id'],
+    ];
+
+    /** @var array<string, true> Tables that arrived as one plain row object (older dsScheduleData shape). */
+    protected array $singleRowTables = [];
+
+    /** @var array<string, int> Row counts of the input, taken before any trimming. */
+    protected array $originalCounts = [];
+
+    /** Summary rows always shown, even when the export has no such table. */
+    protected const ALWAYS_SHOWN_SUMMARY = [
+        'resources', 'locations', 'shifts', 'shift_breaks', 'resource_skills', 'resource_regions',
+        'resource_region_availability', 'availability', 'activities', 'activity_slas',
+        'activity_statuses', 'activity_groups',
     ];
 
     protected int $progressStart = 0;
@@ -118,6 +133,8 @@ class ResourceActivityFilterService extends HasScopedCache
             Log::warning('⚠️ No end date provided');
         }
 
+        $this->normaliseSingleRowTables();
+
         if ($this->isDryRun) {
             Log::info('🧪 Dry run mode — skipping filters');
 
@@ -177,7 +194,7 @@ class ResourceActivityFilterService extends HasScopedCache
         }
 
         return [
-            'filtered' => $filtered,
+            'filtered' => $this->restoreSingleRowTables($filtered),
             'summary' => $summary,
         ];
     }
@@ -188,7 +205,55 @@ class ResourceActivityFilterService extends HasScopedCache
      */
     protected function handleDryRun(): array
     {
-        return ['filtered' => $this->data, 'summary' => $this->generateSummary($this->data) + ['dangling' => []]];
+        return [
+            'filtered' => $this->restoreSingleRowTables($this->data),
+            'summary' => $this->generateSummary($this->data) + ['dangling' => []],
+        ];
+    }
+
+    /**
+     * Older dsScheduleData JSON wraps a table in a list only when it has more
+     * than one row; a one-row table is a plain object. Turn those into one-item
+     * lists so every step sees rows, and remember them so the output keeps its
+     * original shape. Also records the input row counts for the summary totals.
+     */
+    protected function normaliseSingleRowTables(): void
+    {
+        $this->singleRowTables = [];
+        foreach ($this->data as $table => $rows) {
+            if (! is_array($rows) || $rows === [] || array_is_list($rows)) {
+                continue;
+            }
+            foreach ($rows as $value) {
+                if (is_array($value)) {
+                    continue 2;
+                }
+            }
+            $this->data[$table] = [$rows];
+            $this->singleRowTables[$table] = true;
+        }
+
+        $this->originalCounts = [];
+        foreach ($this->data as $table => $rows) {
+            if (is_array($rows)) {
+                $this->originalCounts[$table] = count($rows);
+            }
+        }
+    }
+
+    /**
+     * Write tables that came in as one plain row object back in that shape when
+     * exactly one row is left; with no rows they stay an empty list.
+     */
+    protected function restoreSingleRowTables(array $data): array
+    {
+        foreach (array_keys($this->singleRowTables) as $table) {
+            if (isset($data[$table]) && is_array($data[$table]) && count($data[$table]) === 1) {
+                $data[$table] = $data[$table][0];
+            }
+        }
+
+        return $data;
     }
 
     /**
@@ -201,7 +266,7 @@ class ResourceActivityFilterService extends HasScopedCache
         $filteredResources = $this->getFilteredData('Resources', 'id', $this->validResourceIds);
         $filteredActivities = $this->getFilteredData('Activity', 'id', $this->validActivityIds);
 
-        $referencedLocationIds = $this->collectReferencedLocationIds($filteredResources, $filteredActivities);
+        $filteredShifts = $this->getFilteredData('Shift', 'id', $this->validShiftIds);
 
         $this->cascadedTables = [];
 
@@ -209,8 +274,7 @@ class ResourceActivityFilterService extends HasScopedCache
             $this->data,
             [
                 'Resources' => $filteredResources,
-                'Location' => $this->getFilteredData('Location', 'id', $referencedLocationIds),
-                'Shift' => $this->getFilteredData('Shift', 'id', $this->validShiftIds),
+                'Shift' => $filteredShifts,
                 'Shift_Break' => $this->getFilteredData('Shift_Break', 'shift_id', $this->validShiftIds),
                 'Resource_Region' => $this->getFilteredData('Resource_Region', 'resource_id', $this->validResourceIds),
                 'Resource_Skill' => $this->getFilteredData('Resource_Skill', 'resource_id', $this->validResourceIds),
@@ -228,7 +292,6 @@ class ResourceActivityFilterService extends HasScopedCache
         $parentSets = [
             'activity_id' => array_flip($this->validActivityIds),
             'resource_id' => array_flip($this->validResourceIds),
-            'location_id' => array_flip($referencedLocationIds),
             'shift_id' => array_flip($this->validShiftIds),
         ];
         foreach (array_keys($assembled) as $table) {
@@ -239,6 +302,17 @@ class ResourceActivityFilterService extends HasScopedCache
             $assembled[$table] = $this->cascadeTable($assembled[$table], $parentSets);
             if ($before > 0 && is_array($assembled[$table])) {
                 $this->cascadedTables[] = $table;
+            }
+        }
+
+        // Locations: kept when a kept resource, activity, shift or any other
+        // kept row points at them (location_id, location_id_start/_end).
+        $referencedLocationIds = $this->collectReferencedLocationIds($assembled);
+        $assembled['Location'] = $this->getFilteredData('Location', 'id', $referencedLocationIds);
+        $locationSets = ['location_id' => array_flip($referencedLocationIds)];
+        foreach (array_keys($assembled) as $table) {
+            if (! in_array($table, self::REBUILT_TABLES, true)) {
+                $assembled[$table] = $this->cascadeTable($assembled[$table], $locationSets);
             }
         }
 
@@ -369,26 +443,29 @@ class ResourceActivityFilterService extends HasScopedCache
     }
 
     /**
-     * Collect all unique location IDs referenced by the filtered resources
-     * (location_id_start, location_id_end) and activities (location_id).
-     * Used to strip unreferenced locations from the output.
+     * Collect every location id referenced by a kept row in any table other
+     * than Location itself: location_id, location_id_start and location_id_end
+     * (resources, activities, shifts, Resource_Type, and so on). Used to strip
+     * unreferenced locations from the output.
      */
-    protected function collectReferencedLocationIds(array $filteredResources, array $filteredActivities): array
+    protected function collectReferencedLocationIds(array $assembled): array
     {
         $locationIds = [];
 
-        foreach ($filteredResources as $resource) {
-            if (isset($resource['location_id_start'])) {
-                $locationIds[$resource['location_id_start']] = true;
+        foreach ($assembled as $table => $rows) {
+            if ($table === 'Location' || ! is_array($rows) || ! array_is_list($rows)) {
+                continue;
             }
-            if (isset($resource['location_id_end'])) {
-                $locationIds[$resource['location_id_end']] = true;
-            }
-        }
-
-        foreach ($filteredActivities as $activity) {
-            if (isset($activity['location_id'])) {
-                $locationIds[$activity['location_id']] = true;
+            foreach ($rows as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                foreach (['location_id', 'location_id_start', 'location_id_end'] as $key) {
+                    $value = $row[$key] ?? null;
+                    if (is_scalar($value) && $value !== '') {
+                        $locationIds[$value] = true;
+                    }
+                }
             }
         }
 
@@ -531,13 +608,12 @@ class ResourceActivityFilterService extends HasScopedCache
                 $sections[strtolower($table)] = $table;
             }
         }
-        $alwaysShown = array_slice($sections, 0, 12, true);
         $summary = [];
         foreach ($sections as $label => $section) {
-            if (! isset($alwaysShown[$label]) && ! isset($this->data[$section])) {
+            if (! in_array($label, self::ALWAYS_SHOWN_SUMMARY, true) && ! isset($this->data[$section])) {
                 continue;
             }
-            $total = count($this->data[$section] ?? []);
+            $total = $this->originalCounts[$section] ?? count($this->data[$section] ?? []);
             $kept = count($data[$section] ?? []);
             $summary[$label] = compact('total', 'kept') + ['skipped' => $total - $kept];
         }
