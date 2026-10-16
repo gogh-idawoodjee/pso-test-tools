@@ -46,6 +46,11 @@ class PlanTravelsTool implements Tool
     /** pso-services stopped calling Google (key or quota error, or its time budget) before these trips. */
     private const NOT_ATTEMPTED = 'Not attempted';
 
+    private const TIME_LIMIT_ERROR = "Not attempted: the run's time limit was reached";
+
+    /** When the Google step must stop sending chunks, so the merge still runs inside RunToolJob's 900 s. */
+    private ?Carbon $googleDeadline = null;
+
     /** The Google fields' defaults, also set when the toggle is switched on (a hidden field keeps no default). */
     private const GOOGLE_DEFAULTS = ['travel_mode' => 'DRIVE', 'routing_preference' => 'TRAFFIC_UNAWARE', 'review_minutes' => 20, 'review_pct' => 0];
 
@@ -138,6 +143,7 @@ class PlanTravelsTool implements Tool
         $firstDate = $this->firstDate($context, $options);
         $days = max(1, min(31, (int) ($options['days'] ?? 1)));
         $timeout = (int) config('tools.plan_travels.timeout_seconds', 600);
+        $this->googleDeadline = Carbon::now()->addSeconds((int) config('tools.plan_travels.google_deadline_seconds', 600));
 
         $context->reportProgress('Building legs', 0, null, 'build');
         $datasetName = $context->settings?->displayName ?: ($context->scope instanceof Dataset ? $context->scope->name : null);
@@ -153,7 +159,7 @@ class PlanTravelsTool implements Tool
         $preference = array_key_exists((string) ($options['routing_preference'] ?? ''), self::ROUTING_PREFERENCES) ? (string) $options['routing_preference'] : 'TRAFFIC_UNAWARE';
 
         try {
-            [$google, $counts] = $this->checkWithGoogle($context, TripKeys::trips($built['data']['legs'] ?? []), $mode, $preference);
+            [$google, $counts, $unchecked] = $this->checkWithGoogle($context, TripKeys::trips($built['data']['legs'] ?? []), $mode, $preference);
         } catch (PsoServicesRoutesException $e) {
             $partial = $this->result($built, $firstDate, $days, null);
 
@@ -163,18 +169,22 @@ class PlanTravelsTool implements Tool
             );
         }
 
-        file_put_contents($workDir.'/'.PlanTravelsCommand::GOOGLE_JSON, json_encode((object) $google, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION));
+        $json = json_encode((object) $google, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
+        if (file_put_contents($workDir.'/'.PlanTravelsCommand::GOOGLE_JSON, $json) === false) {
+            throw new RuntimeException('Plan travels could not save the Google Routes answers for the merge.');
+        }
 
         $context->reportProgress('Merging Google results', 95, null, 'merge');
         // The built page and CSV are in memory: removing them means a merge that writes nothing cannot pass for one
         // that did. legs.json stays, because merge-google reads it.
         @unlink($workDir.'/'.PlanTravelsCommand::OUT_HTML);
         @unlink($workDir.'/'.PlanTravelsCommand::OUT_CSV);
-        $argv = PlanTravelsCommand::mergeGoogle($checkout, $workDir, (float) ($options['review_minutes'] ?? 20), (float) ($options['review_pct'] ?? 0));
+        $argv = PlanTravelsCommand::mergeGoogle($checkout, $workDir, filled($options['review_minutes'] ?? null) ? (float) $options['review_minutes'] : 20.0, filled($options['review_pct'] ?? null) ? (float) $options['review_pct'] : 0.0);
 
         try {
             ScriptRun::execute($context, $workDir, $argv, $timeout, 'Plan travels', progressLabel: 'Merging Google results');
             $merged = $this->readOutputs($workDir);
+            unset($built);
         } catch (RuntimeException $e) {
             $partial = $this->result($built, $firstDate, $days, null);
 
@@ -184,7 +194,9 @@ class PlanTravelsTool implements Tool
             );
         }
 
-        return $this->result($merged, $firstDate, $days, $counts);
+        $stoppedEarly = $unchecked > 0 ? ["Google Routes check stopped early: {$unchecked} trips were not checked before the run's time limit."] : [];
+
+        return $this->result($merged, $firstDate, $days, $counts, $stoppedEarly);
     }
 
     /**
@@ -232,19 +244,28 @@ class PlanTravelsTool implements Tool
     }
 
     /**
+     * google.json's answers, the counts, and how many trips the deadline left unchecked.
+     *
      * @param  array<string, array{origin: array{lat: float, lng: float}, destination: array{lat: float, lng: float}}>  $trips
-     * @return array{0: array<string, array<string, mixed>>, 1: array{cache: int, google: int, error: int}}
+     * @return array{0: array<string, array<string, mixed>>, 1: array{cache: int, google: int, error: int}, 2: int}
      */
     private function checkWithGoogle(ToolContext $context, array $trips, string $mode, string $preference): array
     {
-        // RunToolJob allows 900 s for the whole run: 1,781 legs with a cold cache is about 9 chunks of 200.
-        $google = $this->computeInChunks($context, $trips, $mode, $preference, 'Checking trips with Google', 'google');
+        // RunToolJob allows 900 s for the whole run: 1,781 legs with a cold cache is about 9 chunks of 200, each
+        // allowed psott.routes.timeout. The deadline (tools.plan_travels.google_deadline_seconds) stops sending
+        // chunks in time for the merge, so a slow Google step never loses the built legs.
+        $unchecked = 0;
+        $google = $this->computeInChunks($context, $trips, $mode, $preference, 'Checking trips with Google', 'google', $unchecked);
 
         // Trips pso-services did not attempt (it stopped after a key or quota error, or hit its time budget) go
-        // once more; whatever comes back the second time is final.
+        // once more; whatever comes back the second time is final. Skipped when the deadline already stopped us.
         $retry = array_filter($trips, static fn (string $key): bool => str_starts_with($google[$key]['error'] ?? '', self::NOT_ATTEMPTED), ARRAY_FILTER_USE_KEY);
-        if ($retry !== []) {
-            $google = array_replace($google, $this->computeInChunks($context, $retry, $mode, $preference, 'Retrying trips Google did not check', 'google-retry'));
+        if ($retry !== [] && $unchecked === 0) {
+            if ($this->timeIsShort()) {
+                $unchecked = count($retry);
+            } else {
+                $google = array_replace($google, $this->computeInChunks($context, $retry, $mode, $preference, 'Retrying trips Google did not check', 'google-retry', $unchecked));
+            }
         }
 
         // Counted from the final answers (pso-services counts a not-attempted trip as an error the first time).
@@ -256,20 +277,39 @@ class PlanTravelsTool implements Tool
             }
         }
 
-        return [$google, $counts];
+        return [$google, $counts, $unchecked];
+    }
+
+    /** True when less than one pso-services request's timeout is left before the Google deadline. */
+    private function timeIsShort(): bool
+    {
+        $left = ($this->googleDeadline ?? Carbon::now())->getTimestamp() - Carbon::now()->getTimestamp();
+
+        return $left < (int) config('psott.routes.timeout', 300);
     }
 
     /**
      * @param  array<string, array{origin: array{lat: float, lng: float}, destination: array{lat: float, lng: float}}>  $trips
+     * @param  int  $unchecked  increased by the trips left unsent because the deadline came
      * @return array<string, array<string, mixed>> route_key => the answer as google.json stores it
      */
-    private function computeInChunks(ToolContext $context, array $trips, string $mode, string $preference, string $label, string $stage): array
+    private function computeInChunks(ToolContext $context, array $trips, string $mode, string $preference, string $label, string $stage, int &$unchecked): array
     {
         $chunks = array_chunk($trips, self::CHUNK, true);
         $total = count($chunks);
         $google = [];
 
         foreach ($chunks as $i => $chunk) {
+            if ($this->timeIsShort()) {
+                foreach (array_slice($chunks, $i) as $left) {
+                    foreach (array_keys($left) as $key) {
+                        $google[(string) $key] = ['error' => self::TIME_LIMIT_ERROR];
+                        $unchecked++;
+                    }
+                }
+
+                break;
+            }
             $number = $i + 1;
             $context->reportProgress("{$label}, {$number} of {$total}", intdiv($i * 100, $total), null, "{$stage}-{$number}");
 
@@ -284,9 +324,15 @@ class PlanTravelsTool implements Tool
                 if (! isset($chunk[$id])) {
                     continue;
                 }
-                $google[$id] = isset($answer['error'])
-                    ? ['error' => (string) $answer['error']]
-                    : ['durationSec' => (int) ($answer['durationSec'] ?? 0), 'distanceKm' => (float) ($answer['distanceKm'] ?? 0), 'source' => (string) ($answer['source'] ?? '')];
+                $google[$id] = match (true) {
+                    isset($answer['error']) => ['error' => (string) $answer['error']],
+                    isset($answer['durationSec']) => ['durationSec' => (int) $answer['durationSec'], 'distanceKm' => (float) ($answer['distanceKm'] ?? 0), 'source' => (string) ($answer['source'] ?? '')],
+                    default => ['error' => 'Unreadable answer from pso-services'],
+                };
+            }
+            // So cache + google + error adds up to the trips sent.
+            foreach (array_keys($chunk) as $key) {
+                $google[(string) $key] ??= ['error' => 'No answer from pso-services for this trip'];
             }
         }
 
@@ -310,8 +356,9 @@ class PlanTravelsTool implements Tool
     /**
      * @param  array{html: string, csv: string, data: array<string, mixed>}  $outputs
      * @param  array{cache: int, google: int, error: int}|null  $google
+     * @param  list<string>  $extraWarnings  added after the script's (already free of ids)
      */
-    private function result(array $outputs, string $firstDate, int $days, ?array $google): ToolResult
+    private function result(array $outputs, string $firstDate, int $days, ?array $google, array $extraWarnings = []): ToolResult
     {
         $legs = array_values(array_filter($outputs['data']['legs'] ?? [], 'is_array'));
         $flags = array_map(static fn (array $leg): string => (string) ($leg['flag'] ?? ''), $legs);
@@ -329,7 +376,7 @@ class PlanTravelsTool implements Tool
 
         $warnings = $outputs['data']['meta']['warnings'] ?? [];
 
-        return new ToolResult(result: $outputs, warnings: self::storedWarnings(is_array($warnings) ? $warnings : []), summary: $summary);
+        return new ToolResult(result: $outputs, warnings: [...self::storedWarnings(is_array($warnings) ? $warnings : []), ...$extraWarnings], summary: $summary);
     }
 
     /** "6 legs for 5 resources, 2026-10-05 to 2026-10-09; Google: 2 from the cache, 1 fetched, 1 without a route" */
@@ -341,7 +388,7 @@ class PlanTravelsTool implements Tool
 
         if ($summary['google'] !== null) {
             $g = $summary['google'];
-            $line .= '; Google: '.number_format($g['cache']).' from the cache, '.number_format($g['google']).' fetched, '.number_format($g['error']).' without a route';
+            $line .= '; Google: '.number_format($g['cache']).' from the cache, '.number_format($g['google']).' fetched, '.number_format($g['error']).' without a Google answer';
         }
 
         return $line;

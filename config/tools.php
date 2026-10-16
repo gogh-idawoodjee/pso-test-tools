@@ -20,5 +20,8 @@ return [
     'plan_travels' => [
         // One script run (build, or merge-google); the Google step between them has its own timeout per chunk (psott.routes.timeout).
         'timeout_seconds' => (int) env('TOOLS_PLAN_TRAVELS_TIMEOUT_SECONDS', 600),
+        // Seconds from the start of a run after which no more chunks go to pso-services (a chunk is sent only while
+        // one psott.routes.timeout still fits), so the merge finishes inside RunToolJob's 900 s.
+        'google_deadline_seconds' => (int) env('TOOLS_PLAN_TRAVELS_GOOGLE_DEADLINE_SECONDS', 600),
     ],
 ];

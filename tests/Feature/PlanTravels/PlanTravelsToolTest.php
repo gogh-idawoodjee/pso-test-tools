@@ -171,7 +171,7 @@ it('checks each distinct route key with Google once, writes google.json keyed by
         ->and($result->summary)->toBe([
             'leg_count' => 6, 'resource_count' => 5, 'review_count' => 2, 'missing_count' => 1,
             'first_date' => '2026-10-05', 'last_date' => '2026-10-05', 'days' => 1, 'google' => ['cache' => 2, 'google' => 1, 'error' => 1],
-            'line' => '6 legs for 5 resources, 2026-10-05; Google: 2 from the cache, 1 fetched, 1 without a route',
+            'line' => '6 legs for 5 resources, 2026-10-05; Google: 2 from the cache, 1 fetched, 1 without a Google answer',
         ]);
 });
 
@@ -312,4 +312,72 @@ it('keeps a trip that is still not attempted the second time as an error', funct
     expect($result->summary['google'])->toBe(['cache' => 0, 'google' => 0, 'error' => 4])
         ->and(planCalls($this->argsFile)[1]['google'])->toHaveCount(4)
         ->and(array_column(planCalls($this->argsFile)[1]['google'], 'error'))->each->toBe('Not attempted: time budget reached');
+});
+
+it('stops calling pso-services when too little of the run time is left, and still merges', function () {
+    config(['tools.plan_travels.google_deadline_seconds' => 600, 'psott.routes.timeout' => 300]);
+    fakePlanEnv('FAKE_PLAN_LEGS', '449');
+    $routes = routesFake()['https://pso-services.test/api/v2/routes/compute'];
+    Http::fake(['https://pso-services.test/api/v2/routes/compute' => static function (Request $request) use ($routes) {
+        // The first chunk takes 301 s: 299 s are left, under one request's 300 s timeout.
+        Carbon\Carbon::setTestNow(Carbon\Carbon::now()->addSeconds(301));
+
+        return $routes($request);
+    }]);
+
+    try {
+        $result = app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+    } finally {
+        Carbon\Carbon::setTestNow();
+    }
+
+    $calls = planCalls($this->argsFile);
+    $unchecked = array_filter($calls[1]['google'], static fn (array $answer): bool => ($answer['error'] ?? null) === "Not attempted: the run's time limit was reached");
+    Http::assertSentCount(1);
+    expect($calls)->toHaveCount(2)
+        ->and($calls[1]['google'])->toHaveCount(450)
+        ->and($unchecked)->toHaveCount(250)
+        ->and($result->summary['google']['error'])->toBe(250 + count(array_filter($calls[1]['google'], static fn (array $answer): bool => ($answer['error'] ?? null) === 'No route returned')))
+        ->and($result->warnings)->toContain("Google Routes check stopped early: 250 trips were not checked before the run's time limit.");
+});
+
+it('skips the retry pass when the time left is short', function () {
+    config(['tools.plan_travels.google_deadline_seconds' => 600, 'psott.routes.timeout' => 300]);
+    $missed = '50.001000,-106.000000|51.001000,-106.100000';
+    Http::fake(['https://pso-services.test/api/v2/routes/compute' => static function (Request $request) use ($missed) {
+        Carbon\Carbon::setTestNow(Carbon\Carbon::now()->addSeconds(301));
+
+        return Http::response(['results' => array_map(static fn (array $leg): array => $leg['id'] === $missed
+            ? ['id' => $leg['id'], 'error' => 'Not attempted: HTTP 429']
+            : ['id' => $leg['id'], 'durationSec' => 700, 'distanceKm' => 1.5, 'source' => 'cache'], $request->data()['legs']), 'counts' => []]);
+    }]);
+
+    try {
+        $result = app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+    } finally {
+        Carbon\Carbon::setTestNow();
+    }
+
+    Http::assertSentCount(1);
+    expect(planCalls($this->argsFile)[1]['google'][$missed])->toBe(['error' => 'Not attempted: HTTP 429'])
+        ->and($result->summary['google'])->toBe(['cache' => 3, 'google' => 0, 'error' => 1])
+        ->and($result->warnings)->toContain("Google Routes check stopped early: 1 trips were not checked before the run's time limit.");
+});
+
+it('writes an error for an unreadable answer and for a trip pso-services left out', function () {
+    Http::fake(['https://pso-services.test/api/v2/routes/compute' => static fn (Request $request) => Http::response([
+        'results' => [
+            ['id' => $request->data()['legs'][0]['id'], 'source' => 'cache'],
+            ['id' => $request->data()['legs'][1]['id'], 'durationSec' => 700, 'distanceKm' => 1.5, 'source' => 'cache'],
+        ],
+        'counts' => [],
+    ])]);
+
+    $result = app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true, 'review_minutes' => '', 'review_pct' => '']);
+
+    $calls = planCalls($this->argsFile);
+    $errors = array_count_values(array_map(static fn (array $answer): string => $answer['error'] ?? 'ok', $calls[1]['google']));
+    expect($errors)->toBe(['Unreadable answer from pso-services' => 1, 'ok' => 1, 'No answer from pso-services for this trip' => 2])
+        ->and($result->summary['google'])->toBe(['cache' => 1, 'google' => 0, 'error' => 3])
+        ->and($calls[1]['argv'])->toContain('--review-minutes', '20', '--review-pct', '0');
 });
