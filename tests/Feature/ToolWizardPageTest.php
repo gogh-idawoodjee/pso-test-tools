@@ -216,10 +216,9 @@ it('refuses a scope the user does not own even if the id is forced into the form
     $theirs = Dataset::factory()->for(Environment::factory())->create();
     ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
-    // The Livewire testable has no assertNotFound and does not run the exception handler, so the raw
-    // ModelNotFoundException (which Laravel renders as a 404) is what escapes.
-    expect(fn () => Livewire::test(LoadAuditEntry::class)->set('data.dataset_id', $theirs->id)->call('start'))
-        ->toThrow(ModelNotFoundException::class);
+    // Livewire 4.4 renders the ModelNotFoundException as a 404 instead of letting it escape.
+    $component = Livewire::test(LoadAuditEntry::class)->set('data.dataset_id', $theirs->id);
+    $component->assertNotFound();
     expect(ToolRun::count())->toBe(0);
 });
 

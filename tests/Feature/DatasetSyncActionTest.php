@@ -63,8 +63,8 @@ it('shows the last sync result', function () {
 it('does not open another user dataset', function () {
     $other = Dataset::factory()->create();
 
-    expect(fn () => Livewire::test(ViewDataset::class, ['record' => $other->getRouteKey()]))
-        ->toThrow(ModelNotFoundException::class);
+    // Livewire 4.4 renders the ModelNotFoundException as a 404 instead of letting it escape.
+    Livewire::test(ViewDataset::class, ['record' => $other->getRouteKey()])->assertNotFound();
 });
 
 it('shows the sync as running on the button and in the summary while the lock is held', function () {

@@ -107,8 +107,8 @@ it('shows a run page with inputs, warnings and the generic result view', functio
 it('does not open another user run', function () {
     $run = ToolRun::factory()->for(Dataset::factory(), 'scope')->create();
 
-    expect(fn () => Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $run->scope_id, 'run' => $run->id]))
-        ->toThrow(ModelNotFoundException::class);
+    // Livewire 4.4 renders the ModelNotFoundException as a 404 instead of letting it escape.
+    Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $run->scope_id, 'run' => $run->id])->assertNotFound();
 });
 
 it('tells an empty Runs tab to start from a tool wizard', function () {
