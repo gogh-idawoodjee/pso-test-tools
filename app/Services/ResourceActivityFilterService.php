@@ -501,6 +501,8 @@ class ResourceActivityFilterService extends HasScopedCache
     /**
      * Filter resources to only those assigned to selected regions (via Resource_Region join).
      * Also builds validLocationIds for locations in those regions, used later to filter activities.
+     * A location is in a region when Location.region_id says so or a Location_Region row links
+     * them: some customers (SaskTel) carry regions only through Location_Region.
      */
     protected function filterResourcesByRegion(): void
     {
@@ -515,6 +517,13 @@ class ResourceActivityFilterService extends HasScopedCache
         $this->validLocationIds = collect($this->data['Location'] ?? [])
             ->filter(static fn ($loc) => isset($regionIdSet[data_get($loc, 'region_id')]))
             ->pluck('id')
+            ->merge(
+                collect($this->data['Location_Region'] ?? [])
+                    ->filter(static fn ($lr) => isset($regionIdSet[data_get($lr, 'region_id')]))
+                    ->pluck('location_id'),
+            )
+            ->unique()
+            ->values()
             ->all();
     }
 

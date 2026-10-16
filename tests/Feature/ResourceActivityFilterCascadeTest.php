@@ -298,3 +298,21 @@ it('drops a location and its Location_Region row when nothing but Location_Regio
         ->and(collect($result['filtered']['Location_Region'])->pluck('location_id')->sort()->values()->all())->toBe(['L1', 'L4'])
         ->and($result['summary']['dangling'])->toBe([]);
 });
+
+it('treats a location as in the region when only a Location_Region row links them (SaskTel)', function () {
+    $data = cascadeFixture();
+    // No region on the Location rows; the link lives in Location_Region only.
+    $data['Location'] = [['id' => 'L1'], ['id' => 'L2'], ['id' => 'L3']];
+    $data['Location_Region'] = [
+        ['location_id' => 'L1', 'region_id' => 'NORTH'],
+        ['location_id' => 'L2', 'region_id' => 'SOUTH'],
+        ['location_id' => 'L3', 'region_id' => 'NORTH'],
+        ['location_id' => 'L3', 'region_id' => 'SOUTH'],
+    ];
+    $data['Activity'][] = ['id' => 'A3', 'location_id' => 'L3'];
+
+    $filtered = runCascade($data)['filtered'];
+
+    expect(collect($filtered['Activity'])->pluck('id')->sort()->values()->all())->toBe(['A1', 'A3'])
+        ->and(collect($filtered['Location_Region'])->pluck('location_id')->unique()->sort()->values()->all())->toBe(['L1', 'L3']);
+});
