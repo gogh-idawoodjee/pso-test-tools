@@ -24,6 +24,7 @@ Route::middleware(['web', Authenticate::class])
         Route::get('page', 'page')->name('tool-runs.page');
         Route::get('download/html', 'downloadHtml')->name('tool-runs.download-html');
         Route::get('download/json', 'downloadJson')->name('tool-runs.download-json');
+        Route::get('download/csv', 'downloadCsv')->name('tool-runs.download-csv');
         Route::get('download/booking-csv', 'downloadBookingCsv')->name('tool-runs.download-booking-csv');
         Route::get('download/history-csv', 'downloadHistoryCsv')->name('tool-runs.download-history-csv');
     });
