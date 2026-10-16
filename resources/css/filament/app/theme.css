@@ -82,23 +82,24 @@
 
 :root.dark,
 [data-theme='dark'] {
-    --pso-bg: #120c24;
-    --pso-surface: #1c1433;
-    --pso-surface-2: #251c42;
-    --pso-border: #2e2552;
-    --pso-border-strong: #3d3368;
+    /* Dark content is near-neutral charcoal; only the top bar and sidebar keep the brand violet. */
+    --pso-bg: #141318;
+    --pso-surface: #1c1b22;
+    --pso-surface-2: #24232b;
+    --pso-border: #2e2d37;
+    --pso-border-strong: #3f3d4a;
     --pso-text: #f6f3ec;
-    --pso-text-muted: #a99fc4;
+    --pso-text-muted: #a4a1b0;
     --pso-link: #b9a4f5;
 
     --pso-chrome-bg: #2a1b4f;
-    --pso-sidebar-bg: #1a1233;
+    --pso-sidebar-bg: #1f1640;
     --pso-sidebar-edge: var(--pso-border);
 
     --pso-primary-bg: #c7f53a;
     --pso-primary-text: #2a1b4f;
     --pso-primary-hover: #d6fa66;
-    --pso-tab-active-bg: #2e2552;
+    --pso-tab-active-bg: #2a2838;
     --pso-tab-active-text: #b9a4f5;
 
     --pso-success: #6ee7a0;
@@ -108,7 +109,7 @@
     --pso-danger: #ff8a7a;
     --pso-danger-bg: #3d1712;
     --pso-info: #b9a4f5;
-    --pso-info-bg: #2e2552;
+    --pso-info-bg: #2a2838;
     /* The brief's "none", as a shadow that can sit in a list. */
     --pso-shadow-card: 0 0 #0000;
 }

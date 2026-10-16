@@ -49,25 +49,27 @@ Restyle the app to match IFS CMDB. Light is the default; dark is a `[data-theme=
 }
 
 [data-theme="dark"] {
-  --bg: #120C24;
-  --surface: #1C1433;
-  --surface-2: #251C42;
-  --border: #2E2552;
-  --border-strong: #3D3368;
+  /* Content is near-neutral charcoal (changed 2026-10-16: the violet-tinted surfaces read as "too purple");
+     only the top bar and sidebar keep the brand violet. */
+  --bg: #141318;
+  --surface: #1C1B22;
+  --surface-2: #24232B;
+  --border: #2E2D37;
+  --border-strong: #3F3D4A;
   --text: #F6F3EC;
-  --text-muted: #A99FC4;
+  --text-muted: #A4A1B0;
   --link: #B9A4F5;
 
   --chrome-bg: #2A1B4F;     /* top bar stays brand violet */
-  --sidebar-bg: #1A1233;    /* sidebar darker than top bar in dark mode */
+  --sidebar-bg: #1F1640;    /* sidebar darker than top bar in dark mode */
 
   --primary-bg: #C7F53A;    --primary-text: #2A1B4F;  --primary-hover: #D6FA66;
-  --tab-active-bg: #2E2552; --tab-active-text: #B9A4F5;
+  --tab-active-bg: #2A2838; --tab-active-text: #B9A4F5;
 
   --success: #6EE7A0; --success-bg: #143826;
   --warning: #FBBF5A; --warning-bg: #3A2A10;
   --danger:  #FF8A7A; --danger-bg:  #3D1712;
-  --info:    #B9A4F5; --info-bg:    #2E2552;
+  --info:    #B9A4F5; --info-bg:    #2A2838;
   --shadow-card: none;
 }
 ```
