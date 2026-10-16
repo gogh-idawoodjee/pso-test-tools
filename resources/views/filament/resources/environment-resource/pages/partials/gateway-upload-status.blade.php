@@ -64,18 +64,23 @@
                 </div>
             @endif
 
-            @if ($upload->dataset_id || $upload->dataset_id_override || $upload->input_reference_datetime || $upload->activity_count || $upload->resource_count)
+            @php
+                // `dataset_id_in_file` is the file's own value; `dataset_id` is read from what was sent.
+                $datasetInFile = $upload->dataset_id_in_file ?? ($upload->dataset_id_override ? null : $upload->dataset_id);
+                $datasetSent = $upload->dataset_id_override ? ($upload->dataset_id ?? $upload->dataset_id_override) : null;
+            @endphp
+            @if ($datasetInFile || $datasetSent || $upload->input_reference_datetime || $upload->activity_count || $upload->resource_count)
                 <dl class="mt-3 grid grid-cols-2 gap-2 text-sm text-gray-600 dark:text-gray-400 sm:grid-cols-4">
-                    @if ($upload->dataset_id)
+                    @if ($datasetInFile)
                         <div>
                             <dt class="font-medium">Dataset in the file</dt>
-                            <dd>{{ $upload->dataset_id }}</dd>
+                            <dd>{{ $datasetInFile }}</dd>
                         </div>
                     @endif
-                    @if ($upload->dataset_id_override)
+                    @if ($datasetSent)
                         <div>
                             <dt class="font-medium">Dataset ID sent</dt>
-                            <dd>{{ $upload->dataset_id_override }}</dd>
+                            <dd>{{ $datasetSent }}</dd>
                         </div>
                     @endif
                     @if ($upload->input_reference_datetime)

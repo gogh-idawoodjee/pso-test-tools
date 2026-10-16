@@ -48,7 +48,14 @@ class EditEnvironment extends EditRecord
             Actions\Action::make('test_configuration')
                 ->icon(Heroicon::OutlinedCheck)
                 ->action(function (Environment $record) {
-                    $this->authenticatePSO($record->base_url, $record->account_id, $record->username, Crypt::decryptString($record->password));
+                    $token = $this->authenticatePSO($record->base_url, $record->account_id, $record->username, Crypt::decryptString($record->password));
+
+                    if ($token) {
+                        // Best effort: the session was only needed to prove the settings
+                        // work, and a failed logoff leaves error_value untouched.
+                        $this->logoffPSO($record->base_url, $token);
+                    }
+
                     $message = 'Configuration valid';
                     if ($this->error_value === 401) {
                         $message = 'Check Credentials';

@@ -17,11 +17,13 @@ use Filament\Actions\Testing\TestAction;
 use Filament\Notifications\Notification;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
+use Tests\Support\PsoServicesFake;
 
 function webhookFormEnvironment(): Environment
 {
@@ -276,4 +278,64 @@ it('shows the reason from pso-services when the environment credentials test fai
                 ->body('Check Configuration: Base URL looks like a production gateway.')
                 ->danger(),
         );
+});
+
+it('shows the dataset id in the file apart from the one sent, and the sent one in the history', function () {
+    $environment = webhookFormEnvironment();
+
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'status' => PsoGatewayUploadStatus::SUCCEEDED,
+        'internal_id' => '1857054',
+        'dataset_id_override' => 'NEWDS',
+        'dataset_id_in_file' => 'OLDDS',
+        'dataset_id' => 'NEWDS',
+        'completed_at' => now(),
+    ]);
+
+    Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->call('viewGatewayUpload', $upload->id)
+        ->assertSeeInOrder(['Dataset in the file', 'OLDDS', 'Dataset ID sent', 'NEWDS'])
+        ->assertSeeInOrder(['Recent uploads', $upload->original_filename, '(NEWDS)']);
+});
+
+it('logs off after fetching system usage', function () {
+    $environment = webhookFormEnvironment();
+
+    Http::fake([
+        ...PsoServicesFake::session(),
+        '*' => Http::response(['data' => ['ScheduleDataUsages' => []]], 200),
+    ]);
+
+    Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->callAction(TestAction::make('fetch_system_usage')->schemaComponent(true, 'systemUsageForm'));
+
+    Http::assertSent(static fn ($request) => $request->url() === PsoServicesFake::sessionUrl() && $request->method() === 'POST');
+    Http::assertSent(static fn ($request) => $request->url() === PsoServicesFake::sessionUrl()
+        && $request->method() === 'DELETE');
+});
+
+it('logs off after a successful configuration test', function () {
+    $environment = webhookFormEnvironment();
+
+    $client = Mockery::mock(PsoServicesSessionClient::class);
+    $client->shouldReceive('logon')->once()->andReturn('tok-abc');
+    $client->shouldReceive('logoff')->once()->with('https://example.test', 'tok-abc');
+    app()->instance(PsoServicesSessionClient::class, $client);
+
+    Livewire::test(EditEnvironment::class, ['record' => $environment->getRouteKey()])
+        ->callAction('test_configuration')
+        ->assertNotified(Notification::make()->title('Looks Good')->body('Configuration valid')->success());
+});
+
+it('still reports a valid configuration when the logoff fails', function () {
+    $environment = webhookFormEnvironment();
+
+    $client = Mockery::mock(PsoServicesSessionClient::class);
+    $client->shouldReceive('logon')->once()->andReturn('tok-abc');
+    $client->shouldReceive('logoff')->once()->andThrow(new PsoServicesSessionException('Internal server error.', 500));
+    app()->instance(PsoServicesSessionClient::class, $client);
+
+    Livewire::test(EditEnvironment::class, ['record' => $environment->getRouteKey()])
+        ->callAction('test_configuration')
+        ->assertNotified(Notification::make()->title('Looks Good')->body('Configuration valid')->success());
 });

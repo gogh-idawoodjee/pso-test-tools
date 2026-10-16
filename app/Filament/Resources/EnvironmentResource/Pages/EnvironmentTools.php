@@ -855,7 +855,12 @@ class EnvironmentTools extends Page
             'maxDate' => $maxDate,
         ], filled(...));
 
-        $responseJson = $this->sendToPSONew('usage', null, $headers, HttpMethod::GET, true, $query ?: null);
+        try {
+            $responseJson = $this->sendToPSONew('usage', null, $headers, HttpMethod::GET, true, $query ?: null);
+        } finally {
+            // Best effort: a failed logoff is logged by the trait, never shown.
+            $this->logoffPSO($baseUrl, $token);
+        }
 
         $rows = (array) data_get(json_decode($responseJson, true), 'data.ScheduleDataUsages', []);
 
