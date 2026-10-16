@@ -14,6 +14,10 @@ return [
         // Logon goes pso-test-tools -> pso-services -> PSO, so it needs more than the 5s default.
         'timeout' => (int) env('PSO_SESSION_TIMEOUT', 20),
     ],
+    'routes' => [
+        // One chunk of up to 200 trips to pso-services /routes/compute; cache misses call Google one by one with a 150 ms gap.
+        'timeout' => (int) env('PSO_SERVICES_ROUTES_TIMEOUT', 300),
+    ],
     'gateway_upload' => [
         // Defaults for the webhook Broadcast injected into an upload; these
         // mirror Send-PsoScheduleData.ps1 (edit here to change them, as the

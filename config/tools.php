@@ -17,4 +17,8 @@ return [
         // Reads one audit zip and writes four files; under RunToolJob's 900 s so the timeout is reported in plain words.
         'timeout_seconds' => (int) env('TOOLS_ACTIVITY_TRACE_TIMEOUT_SECONDS', 840),
     ],
+    'plan_travels' => [
+        // One script run (build, or merge-google); the Google step between them has its own timeout per chunk (psott.routes.timeout).
+        'timeout_seconds' => (int) env('TOOLS_PLAN_TRAVELS_TIMEOUT_SECONDS', 600),
+    ],
 ];

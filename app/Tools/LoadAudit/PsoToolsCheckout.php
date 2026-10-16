@@ -53,6 +53,16 @@ class PsoToolsCheckout
         return $this->file('activity-trace/trace_template.html');
     }
 
+    public function planTravelsScript(): string
+    {
+        return $this->file('plan-travels/plan_travels.py');
+    }
+
+    public function planTravelsTemplate(): string
+    {
+        return $this->file('plan-travels/plan_travels_template.html');
+    }
+
     public function paramsFile(): string
     {
         return $this->file('kb/pso_parameters_reference.csv');
