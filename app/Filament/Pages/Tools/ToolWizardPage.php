@@ -18,6 +18,7 @@ use App\Support\Tools\UnusableInputException;
 use App\Support\Tools\WeekLink;
 use App\Tools\ToolRegistry;
 use BackedEnum;
+use DateTimeZone;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -105,6 +106,7 @@ abstract class ToolWizardPage extends Page implements HasForms
         if (static::tool()->acceptsUnfiled()) {
             // The remembered choice, else Unfiled: a context saved before Unfiled existed has no `unfiled` key.
             $this->data['where'] = ($remembered['unfiled'] ?? true) === true ? self::WHERE_UNFILED : self::WHERE_DATASET;
+            $this->data['options'] = [...($this->data['options'] ?? []), 'time_zone' => self::rememberedTimeZone($remembered)];
         }
         $this->refreshInputs();
     }
@@ -135,11 +137,42 @@ abstract class ToolWizardPage extends Page implements HasForms
     protected function optionsStep(): Step
     {
         $fields = app(ToolRegistry::class)->for(static::tool())->optionFields();
+        if (static::tool()->acceptsUnfiled()) {
+            // Appended by the wizard, never by a tool: an Unfiled run has no dataset zone.
+            $fields[] = $this->timeZoneField();
+        }
 
         return Step::make('Options')
             ->description('Settings for this run. Leave blank for the defaults.')
             ->schema($fields)
             ->hidden($fields === []);
+    }
+
+    /** The zone an Unfiled run's pages show times in; hidden (so neither validated nor kept) for a dataset run. */
+    private function timeZoneField(): Select
+    {
+        $zones = DateTimeZone::listIdentifiers();
+
+        return Select::make('options.time_zone')
+            ->label('Time zone')
+            ->helperText('The zone the pages show times in.')
+            ->options(array_combine($zones, $zones))
+            ->searchable()
+            ->required()
+            ->native(false)
+            ->visible(static fn (Get $get): bool => $get('where') === self::WHERE_UNFILED);
+    }
+
+    /**
+     * The zone an Unfiled run starts with: the one last used when it is still a known zone, else the app's own.
+     *
+     * @param  array<string, mixed>  $remembered
+     */
+    private static function rememberedTimeZone(array $remembered): string
+    {
+        $zone = $remembered['time_zone'] ?? null;
+
+        return is_string($zone) && in_array($zone, DateTimeZone::listIdentifiers(), true) ? $zone : (string) config('app.timezone', 'UTC');
     }
 
     protected function whereStep(): Step
@@ -438,7 +471,12 @@ abstract class ToolWizardPage extends Page implements HasForms
             // A file that expired since the form opened is no longer an option, so say so before the form's own validation does.
             app(StartToolRun::class)->assertUsable($scope, static::tool(), $this->data['files'] ?? []);
             $state = $this->form->getState();
-            $run = app(StartToolRun::class)->start($scope, static::tool(), $state['files'] ?? [], $state['options'] ?? [], auth()->user());
+            $options = $state['options'] ?? [];
+            if (! $this->isUnfiled()) {
+                // Only an Unfiled run takes a zone; a dataset run uses the dataset's.
+                unset($options['time_zone']);
+            }
+            $run = app(StartToolRun::class)->start($scope, static::tool(), $state['files'] ?? [], $options, auth()->user());
         } catch (UnusableInputException $e) {
             // Empty on purpose, so the default does not put the same unusable file back.
             $this->data['files'][$e->kind->value] = null;

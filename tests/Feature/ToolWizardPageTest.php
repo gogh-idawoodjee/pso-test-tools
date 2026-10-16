@@ -6,6 +6,7 @@ use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Pages\ToolRunPage;
 use App\Filament\Pages\Tools\LoadAuditEntry;
+use App\Filament\Pages\Tools\RegionAvailabilityEntry;
 use App\Filament\Pages\Tools\ScheduleReviewEntry;
 use App\Filament\Pages\Tools\SysCompareEntry;
 use App\Filament\Resources\DatasetResource;
@@ -187,9 +188,10 @@ it('switches to a newer file the user just uploaded', function () {
     $component->dispatch('export-uploaded')->assertFormSet(['files.load' => $new->id]);
 });
 
-it('has no Options step when the tool has no option fields, and one when it has', function () {
+it('has no Options step when a dataset tool has no option fields, and one when it has', function () {
+    app(ToolRegistry::class)->register(ToolId::RegionAvailability, FakeTool::class);
     FakeTool::$optionFields = [];
-    Livewire::test(LoadAuditEntry::class)->assertDontSee('Settings for this run');
+    Livewire::test(RegionAvailabilityEntry::class)->assertDontSee('Settings for this run');
 
     FakeTool::$optionFields = [TextInput::make('options.ifs_release')->label('IFS Cloud release')];
     Livewire::test(LoadAuditEntry::class)->assertSee('Settings for this run')->assertFormFieldExists('options.ifs_release');

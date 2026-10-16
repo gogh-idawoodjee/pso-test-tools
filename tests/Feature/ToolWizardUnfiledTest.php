@@ -115,3 +115,77 @@ it('never runs a tool that needs a dataset on unfiled files, even when where is 
     expect($run->scope_type)->toBe($this->dataset->getMorphClass())
         ->and($run->inputs['files']['load'])->toBe($datasetLoad->id);
 });
+
+it('asks for the time zone on Options for an Unfiled run, defaulting to the remembered zone', function () {
+    config(['app.timezone' => 'America/Toronto']);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->assertFormFieldExists('options.time_zone')
+        ->assertFormFieldVisible('options.time_zone')
+        ->assertFormSet(['options.time_zone' => 'America/Toronto'])
+        ->assertSee('The zone the pages show times in.');
+
+    $this->user->rememberToolContext(null, null, unfiled: true, timeZone: 'America/Regina');
+    Livewire::test(LoadAuditEntry::class)->assertFormSet(['options.time_zone' => 'America/Regina']);
+
+    $this->user->rememberToolContext(null, null, unfiled: true, timeZone: 'Mars/Olympus');
+    Livewire::test(LoadAuditEntry::class)->assertFormSet(['options.time_zone' => 'America/Toronto']);
+});
+
+it('has an Options step for the time zone alone when the tool has no options, hidden for a dataset run', function () {
+    FakeTool::$optionFields = [];
+    Livewire::test(LoadAuditEntry::class)
+        ->assertSee('Settings for this run')
+        ->assertFormFieldVisible('options.time_zone');
+
+    $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
+    Livewire::test(LoadAuditEntry::class)->assertFormFieldHidden('options.time_zone');
+
+    Livewire::test(RegionAvailabilityEntry::class)
+        ->assertFormFieldDoesNotExist('options.time_zone')
+        ->assertDontSee('Settings for this run');
+});
+
+it('starts an unfiled run with the chosen zone and remembers it with the last dataset', function () {
+    Queue::fake();
+    $this->user->rememberToolContext($this->environment->id, $this->dataset->id, unfiled: true);
+    $load = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load]);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->fillForm(['options' => ['time_zone' => 'America/Regina']])
+        ->call('start')
+        ->assertHasNoFormErrors();
+
+    $run = ToolRun::sole();
+    expect($run->scope_type)->toBe($this->user->getMorphClass())
+        ->and((string) $run->scope_id)->toBe((string) $this->user->id)
+        ->and($run->inputs)->toBe(['files' => ['load' => $load->id], 'options' => ['time_zone' => 'America/Regina']])
+        ->and($this->user->fresh()->last_tool_context)->toBe([
+            'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id, 'unfiled' => true, 'time_zone' => 'America/Regina',
+        ]);
+});
+
+it('refuses a time zone that is not in the list', function () {
+    Queue::fake();
+    ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load]);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->set('data.options.time_zone', 'Mars/Olympus')
+        ->call('start')
+        ->assertHasFormErrors(['options.time_zone']);
+
+    expect(ToolRun::count())->toBe(0);
+});
+
+it('keeps the time zone out of a dataset run', function () {
+    Queue::fake();
+    $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->set('data.options.time_zone', 'America/Regina')
+        ->call('start')
+        ->assertHasNoFormErrors();
+
+    expect(ToolRun::sole()->inputs['options'])->toBe([]);
+});
