@@ -9,6 +9,11 @@ use RuntimeException;
  * Input_Reference dataset_id values and the Broadcast/Broadcast_Parameter
  * members of the top-level wrapper is written exactly as read.
  *
+ * With an identity, each Input_Reference row (a few dozen bytes, so it is
+ * held whole) gets `user_id` and `description`: an existing value is
+ * replaced where it stands; a missing one is added after `dataset_id` (or
+ * after the last member), copying that member's whitespace.
+ *
  * 6.15+ files wrap in "ScheduleData" with native types and always-array
  * entities; older files wrap in "dsScheduleData", use string values and only
  * array-wrap an entity with more than one row. The injected rows match.
@@ -18,6 +23,8 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
     private const array WRAPPER_KEYS = ['ScheduleData', 'dsScheduleData'];
 
     private const array STRIPPED_ENTITIES = ['Broadcast', 'Broadcast_Parameter'];
+
+    private const array IDENTITY_FIELDS = ['user_id', 'description'];
 
     private const int JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR;
 
@@ -31,6 +38,7 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
         ?string $datasetIdOverride,
         ?BroadcastInjection $injection,
         bool $stripExisting = true,
+        ?InputReferenceIdentity $identity = null,
     ): RewriteReport {
         $source = @fopen($sourcePath, 'rb');
 
@@ -55,7 +63,7 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
         }
 
         try {
-            return $this->copy($source, $destination, $datasetIdOverride, $injection, $stripExisting || $injection !== null);
+            return $this->copy($source, $destination, $datasetIdOverride, $injection, $stripExisting || $injection !== null, $identity);
         } finally {
             fclose($source);
             fclose($destination);
@@ -66,7 +74,7 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
      * @param  resource  $source
      * @param  resource  $destination
      */
-    private function copy($source, $destination, ?string $datasetIdOverride, ?BroadcastInjection $injection, bool $strip): RewriteReport
+    private function copy($source, $destination, ?string $datasetIdOverride, ?BroadcastInjection $injection, bool $strip, ?InputReferenceIdentity $identity): RewriteReport
     {
         $bytesWritten = 0;
         $pending = '';
@@ -117,6 +125,9 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
         $datasetIdChanged = false;
         $strippedBroadcasts = 0;
         $strippedParameters = 0;
+        $rowTokens = null; // the Input_Reference row being held to add the identity; null when not holding one
+        $inputReferencesMarked = 0;
+        $identityFieldsReplaced = 0;
 
         foreach ($this->tokenReader->tokens($source) as $token) {
             $isWhitespace = $token[0] === ' ' || $token[0] === "\t" || $token[0] === "\r" || $token[0] === "\n";
@@ -163,6 +174,8 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
                     } else {
                         $whitespaceBeforeComma .= $token;
                     }
+                } elseif ($rowTokens !== null) {
+                    $rowTokens[] = $token;
                 } elseif (! $strippingMember) {
                     $write($token);
                 }
@@ -246,7 +259,10 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
                         $memberRows = 1;
                     }
 
-                    if (! $strippingMember) {
+                    if ($inInputReference && $identity !== null && ! $memberIsArray) {
+                        // A legacy single-object Input_Reference: the value is the row.
+                        $rowTokens = [$token];
+                    } elseif (! $strippingMember) {
                         $write($token);
                     }
 
@@ -307,7 +323,19 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
                 }
             }
 
-            if (! $strippingMember) {
+            if ($rowTokens === null && $inInputReference && $identity !== null && $memberIsArray && $token === '{' && $memberDepth === 2) {
+                $rowTokens = [];
+            }
+
+            if ($rowTokens !== null) {
+                $rowTokens[] = $output;
+
+                if ($token === '}' && $memberDepth === ($memberIsArray ? 1 : 0)) {
+                    $write($this->markedRow($rowTokens, $identity, $identityFieldsReplaced));
+                    $rowTokens = null;
+                    $inputReferencesMarked++;
+                }
+            } elseif (! $strippingMember) {
                 $write($output);
             }
 
@@ -345,7 +373,149 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
             strippedBroadcasts: $strippedBroadcasts,
             strippedBroadcastParameters: $strippedParameters,
             bytesWritten: $bytesWritten,
+            inputReferencesMarked: $inputReferencesMarked,
+            identityFieldsReplaced: $identityFieldsReplaced,
         );
+    }
+
+    /**
+     * One Input_Reference row (its tokens from '{' to '}') with user_id and
+     * description set. Existing values are replaced in place; missing ones
+     * go after dataset_id, else after the last member, in that member's style.
+     *
+     * @param  list<string>  $tokens
+     */
+    private function markedRow(array $tokens, InputReferenceIdentity $identity, int &$fieldsReplaced): string
+    {
+        $values = ['user_id' => $identity->userId, 'description' => $identity->description];
+        $members = $this->rowMembers($tokens);
+
+        $found = [];
+        $anchor = null;
+
+        foreach ($members as $member) {
+            if (array_key_exists($member['name'], $values)) {
+                $found[$member['name']] = true;
+                $fieldsReplaced++;
+                $tokens[$member['valueStart']] = json_encode($values[$member['name']], self::JSON_FLAGS);
+
+                for ($index = $member['valueStart'] + 1; $index <= $member['valueEnd']; $index++) {
+                    $tokens[$index] = '';
+                }
+            }
+
+            // dataset_id once seen, else the last member so far.
+            if ($anchor === null || $anchor['name'] !== 'dataset_id') {
+                $anchor = $member;
+            }
+        }
+
+        $insertion = '';
+
+        foreach (self::IDENTITY_FIELDS as $field) {
+            if (isset($found[$field])) {
+                continue;
+            }
+
+            $pair = json_encode($field).($anchor['beforeColon'] ?? '').':'.($anchor['afterColon'] ?? '').json_encode($values[$field], self::JSON_FLAGS);
+
+            // An empty row gets no leading comma; anything after a member does.
+            $insertion .= $anchor === null && $insertion === '' ? $pair : ','.($anchor['leading'] ?? '').$pair;
+        }
+
+        if ($insertion !== '') {
+            $at = $anchor === null ? 0 : $anchor['valueEnd'];
+            $tokens[$at] .= $insertion;
+        }
+
+        return implode('', $tokens);
+    }
+
+    /**
+     * The row's own members (not those of nested values), with the token
+     * range of each value and the whitespace around its key and colon.
+     *
+     * @param  list<string>  $tokens
+     * @return list<array{name: string, leading: string, beforeColon: string, afterColon: string, valueStart: int, valueEnd: int}>
+     */
+    private function rowMembers(array $tokens): array
+    {
+        $members = [];
+        $member = null;
+        $state = 'key'; // 'key' | 'colon' | 'value' | 'nested'
+        $nesting = 0;
+        $leading = '';
+        $count = count($tokens);
+
+        for ($index = 1; $index < $count; $index++) {
+            $token = $tokens[$index];
+            $isWhitespace = $token[0] === ' ' || $token[0] === "\t" || $token[0] === "\r" || $token[0] === "\n";
+
+            if ($state === 'nested') {
+                if (! $isWhitespace && ($token === '{' || $token === '[')) {
+                    $nesting++;
+                } elseif (! $isWhitespace && ($token === '}' || $token === ']') && --$nesting === 0) {
+                    $member['valueEnd'] = $index;
+                    $members[] = $member;
+                    $state = 'key';
+                    $leading = '';
+                }
+
+                continue;
+            }
+
+            if ($isWhitespace) {
+                match ($state) {
+                    'key' => $leading .= $token,
+                    'colon' => $member['beforeColon'] .= $token,
+                    default => $member['afterColon'] .= $token,
+                };
+
+                continue;
+            }
+
+            if ($state === 'key') {
+                if ($token === '}') {
+                    break;
+                }
+
+                if ($token === ',') {
+                    $leading = '';
+
+                    continue;
+                }
+
+                $name = json_decode($token);
+                $member = ['name' => is_string($name) ? $name : '', 'leading' => $leading, 'beforeColon' => '', 'afterColon' => '', 'valueStart' => 0, 'valueEnd' => 0];
+                $state = 'colon';
+
+                continue;
+            }
+
+            if ($state === 'colon') {
+                if ($token === ':') {
+                    $state = 'value';
+                }
+
+                continue;
+            }
+
+            $member['valueStart'] = $index;
+
+            if ($token === '{' || $token === '[') {
+                $nesting = 1;
+                $state = 'nested';
+
+                continue;
+            }
+
+            $member['valueEnd'] = $index;
+            $members[] = $member;
+            $state = 'key';
+            $leading = '';
+        }
+
+        return $members;
     }
 
     /**
