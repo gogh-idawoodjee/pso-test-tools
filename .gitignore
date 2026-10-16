@@ -23,3 +23,6 @@ yarn-error.log
 /.zed
 /.worktrees
 .DS_Store
+
+# Customer SYS exports never belong in the repo (the golden test reads SYS_COMPARE_SAMPLES)
+docs/sys-compare-handoff/reference/*.xml

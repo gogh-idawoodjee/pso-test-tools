@@ -37,7 +37,7 @@ Do NOT start coding yet.
 
 | Path | What it is | How to use it |
 |---|---|---|
-| `reference/Compare-PsoSysFiles.ps1` | The working PowerShell implementation (~1,400 lines) | **Source of truth for comparison logic, output formats and wording.** If this prompt and the script disagree, stop and ask me. |
+| `reference/Compare-PsoSysFiles.ps1` (retired from this folder 2026-10-16; the script lives in pso-tools `sys-compare/`) | The working PowerShell implementation (~1,400 lines) | **Source of truth for comparison logic, output formats and wording.** If this prompt and the script disagree, stop and ask me. |
 | `reference/workbook_builder_reference.py` | Python that generates the Excel workbook | Reference for sheet layout, formulas, conditional formatting. Throwaway code (hardcoded paths) - port the ideas, not the file. |
 | `reference/sys_loader_reference.py` | Tiny XML loader used by the Python reference | Loads whole file into memory. Production code should stream (see "Parsing"). |
 | `data/pso_parameters_reference.csv` | IFS parameter catalog (736 parameters: application, data type, default value, official description) | **Required input for the comparison.** Supplies defaults so "unset" can be compared with "explicitly set to the default" (see "Unset parameters = default"), and official descriptions. Ship it as data. Defaults can change between PSO versions - see the open questions. |

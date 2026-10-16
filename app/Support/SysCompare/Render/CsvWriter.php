@@ -32,8 +32,32 @@ final class CsvWriter
     private static function line(array $values): string
     {
         return implode(',', array_map(
-            static fn (string|int|null $value): string => '"'.str_replace('"', '""', (string) $value).'"',
+            static fn (string|int|null $value): string => '"'.str_replace('"', '""', self::guardFormula((string) $value)).'"',
             $values,
         ));
+    }
+
+    /**
+     * A value that a spreadsheet would run as a formula (starting with =, +, @, a tab or a
+     * carriage return, or with - when it is not a plain number) gets a leading apostrophe,
+     * which Excel and LibreOffice drop on display. Negative numbers stay as they are.
+     */
+    public static function guardFormula(string $value): string
+    {
+        if ($value === '') {
+            return $value;
+        }
+
+        $first = $value[0];
+
+        if ($first === '=' || $first === '+' || $first === '@' || $first === "\t" || $first === "\r") {
+            return "'".$value;
+        }
+
+        if ($first === '-' && ! is_numeric($value)) {
+            return "'".$value;
+        }
+
+        return $value;
     }
 }

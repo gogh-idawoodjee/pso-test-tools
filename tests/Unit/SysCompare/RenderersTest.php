@@ -257,3 +257,16 @@ it('never lets the API key reach any generated artifact', function (): void {
 
     expect($artifacts['html'])->toContain('[API key set]');
 });
+
+it('guards values a spreadsheet would run as a formula', function (): void {
+    $csv = CsvWriter::document(['Value'], [['=SUM(A1)'], ['+1+1'], ['@cmd'], ['-2.5'], ['-DROP'], ['plain'], ['']]);
+    $lines = explode("\r\n", substr($csv, strlen(CsvWriter::BOM)));
+
+    expect($lines[1])->toBe('"\'=SUM(A1)"')
+        ->and($lines[2])->toBe('"\'+1+1"')
+        ->and($lines[3])->toBe('"\'@cmd"')
+        ->and($lines[4])->toBe('"-2.5"')
+        ->and($lines[5])->toBe('"\'-DROP"')
+        ->and($lines[6])->toBe('"plain"')
+        ->and($lines[7])->toBe('""');
+});
