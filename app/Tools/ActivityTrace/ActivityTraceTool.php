@@ -10,6 +10,7 @@ use App\Tools\Contracts\ToolResult;
 use App\Tools\LoadAudit\PsoToolsCheckout;
 use App\Tools\ScriptRun;
 use App\Tools\ToolContext;
+use App\Tools\UnfiledLabel;
 use Filament\Forms\Components\TextInput;
 use RuntimeException;
 
@@ -65,7 +66,7 @@ class ActivityTraceTool implements Tool
 
         $argv = ActivityTraceCommand::build(
             $checkout, $workDir, $inputPaths, $options, $context->timeZoneIsDefault ? null : $context->timeZone, $ifsTimeZone,
-            $context->scope instanceof Dataset ? $context->scope->name : null,
+            $context->scope instanceof Dataset ? $context->scope->name : UnfiledLabel::for($context, ExportKind::Audits),
         );
         $timeout = (int) config('tools.activity_trace.timeout_seconds', 840);
 

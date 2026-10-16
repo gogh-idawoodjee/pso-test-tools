@@ -7,6 +7,7 @@ use App\Jobs\RunToolJob;
 use App\Models\Dataset;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
+use App\Models\User;
 use App\Support\Exports\ExportStorage;
 use App\Tools\Contracts\ToolSetupException;
 use App\Tools\LoadAudit\LoadAuditTool;
@@ -189,3 +190,32 @@ it('removes the whole scratch folder, accounts folder included, after a run', fu
         File::deleteDirectory($scratchRoot);
     }
 })->with([['ok', ToolRunStatus::Succeeded], ['fail', ToolRunStatus::Failed]]);
+
+it('labels an unfiled audit with the LOAD file name', function () {
+    $argsFile = $this->scratch.'/args.json';
+    fakeAuditEnv('FAKE_AUDIT_ARGS_FILE', $argsFile);
+    $user = User::factory()->create();
+    $load = ExportFile::factory()->for($user, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'prod_north_load_1013.xml']);
+    $run = ToolRun::factory()->for($user, 'scope')->create([
+        'tool' => ToolId::LoadAudit, 'result' => null, 'progress' => null,
+        'inputs' => ['files' => ['load' => $load->id], 'options' => ['time_zone' => 'America/Regina']],
+    ]);
+
+    (new LoadAuditTool)->run(new ToolContext($run, $user, null, 'America/Regina'), ['load' => $this->scratch.'/load.xml'], []);
+
+    $argv = json_decode(file_get_contents($argsFile), true)['argv'];
+    expect($argv[array_search('--org', $argv, true) + 1])->toBe('prod_north_load_1013.xml')
+        ->and($argv[array_search('--tz', $argv, true) + 1])->toBe('America/Regina');
+});
+
+it('still passes no label for a dataset with no display name', function () {
+    $argsFile = $this->scratch.'/args.json';
+    fakeAuditEnv('FAKE_AUDIT_ARGS_FILE', $argsFile);
+    $dataset = Dataset::factory()->create(['settings' => ['time_zone' => 'America/Regina']]);
+    $load = ExportFile::factory()->for($dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'north_load.xml']);
+    $run = ToolRun::factory()->for($dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'result' => null, 'progress' => null, 'inputs' => ['files' => ['load' => $load->id], 'options' => []]]);
+
+    (new LoadAuditTool)->run(new ToolContext($run, $dataset, $dataset->settings, 'America/Regina'), ['load' => $this->scratch.'/load.xml'], []);
+
+    expect(json_decode(file_get_contents($argsFile), true)['argv'])->not->toContain('--org');
+});

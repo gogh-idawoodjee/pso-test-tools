@@ -8,6 +8,7 @@ use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolResult;
 use App\Tools\ScriptRun;
 use App\Tools\ToolContext;
+use App\Tools\UnfiledLabel;
 use Filament\Forms\Components\TextInput;
 use RuntimeException;
 
@@ -62,7 +63,7 @@ class LoadAuditTool implements Tool
 
         $argv = LoadAuditCommand::build(
             $checkout, $workDir, $inputPaths, $options, $context->timeZone,
-            $context->settings?->displayName,
+            $context->settings?->displayName ?: UnfiledLabel::for($context, ExportKind::Load),
         );
         $timeout = (int) config('tools.load_audit.timeout_seconds', 840);
 

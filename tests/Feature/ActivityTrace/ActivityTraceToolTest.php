@@ -7,6 +7,7 @@ use App\Filament\Pages\Tools\AppointmentTimelineEntry;
 use App\Filament\Widgets\ToolCatalogue;
 use App\Models\Dataset;
 use App\Models\Environment;
+use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
 use App\Tools\ActivityTrace\ActivityTraceTool;
@@ -210,4 +211,21 @@ it('passes no --tz when the run uses the default zone, but still an IFS zone tha
 
     $argv = json_decode(file_get_contents($argsFile), true)['argv'];
     expect($argv)->not->toContain('--tz')->toContain('--ifs-tz', 'America/Toronto');
+});
+
+it('names an unfiled trace after the audits file and passes the chosen zone, with no IFS zone', function () {
+    $argsFile = $this->scratch.'/args.json';
+    fakeTraceEnv('FAKE_TRACE_ARGS_FILE', $argsFile);
+    $audits = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Audits, 'original_filename' => 'audits_1004.zip', 'content_type' => 'zip']);
+    $run = ToolRun::factory()->for($this->user, 'scope')->create([
+        'tool' => ToolId::AppointmentTimeline, 'result' => null, 'progress' => null,
+        'inputs' => ['files' => ['audits' => $audits->id], 'options' => ['activity_id' => 'abc', 'time_zone' => 'America/Regina']],
+    ]);
+
+    (new ActivityTraceTool)->run(new ToolContext($run, $this->user, null, 'America/Regina'), ['audits' => $this->scratch.'/audits.zip'], ['activity_id' => 'abc']);
+
+    $argv = json_decode(file_get_contents($argsFile), true)['argv'];
+    expect($argv[array_search('--dataset-name', $argv, true) + 1])->toBe('audits_1004.zip')
+        ->and($argv[array_search('--tz', $argv, true) + 1])->toBe('America/Regina')
+        ->and($argv)->not->toContain('--ifs-tz');
 });

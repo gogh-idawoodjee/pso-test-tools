@@ -393,3 +393,16 @@ it('writes an error for an unreadable answer and for a trip pso-services left ou
         ->and($result->summary['google'])->toBe(['cache' => 1, 'google' => 0, 'error' => 3])
         ->and($calls[1]['argv'])->toContain('--review-minutes', '20', '--review-pct', '0');
 });
+
+it('names an unfiled run after the plan export file', function () {
+    Http::fake();
+    $plan = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Plan, 'original_filename' => 'north_plan_1005.xml', 'summary' => ['export_date' => '2026-10-05']]);
+    $run = ToolRun::factory()->for($this->user, 'scope')->create([
+        'tool' => ToolId::PlanTravels, 'result' => null, 'progress' => null, 'inputs' => ['files' => ['plan' => $plan->id], 'options' => []],
+    ]);
+
+    app(PlanTravelsTool::class)->run(new ToolContext($run, $this->user, null, 'America/Regina'), $this->inputs, ['first_date' => '2026-10-05', 'days' => 1, 'google' => false]);
+
+    $argv = planCalls($this->argsFile)[0]['argv'];
+    expect($argv[array_search('--dataset-name', $argv, true) + 1])->toBe('north_plan_1005.xml');
+});

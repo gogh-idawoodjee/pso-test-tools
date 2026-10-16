@@ -14,6 +14,7 @@ use App\Tools\Contracts\ToolResult;
 use App\Tools\LoadAudit\PsoToolsCheckout;
 use App\Tools\ScriptRun;
 use App\Tools\ToolContext;
+use App\Tools\UnfiledLabel;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
@@ -149,7 +150,7 @@ class PlanTravelsTool implements Tool
         $this->googleDeadline = Carbon::now()->addSeconds((int) config('tools.plan_travels.google_deadline_seconds', 720));
 
         $context->reportProgress('Building legs', 0, null, 'build');
-        $datasetName = $context->settings?->displayName ?: ($context->scope instanceof Dataset ? $context->scope->name : null);
+        $datasetName = $context->settings?->displayName ?: ($context->scope instanceof Dataset ? $context->scope->name : UnfiledLabel::for($context, ExportKind::Plan));
         $argv = PlanTravelsCommand::build($checkout, $workDir, $inputPaths['plan'], $firstDate, $days, $datasetName);
         ScriptRun::execute($context, $workDir, $argv, $timeout, 'Plan travels', progressLabel: 'Building legs');
         $built = $this->readOutputs($workDir);
