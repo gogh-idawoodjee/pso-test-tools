@@ -84,12 +84,13 @@ it('fails a schedule file it could read nothing from instead of reporting zero c
         ->toThrow(InvalidExportException::class, 'could not be summarised');
 });
 
-it('fails a JSON schedule file too large to summarise and tells the user what to upload', function () {
+it('says plainly when a JSON file has no Input_Reference and no Plan block, whatever its size', function () {
     $path = tempnam(sys_get_temp_dir(), 'exp_').'.json';
     file_put_contents($path, '{"dsScheduleData":{"pad":"'.str_repeat('x', 21 * 1024 * 1024).'"}}');
 
+    expect(filesize($path))->toBeGreaterThan(20 * 1024 * 1024);
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'json'), $path, 'UTC'))
-        ->toThrow(InvalidExportException::class, 'XML');
+        ->toThrow(InvalidExportException::class, 'The file has no Input_Reference and no Plan block');
 });
 
 it('refuses a zip member larger than the uncompressed cap', function () {
@@ -150,6 +151,60 @@ it('rejects a JSON plan it cannot check for a Plan block', function () {
 
     expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'json'), $path, 'UTC'))
         ->toThrow(InvalidExportException::class, 'no Plan block');
+});
+
+it('rejects a JSON plan whose Plan is empty', function (string $emptyPlan) {
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.json';
+    file_put_contents($path, '{"dsScheduleData":{"Input_Reference":{"dataset_id":"NORTH","datetime":"2026-10-10T07:12:00"},"Plan":'.$emptyPlan.'}}');
+
+    expect(fn () => app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'json'), $path, 'UTC'))
+        ->toThrow(InvalidExportException::class, 'no Plan block');
+})->with(['empty array' => '[]', 'empty object' => '{}']);
+
+it('summarises a JSON plan export by its Plan block and counts its allocations', function (string $wrapper, bool $planAsArray) {
+    $plan = '{"id":"1","dataset_id":"NORTH","input_reference_date_time":"2026-10-04T08:06:33"}';
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.json';
+    file_put_contents($path, '{"'.$wrapper.'":{"Plan":'.($planAsArray ? "[{$plan}]" : $plan).',"Allocation":[{"activity_id":"A1"},{"activity_id":"A2","nested":{"Plan":[]}}]}}');
+
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'json'), $path, 'America/Regina');
+
+    expect($summary->toArray())->toMatchArray([
+        'dataset_id' => 'NORTH',
+        'allocation_count' => 2,
+        'export_date' => '2026-10-04',
+        'input_reference_datetime' => '2026-10-04T08:06:33+00:00',
+    ]);
+})->with([
+    'dsScheduleData, Plan as an object' => ['dsScheduleData', false],
+    'ScheduleData, Plan as an array' => ['ScheduleData', true],
+]);
+
+it('accepts a JSON plan over 20 MB as a plan, in flat memory', function () {
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.json';
+    $handle = fopen($path, 'wb');
+    fwrite($handle, '{"dsScheduleData":{"Allocation":[');
+    $row = '{"activity_id":"ACT-000000","resource_id":"R1","pad":"'.str_repeat('x', 200).'"},';
+
+    for ($index = 0; $index < 100000; $index++) {
+        fwrite($handle, $row);
+    }
+
+    fwrite($handle, '{"activity_id":"LAST"}],"Plan":[{"id":"1","dataset_id":"NORTH","input_reference_date_time":"2026-10-04T08:06:33"}]}}');
+    fclose($handle);
+
+    memory_reset_peak_usage();
+    $before = memory_get_usage();
+
+    try {
+        $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'json'), $path, 'UTC');
+        $growth = memory_get_peak_usage() - $before;
+
+        expect(filesize($path))->toBeGreaterThan(20 * 1024 * 1024)
+            ->and($summary->toArray())->toMatchArray(['dataset_id' => 'NORTH', 'allocation_count' => 100001])
+            ->and($growth)->toBeLessThan(16 * 1024 * 1024);
+    } finally {
+        @unlink($path);
+    }
 });
 
 it('dates a LOAD whose datetime has no offset from UTC, not the app time zone', function () {

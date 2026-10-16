@@ -4,9 +4,11 @@ namespace App\Support\Exports;
 
 use App\Enums\ExportKind;
 use App\Models\ExportFile;
+use App\Support\ScheduleData\JsonTokenReader;
 use App\Support\ScheduleDataSummaryExtractor;
 use App\Support\SysCompare\VersionAnalyzer;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 use XMLReader;
@@ -19,9 +21,6 @@ use ZipArchive;
  */
 class ExportSummariser
 {
-    // The plan-block check still decodes JSON in full, so it keeps the old 20 MB cap (moved from the extractor).
-    private const int MAX_JSON_PLAN_CHECK_BYTES = 20 * 1024 * 1024;
-
     public function summarise(ExportFile $file, string $localPath, string $timeZone): ExportSummary
     {
         $kind = $file->kind;
@@ -57,8 +56,10 @@ class ExportSummariser
     private function summariseSchedule(string $path, string $format, string $root, string $timeZone, ExportKind $kind): ExportSummary
     {
         // A plan upload must carry a Plan block; one streaming pass serves this check and the plan-only summary below.
-        $plan = $format === 'xml' ? $this->readPlanBlock($path) : null;
-        if ($kind === ExportKind::Plan && ! $this->hasPlanBlock($path, $format, $plan)) {
+        // A JSON LOAD skips that pass unless it turns out to have no Input_Reference.
+        $readPlan = fn (): ?array => $format === 'xml' ? $this->readPlanBlock($path) : $this->readJsonPlanBlock($path);
+        $plan = $format === 'xml' || $kind === ExportKind::Plan ? $readPlan() : null;
+        if ($kind === ExportKind::Plan && $plan === null) {
             throw new InvalidExportException('This file has no Plan block, so it is not a plan export. Upload it as LOAD or End of day instead.');
         }
 
@@ -68,6 +69,10 @@ class ExportSummariser
         // The extractor reports zeros for a file it could not read; a ready row must never say that.
         if ($extracted['dataset_id'] === null && $reference === null) {
             // A plan export has no Input_Reference: its dataset and reference time sit on the Plan block.
+            if ($plan === null && $format === 'json' && $kind !== ExportKind::Plan) {
+                $plan = $readPlan();
+            }
+
             if ($plan !== null) {
                 if ($kind === ExportKind::Load) {
                     throw new InvalidExportException('This file is a plan export (it holds a Plan and its allocations, but no activities or resources), not a LOAD. Upload it under Plan or End of day.');
@@ -84,13 +89,7 @@ class ExportSummariser
                 ]);
             }
 
-            if ($format === 'json' && filesize($path) > self::MAX_JSON_PLAN_CHECK_BYTES) {
-                $megabytes = (int) (self::MAX_JSON_PLAN_CHECK_BYTES / 1024 / 1024);
-
-                throw new InvalidExportException("This JSON file is larger than {$megabytes} MB and could not be summarised. Upload the XML export (or a zip of it) instead.");
-            }
-
-            throw new InvalidExportException('This file could not be summarised: no Input_Reference block was found. Check that it is a complete PSO export.');
+            throw new InvalidExportException('This file could not be summarised. The file has no Input_Reference and no Plan block. Check that it is a complete PSO export.');
         }
 
         return new ExportSummary([
@@ -103,22 +102,130 @@ class ExportSummariser
         ]);
     }
 
-    /** @param array<string, mixed>|null $streamedPlan result of readPlanBlock() for xml */
-    private function hasPlanBlock(string $path, string $format, ?array $streamedPlan): bool
+    /**
+     * The JSON twin of readPlanBlock(), streamed with JsonTokenReader so a file of any size stays in flat
+     * memory. Null unless the wrapper (dsScheduleData or ScheduleData) has a Plan member that is a non-empty
+     * object or a non-empty array; the dataset id and input reference time come from the first Plan row.
+     *
+     * @return array{dataset_id: ?string, input_reference_date_time: ?string, allocation_count: int}|null
+     */
+    private function readJsonPlanBlock(string $path): ?array
     {
-        if ($format === 'xml') {
-            return $streamedPlan !== null;
+        $handle = @fopen($path, 'rb');
+        if ($handle === false) {
+            return null;
         }
 
-        // JSON has no streaming reader here; a file too large to decode cannot be checked.
-        if (filesize($path) > self::MAX_JSON_PLAN_CHECK_BYTES) {
-            return false;
+        $depth = 0;
+        $previous = '';
+        $wrapperPending = false;
+        $wrapperFound = false;
+        $insideWrapper = false;
+        $entity = null;
+        $entityIsArray = false;
+        $planOpened = false;
+        $planFound = false;
+        $readingPlan = false;
+        $wantedField = null;
+        $fields = ['dataset_id' => null, 'input_reference_date_time' => null];
+        $allocations = 0;
+
+        try {
+            foreach (app(JsonTokenReader::class)->tokens($handle) as $token) {
+                if (strspn($token[0], " \t\r\n") === 1) {
+                    continue;
+                }
+
+                $before = $previous;
+                $previous = $token;
+
+                // The first token inside the Plan value says whether it is empty.
+                if ($planOpened) {
+                    $planOpened = false;
+                    $planFound = $token !== '}' && $token !== ']';
+                    $readingPlan = $planFound;
+                }
+
+                if ($wantedField !== null) {
+                    if ($token === ':') {
+                        continue;
+                    }
+
+                    if ($token[0] === '"') {
+                        $text = json_decode($token);
+                        if (is_string($text) && $text !== '') {
+                            $fields[$wantedField] ??= $text;
+                        }
+                    }
+
+                    $wantedField = null;
+
+                    if ($token !== '{' && $token !== '[') {
+                        continue;
+                    }
+                }
+
+                if ($token === '{' || $token === '[') {
+                    if ($wrapperPending && $token === '{' && $depth === 1) {
+                        $insideWrapper = true;
+                        $wrapperFound = true;
+                        $wrapperPending = false;
+                    } elseif ($insideWrapper && $depth === 2 && $entity !== null) {
+                        $entityIsArray = $token === '[';
+
+                        if ($entity === 'Allocation' && ! $entityIsArray) {
+                            $allocations++;
+                        } elseif ($entity === 'Plan' && ! $planFound) {
+                            $planOpened = true;
+                        }
+                    } elseif ($insideWrapper && $depth === 3 && $entityIsArray && $token === '{' && $entity === 'Allocation') {
+                        $allocations++;
+                    }
+
+                    $depth++;
+
+                    continue;
+                }
+
+                if ($token === '}' || $token === ']') {
+                    $depth--;
+
+                    if ($insideWrapper && $depth === 2) {
+                        $readingPlan = false;
+                    } elseif ($insideWrapper && $depth === 1) {
+                        $insideWrapper = false;
+                    }
+
+                    continue;
+                }
+
+                if ($token === ':' || $token === ',') {
+                    continue;
+                }
+
+                if ($token[0] === '"' && ($before === '{' || $before === ',')) {
+                    $key = json_decode($token);
+
+                    if ($depth === 1 && ! $wrapperFound) {
+                        $wrapperPending = in_array($key, ['ScheduleData', 'dsScheduleData'], true);
+                    } elseif ($insideWrapper && $depth === 2) {
+                        $entity = is_string($key) ? $key : null;
+                        $entityIsArray = false;
+                    } elseif ($readingPlan && (($depth === 3 && ! $entityIsArray) || ($depth === 4 && $entityIsArray))) {
+                        $wantedField = array_key_exists((string) $key, $fields) ? (string) $key : null;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // A truncated or corrupt file reads as "no Plan block"; keep the real reason in the log.
+            Log::warning('Plan block scan failed: '.$e->getMessage(), ['path' => basename($path)]);
+
+            return null;
+        } finally {
+            fclose($handle);
         }
 
-        $decoded = json_decode((string) file_get_contents($path), true);
-        $data = is_array($decoded) ? ($decoded['dsScheduleData'] ?? $decoded['ScheduleData'] ?? []) : [];
-
-        return is_array($data) && ! empty($data['Plan']);
+        return $planFound ? [...$fields, 'allocation_count' => $allocations] : null;
     }
 
     /**
