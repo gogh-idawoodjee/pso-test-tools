@@ -63,10 +63,30 @@ class ToolRunPage extends Page
         ]);
     }
 
+    /** "Trace an activity: activity 823729" when the run's summary names what it traced, else the tool's label. */
     #[Override]
     public function getTitle(): string
     {
-        return $this->getToolRun()->tool->getLabel();
+        $run = $this->getToolRun();
+        $subject = self::subjectOf($run);
+
+        return $subject === null ? $run->tool->getLabel() : $run->tool->getLabel().': '.lcfirst($subject);
+    }
+
+    /** "Activity 823729" or "Work task 446613" from the summary a trace run stores, else null. */
+    public static function subjectOf(ToolRun $run): ?string
+    {
+        $summary = is_array($run->summary) ? $run->summary : [];
+        $activityId = $summary['activity_id'] ?? null;
+        $workTaskId = $summary['work_task_id'] ?? null;
+        if (is_scalar($activityId) && trim((string) $activityId) !== '') {
+            return 'Activity '.trim((string) $activityId);
+        }
+        if (is_scalar($workTaskId) && trim((string) $workTaskId) !== '') {
+            return 'Work task '.trim((string) $workTaskId);
+        }
+
+        return null;
     }
 
     public function getToolRun(): ToolRun

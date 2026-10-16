@@ -148,7 +148,7 @@ function storedTrace(): ToolRun
         'tool' => ToolId::AppointmentTimeline, 'run_date' => '2026-10-04',
         'inputs' => ['files' => [], 'options' => ['activity_id' => '813775']],
         'result' => ['html' => '<html>Trace page</html>', 'data' => ['findings' => []], 'booking_csv' => "time,event\n1,offer\n", 'history_csv' => "time,step\n1,plan\n"],
-        'summary' => ['line' => 'Booked after 2 offers', 'counts' => ['red' => 1, 'amber' => 2, 'green' => 3]],
+        'summary' => ['line' => 'Activity 813775: Booked after 2 offers', 'counts' => ['red' => 1, 'amber' => 2, 'green' => 3], 'activity_id' => '813775', 'work_task_id' => '438745'],
     ]);
 }
 
@@ -157,6 +157,9 @@ it('shows badges, the summary line, four downloads and the sandboxed page on the
 
     Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $run->id])
         ->assertOk()
+        ->assertSee('Trace an activity: activity 813775')
+        ->assertSee('Activity 813775')
+        ->assertSee('Work task 438745')
         ->assertSee('1 red')->assertSee('2 amber')->assertSee('3 green')
         ->assertSee('Booked after 2 offers')
         ->assertSee('Download HTML')->assertSee('Download JSON')->assertSee('Download booking CSV')->assertSee('Download history CSV')
@@ -228,4 +231,18 @@ it('names an unfiled trace after the audits file and passes the chosen zone, wit
     expect($argv)->toContain('--dataset-name=audits_1004.zip')
         ->and($argv[array_search('--tz', $argv, true) + 1])->toBe('America/Regina')
         ->and($argv)->not->toContain('--ifs-tz');
+});
+
+it('keeps the tool label as the page title when a run names nothing', function () {
+    $run = storedTrace();
+    $run->update(['summary' => ['line' => 'No appointment request', 'counts' => []]]);
+
+    Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $run->id])
+        ->assertOk()
+        ->assertSee('Trace an activity')
+        ->assertDontSee('Trace an activity:');
+    expect(ToolRunPage::subjectOf($run->fresh()))->toBeNull();
+
+    $run->update(['summary' => ['line' => 'x', 'counts' => [], 'work_task_id' => '446613']]);
+    expect(ToolRunPage::subjectOf($run->fresh()))->toBe('Work task 446613');
 });

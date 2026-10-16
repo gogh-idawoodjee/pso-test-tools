@@ -3,11 +3,23 @@
     $counts = $run->summary['counts'] ?? [];
     $line = $run->summary['line'] ?? null;
     $hasPage = filled($run->result['html'] ?? null);
+    $activityId = $run->summary['activity_id'] ?? null;
+    $workTaskId = $run->summary['work_task_id'] ?? null;
 @endphp
 
 <x-filament::section>
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="space-y-2">
+            @if (filled($activityId) || filled($workTaskId))
+                <div class="flex flex-wrap items-center gap-2">
+                    @if (filled($activityId))
+                        <x-filament::badge color="primary" size="lg">Activity {{ $activityId }}</x-filament::badge>
+                    @endif
+                    @if (filled($workTaskId))
+                        <span class="text-sm text-gray-600 dark:text-gray-400">Work task {{ $workTaskId }}</span>
+                    @endif
+                </div>
+            @endif
             @if (filled($line))
                 <p class="text-sm font-medium text-gray-950 dark:text-white">{{ $line }}</p>
             @endif
