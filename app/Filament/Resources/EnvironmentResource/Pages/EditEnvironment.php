@@ -9,6 +9,7 @@ use BackedEnum;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Crypt;
 
 class EditEnvironment extends EditRecord
@@ -24,6 +25,18 @@ class EditEnvironment extends EditRecord
     public function hasCombinedRelationManagerTabsWithContent(): bool
     {
         return true;
+    }
+
+    /**
+     * Only the fields the form edits: the rest of the row (commit_token,
+     * user_id and so on) has no business in the browser's Livewire state.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        return Arr::only($data, ['name', 'base_url', 'description', 'account_id', 'username', 'password']);
     }
 
     public function getContentTabLabel(): ?string

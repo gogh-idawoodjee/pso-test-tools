@@ -45,6 +45,7 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
@@ -138,34 +139,51 @@ class EnvironmentTools extends Page
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
-        $this->setDefaults();
 
-        $recordData = $this->record->toArray();
+        // A whitelist of the non-secret values these forms bind: never the
+        // whole record, so the password ciphertext, commit_token and the rest
+        // of the row stay out of the browser's Livewire state. Actions that
+        // log on read the credentials from $this->record instead.
+        $recordData = [
+            'base_url' => $this->record->base_url,
+            'account_id' => $this->record->account_id,
+            'username' => $this->record->username,
+            'input_mode' => InputMode::LOAD,
+            'dse_duration' => 3,
+            'appointment_window' => 7,
+            'process_type' => ProcessType::APPOINTMENT,
+            'datetime' => Carbon::now(),
+            'commit_url' => $this->commitUrl(),
+        ];
 
-        $this->sharedContextForm->fill($recordData);
-        $this->loadRotaForm->fill($recordData);
-        $this->systemUsageForm->fill($recordData);
-        $this->servicesForm->fill($recordData);
-        // Only this form's own fields: the environment record (username,
-        // password ciphertext) has no business in this form's browser state.
+        $this->sharedContextForm->fill(Arr::only($recordData, ['base_url', 'account_id', 'username', 'input_mode']));
+        $this->loadRotaForm->fill(Arr::only($recordData, ['dse_duration', 'appointment_window', 'process_type', 'datetime']));
+        $this->systemUsageForm->fill();
+        $this->servicesForm->fill(Arr::only($recordData, ['commit_url']));
         $this->gatewayUploadForm->fill($this->gatewayUploadDefaults());
     }
 
-    private function setDefaults(): void
+    /**
+     * The logon details, always from the saved environment and never from
+     * form state: the browser never holds the password, and anything it
+     * sends back for these fields is ignored.
+     *
+     * @return array{base_url: ?string, account_id: ?string, username: ?string, password: ?string}
+     */
+    private function environmentCredentials(): array
     {
-        $this->record->dse_duration = 3;
-        $this->record->input_mode = InputMode::LOAD;
-        $this->record->appointment_window = 7;
-        $this->record->process_type = ProcessType::APPOINTMENT;
-        $this->record->datetime = Carbon::now();
-        $this->record->commit_url = $this->commitUrl();
+        return [
+            'base_url' => $this->record->base_url,
+            'account_id' => $this->record->account_id,
+            'username' => $this->record->username,
+            'password' => $this->record->password,
+        ];
     }
 
     /**
-     * Built from commit_token (a real, persisted column) rather than read
-     * back off $this->record->commit_url — that attribute is only ever set
-     * in setDefaults() at mount, and Livewire re-hydrates $record fresh from
-     * the database on every subsequent request, losing it.
+     * Built from commit_token (a real, persisted column) on every call:
+     * Livewire re-hydrates $record fresh from the database on each request,
+     * so nothing set on it at mount survives.
      */
     public function commitUrl(): ?string
     {
@@ -286,17 +304,24 @@ class EnvironmentTools extends Page
                     ->schema([
                         TextInput::make('base_url')
                             ->label('Base URL')
+                            ->disabled()
                             ->prefixIcon(Heroicon::OutlinedGlobeAlt),
                         TextInput::make('account_id')
                             ->label('Account ID')
+                            ->disabled()
                             ->prefixIcon(Heroicon::OutlinedIdentification),
                         TextInput::make('username')
                             ->label('Username')
+                            ->disabled()
                             ->prefixIcon(Heroicon::OutlinedUser),
+                        // Never filled: the password stays on the server.
                         TextInput::make('password')
                             ->label('Password')
+                            ->disabled()
                             ->prefixIcon(Heroicon::OutlinedLockClosed)
-                            ->password(),
+                            ->password()
+                            ->dehydrated(false)
+                            ->placeholder(fn (): string => filled($this->record->password) ? 'Saved with the environment' : 'Not set'),
                     ]),
             ])
             ->statePath('context_data');
@@ -798,7 +823,13 @@ class EnvironmentTools extends Page
         $sharedContextForm = $this->sharedContextForm;
         $loadRotaForm = $this->loadRotaForm;
 
-        $data = function (string $path) use ($sharedContextForm, $loadRotaForm) {
+        $credentials = $this->environmentCredentials();
+
+        $data = function (string $path) use ($sharedContextForm, $loadRotaForm, $credentials) {
+            if (array_key_exists($path, $credentials)) {
+                return $credentials[$path];
+            }
+
             $component = $loadRotaForm->getComponentByStatePath($path) ?? $sharedContextForm->getComponentByStatePath($path);
 
             return $component?->getState();
@@ -812,14 +843,7 @@ class EnvironmentTools extends Page
 
         $payload = $this->buildLoadRotaPayload($data);
 
-        $environmentProperties = [
-            'base_url' => $data('base_url'),
-            'account_id' => $data('account_id'),
-            'username' => $data('username'),
-            'password' => $data('password'),
-        ];
-
-        if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload, $environmentProperties)) {
+        if ($tokenized_payload = $this->prepareTokenizedPayload($sendToPso, $payload, $credentials)) {
 
             $this->response = $this->sendToPSONew($segment, $tokenized_payload, [], $method, true);
 
@@ -841,14 +865,16 @@ class EnvironmentTools extends Page
             return;
         }
 
-        $baseUrl = $this->contextValue('base_url');
-        $accountId = $this->contextValue('account_id');
-        $username = $this->contextValue('username');
-        $password = $this->contextValue('password');
+        [
+            'base_url' => $baseUrl,
+            'account_id' => $accountId,
+            'username' => $username,
+            'password' => $password,
+        ] = $this->environmentCredentials();
         $datasetId = $this->contextValue('dataset_id');
 
         if (blank($baseUrl) || blank($accountId) || blank($username) || blank($password)) {
-            $this->notifyPayloadSent('System Usage Failed', 'Base URL, Account ID, Username and Password are all required (see Environment Properties above).', false);
+            $this->notifyPayloadSent('System Usage Failed', 'Base URL, Account ID, Username and Password are all required. Return to the environment to set them.', false);
 
             return;
         }
@@ -955,21 +981,22 @@ class EnvironmentTools extends Page
             return;
         }
 
-        $baseUrl = $this->contextValue('base_url');
-        $accountId = $this->contextValue('account_id');
-        $username = $this->contextValue('username');
-        $password = $this->contextValue('password');
+        [
+            'base_url' => $baseUrl,
+            'account_id' => $accountId,
+            'username' => $username,
+            'password' => $password,
+        ] = $this->environmentCredentials();
 
         if (blank($baseUrl) || blank($accountId) || blank($username) || blank($password)) {
-            $this->notifyPayloadSent('Upload Failed', 'Base URL, Account ID, Username and Password are all required (see Environment Properties above).', false);
+            $this->notifyPayloadSent('Upload Failed', 'Base URL, Account ID, Username and Password are all required. Return to the environment to set them.', false);
 
             return;
         }
 
-        // Decrypted before the row is created: the password field is an
-        // editable TextInput pre-filled with ciphertext, so an operator who
-        // retypes it in plaintext would otherwise leave behind a permanently
-        // queued row with no explanation.
+        // Decrypted before the row is created: a stored password that cannot
+        // be decrypted would otherwise leave behind a permanently queued row
+        // with no explanation.
         try {
             $decryptedPassword = Crypt::decryptString($password);
         } catch (DecryptException) {
