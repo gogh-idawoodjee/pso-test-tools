@@ -382,7 +382,9 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 
         if ($injection === null) {
             // With the webhook injected, the lines below report the stripping.
-            if ($stripExisting) {
+            if ($stripExisting && $report->strippedBroadcasts === 0 && $report->strippedBroadcastParameters === 0) {
+                $log->sub('Existing Broadcast rows: none found');
+            } elseif ($stripExisting) {
                 $log->sub("Existing Broadcast rows: removed ({$report->strippedBroadcasts} Broadcast, {$report->strippedBroadcastParameters} Broadcast_Parameter)");
             } else {
                 $this->logBroadcastRowsKept($log);

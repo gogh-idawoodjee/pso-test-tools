@@ -467,6 +467,9 @@ it('sends the original bytes when the webhook is skipped and no dataset id is gi
 
     expect(json_encode(sentPayload()))->toBe(json_encode(json_decode($original, true)));
     expect($upload->refresh()->webhook_url)->toBeNull();
+    expect($upload->logLines->pluck('text')->implode("\n"))
+        ->toContain('Existing Broadcast rows: none found')
+        ->not->toContain('removed (0 Broadcast');
     Http::assertNotSent(static fn ($request) => str_contains((string) $request->url(), 'webhook.example.test'));
 });
 
