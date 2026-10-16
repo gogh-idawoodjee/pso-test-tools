@@ -297,7 +297,11 @@ abstract class ToolWizardPage extends Page implements HasForms
         $this->clearedKinds = blank($fileId)
             ? array_values(array_unique([...$this->clearedKinds, $kind]))
             : array_values(array_diff($this->clearedKinds, [$kind]));
+        $this->afterInputsChanged();
     }
+
+    /** A tool page can derive an option from the chosen files here (Plan travels fills its first date). */
+    protected function afterInputsChanged(): void {}
 
     /**
      * Select the newest file when it arrived since the last refresh (the upload the user just made),
@@ -329,6 +333,7 @@ abstract class ToolWizardPage extends Page implements HasForms
                 $this->data['files'][$kind] = $fileId;
             }
         }
+        $this->afterInputsChanged();
     }
 
     public function hasPendingUploads(): bool
