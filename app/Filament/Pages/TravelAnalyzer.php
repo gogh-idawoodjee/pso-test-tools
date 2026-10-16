@@ -53,6 +53,30 @@ class TravelAnalyzer extends Page
         $this->environments = Environment::with('datasets')->get();
         $this->isAuthenticationRequired = true;
         $this->env_form->fill();
+
+        // "Check in PSO" from a Plan travels run opens this page with the leg's coordinates in the query.
+        $prefill = self::prefillFromQuery(request()->query());
+        if ($prefill !== []) {
+            $this->travel_form->fill($prefill);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $query
+     * @return array<string, float> all four coordinates, or nothing when one is missing, not a number or out of range
+     */
+    public static function prefillFromQuery(array $query): array
+    {
+        $values = [];
+        foreach (['lat_from' => 90.0, 'long_from' => 180.0, 'lat_to' => 90.0, 'long_to' => 180.0] as $key => $limit) {
+            $raw = $query[$key] ?? null;
+            if (! is_string($raw) || ! is_numeric(trim($raw)) || abs((float) trim($raw)) > $limit) {
+                return [];
+            }
+            $values[$key] = (float) trim($raw);
+        }
+
+        return $values;
     }
 
     protected function getForms(): array
