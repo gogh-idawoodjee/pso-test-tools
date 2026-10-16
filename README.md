@@ -64,6 +64,8 @@ Laravel's standard variables (`APP_KEY`, `DB_*`, `MAIL_*` and so on) are not rep
 
 The panel has four sidebar groups: **Analysis tools** (the tools that read LOAD, plan and SYS exports), **Live PSO actions** (pages that send to a live PSO environment, marked with a banner), **Setup** (environments, datasets and reference values) and **Admin**. Each analysis tool opens a short wizard (Where, Inputs, Options, Run) that remembers your last environment or dataset; the home page lists the tools and your recent runs.
 
+**Unfiled and My files.** Trace an activity, Load Health Audit and Plan travels only read the file, so their Where step offers **Unfiled** (the default) next to **A dataset**. An Unfiled run needs no environment or dataset, even for a file from production: nothing is sent anywhere, you choose the time zone the pages show times in on the Options step, and the files and runs are yours alone. **My files**, under Analysis tools, takes uploads of any export kind and lists your unfiled exports (with the same purge countdown as a dataset's Exports tab) and your unfiled runs; their pages open at `unfiled/me/runs/<run>`. Region availability and Sys compare still need a dataset or an environment.
+
 ## PSO Sys File Compare
 
 Compares two or more PSO system data exports (`DsSystemData` XML) and produces an HTML report, a CSV bundle and an Excel workbook, with a banner when the environments are not all on the same PSO version. Find it under **Analysis tools**.
