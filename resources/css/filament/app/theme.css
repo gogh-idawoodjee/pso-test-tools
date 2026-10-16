@@ -477,12 +477,16 @@ pre {
         box-shadow: var(--pso-focus-ring);
     }
 
-    /* Disabled: the same colours, faded, rather than a different grey-violet. */
+    /* Disabled: a solid muted button with a readable label, not a faded primary. */
     &.fi-disabled:not(.fi-force-enabled),
     &[disabled]:not(.fi-force-enabled) {
-        background-color: var(--pso-primary-bg);
-        color: var(--pso-primary-text);
-        opacity: 0.5;
+        background-color: var(--pso-border-strong);
+        color: var(--pso-text-muted);
+        opacity: 1;
+
+        & > .fi-icon {
+            color: var(--pso-text-muted);
+        }
     }
 }
 
