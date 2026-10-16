@@ -26,14 +26,22 @@
 
 {{-- The viewer's own page, as region_availability.py rendered it: week grid, one-day view, region pivot.
      Sandboxed: no same-origin, so its scripts cannot reach the app. --}}
+{{-- Its Previous and Next week links name sibling files that do not exist here; the page posts the week
+     instead (see the template) and the app runs the viewer again on the same LOAD for that week. --}}
 @if ($hasPage)
+<div
+    x-data
+    x-on:message.window="if ($event.source === $refs.page.contentWindow && $event.data?.type === 'pso-tools.region-availability.week') $wire.runWeek(String($event.data.week))"
+>
 <iframe
+    x-ref="page"
     src="{{ route('tool-runs.page', [$dataset, $run]) }}"
     title="Region availability"
     sandbox="allow-scripts allow-downloads allow-popups allow-top-navigation-by-user-activation"
     class="w-full rounded-xl bg-white ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
     style="height: calc(100vh - 14rem); min-height: 600px;"
 ></iframe>
+</div>
 @else
 <p class="text-sm text-gray-600 dark:text-gray-400">The page is not available for this run.</p>
 @endif

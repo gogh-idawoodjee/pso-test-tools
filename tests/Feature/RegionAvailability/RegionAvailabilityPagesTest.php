@@ -4,6 +4,7 @@ use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Pages\ToolRunPage;
+use App\Filament\Pages\Tools\RegionAvailabilityEntry;
 use App\Filament\Resources\DatasetResource\Pages\ViewDataset;
 use App\Filament\Resources\DatasetResource\RelationManagers\ToolRunsRelationManager as DatasetRuns;
 use App\Models\Dataset;
@@ -103,3 +104,54 @@ it('offers Week of on the Run form and validates it', function (array $options, 
     'a date' => [['week_of' => '2026-10-07'], null],
     'not a date' => [['week_of' => 'not a date'], 'options.week_of'],
 ]);
+
+it('listens for the page week message and runs the same LOAD for that week as a new run', function () {
+    Queue::fake();
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+    $this->run->update(['inputs' => ['files' => ['load' => $load->id], 'options' => ['week_of' => '2026-10-05']]]);
+
+    $component = Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $this->run->id])
+        ->assertSeeHtml('pso-tools.region-availability.week')
+        ->call('runWeek', '2026-10-12');
+
+    $next = ToolRun::query()->where('tool', ToolId::RegionAvailability)->whereKeyNot($this->run->id)->sole();
+    expect($next->inputs)->toBe(['files' => ['load' => $load->id], 'options' => ['week_of' => '2026-10-12']]);
+    $component->assertRedirect(ToolRunPage::urlFor($this->dataset, $next));
+});
+
+it('ignores a week message that is not a date and refuses one whose LOAD is gone', function () {
+    Queue::fake();
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+    $this->run->update(['inputs' => ['files' => ['load' => $load->id], 'options' => []]]);
+
+    Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $this->run->id])
+        ->call('runWeek', '2026-13-45')
+        ->call('runWeek', 'next')
+        ->assertNoRedirect();
+    expect(ToolRun::count())->toBe(1);
+
+    $load->delete();
+    Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $this->run->id])
+        ->call('runWeek', '2026-10-12')
+        ->assertNoRedirect()
+        ->assertNotified();
+    expect(ToolRun::count())->toBe(1);
+});
+
+it('runs the week in place on the tool wizard page', function () {
+    Queue::fake();
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    $component = Livewire::test(RegionAvailabilityEntry::class)
+        ->fillForm(['options' => ['week_of' => '2026-10-05']])
+        ->call('start')->assertHasNoFormErrors();
+    $first = ToolRun::query()->where('tool', ToolId::RegionAvailability)->whereKeyNot($this->run->id)->sole();
+    expect($component->get('runId'))->toBe($first->id);
+
+    $component->call('runWeek', '2026-09-28');
+
+    $next = ToolRun::query()->where('tool', ToolId::RegionAvailability)->whereKeyNot([$this->run->id, $first->id])->sole();
+    expect($next->inputs['options'])->toBe(['week_of' => '2026-09-28'])
+        ->and($component->get('runId'))->toBe($next->id)
+        ->and($component->get('data.options.week_of'))->toBe('2026-09-28');
+});

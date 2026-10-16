@@ -63,6 +63,21 @@ class StartToolRun
     }
 
     /**
+     * The same run again on the same scope and files, with some options changed (the viewer's
+     * Previous and Next week links). A file that has since been purged is refused like any other.
+     *
+     * @param  array<string, mixed>  $options  option keys to change; the rest come from the run
+     *
+     * @throws UnusableInputException
+     */
+    public function rerun(ToolRun $run, array $options, User $user): ToolRun
+    {
+        $inputs = $run->inputs ?? [];
+
+        return $this->start($run->scope, $run->tool, $inputs['files'] ?? [], [...($inputs['options'] ?? []), ...$options], $user);
+    }
+
+    /**
      * Every chosen file must still be usable on this scope. Blank choices and keys the tool
      * does not take are ignored; a missing required file is the caller's to report.
      *

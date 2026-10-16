@@ -7,6 +7,10 @@ use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
+use App\Support\Tools\StartToolRun;
+use App\Support\Tools\UnusableInputException;
+use App\Support\Tools\WeekLink;
+use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -76,6 +80,23 @@ class ToolRunPage extends Page
             ->where('scope_type', $scopeModel->getMorphClass())
             ->where('scope_id', $scopeModel->getKey())
             ->findOrFail($this->run);
+    }
+
+    /** The page's Previous or Next week link: the same LOAD for that week, opened as its own run. */
+    public function runWeek(string $week): void
+    {
+        $run = $this->getToolRun();
+        if (($monday = WeekLink::weekFor($run, $week)) === null) {
+            return;
+        }
+        try {
+            $next = app(StartToolRun::class)->rerun($run, ['week_of' => $monday], auth()->user());
+        } catch (UnusableInputException $e) {
+            Notification::make()->title('The run did not start')->body($e->getMessage().' Upload the LOAD again to view another week.')->danger()->send();
+
+            return;
+        }
+        $this->redirect(static::urlFor($run->scope, $next));
     }
 
     public function isRunning(): bool

@@ -15,6 +15,7 @@ use App\Models\ToolRun;
 use App\Support\Exports\RunInputPicker;
 use App\Support\Tools\StartToolRun;
 use App\Support\Tools\UnusableInputException;
+use App\Support\Tools\WeekLink;
 use App\Tools\ToolRegistry;
 use BackedEnum;
 use Filament\Forms\Components\Select;
@@ -450,6 +451,24 @@ abstract class ToolWizardPage extends Page implements HasForms
     public function runAgain(): void
     {
         $this->runId = null;
+    }
+
+    /** The page's Previous or Next week link: the same LOAD for that week, shown here in place of this run. */
+    public function runWeek(string $week): void
+    {
+        $run = $this->currentRun();
+        if ($run === null || ($monday = WeekLink::weekFor($run, $week)) === null) {
+            return;
+        }
+        try {
+            $next = app(StartToolRun::class)->rerun($run, ['week_of' => $monday], auth()->user());
+        } catch (UnusableInputException $e) {
+            Notification::make()->title('The run did not start')->body($e->getMessage().' Upload the LOAD again to view another week.')->danger()->send();
+
+            return;
+        }
+        $this->data['options']['week_of'] = $monday;
+        $this->runId = $next->id;
     }
 
     #[Override]
