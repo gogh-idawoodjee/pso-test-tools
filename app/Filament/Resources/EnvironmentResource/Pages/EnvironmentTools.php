@@ -702,12 +702,12 @@ class EnvironmentTools extends Page
                     ->columnSpanFull(),
                 Toggle::make('skip_webhook')
                     ->label('Skip webhook broadcast')
-                    ->helperText('Send the file as it is: no webhook endpoint is created and no Broadcast is added.')
+                    ->helperText('Send the file as it is: no webhook endpoint is created, no Broadcast is added, and any Broadcast rows already in the file are kept.')
                     ->live()
                     ->disabled(fn (): bool => $this->gatewayUploadInProgress())
                     ->columnSpanFull(),
                 Section::make('Broadcast settings')
-                    ->description('The defaults match the PowerShell script. They apply only to the webhook Broadcast added to the file.')
+                    ->description('Any Broadcast and Broadcast_Parameter rows already in the file are removed and replaced by this webhook Broadcast. Turn on Skip webhook broadcast to send the file with its own rows unchanged.')
                     ->collapsed()
                     ->hidden(static fn (Get $get): bool => (bool) $get('skip_webhook'))
                     ->columns(2)
