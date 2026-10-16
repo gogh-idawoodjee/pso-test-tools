@@ -143,7 +143,7 @@ abstract class ToolWizardPage extends Page implements HasForms
         }
 
         return Step::make('Options')
-            ->description('Settings for this run. Leave blank for the defaults.')
+            ->description('Settings for this run. Leave blank for the defaults. An Unfiled run needs a time zone.')
             ->schema($fields)
             ->hidden($fields === []);
     }
@@ -151,7 +151,7 @@ abstract class ToolWizardPage extends Page implements HasForms
     /** The zone an Unfiled run's pages show times in; hidden (so neither validated nor kept) for a dataset run. */
     private function timeZoneField(): Select
     {
-        $zones = DateTimeZone::listIdentifiers();
+        $zones = self::timeZones();
 
         return Select::make('options.time_zone')
             ->label('Time zone')
@@ -163,6 +163,14 @@ abstract class ToolWizardPage extends Page implements HasForms
             ->visible(static fn (Get $get): bool => $get('where') === self::WHERE_UNFILED);
     }
 
+    /** @return list<string> */
+    private static function timeZones(): array
+    {
+        static $zones = null;
+
+        return $zones ??= DateTimeZone::listIdentifiers();
+    }
+
     /**
      * The zone an Unfiled run starts with: the one last used when it is still a known zone, else the app's own.
      *
@@ -172,7 +180,7 @@ abstract class ToolWizardPage extends Page implements HasForms
     {
         $zone = $remembered['time_zone'] ?? null;
 
-        return is_string($zone) && in_array($zone, DateTimeZone::listIdentifiers(), true) ? $zone : (string) config('app.timezone', 'UTC');
+        return is_string($zone) && in_array($zone, self::timeZones(), true) ? $zone : (string) config('app.timezone', 'UTC');
     }
 
     protected function whereStep(): Step

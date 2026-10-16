@@ -132,7 +132,7 @@ it('asks for the time zone on Options for an Unfiled run, defaulting to the reme
     Livewire::test(LoadAuditEntry::class)->assertFormSet(['options.time_zone' => 'America/Toronto']);
 });
 
-it('has an Options step for the time zone alone when the tool has no options, hidden for a dataset run', function () {
+it('shows the time zone field on its own Options step when the tool has no options, and hides the field for a dataset run', function () {
     FakeTool::$optionFields = [];
     Livewire::test(LoadAuditEntry::class)
         ->assertSee('Settings for this run')
