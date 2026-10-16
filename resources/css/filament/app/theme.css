@@ -728,3 +728,226 @@ pre {
 .hljs-punctuation {
     color: #e6edf3 !important;
 }
+
+/*
+ * Gateway Upload run log as a vertical timeline (resources/views/livewire/gateway-upload-status.blade.php).
+ * Each step is a node on a 2 px rail: a marker, the step title with its time, and the detail lines beneath.
+ * The box scrolls on its own and can be dragged taller.
+ */
+.pso-timeline {
+    --pso-timeline-marker: 12px;
+    --pso-timeline-gutter: 28px;
+    --pso-timeline-title-line: 20px;
+    --pso-timeline-current: #6f8f12;
+    --pso-timeline-warn: #e09a1a;
+
+    max-height: 24rem;
+    overflow: auto;
+    resize: vertical;
+    overscroll-behavior: contain;
+    padding: 14px 16px 4px;
+    border: 1px solid var(--pso-border);
+    border-radius: var(--pso-radius);
+    background-color: var(--pso-surface-2);
+}
+
+.pso-timeline-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pso-timeline-node {
+    position: relative;
+    padding: 0 0 16px var(--pso-timeline-gutter);
+    min-width: 0;
+}
+
+/* The rail: from this marker's centre to the next one's. */
+.pso-timeline-node:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--pso-timeline-marker) / 2 - 1px);
+    top: calc(var(--pso-timeline-title-line) / 2);
+    bottom: calc(var(--pso-timeline-title-line) / -2);
+    width: 2px;
+    background-color: var(--pso-border-strong);
+}
+
+.pso-timeline-marker {
+    position: absolute;
+    z-index: 1;
+    left: 0;
+    top: calc((var(--pso-timeline-title-line) - var(--pso-timeline-marker)) / 2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--pso-timeline-marker);
+    height: var(--pso-timeline-marker);
+    border-radius: 9999px;
+    background-color: var(--pso-iris);
+    box-shadow: 0 0 0 3px var(--pso-surface-2);
+}
+
+.pso-timeline-marker svg {
+    width: 10px;
+    height: 10px;
+}
+
+.pso-timeline-node.is-current .pso-timeline-marker {
+    background-color: var(--pso-lime);
+    box-shadow:
+        0 0 0 3px var(--pso-surface-2),
+        0 0 0 4px var(--pso-timeline-current);
+}
+
+.pso-timeline-node.is-warn .pso-timeline-marker {
+    background-color: var(--pso-timeline-warn);
+}
+
+:root.dark .pso-timeline,
+[data-theme='dark'] .pso-timeline {
+    --pso-timeline-current: var(--pso-lime);
+    --pso-timeline-warn: var(--pso-warning);
+}
+
+.pso-timeline-node.is-error .pso-timeline-marker {
+    background-color: var(--pso-danger);
+    color: var(--pso-surface);
+}
+
+/* A confirmed step and a successful run: a check mark in iris. */
+.pso-timeline-node.is-ok .pso-timeline-marker {
+    --pso-timeline-marker: 16px;
+
+    left: -2px;
+    background-color: var(--pso-surface-2);
+    border: 2px solid var(--pso-iris);
+    color: var(--pso-iris);
+}
+
+.pso-timeline-node.is-error.is-terminal .pso-timeline-marker {
+    --pso-timeline-marker: 16px;
+
+    left: -2px;
+}
+
+.pso-timeline-node.is-terminal .pso-timeline-marker svg {
+    width: 12px;
+    height: 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .pso-timeline-node.is-current .pso-timeline-marker::after {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border-radius: 9999px;
+        background-color: var(--pso-lime);
+        opacity: 0.6;
+        animation: pso-timeline-pulse 1.6s ease-out infinite;
+    }
+}
+
+@keyframes pso-timeline-pulse {
+    0% {
+        transform: scale(0.6);
+        opacity: 0.6;
+    }
+    100% {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+}
+
+.pso-timeline-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.pso-timeline-title {
+    margin: 0;
+    min-width: 0;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: var(--pso-timeline-title-line);
+    color: var(--pso-text);
+    overflow-wrap: anywhere;
+}
+
+.pso-timeline-node.is-error .pso-timeline-title {
+    color: var(--pso-danger);
+}
+
+.pso-timeline-node.is-terminal .pso-timeline-title {
+    font-weight: 600;
+}
+
+.pso-timeline-id,
+.pso-timeline-time {
+    font-family: var(--font-mono);
+}
+
+.pso-timeline-time {
+    flex-shrink: 0;
+    font-size: 12px;
+    line-height: var(--pso-timeline-title-line);
+    color: var(--pso-text-muted);
+}
+
+.pso-timeline-details {
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.pso-timeline-detail {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--pso-text-muted);
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+}
+
+.pso-timeline-detail + .pso-timeline-detail {
+    margin-top: 2px;
+}
+
+.pso-timeline-detail.is-warn {
+    color: var(--pso-warning);
+}
+
+.pso-timeline-detail.is-error {
+    color: var(--pso-danger);
+    font-weight: 600;
+}
+
+.pso-timeline-detail.is-ok {
+    color: var(--pso-success);
+}
+
+/* Phone width: the time sits above the title, and the marker lines up with the title below it. */
+@media (max-width: 639px) {
+    .pso-timeline-head {
+        flex-direction: column-reverse;
+        align-items: flex-start;
+        gap: 0;
+    }
+
+    .pso-timeline-time {
+        line-height: 16px;
+    }
+
+    .pso-timeline-marker {
+        top: calc(16px + (var(--pso-timeline-title-line) - var(--pso-timeline-marker)) / 2);
+    }
+
+    .pso-timeline-node:not(:last-child)::before {
+        top: calc(16px + var(--pso-timeline-title-line) / 2);
+        bottom: calc(-16px - var(--pso-timeline-title-line) / 2);
+    }
+}

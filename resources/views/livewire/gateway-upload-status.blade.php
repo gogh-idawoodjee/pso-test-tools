@@ -1,15 +1,7 @@
 @php
     /** @var \App\Models\PsoGatewayUpload|null $upload */
-    /** @var array<int, array{level: string, text: string, at: string}> $logLines */
+    /** @var list<\App\Support\GatewayUpload\RunLogNode> $timeline */
     /** @var bool $keepPolling */
-
-    $levelClasses = [
-        'step' => 'font-semibold text-gray-900 dark:text-gray-100',
-        'sub' => 'pl-4 text-gray-600 dark:text-gray-400',
-        'warn' => 'text-warning-600 dark:text-warning-400',
-        'error' => 'font-semibold text-danger-600 dark:text-danger-400',
-        'ok' => 'text-success-600 dark:text-success-400',
-    ];
 @endphp
 
 {{-- Polls only this panel, never the page: re-rendering the whole page every two seconds scrolled the window back to the top. --}}
@@ -33,20 +25,29 @@
                 ></div>
             </div>
 
-            @if ($upload->status === \App\Enums\PsoGatewayUploadStatus::SUCCEEDED)
-                <p class="mt-2 text-success-600 dark:text-success-400">Succeeded. Internal ID: {{ $upload->internal_id }}</p>
-            @elseif ($upload->status === \App\Enums\PsoGatewayUploadStatus::FAILED)
-                <p class="mt-2 text-danger-600 dark:text-danger-400">Failed: {{ $upload->error_message }}</p>
-            @else
-                <p class="mt-2">{{ $upload->status->getLabel() }}...</p>
-            @endif
+            @php
+                $succeeded = $upload->status === \App\Enums\PsoGatewayUploadStatus::SUCCEEDED;
+                $failed = $upload->status === \App\Enums\PsoGatewayUploadStatus::FAILED;
+                $detailClasses = [
+                    'sub' => 'is-sub',
+                    'warn' => 'is-warn',
+                    'error' => 'is-error',
+                    'ok' => 'is-ok',
+                ];
+            @endphp
 
-            @if (count($logLines) > 0)
+            @unless ($succeeded || $failed)
+                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">{{ $upload->status->getLabel() }}...</p>
+            @endunless
+
+            @if (count($timeline) > 0 || $succeeded || $failed)
                 <div class="mt-3">
                     <p class="text-sm font-medium">Run log</p>
+                    {{-- wire:ignore.self keeps the height the user dragged it to across polls; the list inside still updates. --}}
                     <div
                         wire:key="gateway-upload-log-{{ $upload->id }}"
-                        class="mt-1 max-h-96 overflow-auto rounded bg-gray-100 p-2 font-mono text-xs dark:bg-gray-800"
+                        wire:ignore.self
+                        class="pso-timeline mt-1"
                         x-data="{ stick: true }"
                         x-init="
                             $el.scrollTop = $el.scrollHeight;
@@ -54,12 +55,64 @@
                                 .observe($el, { childList: true, subtree: true });
                         "
                         x-on:scroll="stick = $el.scrollTop + $el.clientHeight >= $el.scrollHeight - 24"
+                        x-on:pointerdown="
+                            const box = $el.getBoundingClientRect();
+                            if ($event.clientX > box.right - 24 && $event.clientY > box.bottom - 24) {
+                                $el.style.height = $el.offsetHeight + 'px';
+                                $el.style.maxHeight = 'none';
+                            }
+                        "
                     >
-                        @foreach ($logLines as $line)
-                            <div class="{{ $levelClasses[$line['level']] ?? $levelClasses['sub'] }} whitespace-pre-wrap break-all">
-                                <span class="text-gray-400">{{ $line['at'] }}</span> {{ $line['text'] }}
-                            </div>
-                        @endforeach
+                        <ol class="pso-timeline-list">
+                            @foreach ($timeline as $index => $node)
+                                <li class="pso-timeline-node is-{{ $node->state() }}" wire:key="gateway-upload-node-{{ $upload->id }}-{{ $index }}">
+                                    <span class="pso-timeline-marker" aria-hidden="true">
+                                        @if ($node->state() === 'ok')
+                                            <svg viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                        @endif
+                                    </span>
+                                    <div class="pso-timeline-head">
+                                        <p class="pso-timeline-title">{{ $node->title }}</p>
+                                        @if ($node->at)
+                                            <time class="pso-timeline-time">{{ $node->at }}</time>
+                                        @endif
+                                    </div>
+                                    @if (count($node->details) > 0)
+                                        <ul class="pso-timeline-details">
+                                            @foreach ($node->details as $detail)
+                                                <li class="pso-timeline-detail {{ $detailClasses[$detail['level']] ?? 'is-sub' }}">{{ $detail['text'] }}</li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                </li>
+                            @endforeach
+
+                            @if ($succeeded)
+                                <li class="pso-timeline-node is-ok is-terminal" wire:key="gateway-upload-node-{{ $upload->id }}-end">
+                                    <span class="pso-timeline-marker" aria-hidden="true">
+                                        <svg viewBox="0 0 16 16" fill="none"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                    </span>
+                                    <div class="pso-timeline-head">
+                                        <p class="pso-timeline-title">Succeeded, internal ID <span class="pso-timeline-id">{{ $upload->internal_id }}</span></p>
+                                        @if ($upload->completed_at)
+                                            <time class="pso-timeline-time">{{ $upload->completed_at->format('H:i:s') }}</time>
+                                        @endif
+                                    </div>
+                                </li>
+                            @elseif ($failed)
+                                <li class="pso-timeline-node is-error is-terminal" wire:key="gateway-upload-node-{{ $upload->id }}-end">
+                                    <span class="pso-timeline-marker" aria-hidden="true">
+                                        <svg viewBox="0 0 16 16" fill="none"><path d="M5 5l6 6M11 5l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
+                                    </span>
+                                    <div class="pso-timeline-head">
+                                        <p class="pso-timeline-title">Failed: {{ $upload->error_message }}</p>
+                                        @if ($upload->completed_at)
+                                            <time class="pso-timeline-time">{{ $upload->completed_at->format('H:i:s') }}</time>
+                                        @endif
+                                    </div>
+                                </li>
+                            @endif
+                        </ol>
                     </div>
                 </div>
             @endif

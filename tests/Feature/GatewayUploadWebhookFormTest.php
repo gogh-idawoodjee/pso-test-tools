@@ -487,3 +487,51 @@ it('still reports a valid configuration when the logoff fails', function () {
         ->callAction('test_configuration')
         ->assertNotified(Notification::make()->title('Looks Good')->body('Configuration valid')->success());
 });
+
+it('shows the run log as a timeline that ends with the result of the run', function () {
+    $environment = webhookFormEnvironment();
+
+    $succeeded = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'status' => PsoGatewayUploadStatus::SUCCEEDED,
+        'internal_id' => '1857054',
+        'completed_at' => now(),
+    ]);
+    $failed = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'status' => PsoGatewayUploadStatus::FAILED,
+        'error_message' => 'HTTP 500 from the gateway',
+        'completed_at' => now(),
+    ]);
+
+    foreach ([[$succeeded, GatewayUploadLogLevel::OK, 'Upload complete.'], [$failed, GatewayUploadLogLevel::ERROR, 'UPLOAD FAILED']] as [$upload, $level, $text]) {
+        PsoGatewayUploadLogLine::query()->create(['pso_gateway_upload_id' => $upload->id, 'level' => GatewayUploadLogLevel::STEP, 'text' => 'Step 3/3: POSTing', 'created_at' => now()]);
+        PsoGatewayUploadLogLine::query()->create(['pso_gateway_upload_id' => $upload->id, 'level' => $level, 'text' => $text, 'created_at' => now()]);
+    }
+
+    Livewire::test(GatewayUploadStatus::class, ['uploadId' => $succeeded->id])
+        ->assertSeeHtml('class="pso-timeline mt-1"')
+        ->assertSeeInOrder(['Step 3/3: POSTing', 'Upload complete.', 'Succeeded, internal ID', '1857054'])
+        ->assertSeeHtml('pso-timeline-node is-ok');
+
+    Livewire::test(GatewayUploadStatus::class, ['uploadId' => $failed->id])
+        ->assertSeeInOrder(['Step 3/3: POSTing', 'UPLOAD FAILED', 'Failed: HTTP 500 from the gateway'])
+        ->assertSeeHtml('pso-timeline-node is-error is-terminal');
+});
+
+it('marks the newest step as the current one while the run is in progress', function () {
+    $environment = webhookFormEnvironment();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'status' => PsoGatewayUploadStatus::UPLOADING,
+    ]);
+
+    PsoGatewayUploadLogLine::query()->create(['pso_gateway_upload_id' => $upload->id, 'level' => GatewayUploadLogLevel::STEP, 'text' => 'Step 1/3: Logging on', 'created_at' => now()]);
+
+    $component = Livewire::test(GatewayUploadStatus::class, ['uploadId' => $upload->id])
+        ->assertSeeHtml('pso-timeline-node is-current');
+
+    PsoGatewayUploadLogLine::query()->create(['pso_gateway_upload_id' => $upload->id, 'level' => GatewayUploadLogLevel::STEP, 'text' => 'Step 2/3: Preparing request body', 'created_at' => now()]);
+
+    $html = $component->call('poll')->html();
+
+    expect(substr_count($html, 'is-current'))->toBe(1)
+        ->and(strpos($html, 'is-current'))->toBeGreaterThan(strpos($html, 'Step 1/3: Logging on'));
+});

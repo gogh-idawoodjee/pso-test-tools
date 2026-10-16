@@ -4,13 +4,14 @@ namespace App\Livewire;
 
 use App\Models\PsoGatewayUpload;
 use App\Models\PsoGatewayUploadLogLine;
+use App\Support\GatewayUpload\RunLogTimeline;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 /**
  * The live status panel of one gateway upload on the Environment Tools page:
- * file name, progress bar, status line, run log and the response summary.
+ * file name, progress bar, the run log as a timeline and the response summary.
  *
  * Its own component so the two-second poll re-renders only this panel. When
  * the poll lived on the page, every tick re-rendered the whole page (the four
@@ -120,6 +121,11 @@ class GatewayUploadStatus extends Component
         return view('livewire.gateway-upload-status', [
             'upload' => $upload,
             'keepPolling' => $this->shouldPoll($upload),
+            'timeline' => $upload === null ? [] : RunLogTimeline::group(
+                $this->logLines,
+                (string) $upload->status->getLabel(),
+                ! $upload->status->isTerminal(),
+            ),
         ]);
     }
 
