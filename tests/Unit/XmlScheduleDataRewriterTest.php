@@ -2,6 +2,7 @@
 
 use App\Support\ScheduleData\BroadcastInjection;
 use App\Support\ScheduleData\BroadcastSettings;
+use App\Support\ScheduleData\InputReferenceIdentity;
 use App\Support\ScheduleData\JsonScheduleDataRewriter;
 use App\Support\ScheduleData\MissingScheduleDataWrapperException;
 use App\Support\ScheduleData\RewriteReport;
@@ -13,14 +14,14 @@ const XML_NS = 'http://360Scheduling.com/Schema/dsScheduleData.xsd';
 /**
  * @return array{0: string, 1: RewriteReport}
  */
-function rewriteXml(string $xml, ?string $datasetIdOverride = null, ?BroadcastInjection $injection = null, bool $stripExisting = true): array
+function rewriteXml(string $xml, ?string $datasetIdOverride = null, ?BroadcastInjection $injection = null, bool $stripExisting = true, ?InputReferenceIdentity $identity = null): array
 {
     $source = tempnam(sys_get_temp_dir(), 'xmlsrc');
     $destination = tempnam(sys_get_temp_dir(), 'xmldst');
     file_put_contents($source, $xml);
 
     try {
-        $report = app(XmlScheduleDataRewriter::class)->rewrite($source, $destination, $datasetIdOverride, $injection, $stripExisting);
+        $report = app(XmlScheduleDataRewriter::class)->rewrite($source, $destination, $datasetIdOverride, $injection, $stripExisting, $identity);
 
         return [file_get_contents($destination), $report];
     } finally {
@@ -424,4 +425,104 @@ it('copies a file without a schedule data root unchanged when only stripping is 
     expect($output)->toBe($xml);
     expect($report->wrapperFound)->toBeFalse();
     expect($report->strippedBroadcasts)->toBe(0);
+});
+
+function xmlIdentity(): InputReferenceIdentity
+{
+    return new InputReferenceIdentity('PSO Test Tools', 'Sent from PSO Test Tools (Load from File) by Ré <Q> & co, environment TST, file load.xml, 2026-10-16 13:40Z');
+}
+
+const XML_IDENTITY_DESCRIPTION = 'Sent from PSO Test Tools (Load from File) by R&#xE9; &lt;Q&gt; &amp; co, environment TST, file load.xml, 2026-10-16 13:40Z';
+
+it('replaces existing user_id and description text, leaving every other byte as it was', function () {
+    $xml = "<?xml version=\"1.0\"?>\r\n<dsScheduleData xmlns=\"".XML_NS."\">\r\n"
+        ."\t<Input_Reference>\r\n\t\t<id>7</id>\r\n\t\t<user_id>IFS</user_id>\r\n\t\t<dataset_id>N</dataset_id>\r\n\t\t<description/>\r\n\t</Input_Reference>\r\n"
+        ."\t<Activity><id>A1</id><description>keep me</description><user_id>x</user_id></Activity>\r\n</dsScheduleData>\r\n";
+
+    [$output, $report] = rewriteXml($xml, identity: xmlIdentity());
+
+    expect($output)->toBe(str_replace(
+        ['<user_id>IFS</user_id>', '<description/>'],
+        ['<user_id>PSO Test Tools</user_id>', '<description>'.XML_IDENTITY_DESCRIPTION.'</description>'],
+        $xml,
+    ));
+    expect(xpathFor($output)->evaluate('string(/s:dsScheduleData/s:Input_Reference/s:description)'))->toBe(xmlIdentity()->description);
+    expect($report->inputReferencesMarked)->toBe(1);
+    expect($report->identityFieldsReplaced)->toBe(2);
+});
+
+it('adds missing user_id and description before the closing Input_Reference tag in the indentation of its children', function () {
+    $xml = '<dsScheduleData xmlns="'.XML_NS."\">\n  <Input_Reference>\n    <id>7</id>\n    <dataset_id>N</dataset_id>\n  </Input_Reference>\n  <Resources><id>R1</id></Resources>\n</dsScheduleData>\n";
+
+    [$output, $report] = rewriteXml($xml, identity: xmlIdentity());
+
+    expect($output)->toBe(str_replace(
+        "<dataset_id>N</dataset_id>\n  </Input_Reference>",
+        "<dataset_id>N</dataset_id>\n    <user_id>PSO Test Tools</user_id>\n    <description>".XML_IDENTITY_DESCRIPTION."</description>\n  </Input_Reference>",
+        $xml,
+    ));
+    expect($report->inputReferencesMarked)->toBe(1);
+    expect($report->identityFieldsReplaced)->toBe(0);
+});
+
+it('writes added identity elements with the prefix of a prefixed Input_Reference', function () {
+    $xml = '<p:dsScheduleData xmlns:p="'.XML_NS.'"><p:Input_Reference><p:dataset_id>N</p:dataset_id><p:user_id>me</p:user_id></p:Input_Reference></p:dsScheduleData>';
+
+    [$output] = rewriteXml($xml, identity: xmlIdentity());
+
+    expect($output)->toBe('<p:dsScheduleData xmlns:p="'.XML_NS.'"><p:Input_Reference><p:dataset_id>N</p:dataset_id><p:user_id>PSO Test Tools</p:user_id>'
+        .'<p:description>'.XML_IDENTITY_DESCRIPTION.'</p:description></p:Input_Reference></p:dsScheduleData>');
+    expect(xpathFor($output)->evaluate('count(/s:dsScheduleData/s:Input_Reference/s:description)'))->toBe(1.0);
+});
+
+it('marks every root-level Input_Reference, an empty one included, and nothing nested', function () {
+    $xml = '<dsScheduleData xmlns="'.XML_NS.'"><Input_Reference><dataset_id>A</dataset_id></Input_Reference>'
+        .'<Input_Reference/>'
+        .'<Activity><Input_Reference><id>nested</id></Input_Reference></Activity>'
+        .'<Input_Reference><description>old</description><dataset_id>B</dataset_id></Input_Reference></dsScheduleData>';
+
+    [$output, $report] = rewriteXml($xml, 'NEW', identity: xmlIdentity());
+
+    $xpath = xpathFor($output);
+
+    expect($xpath->evaluate('count(/s:dsScheduleData/s:Input_Reference[s:user_id = "PSO Test Tools"])'))->toBe(3.0);
+    expect($xpath->evaluate('count(/s:dsScheduleData/s:Input_Reference[s:description = "'.xmlIdentity()->description.'"])'))->toBe(3.0);
+    expect($xpath->evaluate('count(//s:Activity//s:user_id)'))->toBe(0.0);
+    expect($output)->toContain('<Activity><Input_Reference><id>nested</id></Input_Reference></Activity>');
+    expect($report->inputReferencesMarked)->toBe(3);
+    expect($report->identityFieldsReplaced)->toBe(1);
+    expect($report->datasetIds)->toBe(['A', 'B']);
+    expect($xpath->evaluate('count(/s:dsScheduleData/s:Input_Reference[s:dataset_id = "NEW"])'))->toBe(2.0);
+});
+
+it('marks Input_Reference the same way wherever the read chunk boundary falls', function () {
+    $head = '<dsScheduleData xmlns="'.XML_NS."\">\n  ";
+    $tail = "\n  <Input_Reference>\n    <user_id>IFS</user_id>\n    <dataset_id>OLD</dataset_id>\n  </Input_Reference>\n</dsScheduleData>\n";
+
+    [$smallOutput] = rewriteXml($head.'<Pad/>'.$tail, 'NEW', xmlWebhookInjection(), true, xmlIdentity());
+    $expectedTail = substr($smallOutput, strlen($head.'<Pad/>'));
+
+    expect($expectedTail)->toContain("<dataset_id>NEW</dataset_id>\n    <description>");
+
+    $chunk = 1048576;
+    $fixed = strlen($head.'<Pad></Pad>');
+
+    for ($shift = -150; $shift <= 10; $shift++) {
+        $padded = $head.'<Pad>'.str_repeat('p', $chunk - $fixed + $shift).'</Pad>';
+
+        [$output, $report] = rewriteXml($padded.$tail, 'NEW', xmlWebhookInjection(), true, xmlIdentity());
+
+        expect($output)->toBe($padded.$expectedTail);
+        expect($report->inputReferencesMarked)->toBe(1);
+        expect($report->identityFieldsReplaced)->toBe(1);
+    }
+});
+
+it('marks nothing in a file with no Input_Reference', function () {
+    $xml = '<dsScheduleData xmlns="'.XML_NS.'"><Resources><id>R1</id><user_id>x</user_id></Resources></dsScheduleData>';
+
+    [$output, $report] = rewriteXml($xml, identity: xmlIdentity());
+
+    expect($output)->toBe($xml);
+    expect($report->inputReferencesMarked)->toBe(0);
 });

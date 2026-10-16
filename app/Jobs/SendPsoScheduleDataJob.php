@@ -6,12 +6,14 @@ use App\Enums\PsoGatewayUploadStatus;
 use App\Models\Environment;
 use App\Models\PsoGatewayUpload;
 use App\Models\Scopes\UserOwnedModel;
+use App\Models\User;
 use App\Support\GatewayUpload\StoredText;
 use App\Support\GatewayUpload\UploadRunLog;
 use App\Support\GatewayUploadPath;
 use App\Support\GzipFileCompressor;
 use App\Support\ScheduleData\BroadcastInjection;
 use App\Support\ScheduleData\BroadcastSettings;
+use App\Support\ScheduleData\InputReferenceIdentity;
 use App\Support\ScheduleData\MissingScheduleDataWrapperException;
 use App\Support\ScheduleData\RewriteReport;
 use App\Support\ScheduleData\ScheduleDataRewriterFactory;
@@ -258,8 +260,9 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 
     /**
      * Provisions the webhook, then writes the modified copy (dataset id
-     * override, old broadcast rows stripped, new Broadcast injected) and
-     * returns its path. Returns the original path when there is nothing to do.
+     * override, Input_Reference marked as sent from PSO Test Tools, old
+     * broadcast rows stripped, new Broadcast injected) and returns its path.
+     * Returns the original path when nothing changed.
      */
     private function preparePayload(
         PsoGatewayUpload $upload,
@@ -306,12 +309,8 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         // The column defaults to true; only an explicit false keeps the file's own rows.
         $stripExisting = $upload->strip_existing_broadcast !== false;
 
-        if ($datasetIdOverride === null && $injection === null && ! $stripExisting) {
-            $this->logBroadcastRowsKept($log);
-            $log->sub('No dataset ID override and no webhook - sending the file exactly as uploaded.');
-
-            return $rawPath;
-        }
+        // Always written, so the copy is always made: PSO shows where the load came from.
+        $identity = $this->inputReferenceIdentity($upload);
 
         // The script's sibling-copy name: `<original>_withBroadcast.<ext>`.
         $destinationPath = $workDir.'/'.pathinfo(basename($sourceName), PATHINFO_FILENAME)."_withBroadcast.{$format}";
@@ -321,7 +320,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         try {
             $report = app(ScheduleDataRewriterFactory::class)
                 ->forFormat($format)
-                ->rewrite($rawPath, $destinationPath, $datasetIdOverride, $injection, $stripExisting);
+                ->rewrite($rawPath, $destinationPath, $datasetIdOverride, $injection, $stripExisting, $identity);
         } catch (Throwable $exception) {
             // A rewriter can stop part-way through; never leave a truncated
             // copy behind that a later step could pick up and send.
@@ -340,14 +339,14 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             $log->warn("No top-level 'ScheduleData' or 'dsScheduleData' wrapper in the file - sending it unchanged.");
         }
 
-        $this->logRewrite($log, $report, $datasetIdOverride, $injection, $stripExisting);
+        $this->logRewrite($log, $report, $datasetIdOverride, $injection, $stripExisting, $identity);
 
         if ($report->datasetIds !== []) {
             // VARCHAR(255): several or long ids must not overflow under strict mode.
             $upload->update(['dataset_id_in_file' => StoredText::cap(implode(', ', $report->datasetIds), StoredText::DATASET_ID_BYTES)]);
         }
 
-        if ($injection === null && ! $report->datasetIdChanged
+        if ($injection === null && ! $report->datasetIdChanged && $report->inputReferencesMarked === 0
             && $report->strippedBroadcasts === 0 && $report->strippedBroadcastParameters === 0) {
             File::delete($destinationPath);
             $log->sub('Nothing changed - sending the file exactly as uploaded.');
@@ -366,7 +365,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         $log->warn(self::KEPT_BROADCAST_WARNING);
     }
 
-    private function logRewrite(UploadRunLog $log, RewriteReport $report, ?string $datasetIdOverride, ?BroadcastInjection $injection, bool $stripExisting): void
+    private function logRewrite(UploadRunLog $log, RewriteReport $report, ?string $datasetIdOverride, ?BroadcastInjection $injection, bool $stripExisting, InputReferenceIdentity $identity): void
     {
         if ($report->datasetIds === []) {
             $log->sub('No Input_Reference.dataset_id in the file - nothing to keep or change.');
@@ -378,6 +377,12 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             } else {
                 $log->sub("Keeping Input_Reference.dataset_id: {$current}");
             }
+        }
+
+        if ($report->inputReferencesMarked > 0) {
+            $log->sub("Input_Reference marked as sent from PSO Test Tools: user_id '{$identity->userId}', description '{$identity->description}'");
+        } elseif ($report->wrapperFound) {
+            $log->sub('No Input_Reference in the file - nothing to mark as sent from PSO Test Tools.');
         }
 
         if ($injection === null) {
@@ -416,6 +421,22 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         }
 
         $log->warn('Logoff failed (non-fatal): '.($this->session_error_message ?? 'no detail from the PSO services API'));
+    }
+
+    /**
+     * Who sent what, from where: the user who queued the upload, the
+     * environment, the file name and the time the upload was created (UTC).
+     */
+    private function inputReferenceIdentity(PsoGatewayUpload $upload): InputReferenceIdentity
+    {
+        $userName = User::query()->whereKey($upload->initiated_by_user_id)->value('name');
+
+        return InputReferenceIdentity::forLoadFromFile(
+            filled($userName) ? (string) $userName : '(unknown user)',
+            $this->environmentName($upload) ?? '(unknown environment)',
+            (string) $upload->original_filename,
+            $upload->created_at ?? now(),
+        );
     }
 
     /**

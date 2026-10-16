@@ -6,12 +6,15 @@ use App\Jobs\SendPsoScheduleDataJob;
 use App\Models\Environment;
 use App\Models\PsoGatewayUpload;
 use App\Models\PsoGatewayUploadLogLine;
+use App\Models\User;
 use App\Support\GatewayUpload\StoredText;
 use App\Support\ScheduleData\BroadcastInjection;
 use App\Support\ScheduleData\BroadcastSettings;
+use App\Support\ScheduleData\InputReferenceIdentity;
 use App\Support\ScheduleData\RewriteReport;
 use App\Support\ScheduleData\ScheduleDataRewriter;
 use App\Support\ScheduleData\ScheduleDataRewriterFactory;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\MySqlConnection;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\TimeoutExceededException;
@@ -820,7 +823,7 @@ it('removes a partial rewrite and sends nothing when the rewriter throws', funct
     {
         public function __construct(private ArrayObject $destinations) {}
 
-        public function rewrite(string $sourcePath, string $destinationPath, ?string $datasetIdOverride, ?BroadcastInjection $injection, bool $stripExisting = true): RewriteReport
+        public function rewrite(string $sourcePath, string $destinationPath, ?string $datasetIdOverride, ?BroadcastInjection $injection, bool $stripExisting = true, ?InputReferenceIdentity $identity = null): RewriteReport
         {
             $this->destinations[] = $destinationPath;
             file_put_contents($destinationPath, '{"ScheduleData":{"Resou');
@@ -1052,4 +1055,72 @@ it('caps the dataset ids in the file to the column width and still succeeds', fu
     expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
     expect(strlen($upload->dataset_id_in_file))->toBeLessThanOrEqual(StoredText::DATASET_ID_BYTES);
     expect($upload->dataset_id_in_file)->toStartWith(str_repeat('DS1', 30).', ')->toEndWith(StoredText::TRUNCATED_MARKER);
+});
+
+it('marks the Input_Reference it sends as sent from PSO Test Tools, by whom, where, which file and when', function () {
+    fakeWebhookAndGateway();
+    $user = User::factory()->create(['name' => 'Ish Dawoodjee']);
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        '{"ScheduleData":{"Input_Reference":[{"dataset_id":"NORTH","user_id":"IFS","description":"from IFS"}],"Resources":[]}}',
+        ['initiated_by_user_id' => $user->id, 'original_filename' => 'north_load.json'],
+    );
+    // Stored in app time (America/Toronto, 09:40 EDT); the description shows it in UTC.
+    $upload->forceFill(['created_at' => CarbonImmutable::parse('2026-10-16 13:40:59', 'UTC')->setTimezone(config('app.timezone'))])->save();
+
+    runUploadJob($upload);
+
+    $inputReference = sentPayload()['ScheduleData']['Input_Reference'][0];
+    $expectedDescription = 'Sent from PSO Test Tools (Load from File) by Ish Dawoodjee, environment SaskTel TST, file north_load.json, 2026-10-16 13:40Z';
+
+    expect($inputReference['user_id'])->toBe('PSO Test Tools');
+    expect($inputReference['description'])->toBe($expectedDescription);
+    expect($inputReference['dataset_id'])->toBe('NORTH');
+
+    $text = $upload->refresh()->logLines()->orderBy('id')->pluck('text')->implode("\n");
+
+    expect($text)->toContain("Input_Reference marked as sent from PSO Test Tools: user_id 'PSO Test Tools', description '{$expectedDescription}'");
+    expect(strpos($text, 'Keeping Input_Reference.dataset_id: NORTH'))->toBeLessThan(strpos($text, 'Input_Reference marked as sent from PSO Test Tools'));
+    expect($text)->not->toContain('secret-password')->not->toContain('tok-abc')->not->toContain('alias-key-123');
+});
+
+it('sends a marked copy even when the webhook is skipped, removal is off and there is no override', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.xml',
+        '<dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd"><Input_Reference><dataset_id>N</dataset_id></Input_Reference><Broadcast><id>CUSTOMER</id></Broadcast></dsScheduleData>',
+        ['skip_webhook' => true, 'strip_existing_broadcast' => false],
+    );
+
+    runUploadJob($upload);
+
+    $sentXml = null;
+    Http::assertSent(static function ($request) use (&$sentXml) {
+        if (str_contains((string) $request->url(), '/scheduling/data')) {
+            $sentXml = gzdecode((string) $request->body());
+
+            return true;
+        }
+
+        return false;
+    });
+
+    expect($sentXml)->toContain('<dataset_id>N</dataset_id><user_id>PSO Test Tools</user_id><description>Sent from PSO Test Tools (Load from File) by ')
+        ->toContain('<Broadcast><id>CUSTOMER</id></Broadcast>');
+    expect($upload->refresh()->logLines->pluck('text')->implode("\n"))
+        ->toContain('Existing Broadcast rows: kept')
+        ->toContain('Input_Reference marked as sent from PSO Test Tools')
+        ->toContain('Sending modified copy instead of the original: schedule_withBroadcast.xml')
+        ->not->toContain('sending the file exactly as uploaded');
+});
+
+it('says so when the file has no Input_Reference to mark', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}', ['skip_webhook' => true]);
+
+    runUploadJob($upload);
+
+    expect($upload->refresh()->logLines->pluck('text')->implode("\n"))
+        ->toContain('No Input_Reference in the file - nothing to mark as sent from PSO Test Tools.')
+        ->toContain('sending the file exactly as uploaded');
 });

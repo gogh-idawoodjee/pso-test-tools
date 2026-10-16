@@ -7,11 +7,15 @@ use RuntimeException;
 
 /**
  * Copies a dsScheduleData (or ScheduleData) XML file as raw bytes, scanning
- * the markup just far enough to track element depth. Only three things change:
+ * the markup just far enough to track element depth. Only four things change:
  *
  * - the text of each `dataset_id` directly inside a root-level
  *   `Input_Reference` (when an override is given; its tags are kept, an
  *   empty `<dataset_id/>` becomes `<dataset_id>NEW</dataset_id>`);
+ * - with an identity, the text of `user_id` and `description` directly
+ *   inside each root-level `Input_Reference` (in the same way), and either
+ *   one that is missing added after its last child, with the
+ *   Input_Reference's own prefix and the indentation of its first child;
  * - root-level `Broadcast` and `Broadcast_Parameter` elements, removed with
  *   the whitespace-only text just before each, but only when a Broadcast is
  *   injected (as in the script);
@@ -37,6 +41,8 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
 
     private const array STRIPPED_ENTITIES = ['Broadcast', 'Broadcast_Parameter'];
 
+    private const array IDENTITY_FIELDS = ['user_id', 'description'];
+
     private const int READ_CHUNK_BYTES = 1048576;
 
     /** @var resource */
@@ -57,6 +63,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
         ?string $datasetIdOverride,
         ?BroadcastInjection $injection,
         bool $stripExisting = true,
+        ?InputReferenceIdentity $identity = null,
     ): RewriteReport {
         $escapedOverride = $datasetIdOverride === null ? null : $this->escapeText($datasetIdOverride, rejectInvalid: true);
 
@@ -89,7 +96,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
         $this->bytesWritten = 0;
 
         try {
-            return $this->copy($datasetIdOverride, $escapedOverride, $injection, $stripExisting || $injection !== null);
+            return $this->copy($datasetIdOverride, $escapedOverride, $injection, $stripExisting || $injection !== null, $identity);
         } finally {
             fclose($source);
             fclose($destination);
@@ -97,12 +104,12 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
         }
     }
 
-    private function copy(?string $datasetIdOverride, ?string $escapedOverride, ?BroadcastInjection $injection, bool $strip): RewriteReport
+    private function copy(?string $datasetIdOverride, ?string $escapedOverride, ?BroadcastInjection $injection, bool $strip, ?InputReferenceIdentity $identity): RewriteReport
     {
         $this->readChunk();
 
         if ($this->looksLikeUtf16()) {
-            if ($injection !== null || $datasetIdOverride !== null) {
+            if ($injection !== null || $datasetIdOverride !== null || $identity !== null) {
                 throw new RuntimeException('UTF-16 schedule data files are not supported - save the file as UTF-8.');
             }
 
@@ -121,8 +128,20 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
         $stripDepth = 0;
         $strippedName = '';
         $inInputReference = false;
-        $datasetTagStart = null; // buffer offset of the open dataset_id start tag
-        $datasetInnerStart = 0;
+        $fieldTagStart = null; // buffer offset of the open dataset_id, user_id or description start tag
+        $fieldInnerStart = 0;
+        $fieldName = '';
+        $identityText = $identity === null ? [] : [
+            'user_id' => $this->escapeText($identity->userId),
+            'description' => $this->escapeText($identity->description),
+        ];
+        $inputReferenceName = '';
+        $inputReferenceOpenEnd = 0; // buffer offset just after the open Input_Reference start tag
+        $inputReferenceLastChildEnd = null; // buffer offset just after its last child so far
+        $inputReferenceSeparator = null; // whitespace before its first child
+        $identityFieldsSeen = [];
+        $inputReferencesMarked = 0;
+        $identityFieldsReplaced = 0;
         $datasetIds = [];
         $datasetIdChanged = false;
         $strippedBroadcasts = 0;
@@ -150,8 +169,13 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
                     $keepFrom = min($keepFrom, $textStart);
                 }
 
-                if ($datasetTagStart !== null) {
-                    $keepFrom = min($keepFrom, $datasetTagStart);
+                if ($fieldTagStart !== null) {
+                    $keepFrom = min($keepFrom, $fieldTagStart);
+                }
+
+                if ($inInputReference && $identity !== null) {
+                    // Missing identity fields go in after the last child.
+                    $keepFrom = min($keepFrom, $inputReferenceLastChildEnd ?? $inputReferenceOpenEnd);
                 }
 
                 if (! $stripping) {
@@ -163,9 +187,15 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
                 $copyFrom = 0;
                 $textStart -= $keepFrom;
 
-                if ($datasetTagStart !== null) {
-                    $datasetTagStart -= $keepFrom;
-                    $datasetInnerStart -= $keepFrom;
+                if ($fieldTagStart !== null) {
+                    $fieldTagStart -= $keepFrom;
+                    $fieldInnerStart -= $keepFrom;
+                }
+
+                $inputReferenceOpenEnd -= $keepFrom;
+
+                if ($inputReferenceLastChildEnd !== null) {
+                    $inputReferenceLastChildEnd -= $keepFrom;
                 }
 
                 $this->readChunk();
@@ -204,19 +234,41 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
                     continue;
                 }
 
-                if ($datasetTagStart !== null && $depth === 2) {
-                    $innerLength = $tagStart - $datasetInnerStart;
-                    $original = $this->decodeText(substr($this->buffer, $datasetInnerStart, $innerLength));
-                    $datasetIds[] = $original;
+                if ($inInputReference && $depth === 2) {
+                    $inputReferenceLastChildEnd = $position;
+                }
 
-                    if ($escapedOverride !== null && $original !== $datasetIdOverride) {
-                        $this->write(substr($this->buffer, $copyFrom, $datasetInnerStart - $copyFrom).$escapedOverride);
+                if ($fieldTagStart !== null && $depth === 2) {
+                    if ($fieldName === 'dataset_id') {
+                        $innerLength = $tagStart - $fieldInnerStart;
+                        $original = $this->decodeText(substr($this->buffer, $fieldInnerStart, $innerLength));
+                        $datasetIds[] = $original;
+
+                        if ($escapedOverride !== null && $original !== $datasetIdOverride) {
+                            $this->write(substr($this->buffer, $copyFrom, $fieldInnerStart - $copyFrom).$escapedOverride);
+                            $copyFrom = $tagStart;
+                            $datasetIdChanged = true;
+                        }
+                    } else {
+                        $this->write(substr($this->buffer, $copyFrom, $fieldInnerStart - $copyFrom).$identityText[$fieldName]);
                         $copyFrom = $tagStart;
-                        $datasetIdChanged = true;
+                        $identityFieldsReplaced++;
                     }
 
-                    $datasetTagStart = null;
+                    $fieldTagStart = null;
                 } elseif ($depth === 1) {
+                    if ($inInputReference && $identity !== null) {
+                        $insertAt = $inputReferenceLastChildEnd ?? $inputReferenceOpenEnd;
+                        $missing = $this->identityElements($identityText, $identityFieldsSeen, $inputReferenceName, $inputReferenceSeparator ?? '');
+
+                        if ($missing !== '') {
+                            $this->write(substr($this->buffer, $copyFrom, $insertAt - $copyFrom).$missing);
+                            $copyFrom = $insertAt;
+                        }
+
+                        $inputReferencesMarked++;
+                    }
+
                     $inInputReference = false;
                     $textStart = $position;
                 } elseif ($depth === 0 && $rootSeen && ! $rootClosed) {
@@ -300,12 +352,57 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
 
                     if ($selfClosing) {
                         $textStart = $position;
+
+                        if ($localName === 'Input_Reference' && $identity !== null) {
+                            // An empty <Input_Reference/> opens up to take the two fields.
+                            $openTag = rtrim(substr($this->buffer, $tagStart, $tagEnd - 1 - $tagStart)).'>';
+                            $this->write(substr($this->buffer, $copyFrom, $tagStart - $copyFrom)
+                                .$openTag.$this->identityElements($identityText, [], $name, '')."</{$name}>");
+                            $copyFrom = $position;
+                            $inputReferencesMarked++;
+                        }
                     } else {
                         $inInputReference = $localName === 'Input_Reference';
                         $depth = 2;
+
+                        if ($inInputReference) {
+                            $inputReferenceName = $name;
+                            $inputReferenceOpenEnd = $position;
+                            $inputReferenceLastChildEnd = null;
+                            $inputReferenceSeparator = null;
+                            $identityFieldsSeen = [];
+                        }
                     }
 
                     continue;
+                }
+
+                if ($depth === 2 && $inInputReference && $inputReferenceSeparator === null) {
+                    $leadingText = substr($this->buffer, $inputReferenceOpenEnd, $tagStart - $inputReferenceOpenEnd);
+                    $inputReferenceSeparator = strspn($leadingText, " \t\r\n") === strlen($leadingText) ? $leadingText : '';
+                }
+
+                if ($depth === 2 && $inInputReference && $identity !== null && in_array($localName, self::IDENTITY_FIELDS, true)) {
+                    $identityFieldsSeen[$localName] = true;
+
+                    if ($selfClosing) {
+                        $openTag = rtrim(substr($this->buffer, $tagStart, $tagEnd - 1 - $tagStart)).'>';
+                        $this->write(substr($this->buffer, $copyFrom, $tagStart - $copyFrom)
+                            .$openTag.$identityText[$localName]."</{$name}>");
+                        $copyFrom = $position;
+                        $inputReferenceLastChildEnd = $position;
+                        $identityFieldsReplaced++;
+
+                        continue;
+                    }
+
+                    $fieldTagStart = $tagStart;
+                    $fieldInnerStart = $position;
+                    $fieldName = $localName;
+                }
+
+                if ($depth === 2 && $inInputReference && $selfClosing) {
+                    $inputReferenceLastChildEnd = $position;
                 }
 
                 if ($depth === 2 && $inInputReference && $localName === 'dataset_id') {
@@ -323,8 +420,9 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
                         continue;
                     }
 
-                    $datasetTagStart = $tagStart;
-                    $datasetInnerStart = $position;
+                    $fieldTagStart = $tagStart;
+                    $fieldInnerStart = $position;
+                    $fieldName = $localName;
                 }
             }
 
@@ -343,7 +441,29 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
 
         $this->write(substr($this->buffer, $copyFrom));
 
-        return $this->report($rootSeen, array_values(array_unique($datasetIds)), $datasetIdChanged, $strippedBroadcasts, $strippedParameters);
+        return $this->report($rootSeen, array_values(array_unique($datasetIds)), $datasetIdChanged, $strippedBroadcasts, $strippedParameters, $inputReferencesMarked, $identityFieldsReplaced);
+    }
+
+    /**
+     * The identity fields an Input_Reference does not already have, each
+     * after the separator, with the Input_Reference's own prefix.
+     *
+     * @param  array<string, string>  $identityText  escaped text per field
+     * @param  array<string, true>  $seen
+     */
+    private function identityElements(array $identityText, array $seen, string $inputReferenceName, string $separator): string
+    {
+        $colon = strpos($inputReferenceName, ':');
+        $prefix = $colon === false ? '' : substr($inputReferenceName, 0, $colon + 1);
+        $xml = '';
+
+        foreach (self::IDENTITY_FIELDS as $field) {
+            if (! isset($seen[$field])) {
+                $xml .= "{$separator}<{$prefix}{$field}>{$identityText[$field]}</{$prefix}{$field}>";
+            }
+        }
+
+        return $xml;
     }
 
     /**
@@ -550,7 +670,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
     /**
      * @param  list<string>  $datasetIds
      */
-    private function report(bool $wrapperFound, array $datasetIds, bool $datasetIdChanged, int $strippedBroadcasts, int $strippedParameters): RewriteReport
+    private function report(bool $wrapperFound, array $datasetIds, bool $datasetIdChanged, int $strippedBroadcasts, int $strippedParameters, int $inputReferencesMarked = 0, int $identityFieldsReplaced = 0): RewriteReport
     {
         return new RewriteReport(
             format: $wrapperFound ? 'xml' : null,
@@ -560,6 +680,8 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
             strippedBroadcasts: $strippedBroadcasts,
             strippedBroadcastParameters: $strippedParameters,
             bytesWritten: $this->bytesWritten,
+            inputReferencesMarked: $inputReferencesMarked,
+            identityFieldsReplaced: $identityFieldsReplaced,
         );
     }
 }

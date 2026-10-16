@@ -2,6 +2,7 @@
 
 use App\Support\ScheduleData\BroadcastInjection;
 use App\Support\ScheduleData\BroadcastSettings;
+use App\Support\ScheduleData\InputReferenceIdentity;
 use App\Support\ScheduleData\JsonScheduleDataRewriter;
 use App\Support\ScheduleData\MissingScheduleDataWrapperException;
 use App\Support\ScheduleData\RewriteReport;
@@ -9,14 +10,14 @@ use App\Support\ScheduleData\RewriteReport;
 /**
  * @return array{0: string, 1: RewriteReport}
  */
-function rewriteJson(string $json, ?string $datasetIdOverride = null, ?BroadcastInjection $injection = null, bool $stripExisting = true): array
+function rewriteJson(string $json, ?string $datasetIdOverride = null, ?BroadcastInjection $injection = null, bool $stripExisting = true, ?InputReferenceIdentity $identity = null): array
 {
     $source = tempnam(sys_get_temp_dir(), 'rwsrc');
     $destination = tempnam(sys_get_temp_dir(), 'rwdst');
     file_put_contents($source, $json);
 
     try {
-        $report = app(JsonScheduleDataRewriter::class)->rewrite($source, $destination, $datasetIdOverride, $injection, $stripExisting);
+        $report = app(JsonScheduleDataRewriter::class)->rewrite($source, $destination, $datasetIdOverride, $injection, $stripExisting, $identity);
 
         return [file_get_contents($destination), $report];
     } finally {
@@ -358,4 +359,93 @@ it('copies a file without a wrapper unchanged when only stripping is asked for',
     expect($output)->toBe($json);
     expect($report->wrapperFound)->toBeFalse();
     expect($report->strippedBroadcasts)->toBe(0);
+});
+
+function jsonIdentity(): InputReferenceIdentity
+{
+    return new InputReferenceIdentity('PSO Test Tools', 'Sent from PSO Test Tools (Load from File) by Ré "Q", environment TST, file a/b.json, 2026-10-16 13:40Z');
+}
+
+it('replaces an existing user_id and description where they stand, leaving every other byte as it was', function () {
+    $before = "{\n  \"ScheduleData\": {\n    \"Input_Reference\": [\n      {\n        \"id\": \"7\",\n        \"user_id\" : \"IFS\",\n        \"dataset_id\": \"N\",\n        \"description\":\"old\"\n      }\n    ],\n";
+    $rest = "    \"Activity\": [ {\"id\":\"A1\", \"description\" : \"keep me\", \"user_id\": \"x\"} ]\n  }\n}\n";
+
+    [$output, $report] = rewriteJson($before.$rest, identity: jsonIdentity());
+
+    $userId = json_encode('PSO Test Tools');
+    $description = json_encode(jsonIdentity()->description, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+    expect($output)->toBe(str_replace(['"IFS"', '"old"'], [$userId, $description], $before).$rest);
+    expect($report->inputReferencesMarked)->toBe(1);
+    expect($report->identityFieldsReplaced)->toBe(2);
+});
+
+it('adds a missing user_id and description after dataset_id in the style of that member', function () {
+    $json = "{\r\n  \"dsScheduleData\" : {\r\n    \"Input_Reference\" : {\r\n      \"id\" : \"7\",\r\n      \"dataset_id\" : \"N\",\r\n      \"input_type\" : \"LOAD\"\r\n    },\r\n    \"Resources\" : {\"id\":\"R1\"}\r\n  }\r\n}\r\n";
+
+    [$output, $report] = rewriteJson($json, identity: jsonIdentity());
+
+    $description = json_encode(jsonIdentity()->description, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    $added = ",\r\n      \"user_id\" : \"PSO Test Tools\",\r\n      \"description\" : {$description}";
+
+    expect($output)->toBe(str_replace('"dataset_id" : "N"', '"dataset_id" : "N"'.$added, $json));
+    expect(json_decode($output, true, flags: JSON_THROW_ON_ERROR)['dsScheduleData']['Input_Reference'])->toBe([
+        'id' => '7',
+        'dataset_id' => 'N',
+        'user_id' => 'PSO Test Tools',
+        'description' => jsonIdentity()->description,
+        'input_type' => 'LOAD',
+    ]);
+    expect($report->inputReferencesMarked)->toBe(1);
+    expect($report->identityFieldsReplaced)->toBe(0);
+});
+
+it('adds the identity as the last members when there is no dataset_id, and to an empty row', function () {
+    [$output] = rewriteJson('{"ScheduleData":{"Input_Reference":[{"id":"1","input_type":"LOAD"},{}]}}', identity: jsonIdentity());
+
+    $rows = json_decode($output, true, flags: JSON_THROW_ON_ERROR)['ScheduleData']['Input_Reference'];
+
+    expect(array_keys($rows[0]))->toBe(['id', 'input_type', 'user_id', 'description']);
+    expect($rows[1])->toBe(['user_id' => 'PSO Test Tools', 'description' => jsonIdentity()->description]);
+    expect($output)->toStartWith('{"ScheduleData":{"Input_Reference":[{"id":"1","input_type":"LOAD","user_id":"PSO Test Tools","description":');
+});
+
+it('marks every Input_Reference row, replacing one value and adding the other', function () {
+    $json = '{"ScheduleData":{"Input_Reference":[{"dataset_id":"A","user_id":{"odd":[1,2]}},{"description":"x","dataset_id":"B","id":"2"}],"Resources":[]}}';
+
+    [$output, $report] = rewriteJson($json, 'NEW', null, true, jsonIdentity());
+
+    $rows = json_decode($output, true, flags: JSON_THROW_ON_ERROR)['ScheduleData']['Input_Reference'];
+
+    // The missing description goes in after dataset_id; user_id is replaced where it stands.
+    expect($rows[0])->toBe(['dataset_id' => 'NEW', 'description' => jsonIdentity()->description, 'user_id' => 'PSO Test Tools']);
+    expect($rows[1])->toBe(['description' => jsonIdentity()->description, 'dataset_id' => 'NEW', 'user_id' => 'PSO Test Tools', 'id' => '2']);
+    expect($report->inputReferencesMarked)->toBe(2);
+    expect($report->identityFieldsReplaced)->toBe(2);
+    expect($report->datasetIds)->toBe(['A', 'B']);
+    expect($report->datasetIdChanged)->toBeTrue();
+});
+
+it('marks Input_Reference alongside the injected Broadcast and leaves the rest of the file alone', function () {
+    $resources = '"Resources" : [ { "id":"Ré", "description":"keep", "x":1.50 } ]';
+    $json = "{\"ScheduleData\":{\"Input_Reference\":[{\"dataset_id\":\"N\"}],\"Broadcast\":[{\"id\":\"OLD\"}],{$resources}}}";
+
+    [$output, $report] = rewriteJson($json, null, webhookInjection(), true, jsonIdentity());
+
+    $decoded = json_decode($output, true, flags: JSON_THROW_ON_ERROR)['ScheduleData'];
+
+    expect($output)->toContain($resources);
+    expect($decoded['Input_Reference'][0]['user_id'])->toBe('PSO Test Tools');
+    expect($decoded['Broadcast'][0]['id'])->toBe('WEBHOOK_COMPLETE');
+    expect($report->inputReferencesMarked)->toBe(1);
+    expect($report->strippedBroadcasts)->toBe(1);
+});
+
+it('marks nothing in a file with no Input_Reference', function () {
+    $json = '{"ScheduleData":{"Resources":[{"id":"R1","user_id":"x"}]}}';
+
+    [$output, $report] = rewriteJson($json, identity: jsonIdentity());
+
+    expect($output)->toBe($json);
+    expect($report->inputReferencesMarked)->toBe(0);
 });
