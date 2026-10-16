@@ -51,7 +51,7 @@ plan_travels.py merge-google --legs <legs.json> --google <google.json> --out-dir
                       [--template <html>] [--review-minutes 20] [--review-pct 0]
 ```
 
-`build` writes `legs.json`, `plan_travels.csv` and `plan_travels.html` to the out dir. `merge-google` reads the
+`build` (with an optional `--dataset-name` for the page header) writes `legs.json`, `plan_travels.csv` and `plan_travels.html` to the out dir. `merge-google` reads the
 legs JSON and a Google results JSON (section 6.3) and rewrites all three with the Google columns and flags.
 Exit 0 with zero legs (the page says so; the CSV has only the header). Exit 1 on a missing file or a root that is
 not `dsScheduleData`. Warnings (unplaced fragments and the other inventory section 4 lines) go to stderr prefixed
@@ -69,8 +69,9 @@ are kept, not fixed, except these deliberate deviations:
 1. Case: lookups keyed by ID are case-sensitive (repo rule); the PRIVATE / NON-AVAILABILITY and `FIX` comparisons
    and the Additional_Attribute labels stay case-insensitive as in the script.
 2. Numbers: parsed invariant (no locale); printed shortest round-trip like pwsh and Python.
-3. Rounding: Python `round` on the binary value (the golden comparison compares as decimals, and a difference at an
-   exact half is reported, not hidden).
+3. Rounding: the .NET way the script uses (`[math]::Round`: scale by the decimal places, round half to even on
+   the scaled value, unscale), implemented as `ps_round`. Python's own `round` on the binary value differs on 163
+   golden cells (for example 2,685 m is 2.68 km in the script and 2.69 with `round`), so it is not used.
 4. Row order: the CSV and page sort by resource id, then leg start time, then destination activity id (the script's
    order is not reproducible).
 5. Flag with PSO time 0 s and a Google time: `Missing PSO Time` (the script's fall-through said Missing Google
@@ -198,7 +199,8 @@ Options > Run flow applies.
    conventions as `PsoServicesSessionClient`), reporting progress per chunk ("Checking trips with Google, 3 of 9").
    A chunk failure (network, 503, 5xx) stops the run with the error as the run's failure message; the build output
    is kept so the run still shows the legs without Google columns and says why.
-3. Write `google.json` keyed like the script's cache, `"<oLat>,<oLng>|<dLat>,<dLng>"` with six decimals, each value
+3. Write `google.json` keyed by each leg's `route_key` from `legs.json` (the script's cache key shape,
+   `"<oLat>,<oLng>|<dLat>,<dLng>"` with six decimals; copied verbatim, never recomputed in PHP), each value
    `{ durationSec, distanceKm, source }` or `{ error }`, and run
    `plan_travels.py merge-google`. Progress: "Merging Google results".
 4. Store `html`, `csv` and `data` (the legs JSON) in the encrypted result; summary (plain): leg count, resources,
