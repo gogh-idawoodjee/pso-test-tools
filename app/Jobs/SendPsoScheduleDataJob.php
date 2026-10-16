@@ -425,7 +425,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 
     /**
      * Who sent what, from where: the user who queued the upload, the
-     * environment, the file name and the time the upload was created (UTC).
+     * environment, the file name and the time the upload was queued (UTC).
      */
     private function inputReferenceIdentity(PsoGatewayUpload $upload): InputReferenceIdentity
     {
@@ -435,7 +435,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             filled($userName) ? (string) $userName : '(unknown user)',
             $this->environmentName($upload) ?? '(unknown environment)',
             (string) $upload->original_filename,
-            $upload->created_at ?? now(),
+            $upload->queued_at ?? $upload->created_at ?? now(),
         );
     }
 

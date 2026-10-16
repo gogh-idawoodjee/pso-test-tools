@@ -526,3 +526,54 @@ it('marks nothing in a file with no Input_Reference', function () {
     expect($output)->toBe($xml);
     expect($report->inputReferencesMarked)->toBe(0);
 });
+
+function shortXmlIdentity(string $description = 'D'): InputReferenceIdentity
+{
+    return new InputReferenceIdentity('PSO Test Tools', $description);
+}
+
+it('marks an Input_Reference that holds comments', function () {
+    $xml = '<dsScheduleData xmlns="'.XML_NS.'"><Input_Reference><!-- first --><dataset_id>N</dataset_id><!-- last -->'."\n".'</Input_Reference></dsScheduleData>';
+
+    [$output] = rewriteXml($xml, identity: shortXmlIdentity());
+
+    expect($output)->toBe('<dsScheduleData xmlns="'.XML_NS.'"><Input_Reference><!-- first --><dataset_id>N</dataset_id>'
+        .'<user_id>PSO Test Tools</user_id><description>D</description><!-- last -->'."\n".'</Input_Reference></dsScheduleData>');
+});
+
+it('replaces a CDATA description and keeps CDATA in other children', function () {
+    $xml = '<dsScheduleData xmlns="'.XML_NS.'"><Input_Reference><id><![CDATA[a</id>]]></id><description><![CDATA[old <x>]]></description></Input_Reference></dsScheduleData>';
+
+    [$output, $report] = rewriteXml($xml, identity: shortXmlIdentity());
+
+    expect($output)->toBe('<dsScheduleData xmlns="'.XML_NS.'"><Input_Reference><id><![CDATA[a</id>]]></id><description>D</description>'
+        .'<user_id>PSO Test Tools</user_id></Input_Reference></dsScheduleData>');
+    expect($report->identityFieldsReplaced)->toBe(1);
+});
+
+it('keeps attributes on Input_Reference, in the open and the self-closing form', function () {
+    $xml = '<dsScheduleData xmlns="'.XML_NS.'"><Input_Reference a="1" b=\'x>y\'><dataset_id>N</dataset_id></Input_Reference><Input_Reference a="2" /></dsScheduleData>';
+
+    [$output, $report] = rewriteXml($xml, identity: shortXmlIdentity());
+
+    expect($output)->toBe('<dsScheduleData xmlns="'.XML_NS.'"><Input_Reference a="1" b=\'x>y\'><dataset_id>N</dataset_id><user_id>PSO Test Tools</user_id><description>D</description></Input_Reference>'
+        .'<Input_Reference a="2"><user_id>PSO Test Tools</user_id><description>D</description></Input_Reference></dsScheduleData>');
+    expect($report->inputReferencesMarked)->toBe(2);
+});
+
+it('fills an empty description element written with both tags', function () {
+    $xml = '<dsScheduleData xmlns="'.XML_NS.'"><Input_Reference><user_id></user_id><description></description></Input_Reference></dsScheduleData>';
+
+    [$output, $report] = rewriteXml($xml, identity: shortXmlIdentity('a\\b'));
+
+    expect($output)->toBe('<dsScheduleData xmlns="'.XML_NS.'"><Input_Reference><user_id>PSO Test Tools</user_id><description>a\\b</description></Input_Reference></dsScheduleData>');
+    expect($report->identityFieldsReplaced)->toBe(2);
+});
+
+it('adds both fields to an Input_Reference holding only whitespace', function () {
+    $xml = '<dsScheduleData xmlns="'.XML_NS."\">\n  <Input_Reference>\n  </Input_Reference>\n</dsScheduleData>";
+
+    [$output] = rewriteXml($xml, identity: shortXmlIdentity());
+
+    expect($output)->toBe('<dsScheduleData xmlns="'.XML_NS."\">\n  <Input_Reference><user_id>PSO Test Tools</user_id><description>D</description>\n  </Input_Reference>\n</dsScheduleData>");
+});

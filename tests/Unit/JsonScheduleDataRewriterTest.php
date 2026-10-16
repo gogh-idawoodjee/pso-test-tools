@@ -449,3 +449,42 @@ it('marks nothing in a file with no Input_Reference', function () {
     expect($output)->toBe($json);
     expect($report->inputReferencesMarked)->toBe(0);
 });
+
+function shortJsonIdentity(string $description = 'D'): InputReferenceIdentity
+{
+    return new InputReferenceIdentity('PSO Test Tools', $description);
+}
+
+it('leaves user_id and description keys inside a nested object of Input_Reference alone', function () {
+    $json = '{"ScheduleData":{"Input_Reference":[{"dataset_id":"N","extra":{"description":"inner","user_id":"inner"}}]}}';
+
+    [$output, $report] = rewriteJson($json, identity: shortJsonIdentity());
+
+    expect($output)->toBe('{"ScheduleData":{"Input_Reference":[{"dataset_id":"N","user_id":"PSO Test Tools","description":"D","extra":{"description":"inner","user_id":"inner"}}]}}');
+    expect($report->identityFieldsReplaced)->toBe(0);
+});
+
+it('marks Input_Reference in a file with a UTF-8 BOM', function () {
+    $json = "\xEF\xBB\xBF{\"ScheduleData\":{\"Input_Reference\":[{\"dataset_id\":\"N\"}]}}";
+
+    [$output] = rewriteJson($json, identity: shortJsonIdentity());
+
+    expect($output)->toBe("\xEF\xBB\xBF{\"ScheduleData\":{\"Input_Reference\":[{\"dataset_id\":\"N\",\"user_id\":\"PSO Test Tools\",\"description\":\"D\"}]}}");
+});
+
+it('adds after the last member and keeps the whitespace before the closing brace when there is no dataset_id', function () {
+    $json = "{\"ScheduleData\":{\"Input_Reference\":[ { \"id\" : \"1\" \n } ]}}";
+
+    [$output] = rewriteJson($json, identity: shortJsonIdentity());
+
+    expect($output)->toBe("{\"ScheduleData\":{\"Input_Reference\":[ { \"id\" : \"1\", \"user_id\" : \"PSO Test Tools\", \"description\" : \"D\" \n } ]}}");
+});
+
+it('escapes a backslash and quotes in the description', function () {
+    $json = '{"ScheduleData":{"Input_Reference":[{"description":"old"}]}}';
+
+    [$output] = rewriteJson($json, identity: shortJsonIdentity('C:\\loads\\a "b".json'));
+
+    expect($output)->toBe('{"ScheduleData":{"Input_Reference":[{"description":"C:\\\\loads\\\\a \\"b\\".json","user_id":"PSO Test Tools"}]}}');
+    expect(json_decode($output, true)['ScheduleData']['Input_Reference'][0]['description'])->toBe('C:\\loads\\a "b".json');
+});

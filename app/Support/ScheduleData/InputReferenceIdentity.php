@@ -15,6 +15,11 @@ readonly class InputReferenceIdentity
 {
     public const string USER_ID = 'PSO Test Tools';
 
+    /** PSO's limit for Input_Reference.description is not documented; 255 is the safe guess. */
+    public const int DESCRIPTION_MAX_CHARACTERS = 255;
+
+    private const string ELLIPSIS = '...';
+
     public string $userId;
 
     public string $description;
@@ -28,15 +33,51 @@ readonly class InputReferenceIdentity
     /**
      * One plain line, e.g. "Sent from PSO Test Tools (Load from File) by Ish
      * Dawoodjee, environment SaskTel TST, file load.xml, 2026-10-16 13:40Z".
+     *
+     * Capped at DESCRIPTION_MAX_CHARACTERS: the file name is shortened first
+     * (keeping its extension), then the environment name, so the fixed text,
+     * the user name and the time survive.
      */
     public static function forLoadFromFile(string $userName, string $environmentName, string $fileName, DateTimeInterface $queuedAt): self
     {
         $utc = (clone $queuedAt)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i');
+        $userName = self::clean($userName);
+        $environmentName = self::clean($environmentName);
+        $fileName = self::clean($fileName);
 
-        return new self(
-            self::USER_ID,
-            'Sent from '.self::USER_ID." (Load from File) by {$userName}, environment {$environmentName}, file {$fileName}, {$utc}Z",
-        );
+        $compose = static fn (string $environment, string $file): string => 'Sent from '.self::USER_ID." (Load from File) by {$userName}, environment {$environment}, file {$file}, {$utc}Z";
+
+        $budget = self::DESCRIPTION_MAX_CHARACTERS - mb_strlen($compose('', ''));
+
+        if (mb_strlen($environmentName) + mb_strlen($fileName) > $budget) {
+            $fileName = self::shorten($fileName, max($budget - mb_strlen($environmentName), 0), keepExtension: true);
+            $environmentName = self::shorten($environmentName, max($budget - mb_strlen($fileName), 0), keepExtension: false);
+        }
+
+        // Only an absurdly long user name gets here; cut the line itself.
+        return new self(self::USER_ID, mb_substr($compose($environmentName, $fileName), 0, self::DESCRIPTION_MAX_CHARACTERS));
+    }
+
+    /**
+     * Shortens from the middle ("north_tr...1005.xml"), keeping the extension
+     * when asked. Never shorter than a few characters either side of the
+     * ellipsis, so the result can exceed a very small limit.
+     */
+    private static function shorten(string $text, int $maxCharacters, bool $keepExtension): string
+    {
+        if (mb_strlen($text) <= $maxCharacters) {
+            return $text;
+        }
+
+        $extension = $keepExtension ? (string) pathinfo($text, PATHINFO_EXTENSION) : '';
+        $extension = $extension !== '' && mb_strlen($extension) <= 10 ? '.'.$extension : '';
+        $stem = $extension === '' ? $text : mb_substr($text, 0, mb_strlen($text) - mb_strlen($extension));
+
+        $keep = max($maxCharacters - mb_strlen(self::ELLIPSIS) - mb_strlen($extension), 4);
+        $head = (int) ceil($keep / 2);
+        $tail = $keep - $head;
+
+        return mb_substr($stem, 0, $head).self::ELLIPSIS.mb_substr($stem, -$tail).$extension;
     }
 
     /**

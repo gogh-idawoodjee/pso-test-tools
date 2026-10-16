@@ -1065,8 +1065,11 @@ it('marks the Input_Reference it sends as sent from PSO Test Tools, by whom, whe
         '{"ScheduleData":{"Input_Reference":[{"dataset_id":"NORTH","user_id":"IFS","description":"from IFS"}],"Resources":[]}}',
         ['initiated_by_user_id' => $user->id, 'original_filename' => 'north_load.json'],
     );
-    // Stored in app time (America/Toronto, 09:40 EDT); the description shows it in UTC.
-    $upload->forceFill(['created_at' => CarbonImmutable::parse('2026-10-16 13:40:59', 'UTC')->setTimezone(config('app.timezone'))])->save();
+    // Stored in app time (America/Toronto, 09:40 EDT); the description shows the queued time in UTC.
+    $upload->forceFill([
+        'queued_at' => CarbonImmutable::parse('2026-10-16 13:40:59', 'UTC')->setTimezone(config('app.timezone')),
+        'created_at' => CarbonImmutable::parse('2026-10-16 11:00:00', 'UTC')->setTimezone(config('app.timezone')),
+    ])->save();
 
     runUploadJob($upload);
 

@@ -377,7 +377,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
                     continue;
                 }
 
-                if ($depth === 2 && $inInputReference && $inputReferenceSeparator === null) {
+                if ($depth === 2 && $inInputReference && $identity !== null && $inputReferenceSeparator === null) {
                     $leadingText = substr($this->buffer, $inputReferenceOpenEnd, $tagStart - $inputReferenceOpenEnd);
                     $inputReferenceSeparator = strspn($leadingText, " \t\r\n") === strlen($leadingText) ? $leadingText : '';
                 }
