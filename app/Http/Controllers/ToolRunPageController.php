@@ -95,7 +95,8 @@ class ToolRunPageController extends Controller
 
     /**
      * The route parameters of a run's page and downloads: a dataset by id, or Unfiled as `unfiled/me`
-     * (always the signed-in user's own, so the url names no id).
+     * (always the signed-in user's own, so the url names no id). Throws for an Environment scope: no
+     * environment-scoped tool has its own run view.
      *
      * @return array{scopeType: string, scopeId: string, run: string}
      */
