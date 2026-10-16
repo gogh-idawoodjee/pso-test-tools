@@ -138,6 +138,24 @@ Python from the pso-tools checkout (`activity-trace/trace_activity.py`, found th
 run fresh each time. The dataset's settings add an **IFS event log time zone** (`ifs_time_zone`), the zone the event log
 times are written in; blank means the dataset's own zone.
 
+### Plan travels
+
+How long are the planned travels in a plan export, and do they match real road times? Input: a **Plan** export
+(required). Options: the first date (filled in from the export's own day) and how many days (1 to 31), and
+**Check against Google Routes** (off by default), which shows the travel mode, routing preference and the review
+thresholds (20 minutes, and a percent that is 0 for minutes only). The legs are built by Python from the pso-tools
+checkout (`plan-travels/plan_travels.py`, found through `TOOLS_PSO_TOOLS_PATH`). With Google on, every distinct trip
+goes to pso-services `POST /api/v2/routes/compute` in chunks of 200; pso-services holds the Google key and a shared
+cache, so this app never sends a key and a trip already in the cache costs nothing. Trips pso-services reports as
+"Not attempted" are retried once. If pso-services fails, the run fails with its message but still shows the legs
+without Google columns. The page lists every leg with filters, a Google Maps link and **Check in PSO**, which opens
+the Travel Analyzer in a new tab with the leg's coordinates filled in. Downloads: the CSV (the script's 30 columns,
+plus 11 Google columns when Google ran; named `plan_travels_<account>_<dataset>_<first date>.csv`) and the JSON.
+Timeouts: `TOOLS_PLAN_TRAVELS_TIMEOUT_SECONDS` (600, per script run) and `PSO_SERVICES_ROUTES_TIMEOUT` (300, per
+chunk of 200 trips). The whole Google check also has an overall time limit, `TOOLS_PLAN_TRAVELS_GOOGLE_DEADLINE_SECONDS`
+(600): when it runs out, the run fails the same way and keeps the legs. If pso-services has `PSO_ROUTES_TOKEN` set,
+set the same value here; it is optional and left blank when pso-services has none.
+
 ## Deploying
 
 Pushes to `main` deploy themselves: a cron on the server runs `deploy/pull-deploy.sh` every 2 minutes, which
