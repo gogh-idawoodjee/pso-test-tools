@@ -11,13 +11,15 @@ use App\Enums\GatewayUploadLogLevel;
  */
 final class RunLogTimeline
 {
+    /** Title of the node for lines written before the first step. */
+    public const string LEADING_TITLE = 'Upload started';
+
     /**
      * @param  array<int, array{level: string, text: string, at: string}>  $lines
-     * @param  string  $leadingTitle  title of the node for lines before the first step (the upload's status label)
      * @param  bool  $running  whether the upload is still in progress: the last node is then the current one
      * @return list<RunLogNode>
      */
-    public static function group(array $lines, string $leadingTitle, bool $running): array
+    public static function group(array $lines, bool $running): array
     {
         /** @var list<array{title: string, at: ?string, details: list<array{level: string, text: string, at: string}>}> $groups */
         $groups = [];
@@ -30,7 +32,7 @@ final class RunLogTimeline
             }
 
             if ($groups === []) {
-                $groups[] = ['title' => $leadingTitle, 'at' => $line['at'], 'details' => []];
+                $groups[] = ['title' => self::LEADING_TITLE, 'at' => $line['at'], 'details' => []];
             }
 
             $groups[array_key_last($groups)]['details'][] = $line;

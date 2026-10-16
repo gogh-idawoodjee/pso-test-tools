@@ -123,7 +123,6 @@ class GatewayUploadStatus extends Component
             'keepPolling' => $this->shouldPoll($upload),
             'timeline' => $upload === null ? [] : RunLogTimeline::group(
                 $this->logLines,
-                (string) $upload->status->getLabel(),
                 ! $upload->status->isTerminal(),
             ),
         ]);
