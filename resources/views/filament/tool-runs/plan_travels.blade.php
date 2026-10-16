@@ -21,6 +21,7 @@
         @if ($hasPage)
         <div class="flex flex-wrap gap-2">
             @if ($hasCsv)
+                <x-filament::button tag="a" href="{{ route('tool-runs.page', [$dataset, $run]) }}" target="_blank" rel="noopener" icon="heroicon-o-arrow-top-right-on-square" color="gray" size="sm">Open full page</x-filament::button>
                 <x-filament::button tag="a" href="{{ route('tool-runs.download-csv', [$dataset, $run]) }}" icon="heroicon-o-arrow-down-tray" color="gray" size="sm">Download CSV</x-filament::button>
             @endif
             <x-filament::button tag="a" href="{{ route('tool-runs.download-json', [$dataset, $run]) }}" icon="heroicon-o-arrow-down-tray" color="gray" size="sm">Download JSON</x-filament::button>
@@ -37,7 +38,7 @@
     title="Plan travels"
     sandbox="allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"
     class="w-full rounded-xl bg-white ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-    style="height: calc(100vh - 14rem); min-height: 600px;"
+    style="height: calc(100vh - 10rem); min-height: 600px;"
 ></iframe>
 @else
 <p class="text-sm text-gray-600 dark:text-gray-400">The plan travels page is not available for this run.</p>

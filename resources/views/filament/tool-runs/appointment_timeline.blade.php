@@ -19,6 +19,7 @@
         </div>
         @if ($hasPage)
         <div class="flex flex-wrap gap-2">
+            <x-filament::button tag="a" href="{{ route('tool-runs.page', [$dataset, $run]) }}" target="_blank" rel="noopener" icon="heroicon-o-arrow-top-right-on-square" color="gray" size="sm">Open full page</x-filament::button>
             <x-filament::button tag="a" href="{{ route('tool-runs.download-html', [$dataset, $run]) }}" icon="heroicon-o-arrow-down-tray" color="gray" size="sm">Download HTML</x-filament::button>
             <x-filament::button tag="a" href="{{ route('tool-runs.download-json', [$dataset, $run]) }}" icon="heroicon-o-arrow-down-tray" color="gray" size="sm">Download JSON</x-filament::button>
             <x-filament::button tag="a" href="{{ route('tool-runs.download-booking-csv', [$dataset, $run]) }}" icon="heroicon-o-arrow-down-tray" color="gray" size="sm">Download booking CSV</x-filament::button>
@@ -35,7 +36,7 @@
     title="Trace an activity"
     sandbox="allow-scripts allow-downloads allow-popups allow-top-navigation-by-user-activation"
     class="w-full rounded-xl bg-white ring-1 ring-gray-950/5 dark:bg-gray-900 dark:ring-white/10"
-    style="height: calc(100vh - 14rem); min-height: 600px;"
+    style="height: calc(100vh - 10rem); min-height: 600px;"
 ></iframe>
 @else
 <p class="text-sm text-gray-600 dark:text-gray-400">The trace page is not available for this run.</p>
