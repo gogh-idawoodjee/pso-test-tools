@@ -8,6 +8,7 @@ use App\Jobs\RunToolJob;
 use App\Models\Dataset;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
+use App\Models\User;
 use App\Support\Exports\ExportStorage;
 use App\Tools\Contracts\ToolFailedWithResult;
 use App\Tools\Contracts\ToolResult;
@@ -181,4 +182,58 @@ it('keeps the partial result of a run that failed after building', function () {
         ->and($run->summary['leg_count'])->toBe(3)
         ->and($run->progress)->toBeNull()
         ->and(glob(config('exports.scratch_path').'/*'))->toBe([]);
+});
+
+/** A queued Unfiled run of the fake tool on a LOAD stored on $user. */
+function unfiledRunFor(User $user, array $options): ToolRun
+{
+    $load = ExportFile::factory()->for($user, 'scope')->create(['kind' => ExportKind::Load, 'content_type' => 'xml', 'summary' => ['export_date' => '2026-10-11']]);
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($load), '<dsScheduleData/>');
+
+    return ToolRun::factory()->for($user, 'scope')->create([
+        'tool' => ToolId::LoadAudit, 'status' => ToolRunStatus::Queued, 'result' => null, 'run_date' => null,
+        'inputs' => ['files' => ['load' => $load->id], 'options' => $options],
+    ]);
+}
+
+it('runs an unfiled run in the zone chosen for it, with no dataset settings', function () {
+    $run = unfiledRunFor(User::factory()->create(), ['time_zone' => 'America/Regina']);
+
+    (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
+
+    $run->refresh();
+    expect($run->status)->toBe(ToolRunStatus::Succeeded)
+        ->and($run->result['time_zone'])->toBe('America/Regina')
+        ->and($run->result['display_name'])->toBeNull()
+        ->and($run->summary)->toBe(['counts' => ['red' => 1]])
+        ->and($run->run_date->toDateString())->toBe('2026-10-11');
+});
+
+it('falls back to the app zone for an unfiled run with a missing or unknown zone', function (array $options) {
+    config(['app.timezone' => 'America/Toronto']);
+    $run = unfiledRunFor(User::factory()->create(), $options);
+
+    (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
+
+    expect($run->refresh()->status)->toBe(ToolRunStatus::Succeeded)
+        ->and($run->result['time_zone'])->toBe('America/Toronto');
+})->with([
+    'no zone' => [[]],
+    'a blank zone' => [['time_zone' => '']],
+    'an unknown zone' => [['time_zone' => 'Mars/Olympus']],
+]);
+
+it('refuses a file of another user on an unfiled run', function () {
+    $owner = User::factory()->create();
+    $foreign = ExportFile::factory()->for(User::factory()->create(), 'scope')->create(['kind' => ExportKind::Load, 'content_type' => 'xml']);
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($foreign), '<dsScheduleData/>');
+    $run = ToolRun::factory()->for($owner, 'scope')->create([
+        'tool' => ToolId::LoadAudit, 'status' => ToolRunStatus::Queued, 'result' => null,
+        'inputs' => ['files' => ['load' => $foreign->id], 'options' => ['time_zone' => 'UTC']],
+    ]);
+
+    (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
+
+    expect($run->refresh()->status)->toBe(ToolRunStatus::Failed)
+        ->and($run->error_message)->toContain('does not belong');
 });

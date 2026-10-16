@@ -11,11 +11,10 @@ use App\Models\User;
 use App\Support\Exports\RunInputPicker;
 use App\Tools\ToolRegistry;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 
 /**
- * The one way a tool run starts, from the Runs tab or a wizard: checks the chosen
- * files are still usable on this scope, creates the queued run, dispatches the job
- * and remembers the context on the user.
+ * The one way a tool run starts, from the Runs tab or a wizard: checks the chosen files are still usable on this scope (a dataset, an environment, or the user for Unfiled), creates the queued run, dispatches the job and remembers the context on the user.
  */
 class StartToolRun
 {
@@ -29,6 +28,10 @@ class StartToolRun
      */
     public function start(Model $scope, ToolId $toolId, array $files, array $options, User $user): ToolRun
     {
+        if ($scope instanceof User && ($scope->isNot($user) || ! $toolId->acceptsUnfiled())) {
+            throw new InvalidArgumentException("{$toolId->getLabel()} cannot run on these unfiled exports.");
+        }
+
         $tool = $this->registry->for($toolId);
         $chosen = [];
 
@@ -54,12 +57,34 @@ class StartToolRun
 
         RunToolJob::dispatch($run->id);
 
+        $this->remember($scope, $options, $user);
+
+        return $run;
+    }
+
+    /**
+     * An Unfiled run keeps the environment and dataset remembered before it, so a dataset tool still opens on them.
+     *
+     * @param  array<string, mixed>  $options
+     */
+    private function remember(Model $scope, array $options, User $user): void
+    {
+        if ($scope instanceof User) {
+            $previous = $user->last_tool_context ?? [];
+            $user->rememberToolContext(
+                environmentId: $previous['environment_id'] ?? null,
+                datasetId: $previous['dataset_id'] ?? null,
+                unfiled: true,
+                timeZone: is_string($options['time_zone'] ?? null) && $options['time_zone'] !== '' ? $options['time_zone'] : null,
+            );
+
+            return;
+        }
+
         $user->rememberToolContext(
             environmentId: $scope instanceof Dataset ? $scope->environment_id : (string) $scope->getKey(),
             datasetId: $scope instanceof Dataset ? $scope->getKey() : null,
         );
-
-        return $run;
     }
 
     /**

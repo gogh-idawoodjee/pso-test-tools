@@ -77,3 +77,41 @@ it('checks chosen files are usable, skipping blanks and keys the tool does not t
     expect(fn () => $check->assertUsable($this->dataset, ToolId::LoadAudit, ['load' => $purged->id]))
         ->toThrow(UnusableInputException::class, 'The LOAD export you chose is no longer available. Choose or upload another.');
 });
+
+it('starts an unfiled run on the user and remembers Unfiled, the zone and the last dataset', function () {
+    $this->user->rememberToolContext($this->dataset->environment_id, $this->dataset->id);
+    $load = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load]);
+
+    $run = app(StartToolRun::class)->start($this->user, ToolId::LoadAudit, ['load' => $load->id], ['time_zone' => 'America/Regina'], $this->user)->fresh();
+
+    expect($run->scope_type)->toBe($this->user->getMorphClass())
+        ->and((string) $run->scope_id)->toBe((string) $this->user->id)
+        ->and($run->inputs)->toBe(['files' => ['load' => $load->id], 'options' => ['time_zone' => 'America/Regina']])
+        ->and($this->user->fresh()->last_tool_context)->toBe([
+            'environment_id' => $this->dataset->environment_id, 'dataset_id' => $this->dataset->id, 'unfiled' => true, 'time_zone' => 'America/Regina',
+        ]);
+    Queue::assertPushed(RunToolJob::class, fn (RunToolJob $job): bool => $job->toolRunId === $run->id);
+});
+
+it('refuses another user unfiled file, or a dataset file, on an unfiled run', function () {
+    $theirs = ExportFile::factory()->for(User::factory()->create(), 'scope')->create(['kind' => ExportKind::Load]);
+    $datasetLoad = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    foreach ([$theirs, $datasetLoad] as $file) {
+        expect(fn () => app(StartToolRun::class)->start($this->user, ToolId::LoadAudit, ['load' => $file->id], [], $this->user))
+            ->toThrow(UnusableInputException::class, 'The LOAD export you chose is no longer available. Choose or upload another.');
+    }
+    expect(ToolRun::withoutGlobalScopes()->count())->toBe(0);
+});
+
+it('refuses an unfiled run for a tool that needs a dataset, or on another user', function () {
+    app(ToolRegistry::class)->register(ToolId::RegionAvailability, FakeTool::class);
+    $load = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load]);
+
+    expect(fn () => app(StartToolRun::class)->start($this->user, ToolId::RegionAvailability, ['load' => $load->id], [], $this->user))
+        ->toThrow(InvalidArgumentException::class)
+        ->and(fn () => app(StartToolRun::class)->start(User::factory()->create(), ToolId::LoadAudit, ['load' => $load->id], [], $this->user))
+        ->toThrow(InvalidArgumentException::class);
+    expect(ToolRun::withoutGlobalScopes()->count())->toBe(0);
+    Queue::assertNothingPushed();
+});

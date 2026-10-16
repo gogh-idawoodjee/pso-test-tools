@@ -8,10 +8,12 @@ use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
+use App\Models\User;
 use App\Support\Exports\ExportStorage;
 use App\Tools\Contracts\ToolFailedWithResult;
 use App\Tools\ToolContext;
 use App\Tools\ToolRegistry;
+use DateTimeZone;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Queue\Queueable;
@@ -63,7 +65,7 @@ class RunToolJob implements ShouldQueue
             }
 
             $settings = $scope instanceof Dataset ? $scope->settings : null;
-            $timeZone = $scope instanceof Dataset ? $scope->timeZone() : (string) config('app.timezone', 'UTC');
+            $timeZone = $scope instanceof Dataset ? $scope->timeZone() : self::optionTimeZone($run);
 
             $output = $tool->run(new ToolContext($run, $scope, $settings, $timeZone, $timeZoneIsDefault), $inputPaths, $run->inputs['options'] ?? []);
             $summary = $output->summary;
@@ -125,10 +127,19 @@ class RunToolJob implements ShouldQueue
         $scope = match ($run->scope_type) {
             (new Dataset)->getMorphClass() => Dataset::query()->withoutGlobalScopes()->find($run->scope_id),
             (new Environment)->getMorphClass() => Environment::query()->withoutGlobalScopes()->find($run->scope_id),
+            (new User)->getMorphClass() => User::query()->find($run->scope_id),
             default => null,
         };
 
         return $scope ?? throw new RuntimeException('The dataset or environment this run belongs to no longer exists.');
+    }
+
+    /** An Unfiled run's own zone (the wizard's Time zone option); missing, blank or unknown is the app zone. */
+    private static function optionTimeZone(ToolRun $run): string
+    {
+        $zone = $run->inputs['options']['time_zone'] ?? null;
+
+        return is_string($zone) && in_array($zone, DateTimeZone::listIdentifiers(), true) ? $zone : (string) config('app.timezone', 'UTC');
     }
 
     /**
@@ -160,7 +171,7 @@ class RunToolJob implements ShouldQueue
             }
 
             if ($file->kind !== $kind || ! $this->belongsTo($file, $scope)) {
-                throw new RuntimeException("The file chosen as the {$kind->getLabel()} export does not belong to this run's dataset or environment.");
+                throw new RuntimeException("The file chosen as the {$kind->getLabel()} export does not belong to this run's dataset, environment or unfiled files.");
             }
 
             $files[$kind->value] = $file;
@@ -169,10 +180,10 @@ class RunToolJob implements ShouldQueue
         return $files;
     }
 
-    /** A file may sit on the run's own scope, or on the environment of a dataset run (a SYS). */
+    /** A file may sit on the run's own scope (a user's id is read back as a string), or on the environment of a dataset run (a SYS). */
     private function belongsTo(ExportFile $file, Model $scope): bool
     {
-        if ($file->scope_type === $scope->getMorphClass() && $file->scope_id === $scope->getKey()) {
+        if ($file->scope_type === $scope->getMorphClass() && (string) $file->scope_id === (string) $scope->getKey()) {
             return true;
         }
 
