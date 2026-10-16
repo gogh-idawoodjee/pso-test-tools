@@ -45,7 +45,7 @@ class UploadRunLog
         PsoGatewayUploadLogLine::query()->create([
             'pso_gateway_upload_id' => $this->upload->id,
             'level' => $level,
-            'text' => $text,
+            'text' => StoredText::cap($text, StoredText::LOG_LINE_BYTES),
             'created_at' => now(),
         ]);
     }

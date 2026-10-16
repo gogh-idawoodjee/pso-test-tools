@@ -52,6 +52,7 @@ class PsoGatewayUpload extends Model
         'started_at',
         'completed_at',
         'dataset_id_override',
+        'dataset_id_in_file',
         'skip_webhook',
         'broadcast_settings',
         'response_status',

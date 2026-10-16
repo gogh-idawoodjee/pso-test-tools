@@ -7,6 +7,7 @@ use Filament\Support\Contracts\HasLabel;
 enum PsoGatewayUploadStatus: string implements HasLabel
 {
     case QUEUED = 'queued';
+    case PREPARING = 'preparing';
     case COMPRESSING = 'compressing';
     case UPLOADING = 'uploading';
     case SUCCEEDED = 'succeeded';
@@ -16,6 +17,7 @@ enum PsoGatewayUploadStatus: string implements HasLabel
     {
         return match ($this) {
             self::QUEUED => 'Queued',
+            self::PREPARING => 'Preparing',
             self::COMPRESSING => 'Compressing',
             self::UPLOADING => 'Uploading',
             self::SUCCEEDED => 'Succeeded',
@@ -37,6 +39,7 @@ enum PsoGatewayUploadStatus: string implements HasLabel
     {
         return match ($this) {
             self::QUEUED => 10,
+            self::PREPARING => 25,
             self::COMPRESSING => 40,
             self::UPLOADING => 75,
             self::SUCCEEDED, self::FAILED => 100,

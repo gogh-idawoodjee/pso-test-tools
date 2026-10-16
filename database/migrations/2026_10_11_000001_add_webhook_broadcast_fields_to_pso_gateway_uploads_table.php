@@ -10,22 +10,31 @@ return new class extends Migration
     {
         Schema::table('pso_gateway_uploads', function (Blueprint $table) {
             $table->string('dataset_id_override')->nullable()->after('original_filename');
+            $table->string('dataset_id_in_file')->nullable()->after('dataset_id_override');
             $table->boolean('skip_webhook')->default(false)->after('dataset_id_override');
             $table->json('broadcast_settings')->nullable()->after('skip_webhook');
             $table->unsignedSmallInteger('response_status')->nullable()->after('internal_id');
-            $table->text('response_body')->nullable()->after('response_status');
+            // MEDIUMTEXT: a gateway reply can pass TEXT's 65,535 bytes, and MySQL
+            // strict mode would then refuse the row although PSO took the load.
+            $table->mediumText('response_body')->nullable()->after('response_status');
             $table->string('webhook_url')->nullable()->after('response_body');
             $table->string('webhook_view_url')->nullable()->after('webhook_url');
             $table->unsignedBigInteger('wire_bytes')->nullable()->after('compressed_size_bytes');
             $table->unsignedInteger('post_duration_ms')->nullable()->after('wire_bytes');
+            $table->mediumText('error_message')->nullable()->change();
         });
     }
 
     public function down(): void
     {
         Schema::table('pso_gateway_uploads', function (Blueprint $table) {
+            $table->text('error_message')->nullable()->change();
+        });
+
+        Schema::table('pso_gateway_uploads', function (Blueprint $table) {
             $table->dropColumn([
                 'dataset_id_override',
+                'dataset_id_in_file',
                 'skip_webhook',
                 'broadcast_settings',
                 'response_status',

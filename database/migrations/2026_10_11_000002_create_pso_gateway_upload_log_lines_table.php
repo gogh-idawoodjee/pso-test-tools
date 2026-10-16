@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignUuid('pso_gateway_upload_id')->constrained('pso_gateway_uploads')->cascadeOnDelete();
             $table->string('level', 16);
-            $table->text('text');
+            $table->mediumText('text');
             $table->timestamp('created_at', 3)->useCurrent();
 
             $table->index(['pso_gateway_upload_id', 'id']);

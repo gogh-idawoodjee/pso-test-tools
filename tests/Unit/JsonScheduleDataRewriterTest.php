@@ -3,6 +3,7 @@
 use App\Support\ScheduleData\BroadcastInjection;
 use App\Support\ScheduleData\BroadcastSettings;
 use App\Support\ScheduleData\JsonScheduleDataRewriter;
+use App\Support\ScheduleData\MissingScheduleDataWrapperException;
 use App\Support\ScheduleData\RewriteReport;
 
 /**
@@ -63,6 +64,7 @@ it('injects string-typed rows and a single Broadcast object into a legacy dsSche
     $broadcast = $decoded['dsScheduleData']['Broadcast'];
 
     expect($report->format)->toBe('dsScheduleData');
+    expect($report->wrapperFound)->toBeTrue();
     expect($broadcast['active'])->toBe('true');
     expect($broadcast['minimum_plan_quality'])->toBe('85');
     expect($broadcast['once_only'])->toBe('true');
@@ -202,7 +204,7 @@ it('injects into an empty wrapper', function () {
 
 it('fails with the script message when there is no ScheduleData wrapper', function () {
     expect(static fn () => rewriteJson('{"Other":{"Resources":[]}}', null, webhookInjection()))
-        ->toThrow(RuntimeException::class, "Expected a top-level 'ScheduleData' or 'dsScheduleData' wrapper");
+        ->toThrow(MissingScheduleDataWrapperException::class, "Expected a top-level 'ScheduleData' or 'dsScheduleData' wrapper");
 });
 
 it('rewrites a large file in constant memory', function () {
@@ -304,6 +306,8 @@ it('copies a file without a wrapper unchanged when only an override is given', f
     [$output, $report] = rewriteJson($json, 'NEW');
 
     expect($output)->toBe($json);
+    expect($report->format)->toBeNull();
+    expect($report->wrapperFound)->toBeFalse();
     expect($report->datasetIds)->toBe([]);
     expect($report->datasetIdChanged)->toBeFalse();
     expect($report->bytesWritten)->toBe(strlen($json));

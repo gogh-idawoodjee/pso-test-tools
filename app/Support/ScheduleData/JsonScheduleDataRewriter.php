@@ -330,14 +330,15 @@ class JsonScheduleDataRewriter implements ScheduleDataRewriter
         }
 
         if ($format === null && $injection !== null) {
-            throw new RuntimeException("Expected a top-level 'ScheduleData' or 'dsScheduleData' wrapper in the file - can't inject a Broadcast.");
+            throw new MissingScheduleDataWrapperException;
         }
 
         $flush();
 
         // No wrapper and nothing to inject: the copy is the file unchanged (as in the script).
         return new RewriteReport(
-            format: $format ?? 'json',
+            format: $format,
+            wrapperFound: $format !== null,
             datasetIds: array_values(array_unique($datasetIds)),
             datasetIdChanged: $datasetIdChanged,
             strippedBroadcasts: $strippedBroadcasts,

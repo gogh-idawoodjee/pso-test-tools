@@ -5,14 +5,18 @@ use App\Enums\PsoGatewayUploadStatus;
 use App\Jobs\SendPsoScheduleDataJob;
 use App\Models\Environment;
 use App\Models\PsoGatewayUpload;
+use App\Models\PsoGatewayUploadLogLine;
+use App\Support\GatewayUpload\StoredText;
 use App\Support\ScheduleData\BroadcastInjection;
 use App\Support\ScheduleData\BroadcastSettings;
 use App\Support\ScheduleData\RewriteReport;
 use App\Support\ScheduleData\ScheduleDataRewriter;
 use App\Support\ScheduleData\ScheduleDataRewriterFactory;
+use Illuminate\Database\MySqlConnection;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\PsoServicesFake;
 
@@ -644,6 +648,7 @@ it('puts the pso-services reason on the upload when logon is refused', function 
     $upload->refresh();
 
     expect($upload->error_message)->toBe('Could not log on to the PSO gateway: Production URLs are not allowed');
+    expect($upload->logLines->where('level', GatewayUploadLogLevel::ERROR)->pluck('text')->implode("\n"))->toContain('Production URLs are not allowed');
     expect($upload->logLines->where('level', GatewayUploadLogLevel::ERROR)->pluck('text')->implode("\n"))->toContain('LOGON FAILED');
     Http::assertNotSent(static fn ($request) => str_contains((string) $request->url(), '/scheduling/data'));
     Http::assertNotSent(static fn ($request) => $request->method() === 'DELETE');
@@ -683,11 +688,13 @@ it('writes the log steps in the script order', function () {
         'Content type     : application/json (from extension)',
         "Ensuring webhook alias '/pso-sasktel-tst' exists",
         'Webhook endpoint : https://webhook.example.test/pso-sasktel-tst',
+        'Dashboard        : https://webhook.example.test/#!/uuid-1',
+        "Broadcast compression: none (self-hosted webhook can't store gzipped bodies)",
         'Rewriting the file (streaming)...',
         "Changed Input_Reference.dataset_id: 'OLD' -> 'NEW'",
         'No existing Broadcast or Broadcast_Parameter in the file - nothing to strip.',
         "Injected Broadcast 'WEBHOOK_COMPLETE'",
-        'Sending modified copy instead of the original',
+        'Sending modified copy instead of the original: schedule_withBroadcast.json',
         'Step 1/3: Logging on',
         'Logon successful',
         'Step 2/3: Preparing request body',
@@ -814,4 +821,173 @@ it('never writes a secret to a log line, the response body or the error message'
 
     expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED);
     expect($everything)->not->toContain('secret-password')->not->toContain('tok-abc')->not->toContain('alias-key-123');
+});
+
+/**
+ * Runs a migration's up() against a MySQL schema grammar in pretend mode
+ * (no server needed) and returns the SQL it would run, so the column types
+ * MySQL gets are asserted rather than what SQLite accepts.
+ *
+ * @return list<string>
+ */
+function mysqlSqlForMigration(string $migrationPath): array
+{
+    $connection = new MySqlConnection(static fn () => throw new RuntimeException('no MySQL server in tests'), 'pso', '', ['driver' => 'mysql', 'name' => 'mysql-grammar']);
+    $migration = require $migrationPath;
+
+    $originalSchema = Schema::getFacadeRoot();
+    Schema::swap($connection->getSchemaBuilder());
+
+    try {
+        $queries = $connection->pretend(static fn () => $migration->up());
+    } finally {
+        Schema::swap($originalSchema);
+    }
+
+    return array_column($queries, 'query');
+}
+
+it('gives MySQL MEDIUMTEXT for the response body, the error message and the log line text', function () {
+    $uploadSql = implode("\n", mysqlSqlForMigration(database_path('migrations/2026_10_11_000001_add_webhook_broadcast_fields_to_pso_gateway_uploads_table.php')));
+    $logSql = implode("\n", mysqlSqlForMigration(database_path('migrations/2026_10_11_000002_create_pso_gateway_upload_log_lines_table.php')));
+
+    expect($uploadSql)->toContain('add `response_body` mediumtext null');
+    expect($uploadSql)->toContain('modify `error_message` mediumtext null');
+    expect($logSql)->toContain('`text` mediumtext not null');
+});
+
+it('keeps a 70 KB gateway response whole on the row and caps the log line', function () {
+    $body = json_encode(['InternalId' => '1857054', 'Detail' => str_repeat('é', 35000)]);
+    expect(strlen($body))->toBeGreaterThan(70000);
+    fakeWebhookAndGateway(['*/scheduling/data' => Http::response($body, 200)]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+    $longestLine = $upload->logLines->max(static fn (PsoGatewayUploadLogLine $line): int => strlen($line->text));
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect($upload->internal_id)->toBe('1857054');
+    expect($upload->response_body)->toBe($body);
+    expect($longestLine)->toBeLessThanOrEqual(StoredText::LOG_LINE_BYTES);
+    expect($upload->logLines->pluck('text')->implode("\n"))->toContain(StoredText::TRUNCATED_MARKER);
+});
+
+it('cuts a gateway response over 1 MB with a truncated marker', function () {
+    fakeWebhookAndGateway(['*/scheduling/data' => Http::response(str_repeat('x', 1100000), 200)]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect(strlen($upload->response_body))->toBeLessThanOrEqual(StoredText::RESPONSE_BODY_BYTES);
+    expect($upload->response_body)->toEndWith(StoredText::TRUNCATED_MARKER);
+});
+
+it('caps a 70 KB error message on the row and in the log', function () {
+    fakeWebhookAndGateway(['*/scheduling/data' => Http::response(['Message' => str_repeat('bad ', 17500)], 400)]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+    $errorLine = $upload->logLines->where('level', GatewayUploadLogLevel::ERROR)->last();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED);
+    expect(strlen($upload->error_message))->toBeLessThanOrEqual(StoredText::ERROR_MESSAGE_BYTES);
+    expect($upload->error_message)->toStartWith('The PSO gateway returned an error: bad bad')->toEndWith(StoredText::TRUNCATED_MARKER);
+    expect(strlen($errorLine->text))->toBeLessThanOrEqual(StoredText::LOG_LINE_BYTES);
+});
+
+it('stores the dataset id in the file apart from the one sent', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}],"Resources":[]}}',
+        ['dataset_id_override' => 'NEW'],
+    );
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->dataset_id_in_file)->toBe('OLD');
+    expect($upload->dataset_id)->toBe('NEW');
+});
+
+it('stores the file dataset id as both values when nothing overrides it', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}]}}', ['skip_webhook' => true]);
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->dataset_id_in_file)->toBe('OLD');
+    expect($upload->dataset_id)->toBe('OLD');
+});
+
+it('says a timed-out upload may have reached PSO, without an em dash', function () {
+    $upload = PsoGatewayUpload::factory()->for(Environment::factory()->create(), 'environment')->create([
+        'status' => PsoGatewayUploadStatus::UPLOADING,
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))
+        ->failed(new TimeoutExceededException('Job has timed out.'));
+
+    expect($upload->refresh()->error_message)->toBe('The upload did not finish within 15 minutes; check PSO before resending.');
+    expect($upload->error_message)->not->toContain("\u{2014}");
+});
+
+it('says a stopped upload may have reached PSO when the worker dies for another reason', function () {
+    $upload = PsoGatewayUpload::factory()->for(Environment::factory()->create(), 'environment')->create([
+        'status' => PsoGatewayUploadStatus::UPLOADING,
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))
+        ->failed(new RuntimeException('worker killed'));
+
+    expect($upload->refresh()->error_message)->toContain('check PSO before resending')->not->toContain("\u{2014}");
+});
+
+it('warns that an xml file with no wrapper is sent unchanged, as for json', function () {
+    fakeWebhookAndGateway();
+    $original = '<Other><Input_Reference><dataset_id>OLD</dataset_id></Input_Reference></Other>';
+    $upload = webhookJobUpload('gateway-uploads/schedule.xml', $original, ['skip_webhook' => true, 'dataset_id_override' => 'NEW']);
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect($upload->logLines->where('level', GatewayUploadLogLevel::WARN)->pluck('text')->implode("\n"))
+        ->toContain("No top-level 'ScheduleData' or 'dsScheduleData' wrapper in the file - sending it unchanged.");
+});
+
+it('shows Preparing during the webhook and rewrite steps and Compressing only for gzip', function () {
+    $statusesSeen = [];
+    $uploadIdHolder = new ArrayObject;
+
+    fakeWebhookAndGateway([
+        'https://webhook.example.test/_alias/*' => static function () use (&$statusesSeen, $uploadIdHolder) {
+            $statusesSeen[] = PsoGatewayUpload::find($uploadIdHolder['id'])->status;
+
+            return Http::response(['uuid' => 'uuid-1', 'created' => true], 201);
+        },
+        '*/scheduling/data' => static function () use (&$statusesSeen, $uploadIdHolder) {
+            $statusesSeen[] = PsoGatewayUpload::find($uploadIdHolder['id'])->status;
+
+            return Http::response(['InternalId' => '1857054'], 200);
+        },
+    ]);
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+    $uploadIdHolder['id'] = $upload->id;
+
+    runUploadJob($upload);
+
+    expect(PsoGatewayUploadStatus::PREPARING->getLabel())->toBe('Preparing');
+    expect($statusesSeen)->toBe([PsoGatewayUploadStatus::PREPARING, PsoGatewayUploadStatus::UPLOADING]);
 });

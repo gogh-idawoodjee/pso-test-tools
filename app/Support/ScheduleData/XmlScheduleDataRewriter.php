@@ -39,8 +39,6 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
 
     private const int READ_CHUNK_BYTES = 1048576;
 
-    private const string NO_ROOT_MESSAGE = "Expected a top-level 'ScheduleData' or 'dsScheduleData' wrapper in the file - can't inject a Broadcast.";
-
     /** @var resource */
     private $source;
 
@@ -244,7 +242,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
                 if ($depth === 0 && ! $rootSeen) {
                     if (! in_array($localName, self::ROOT_NAMES, true)) {
                         if ($injection !== null) {
-                            throw new RuntimeException(self::NO_ROOT_MESSAGE);
+                            throw new MissingScheduleDataWrapperException;
                         }
 
                         // Not schedule data and nothing to inject: the copy is the file unchanged.
@@ -335,7 +333,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
         }
 
         if (! $rootSeen && $injection !== null) {
-            throw new RuntimeException(self::NO_ROOT_MESSAGE);
+            throw new MissingScheduleDataWrapperException;
         }
 
         if ($rootSeen && ! $rootClosed) {
@@ -344,7 +342,7 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
 
         $this->write(substr($this->buffer, $copyFrom));
 
-        return $this->report(array_values(array_unique($datasetIds)), $datasetIdChanged, $strippedBroadcasts, $strippedParameters);
+        return $this->report($rootSeen, array_values(array_unique($datasetIds)), $datasetIdChanged, $strippedBroadcasts, $strippedParameters);
     }
 
     /**
@@ -545,16 +543,17 @@ class XmlScheduleDataRewriter implements ScheduleDataRewriter
             $this->buffer = '';
         }
 
-        return $this->report([], false, 0, 0);
+        return $this->report(false, [], false, 0, 0);
     }
 
     /**
      * @param  list<string>  $datasetIds
      */
-    private function report(array $datasetIds, bool $datasetIdChanged, int $strippedBroadcasts, int $strippedParameters): RewriteReport
+    private function report(bool $wrapperFound, array $datasetIds, bool $datasetIdChanged, int $strippedBroadcasts, int $strippedParameters): RewriteReport
     {
         return new RewriteReport(
-            format: 'xml',
+            format: $wrapperFound ? 'xml' : null,
+            wrapperFound: $wrapperFound,
             datasetIds: $datasetIds,
             datasetIdChanged: $datasetIdChanged,
             strippedBroadcasts: $strippedBroadcasts,

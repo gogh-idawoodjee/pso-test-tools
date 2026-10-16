@@ -6,11 +6,13 @@ use App\Enums\PsoGatewayUploadStatus;
 use App\Models\Environment;
 use App\Models\PsoGatewayUpload;
 use App\Models\Scopes\UserOwnedModel;
+use App\Support\GatewayUpload\StoredText;
 use App\Support\GatewayUpload\UploadRunLog;
 use App\Support\GatewayUploadPath;
 use App\Support\GzipFileCompressor;
 use App\Support\ScheduleData\BroadcastInjection;
 use App\Support\ScheduleData\BroadcastSettings;
+use App\Support\ScheduleData\MissingScheduleDataWrapperException;
 use App\Support\ScheduleData\RewriteReport;
 use App\Support\ScheduleData\ScheduleDataRewriterFactory;
 use App\Support\ScheduleDataSummaryExtractor;
@@ -25,6 +27,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Queue\TimeoutExceededException;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -45,8 +48,6 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
     public int $tries = 1;
 
     private const int CHUNK_SIZE = 1024 * 1024; // 1MB
-
-    private const int RESPONSE_BODY_LIMIT = 65536; // 64KB kept on the row and in the log
 
     public function __construct(
         public string $psoGatewayUploadId,
@@ -77,7 +78,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         $log = app(UploadRunLog::class, ['upload' => $upload]);
         $runStartedAt = microtime(true);
 
-        $upload->update(['status' => PsoGatewayUploadStatus::COMPRESSING, 'started_at' => now()]);
+        $upload->update(['status' => PsoGatewayUploadStatus::PREPARING, 'started_at' => now()]);
 
         $workDir = storage_path('app/private/gateway-uploads/'.$upload->id);
         if (! is_dir($workDir)) {
@@ -111,15 +112,19 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             $contentType = $format === 'xml' ? 'application/xml' : 'application/json';
             $log->sub("Content type     : {$contentType} (from extension)");
 
-            $sendPath = $this->preparePayload($upload, $log, $rawPath, $format, $contentType, $workDir);
+            $sourceName = $isZip ? basename($rawPath) : $upload->original_filename;
+            $sendPath = $this->preparePayload($upload, $log, $rawPath, $sourceName, $format, $contentType, $workDir);
 
             // Display-only — never blocks or alters the upload itself. If the
             // file can't be parsed for these fields, they're simply left null;
             // the bytes are still gzipped and sent unchanged either way.
             $summary = ScheduleDataSummaryExtractor::extract($sendPath, $format);
 
+            // `dataset_id` is the one sent (read from the copy); the rewrite has
+            // already stored the file's own value when it changed anything.
             $upload->update([
                 'dataset_id' => $summary['dataset_id'],
+                'dataset_id_in_file' => $upload->dataset_id_in_file ?? $summary['dataset_id'],
                 'input_reference_datetime' => $summary['input_reference_datetime'],
                 'activity_count' => $summary['activity_count'],
                 'resource_count' => $summary['resource_count'],
@@ -144,6 +149,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 
             $log->step('Step 2/3: Preparing request body...');
             $log->sub('Gzip-compressing request body...');
+            $upload->update(['status' => PsoGatewayUploadStatus::COMPRESSING]);
 
             $sendSize = (int) filesize($sendPath);
             $gzipPath = $workDir.'/payload.gz';
@@ -183,7 +189,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
                 ->post($dataUrl);
             $postSeconds = microtime(true) - $postStartedAt;
 
-            $responseBody = mb_strcut($response->body(), 0, self::RESPONSE_BODY_LIMIT, 'UTF-8');
+            $responseBody = StoredText::cap($response->body(), StoredText::RESPONSE_BODY_BYTES);
 
             $upload->update([
                 'response_status' => $response->status(),
@@ -257,6 +263,7 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         PsoGatewayUpload $upload,
         UploadRunLog $log,
         string $rawPath,
+        string $sourceName,
         string $format,
         string $contentType,
         string $workDir,
@@ -279,6 +286,10 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
                 $log,
             );
 
+            // As the script: the compression parameter is only for the public
+            // webhook.site, which can store gzipped bodies.
+            $log->sub("Broadcast compression: none (self-hosted webhook can't store gzipped bodies)");
+
             $upload->update([
                 'webhook_url' => $endpoint->url,
                 'webhook_view_url' => $endpoint->viewUrl,
@@ -296,7 +307,8 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             return $rawPath;
         }
 
-        $destinationPath = "{$workDir}/payload_modified.{$format}";
+        // The script's sibling-copy name: `<original>_withBroadcast.<ext>`.
+        $destinationPath = $workDir.'/'.pathinfo(basename($sourceName), PATHINFO_FILENAME)."_withBroadcast.{$format}";
 
         $log->step('Rewriting the file (streaming)...');
 
@@ -309,20 +321,24 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             // copy behind that a later step could pick up and send.
             File::delete($destinationPath);
 
-            if ($injection !== null && str_contains($exception->getMessage(), "'dsScheduleData' wrapper")) {
+            if ($exception instanceof MissingScheduleDataWrapperException) {
                 throw new RuntimeException($exception->getMessage()." Turn on 'Skip webhook broadcast' to send the file as it is.", previous: $exception);
             }
 
             throw $exception;
         }
 
-        if ($report->format === 'json') {
+        if (! $report->wrapperFound) {
             // Only reachable without an injection: the rewriter refuses to
             // inject into a file with no wrapper. The script sends it as is.
             $log->warn("No top-level 'ScheduleData' or 'dsScheduleData' wrapper in the file - sending it unchanged.");
         }
 
         $this->logRewrite($log, $report, $datasetIdOverride, $injection);
+
+        if ($report->datasetIds !== []) {
+            $upload->update(['dataset_id_in_file' => implode(', ', $report->datasetIds)]);
+        }
 
         if ($injection === null && ! $report->datasetIdChanged) {
             File::delete($destinationPath);
@@ -459,6 +475,8 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 
     private function failUpload(PsoGatewayUpload $upload, string $message): void
     {
+        $message = StoredText::cap($message, StoredText::ERROR_MESSAGE_BYTES);
+
         app(UploadRunLog::class, ['upload' => $upload])->error($message);
 
         $upload->update([
@@ -473,6 +491,10 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
      * blocks — the worker was killed, `$timeout` fired, or an exception
      * escaped `handle()` — which would otherwise leave the row parked in a
      * non-terminal status that the UI polls forever.
+     *
+     * The worker may stop at any point, including during or after the POST,
+     * so the message never claims nothing reached PSO. A hard stop also skips
+     * `finally`: the session is not logged off and the work directory stays.
      */
     public function failed(?Throwable $exception): void
     {
@@ -487,7 +509,11 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             'message' => $exception?->getMessage(),
         ]);
 
-        $this->failUpload($upload, 'The upload did not finish — the queue worker timed out or stopped before it could be sent to PSO. Please try again.');
+        $message = $exception instanceof TimeoutExceededException
+            ? 'The upload did not finish within '.intdiv($this->timeout, 60).' minutes; check PSO before resending.'
+            : 'The upload stopped before it finished (the queue worker stopped or the job failed); check PSO before resending.';
+
+        $this->failUpload($upload, $message);
     }
 
     private function cleanup(PsoGatewayUpload $upload, string $workDir): void

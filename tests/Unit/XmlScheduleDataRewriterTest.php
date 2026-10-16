@@ -3,6 +3,7 @@
 use App\Support\ScheduleData\BroadcastInjection;
 use App\Support\ScheduleData\BroadcastSettings;
 use App\Support\ScheduleData\JsonScheduleDataRewriter;
+use App\Support\ScheduleData\MissingScheduleDataWrapperException;
 use App\Support\ScheduleData\RewriteReport;
 use App\Support\ScheduleData\ScheduleDataRewriterFactory;
 use App\Support\ScheduleData\XmlScheduleDataRewriter;
@@ -51,6 +52,7 @@ it('injects a Broadcast and its parameters in the root namespace', function () {
     $xpath = xpathFor($output);
 
     expect($report->format)->toBe('xml');
+    expect($report->wrapperFound)->toBeTrue();
     expect($xpath->evaluate('string(/s:dsScheduleData/s:Resources/s:id)'))->toBe('R1');
     expect($xpath->evaluate('count(/s:dsScheduleData/s:Broadcast)'))->toBe(1.0);
     expect($xpath->evaluate('string(/s:dsScheduleData/s:Broadcast/s:id)'))->toBe('WEBHOOK_COMPLETE');
@@ -244,7 +246,7 @@ it('accepts a ScheduleData root', function () {
 
 it('fails when the root element is not schedule data', function () {
     expect(static fn () => rewriteXml('<other xmlns="x"><a/></other>', null, xmlWebhookInjection()))
-        ->toThrow(RuntimeException::class, "Expected a top-level 'ScheduleData' or 'dsScheduleData' wrapper");
+        ->toThrow(MissingScheduleDataWrapperException::class, "Expected a top-level 'ScheduleData' or 'dsScheduleData' wrapper");
 });
 
 it('copies a file without a schedule data root unchanged when nothing is injected', function () {
@@ -253,7 +255,8 @@ it('copies a file without a schedule data root unchanged when nothing is injecte
     [$output, $report] = rewriteXml($xml, 'NEW');
 
     expect($output)->toBe($xml);
-    expect($report->format)->toBe('xml');
+    expect($report->format)->toBeNull();
+    expect($report->wrapperFound)->toBeFalse();
     expect($report->datasetIds)->toBe([]);
     expect($report->datasetIdChanged)->toBeFalse();
     expect($report->bytesWritten)->toBe(strlen($xml));
@@ -365,4 +368,21 @@ it('picks the rewriter by format', function () {
 
     expect($factory->forFormat('xml'))->toBeInstanceOf(XmlScheduleDataRewriter::class);
     expect($factory->forFormat('json'))->toBeInstanceOf(JsonScheduleDataRewriter::class);
+});
+
+it('reports the same wrapperless shape as the JSON rewriter', function () {
+    [, $xmlReport] = rewriteXml('<other><a/></other>', 'NEW');
+    $source = tempnam(sys_get_temp_dir(), 'rwsrc');
+    $destination = tempnam(sys_get_temp_dir(), 'rwdst');
+    file_put_contents($source, '{"Other":{"a":1}}');
+
+    try {
+        $jsonReport = app(JsonScheduleDataRewriter::class)->rewrite($source, $destination, 'NEW', null);
+    } finally {
+        @unlink($source);
+        @unlink($destination);
+    }
+
+    expect([$xmlReport->format, $xmlReport->wrapperFound])->toBe([null, false]);
+    expect([$jsonReport->format, $jsonReport->wrapperFound])->toBe([null, false]);
 });
