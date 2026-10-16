@@ -51,7 +51,7 @@ it('passes the IFS time zone only when set', function () {
 it('leaves out the dataset name when blank', function () {
     $argv = ActivityTraceCommand::build($this->checkout, '/w', $this->audits, ['activity_id' => 'a'], 'UTC', null, ' ');
 
-    expect($argv)->not->toContain('--dataset-name=NORTH');
+    expect(preg_grep('/^--dataset-name/', $argv))->toBeEmpty();
 });
 
 it('leaves out --tz when the dataset has no time zone, so the page says times are UTC', function () {

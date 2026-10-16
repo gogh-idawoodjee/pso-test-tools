@@ -20,7 +20,7 @@ it('builds the build argument list with the date, days, dataset name, out dir an
 });
 
 it('leaves out the dataset name when there is none', function (?string $name) {
-    expect(PlanTravelsCommand::build($this->checkout, '/w', '/w/plan.xml', '2026-10-05', 1, $name))->not->toContain('--dataset-name=NORTH');
+    expect(preg_grep('/^--dataset-name/', PlanTravelsCommand::build($this->checkout, '/w', '/w/plan.xml', '2026-10-05', 1, $name)))->toBeEmpty();
 })->with(['null' => [null], 'blank' => ['  ']]);
 
 it('builds the merge-google argument list from the work dir with both thresholds', function () {
