@@ -43,12 +43,12 @@ class ActivityTraceTool implements Tool
         return [
             TextInput::make('options.activity_id')
                 ->label('Activity id')
-                ->helperText('The PSO activity id. Give this or the work task id.')
-                ->requiredWithout('options.work_task_id')
+                ->helperText('The PSO activity id. Everything is read by this id.')
+                ->required()
                 ->maxLength(100),
             TextInput::make('options.work_task_id')
                 ->label('Work task id')
-                ->helperText('The IFS work task id, when you do not know the activity id.')
+                ->helperText('Optional. The IFS work task id, used to pick the task out of the IFS event log and shown as a cross-reference.')
                 ->maxLength(100),
         ];
     }

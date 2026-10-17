@@ -195,7 +195,8 @@ it('shows three input rows and the two option fields in the wizard', function ()
     $page->assertSee('Audit messages export')->assertSee('LOAD export')->assertSee('IFS event log export')
         ->assertDontSee('Plan export')
         ->assertSee('Activity id')->assertSee('Work task id')
-        ->assertSee('The PSO activity id. Give this or the work task id.');
+        ->assertSee('The PSO activity id. Everything is read by this id.')
+        ->assertSee('Optional. The IFS work task id');
 });
 
 it('lists the tool in the catalogue with a correct article', function () {
