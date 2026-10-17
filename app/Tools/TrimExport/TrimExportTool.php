@@ -13,6 +13,7 @@ use App\Support\TrimExport\TrimPlan;
 use App\Tools\Contracts\TakesOneInput;
 use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolResult;
+use App\Tools\Contracts\WizardOnly;
 use App\Tools\ToolContext;
 use RuntimeException;
 use ZipArchive;
@@ -22,7 +23,7 @@ use ZipArchive;
  * format filed next to it out, or only the counts on Count only. Its options sit on two wizard steps (Tables,
  * Rows) built by TrimExportEntry, because they depend on the chosen file.
  */
-class TrimExportTool implements TakesOneInput, Tool
+class TrimExportTool implements TakesOneInput, Tool, WizardOnly
 {
     public function __construct(
         private ExportSource $source,
@@ -58,7 +59,7 @@ class TrimExportTool implements TakesOneInput, Tool
     public function run(ToolContext $context, array $inputPaths, array $options): ToolResult
     {
         if (count($inputPaths) !== 1) {
-            throw new RuntimeException('Trim export takes exactly one LOAD, plan or End of day export.');
+            throw new RuntimeException('Trim export takes exactly one LOAD, Plan or End of day export.');
         }
 
         $kindValue = (string) array_key_first($inputPaths);
@@ -70,6 +71,9 @@ class TrimExportTool implements TakesOneInput, Tool
         $context->reportProgress('Opening the export', 0, null, 'open');
         $source = $this->source->open($localPath);
         $plan = TrimPlan::fromOptions($options, $context->timeZone);
+        if (self::changesNothing($plan)) {
+            throw new RuntimeException('Choose tables to remove or rows to keep. Nothing would change.');
+        }
         $output = $plan->countOnly ? null : $scratch.'/trimmed.'.$source->format;
 
         $report = $this->engine->run($source->path, $source->format, $plan, $output,
@@ -108,6 +112,15 @@ class TrimExportTool implements TakesOneInput, Tool
                 'count_only' => $plan->countOnly,
             ],
         );
+    }
+
+    /** No table removed, no row filter, no Input_Reference override and not Count only: the copy would be the input under a new name. */
+    private static function changesNothing(TrimPlan $plan): bool
+    {
+        $dropsTables = $plan->mode === TrimPlan::MODE_KEEP
+            || array_filter($plan->tables, static fn (string $table): bool => $plan->dropsTable($table)) !== [];
+
+        return ! $plan->countOnly && ! $dropsTables && ! $plan->filtersRows() && $plan->inputReferenceDatetime === null;
     }
 
     /** A zipped input gives a zip back, holding the one trimmed member. */

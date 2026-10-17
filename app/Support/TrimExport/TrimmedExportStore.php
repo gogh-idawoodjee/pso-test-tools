@@ -37,6 +37,11 @@ class TrimmedExportStore
             $this->storage->putFromLocal($file, $localPath);
         } catch (Throwable $exception) {
             $file->delete();
+            try {
+                $this->storage->delete($file);
+            } catch (Throwable) {
+                // Best effort: the failed upload is the error to report.
+            }
 
             throw $exception;
         }

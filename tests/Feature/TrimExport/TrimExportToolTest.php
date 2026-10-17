@@ -143,7 +143,8 @@ it('gives a zip back for a zip, reading a zip named .xml as a zip', function () 
         ->and($archive->numFiles)->toBe(1)
         ->and($archive->getNameIndex(0))->toBe('File_2026_10_04.trimmed.xml')
         ->and(array_keys(trimmedRows($member, 'xml')))->not->toContain('Plan')
-        ->and($run->result['zipped'])->toBeTrue();
+        ->and($run->result['zipped'])->toBeTrue()
+        ->and(glob(config('exports.scratch_path').'/*'))->toBe([]);
 });
 
 it('trims an End of day json export and keeps its kind', function () {
@@ -187,18 +188,23 @@ it('starts a run on exactly one of LOAD, plan and End of day', function () {
     expect($run->inputs['files'])->toBe(['plan' => $plan->id]);
 });
 
-it('starts a trim from the dataset Runs tab on one preselected export, and refuses two there with a message', function () {
-    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'summary' => ['export_date' => '2026-10-10']]);
-    $plan = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'summary' => ['export_date' => '2026-10-10']]);
-    $tab = Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class]);
+it('is wizard only: no Run action for it on the dataset Runs tab', function () {
+    Livewire::test(DatasetRuns::class, ['ownerRecord' => $this->dataset, 'pageClass' => ViewDataset::class])
+        ->assertTableActionDoesNotExist('run_trim_export')
+        ->assertTableActionExists('run_'.ToolId::LoadAudit->value);
+});
 
-    $tab->callTableAction('run_trim_export')->assertHasNoTableActionErrors();
+it('refuses a trim that would change nothing, and still allows Count only', function () {
+    $input = storedTrimInput($this->dataset, ExportKind::Load, trimXml(trimDataset()), 'load.xml', 'xml');
 
-    expect(ToolRun::query()->sole()->inputs['files'])->toBe(['load' => $load->id]);
-    Queue::assertPushed(RunToolJob::class);
+    $run = runTrimJob($this->dataset, $input, ['table_mode' => 'remove', 'tables' => []], $this->user);
 
-    $tab->callTableAction('run_trim_export', data: ['files' => ['load' => $load->id, 'plan' => $plan->id]])
-        ->assertNotified('The run did not start');
+    expect($run->status)->toBe(ToolRunStatus::Failed)
+        ->and($run->error_message)->toBe('Choose tables to remove or rows to keep. Nothing would change.')
+        ->and(ExportFile::query()->count())->toBe(1);
 
-    expect(ToolRun::query()->count())->toBe(1);
+    $counted = runTrimJob($this->dataset, $input, ['count_only' => true], $this->user);
+
+    expect($counted->status)->toBe(ToolRunStatus::Succeeded)
+        ->and($counted->result['count_only'])->toBeTrue();
 });

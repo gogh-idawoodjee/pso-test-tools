@@ -3,6 +3,7 @@
 namespace App\Support\Tools;
 
 use App\Enums\ExportKind;
+use InvalidArgumentException;
 use RuntimeException;
 
 class UnusableInputException extends RuntimeException
@@ -25,6 +26,10 @@ class UnusableInputException extends RuntimeException
     /** @param list<ExportKind> $kinds */
     public static function oneOf(array $kinds): self
     {
+        if ($kinds === []) {
+            throw new InvalidArgumentException('A one-of input needs at least one export kind.');
+        }
+
         $labels = array_map(static fn (ExportKind $kind): string => $kind->getLabel(), $kinds);
         $last = array_pop($labels);
 

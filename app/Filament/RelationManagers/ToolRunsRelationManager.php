@@ -8,7 +8,7 @@ use App\Filament\Tables\ToolRunsTable;
 use App\Support\Exports\RunInputPicker;
 use App\Support\Tools\StartToolRun;
 use App\Support\Tools\UnusableInputException;
-use App\Tools\Contracts\TakesOneInput;
+use App\Tools\Contracts\WizardOnly;
 use App\Tools\ToolRegistry;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -46,7 +46,7 @@ abstract class ToolRunsRelationManager extends RelationManager
             ->headerActions($this->runActions());
     }
 
-    /** @return list<Action> one "Run ..." action per tool of this scope that has an implementation registered */
+    /** @return list<Action> one "Run ..." action per tool of this scope that has an implementation registered and is not wizard only */
     private function runActions(): array
     {
         $registry = app(ToolRegistry::class);
@@ -58,12 +58,16 @@ abstract class ToolRunsRelationManager extends RelationManager
             }
 
             $tool = $registry->for($toolId);
+            if ($tool instanceof WizardOnly) {
+                continue;
+            }
+
             $fields = [];
             foreach ([...$tool->requiredKinds(), ...$tool->optionalKinds()] as $kind) {
                 $fields[] = Select::make("files.{$kind->value}")
                     ->label($kind->getLabel().' export')
                     ->options(fn (): array => app(RunInputPicker::class)->optionsFor($this->getOwnerRecord(), $toolId)[$kind->value] ?? [])
-                    ->default(fn (): ?string => $this->defaultsFor($toolId)[$kind->value] ?? null)
+                    ->default(fn (): ?string => app(RunInputPicker::class)->defaultsFor($this->getOwnerRecord(), $toolId)[$kind->value] ?? null)
                     ->required(in_array($kind, $tool->requiredKinds(), true))
                     ->native(false);
             }
@@ -86,31 +90,5 @@ abstract class ToolRunsRelationManager extends RelationManager
         }
 
         return $actions;
-    }
-
-    /**
-     * The picker's preselection; a tool that takes one export keeps only the first of its kinds that has one.
-     *
-     * @return array<string, string>
-     */
-    private function defaultsFor(ToolId $toolId): array
-    {
-        $defaults = app(RunInputPicker::class)->defaultsFor($this->getOwnerRecord(), $toolId);
-        $tool = app(ToolRegistry::class)->for($toolId);
-        if (! $tool instanceof TakesOneInput) {
-            return $defaults;
-        }
-
-        $kept = false;
-        foreach ($tool->oneOfKinds() as $kind) {
-            if (isset($defaults[$kind->value])) {
-                if ($kept) {
-                    unset($defaults[$kind->value]);
-                }
-                $kept = true;
-            }
-        }
-
-        return $defaults;
     }
 }

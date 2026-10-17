@@ -105,7 +105,7 @@ class ExportStorage
         }
 
         try {
-            if ($this->disk()->writeStream($this->objectKey($file), $stream) === false) {
+            if ($this->disk()->writeStream($this->objectKey($file), $stream, ['mimetype' => self::mimeFor($file->content_type)]) === false) {
                 throw new RuntimeException('The file could not be stored.');
             }
         } finally {
