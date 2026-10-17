@@ -165,3 +165,37 @@ it('reads an Input_Reference datetime without an offset as UTC, because PSO expo
 
     expect($summary['input_reference_datetime']->toIso8601String())->toBe('2026-10-11T02:30:00+00:00');
 });
+
+it('counts the rows of every table, xml rows being the elements just inside the root', function () {
+    $path = scheduleDataSummaryFixturePath('summary-tables.xml');
+    file_put_contents($path, <<<'XML'
+        <dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd">
+            <Input_Reference><datetime>2026-09-10T12:26:05Z</datetime><dataset_id>DCU</dataset_id></Input_Reference>
+            <Activity><id>A1</id><Activity_Status><id>nested, not a row</id></Activity_Status></Activity>
+            <Activity><id>A2</id></Activity>
+            <Plan_Travel><resource_id>R1</resource_id></Plan_Travel>
+        </dsScheduleData>
+        XML);
+
+    expect(ScheduleDataSummaryExtractor::extract($path, 'xml')['table_counts'])
+        ->toBe(['Input_Reference' => 1, 'Activity' => 2, 'Plan_Travel' => 1]);
+});
+
+it('counts json tables whether they are a list, one row object, or empty', function () {
+    $path = scheduleDataSummaryFixturePath('summary-tables.json');
+    file_put_contents($path, json_encode(['dsScheduleData' => [
+        'Input_Reference' => ['datetime' => '2026-09-10T12:26:05Z', 'dataset_id' => 'DCU'],
+        'Activity' => [['id' => 'A1'], ['id' => 'A2'], ['id' => 'A3']],
+        'Resources' => [],
+    ]]));
+
+    expect(ScheduleDataSummaryExtractor::extract($path, 'json')['table_counts'])
+        ->toBe(['Input_Reference' => 1, 'Activity' => 3, 'Resources' => 0]);
+});
+
+it('reports no tables for a file it cannot read', function () {
+    $path = scheduleDataSummaryFixturePath('summary-broken.json');
+    file_put_contents($path, '{"something": "else"}');
+
+    expect(ScheduleDataSummaryExtractor::extract($path, 'json')['table_counts'])->toBe([]);
+});

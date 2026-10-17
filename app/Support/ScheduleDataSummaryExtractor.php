@@ -23,7 +23,7 @@ use XMLReader;
 class ScheduleDataSummaryExtractor
 {
     /**
-     * @return array{dataset_id: ?string, input_reference_datetime: ?CarbonImmutable, activity_count: int, resource_count: int}
+     * @return array{dataset_id: ?string, input_reference_datetime: ?CarbonImmutable, activity_count: int, resource_count: int, table_counts: array<string, int>}
      */
     public static function extract(string $filePath, string $format): array
     {
@@ -48,11 +48,17 @@ class ScheduleDataSummaryExtractor
         $datetime = null;
         $activityCount = 0;
         $resourceCount = 0;
+        $tableCounts = [];
 
         try {
             while ($reader->read()) {
                 if ($reader->nodeType !== XMLReader::ELEMENT) {
                     continue;
+                }
+
+                // A table row is an element just inside the root; nested elements of the same name are not rows.
+                if ($reader->depth === 1) {
+                    $tableCounts[$reader->localName] = ($tableCounts[$reader->localName] ?? 0) + 1;
                 }
 
                 match ($reader->localName) {
@@ -76,6 +82,7 @@ class ScheduleDataSummaryExtractor
             'input_reference_datetime' => self::parseDatetime($datetime),
             'activity_count' => $activityCount,
             'resource_count' => $resourceCount,
+            'table_counts' => $tableCounts,
         ];
     }
 
@@ -110,6 +117,7 @@ class ScheduleDataSummaryExtractor
         $datetime = null;
         $activityCount = 0;
         $resourceCount = 0;
+        $tableCounts = [];
 
         try {
             foreach (app(JsonTokenReader::class)->tokens($handle) as $token) {
@@ -152,11 +160,14 @@ class ScheduleDataSummaryExtractor
                     } elseif ($insideWrapper && $depth === 2 && $entityName !== null) {
                         $entityIsArray = $token === '[';
 
-                        if (! $entityIsArray) {
-                            self::tally($entityName, $activityCount, $resourceCount);
+                        if ($entityIsArray) {
+                            // An empty list is a table with no rows.
+                            $tableCounts[$entityName] ??= 0;
+                        } else {
+                            self::tally($entityName, $activityCount, $resourceCount, $tableCounts);
                         }
                     } elseif ($insideWrapper && $depth === 3 && $entityIsArray && $token === '{') {
-                        self::tally($entityName, $activityCount, $resourceCount);
+                        self::tally($entityName, $activityCount, $resourceCount, $tableCounts);
                     }
 
                     $depth++;
@@ -208,11 +219,19 @@ class ScheduleDataSummaryExtractor
             'input_reference_datetime' => self::parseDatetime($datetime),
             'activity_count' => $activityCount,
             'resource_count' => $resourceCount,
+            'table_counts' => $tableCounts,
         ];
     }
 
-    private static function tally(?string $entityName, int &$activityCount, int &$resourceCount): void
+    /** @param array<string, int> $tableCounts */
+    private static function tally(?string $entityName, int &$activityCount, int &$resourceCount, array &$tableCounts): void
     {
+        if ($entityName === null) {
+            return;
+        }
+
+        $tableCounts[$entityName] = ($tableCounts[$entityName] ?? 0) + 1;
+
         match ($entityName) {
             'Activity' => $activityCount++,
             'Resources' => $resourceCount++,
@@ -235,7 +254,7 @@ class ScheduleDataSummaryExtractor
     }
 
     /**
-     * @return array{dataset_id: null, input_reference_datetime: null, activity_count: int, resource_count: int}
+     * @return array{dataset_id: null, input_reference_datetime: null, activity_count: int, resource_count: int, table_counts: array{}}
      */
     private static function empty(): array
     {
@@ -244,6 +263,7 @@ class ScheduleDataSummaryExtractor
             'input_reference_datetime' => null,
             'activity_count' => 0,
             'resource_count' => 0,
+            'table_counts' => [],
         ];
     }
 }

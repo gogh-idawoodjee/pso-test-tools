@@ -86,6 +86,7 @@ class ExportSummariser
                     'input_reference_datetime' => $planReference?->toIso8601String(),
                     'export_date' => $planReference?->setTimezone($timeZone)->format('Y-m-d'),
                     'allocation_count' => $plan['allocation_count'],
+                    'table_counts' => $extracted['table_counts'],
                 ]);
             }
 
@@ -99,6 +100,7 @@ class ExportSummariser
             'export_date' => $reference?->setTimezone($timeZone)->format('Y-m-d'),
             'activity_count' => $extracted['activity_count'],
             'resource_count' => $extracted['resource_count'],
+            'table_counts' => $extracted['table_counts'],
         ]);
     }
 

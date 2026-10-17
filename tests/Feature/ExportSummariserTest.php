@@ -231,3 +231,30 @@ it('reads audit message times without an offset as UTC, whatever the dataset tim
 
     expect($summary->toArray()['first_message_at'])->toBe('2026-10-10T08:00:00+00:00');
 });
+
+it('stores the row count of every table for a LOAD and a plan export', function () {
+    $load = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'xml'), scheduleXml(activities: 3, resources: 2), 'UTC')->toArray();
+    $plan = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Plan, 'xml'), planXml(allocations: 2), 'UTC')->toArray();
+
+    expect($load['table_counts'])->toBe(['Input_Reference' => 1, 'Activity' => 3, 'Resources' => 2])
+        ->and($plan['table_counts'])->toBe(['Allocation_Data' => 2, 'Allocation' => 2, 'Plan' => 1]);
+});
+
+it('stores table counts for a json LOAD', function () {
+    $path = tempnam(sys_get_temp_dir(), 'exp_').'.json';
+    file_put_contents($path, json_encode(['dsScheduleData' => [
+        'Input_Reference' => ['datetime' => '2026-10-10T07:12:00', 'dataset_id' => 'NORTH'],
+        'Activity' => [['id' => 'A1'], ['id' => 'A2']],
+        'Resources' => [],
+    ]]));
+
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'json'), $path, 'UTC')->toArray();
+
+    expect($summary['table_counts'])->toBe(['Input_Reference' => 1, 'Activity' => 2, 'Resources' => 0]);
+});
+
+it('stores table counts for a zipped LOAD', function () {
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Load, 'zip'), zipOf(scheduleXml(activities: 4, resources: 1), 'load.xml'), 'UTC')->toArray();
+
+    expect($summary['table_counts'])->toBe(['Input_Reference' => 1, 'Activity' => 4, 'Resources' => 1]);
+});
