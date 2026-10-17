@@ -16,6 +16,7 @@ enum Tool: string implements HasLabel
     case AppointmentTimeline = 'appointment_timeline';
     case PlanTravels = 'plan_travels';
     case SysCompare = 'sys_compare';
+    case TrimExport = 'trim_export';
 
     public function scope(): string
     {
@@ -25,7 +26,7 @@ enum Tool: string implements HasLabel
     /** Tools that only read the files: they may run Unfiled, with no environment or dataset. */
     public function acceptsUnfiled(): bool
     {
-        return in_array($this, [self::LoadAudit, self::AppointmentTimeline, self::PlanTravels], true);
+        return in_array($this, [self::LoadAudit, self::AppointmentTimeline, self::PlanTravels, self::TrimExport], true);
     }
 
     /** The question a consultant has in mind when they reach for this tool; shown in the catalogue and the wizard. */
@@ -39,6 +40,7 @@ enum Tool: string implements HasLabel
             self::AppointmentTimeline => 'What happened to one activity: how it was booked and how PSO scheduled it?',
             self::PlanTravels => 'How long are the planned travels, and do they match real road times?',
             self::SysCompare => 'What differs between these SYS exports and the baseline?',
+            self::TrimExport => 'Can I cut this export down to the tables and rows I need?',
         };
     }
 
@@ -52,6 +54,7 @@ enum Tool: string implements HasLabel
             self::AppointmentTimeline => 'Trace an activity',
             self::PlanTravels => 'Plan travels',
             self::SysCompare => 'PSO sys file compare',
+            self::TrimExport => 'Trim export',
         };
     }
 
@@ -66,6 +69,7 @@ enum Tool: string implements HasLabel
             self::PlanTravels => Heroicon::OutlinedTruck,
             self::ScheduleReview => Heroicon::OutlinedChartBar,
             self::ScheduleRollup => Heroicon::OutlinedPresentationChartLine,
+            self::TrimExport => Heroicon::OutlinedScissors,
         };
     }
 
