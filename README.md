@@ -9,7 +9,7 @@ A web app for IFS Cloud PSO (Planning and Scheduling Optimization) consultants. 
 - Trace an activity: how one activity was booked and how PSO scheduled it.
 - Plan travels: every planned travel leg, optionally checked against Google Routes.
 - Sys compare: parameter differences between PSO environments.
-- Filter Load File: trim a LOAD to regions, resources, activities or dates, with referential cascade.
+- Trim export: remove whole tables (the Cleanup for input preset, as Remove-PsoTables does) and keep rows by region, resource, activity type, activity or appointment window, with the referential cascade. Takes a LOAD, plan or End of day export (XML or JSON, zipped or not) and saves the result as a new export next to it.
 
 **Live PSO actions** send to a live PSO environment through the companion pso-services API: Load from File (gateway upload with webhook status), appointment booking, unavailability and event generation, and Travel Analyzer. Production PSO URLs are refused by policy.
 

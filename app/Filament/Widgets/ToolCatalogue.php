@@ -36,7 +36,6 @@ class ToolCatalogue extends Widget
             $analyse[] = $this->item($page, $tool->getLabel(), $tool->question(), $impl instanceof TakesOneInput ? $this->needsOne($impl->oneOfKinds()) : $this->needs($impl->requiredKinds(), $impl->optionalKinds()));
         }
         $analyse[] = $this->item(Pages\SysFileCompare::class, 'PSO Sys File Compare', 'What differs between two or more SYS exports?', 'Needs two or more '.ExportKind::Sys->getLabel().' exports');
-        $analyse[] = $this->item(Pages\FilterLoadFile::class, 'Filter Load File', 'Can I cut a LOAD file down to chosen regions, resources or activities?', 'Needs a '.ExportKind::Load->getLabel().' file');
         $analyse[] = $this->item(Pages\PreferenceCalculator::class, 'Preference Calculator', 'Which of two technicians will PSO prefer for an activity, given costs, distances and preference values?', null);
 
         $sections = [
