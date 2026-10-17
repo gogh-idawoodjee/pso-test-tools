@@ -87,3 +87,13 @@ it('takes a number as the scope id only for a user', function (string $scopeType
     'a user with a path' => [User::class, '../42'],
     'a user with zero' => [User::class, '0'],
 ]);
+
+it('stores a finished local file under the export object key', function () {
+    $file = ExportFile::factory()->create(['content_type' => 'xml']);
+    $local = tempnam(sys_get_temp_dir(), 'put_');
+    file_put_contents($local, '<dsScheduleData/>');
+
+    app(ExportStorage::class)->putFromLocal($file, $local);
+
+    expect(Storage::disk('r2')->get(app(ExportStorage::class)->objectKey($file)))->toBe('<dsScheduleData/>');
+});

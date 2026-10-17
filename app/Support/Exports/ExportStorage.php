@@ -96,6 +96,25 @@ class ExportStorage
         return $target;
     }
 
+    /** Uploads a finished local file (a tool's output in scratch) to the export's object key. */
+    public function putFromLocal(ExportFile $file, string $localPath): void
+    {
+        $stream = @fopen($localPath, 'rb');
+        if ($stream === false) {
+            throw new RuntimeException('The file to store could not be opened.');
+        }
+
+        try {
+            if ($this->disk()->writeStream($this->objectKey($file), $stream) === false) {
+                throw new RuntimeException('The file could not be stored.');
+            }
+        } finally {
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
+        }
+    }
+
     public function delete(ExportFile $file): void
     {
         $this->disk()->delete($this->objectKey($file));

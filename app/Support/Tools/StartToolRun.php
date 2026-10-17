@@ -2,6 +2,7 @@
 
 namespace App\Support\Tools;
 
+use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Jobs\RunToolJob;
@@ -9,6 +10,7 @@ use App\Models\Dataset;
 use App\Models\ToolRun;
 use App\Models\User;
 use App\Support\Exports\RunInputPicker;
+use App\Tools\Contracts\TakesOneInput;
 use App\Tools\ToolRegistry;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
@@ -45,6 +47,15 @@ class StartToolRun
                 continue;
             }
             $chosen[$kind->value] = (string) $fileId;
+        }
+        if ($tool instanceof TakesOneInput) {
+            $picked = array_filter($tool->oneOfKinds(), static fn (ExportKind $kind): bool => isset($chosen[$kind->value]));
+            if ($picked === []) {
+                throw UnusableInputException::oneOf($tool->oneOfKinds());
+            }
+            if (count($picked) > 1) {
+                throw new InvalidArgumentException("{$toolId->getLabel()} takes one export at a time.");
+            }
         }
         $this->assertUsable($scope, $toolId, $chosen);
 

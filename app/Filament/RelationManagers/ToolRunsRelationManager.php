@@ -8,6 +8,7 @@ use App\Filament\Tables\ToolRunsTable;
 use App\Support\Exports\RunInputPicker;
 use App\Support\Tools\StartToolRun;
 use App\Support\Tools\UnusableInputException;
+use App\Tools\Contracts\TakesOneInput;
 use App\Tools\ToolRegistry;
 use BackedEnum;
 use Filament\Actions\Action;
@@ -17,6 +18,7 @@ use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
+use InvalidArgumentException;
 
 /** The Runs tab: start a tool against uploaded exports and open its dashboard. Subclasses are per resource. */
 abstract class ToolRunsRelationManager extends RelationManager
@@ -61,7 +63,7 @@ abstract class ToolRunsRelationManager extends RelationManager
                 $fields[] = Select::make("files.{$kind->value}")
                     ->label($kind->getLabel().' export')
                     ->options(fn (): array => app(RunInputPicker::class)->optionsFor($this->getOwnerRecord(), $toolId)[$kind->value] ?? [])
-                    ->default(fn (): ?string => app(RunInputPicker::class)->defaultsFor($this->getOwnerRecord(), $toolId)[$kind->value] ?? null)
+                    ->default(fn (): ?string => $this->defaultsFor($toolId)[$kind->value] ?? null)
                     ->required(in_array($kind, $tool->requiredKinds(), true))
                     ->native(false);
             }
@@ -77,12 +79,38 @@ abstract class ToolRunsRelationManager extends RelationManager
                 ->action(function (array $data) use ($toolId): void {
                     try {
                         app(StartToolRun::class)->start($this->getOwnerRecord(), $toolId, $data['files'] ?? [], $data['options'] ?? [], auth()->user());
-                    } catch (UnusableInputException $e) {
+                    } catch (UnusableInputException|InvalidArgumentException $e) {
                         Notification::make()->title('The run did not start')->body($e->getMessage())->danger()->send();
                     }
                 });
         }
 
         return $actions;
+    }
+
+    /**
+     * The picker's preselection; a tool that takes one export keeps only the first of its kinds that has one.
+     *
+     * @return array<string, string>
+     */
+    private function defaultsFor(ToolId $toolId): array
+    {
+        $defaults = app(RunInputPicker::class)->defaultsFor($this->getOwnerRecord(), $toolId);
+        $tool = app(ToolRegistry::class)->for($toolId);
+        if (! $tool instanceof TakesOneInput) {
+            return $defaults;
+        }
+
+        $kept = false;
+        foreach ($tool->oneOfKinds() as $kind) {
+            if (isset($defaults[$kind->value])) {
+                if ($kept) {
+                    unset($defaults[$kind->value]);
+                }
+                $kept = true;
+            }
+        }
+
+        return $defaults;
     }
 }

@@ -21,4 +21,13 @@ class UnusableInputException extends RuntimeException
     {
         return new self($kind, 'The '.$kind->getLabel().' export you chose is no longer available. Choose or upload another.');
     }
+
+    /** @param list<ExportKind> $kinds */
+    public static function oneOf(array $kinds): self
+    {
+        $labels = array_map(static fn (ExportKind $kind): string => $kind->getLabel(), $kinds);
+        $last = array_pop($labels);
+
+        return new self($kinds[0], 'Choose one '.($labels === [] ? $last : implode(', ', $labels).' or '.$last).' export.');
+    }
 }
