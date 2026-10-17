@@ -19,11 +19,13 @@
             <p class="text-sm font-medium text-gray-950 dark:text-white">{{ $run->summary['line'] ?? '' }}</p>
             @if ($countOnly)
                 <p class="text-sm text-gray-500 dark:text-gray-400">Count only: no file was written.</p>
+            @elseif ($export && $export->status === \App\Enums\ExportFileStatus::Failed)
+                <p class="text-sm text-danger-600 dark:text-danger-400">The new export could not be read: {{ $export->error_message }}</p>
             @elseif ($export)
                 <p class="text-sm text-gray-500 dark:text-gray-400">
                     Saved as a new {{ $export->kind->getLabel() }} export, {{ $export->original_filename }}, {{ $isDataset ? 'on the dataset' : 'in My files' }}.
                     @if ($export->status === \App\Enums\ExportFileStatus::Summarising)
-                        It is being read; other tools can use it once it is ready.
+                        The new export is being read; refresh in a moment.
                     @endif
                 </p>
             @elseif (filled($exportId))

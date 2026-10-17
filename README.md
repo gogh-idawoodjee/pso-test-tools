@@ -212,6 +212,10 @@ chunk of 200 trips). The whole Google check also has an overall time limit, `TOO
 (720 by default, under the job's 900 s): when it runs out, the trips not yet sent are left without a Google answer and the run finishes with a warning saying how many were not checked. Running the tool again picks up the trips pso-services has cached since. If pso-services has `PSO_ROUTES_TOKEN` set,
 set the same value here; it is optional and left blank when pso-services has none.
 
+### Trim export
+
+The trim export golden tests use real SaskTel exports, which are not in the repo. Point `PSO_DATA_DIR` at a folder holding `SATE/2026-10-04/load.zip` and `SATE/1005/north_travel_1005.xml`; the tests are skipped when they are not available.
+
 ## Deploying
 
 Pushes to `main` deploy themselves: a cron on the server runs `deploy/pull-deploy.sh` every 2 minutes, which

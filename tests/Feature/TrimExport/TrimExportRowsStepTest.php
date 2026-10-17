@@ -141,6 +141,7 @@ it('carries the remembered zone into an Unfiled run and keeps it remembered', fu
     trimRowsReady()
         ->assertFormFieldVisible('options.time_zone')
         ->assertFormSet(['options.time_zone' => 'America/Regina'])
+        ->fillForm(['options.region_ids' => ['V1']])
         ->call('start')
         ->assertHasNoFormErrors();
 

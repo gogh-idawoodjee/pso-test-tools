@@ -103,7 +103,7 @@ Performance target: the 135 MB SaskTel plan export in under three minutes on the
 
 ## 5. Output
 
-- A new `ExportFile` on the same scope as the input (dataset or user), kind = the input's kind, original name
+- A new `ExportFile` on the same scope as the input (dataset or user), kind = the input's kind (but see section 9: a plan or End of day export with no Plan table left is filed as a LOAD), original name
   `<input name without extension>.trimmed.<ext>`, uploaded by the user who started the run, stored through
   `ExportStorage` from the scratch file, then `SummariseExportFileJob` so it gets its summary and table counts. Same
   12-hour expiry.
@@ -146,4 +146,6 @@ After this ships and Ish has used it on a real file: the Filter Load File page a
 - Two Filter Load File behaviours are kept: the appointment window also drops shifts outside it; Activity_Status and Activity_SLA follow only their activity, so a status fixed to a resource outside the filter stays and is listed as dangling (the #26 check relied on this).
 - The golden test pins 85 resources and 8 activities for V1, 5 to 9 Oct, and that every kept location reference resolves; the 1,362 Location figure came from a different filter and is not pinned.
 - A zipped input gives a zip back (`<name>.trimmed.zip` holding `<member>.trimmed.xml`). The new owner-only export download refuses SYS exports, which hold live credentials.
+- A trimmed plan or End of day export with no Plan table left is filed as a LOAD (the summariser would refuse it as a plan export); with a Plan table kept it keeps its kind.
+- With row filters set, the keep sets are built from every table in the file, removed or not; a removed table is never written but still decides which rows of kept tables go.
 - Task 12 (removing Filter Load File and the public download route) runs only after Ish has used the tool on a real file.

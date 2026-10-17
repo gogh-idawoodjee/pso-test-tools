@@ -19,6 +19,9 @@ class JsonTableReader implements TableReader
     /** How far into the file the wrapper is looked for before the file is refused, so memory stays flat. */
     public const int MAX_HEAD_BYTES = 16 * 1048576;
 
+    /** The longest single row or tail held in memory; past it the file is truncated or damaged. */
+    public const int MAX_SEGMENT_BYTES = 16 * 1048576;
+
     public function __construct(private JsonTokenReader $tokenReader) {}
 
     public function segments(string $path): Generator
@@ -181,6 +184,7 @@ class JsonTableReader implements TableReader
 
                 if ($state === 'row') {
                     $body .= $token;
+                    self::guardSegmentLength(strlen($body));
                     if ($token === '{' || $token === '[') {
                         $rowDepth++;
                     } elseif ($token === '}' || $token === ']') {
@@ -207,6 +211,7 @@ class JsonTableReader implements TableReader
                 }
 
                 $tail .= $token;
+                self::guardSegmentLength(strlen($tail));
             }
 
             if ($state !== 'tail') {
@@ -218,6 +223,13 @@ class JsonTableReader implements TableReader
             yield new Segment(Segment::TAIL, body: $tail, offset: $offset);
         } finally {
             fclose($handle);
+        }
+    }
+
+    private static function guardSegmentLength(int $bytes): void
+    {
+        if ($bytes > self::MAX_SEGMENT_BYTES) {
+            throw new RuntimeException('The export has a row more than '.(self::MAX_SEGMENT_BYTES / 1048576).' MB long that never ends. It looks truncated or damaged.');
         }
     }
 

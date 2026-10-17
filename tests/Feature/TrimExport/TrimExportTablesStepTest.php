@@ -141,6 +141,21 @@ it('needs at least one tick in Keep mode', function () {
     expect(ToolRun::query()->count())->toBe(0);
 });
 
+it('refuses a trim that would change nothing before queuing a run', function () {
+    Queue::fake();
+    trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
+
+    Livewire::test(TrimExportEntry::class)
+        ->call('prepareTables')
+        ->fillForm(['options.table_mode' => 'remove', 'options.tables' => []])
+        ->call('start')
+        ->assertSet('runId', null)
+        ->assertNotified(Notification::make()->title('The run did not start')
+            ->body('Choose tables to remove or rows to keep. Nothing would change.')->warning());
+
+    expect(ToolRun::query()->count())->toBe(0);
+});
+
 it('does not leave Inputs without a file to read', function () {
     Livewire::test(TrimExportEntry::class)
         ->call('prepareTables')

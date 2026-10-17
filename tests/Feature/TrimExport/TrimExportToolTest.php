@@ -14,6 +14,7 @@ use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
 use App\Support\Exports\ExportStorage;
+use App\Support\Exports\ExportSummariser;
 use App\Support\Tools\StartToolRun;
 use App\Support\Tools\UnusableInputException;
 use App\Support\TrimExport\TableDependencies;
@@ -207,4 +208,42 @@ it('refuses a trim that would change nothing, and still allows Count only', func
 
     expect($counted->status)->toBe(ToolRunStatus::Succeeded)
         ->and($counted->result['count_only'])->toBeTrue();
+});
+
+/** Runs the real summary job on a stored export, synchronously, and gives the row back. */
+function summariseTrimmed(ExportFile $file): ExportFile
+{
+    (new SummariseExportFileJob($file->id))->handle(app(ExportStorage::class), app(ExportSummariser::class));
+
+    return $file->refresh();
+}
+
+it('files a plan or End of day export trimmed with the Cleanup preset as a LOAD the summariser reads', function (ExportKind $kind, string $format) {
+    $source = $format === 'xml' ? trimXml(trimDataset()) : trimJson(trimDataset());
+    $input = storedTrimInput($this->dataset, $kind, $source, 'north.'.$format, $format);
+
+    $run = runTrimJob($this->dataset, $input, ['table_mode' => 'remove', 'tables' => TableDependencies::CLEANUP_TABLES], $this->user);
+    $trimmed = summariseTrimmed(ExportFile::query()->findOrFail($run->result['export_file_id']));
+
+    expect($run->status)->toBe(ToolRunStatus::Succeeded)
+        ->and($trimmed->kind)->toBe(ExportKind::Load)
+        ->and($trimmed->original_filename)->toBe('north.trimmed.'.$format)
+        ->and($trimmed->status)->toBe(ExportFileStatus::Ready)
+        ->and($trimmed->error_message)->toBeNull()
+        ->and($trimmed->summary['dataset_id'])->toBe('NORTH');
+})->with([
+    'plan xml' => [ExportKind::Plan, 'xml'],
+    'End of day json' => [ExportKind::Eod, 'json'],
+]);
+
+it('keeps the plan kind when the trim keeps the Plan table, and the summariser reads it as a plan', function () {
+    $input = storedTrimInput($this->dataset, ExportKind::Plan, trimXml(trimDataset()), 'north-plan.xml', 'xml');
+
+    $run = runTrimJob($this->dataset, $input, ['tables' => ['Plan_Travel']], $this->user);
+    $trimmed = summariseTrimmed(ExportFile::query()->findOrFail($run->result['export_file_id']));
+
+    expect($run->status)->toBe(ToolRunStatus::Succeeded)
+        ->and($trimmed->kind)->toBe(ExportKind::Plan)
+        ->and($trimmed->original_filename)->toBe('north-plan.trimmed.xml')
+        ->and($trimmed->status)->toBe(ExportFileStatus::Ready);
 });

@@ -10,6 +10,7 @@ use App\Support\TrimExport\ExportFileScanner;
 use App\Support\TrimExport\FilterChoices;
 use App\Support\TrimExport\TableDependencies;
 use App\Support\TrimExport\TrimPlan;
+use App\Tools\TrimExport\TrimExportTool;
 use Filament\Forms\Components\Radio;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Wizard\Step;
@@ -140,7 +141,7 @@ class TrimExportEntry extends ToolWizardPage
     /**
      * Never run on a table list read from another file: an upload that finished while the user was on a later
      * step can change the chosen file and empty the list. Read the new file's tables and ask for another look.
-     * A missing or unusable file is the wizard's own refusal.
+     * A missing or unusable file is the wizard's own refusal. A trim that would change nothing is refused too.
      */
     #[Override]
     public function start(): void
@@ -152,6 +153,18 @@ class TrimExportEntry extends ToolWizardPage
                     ->body('The export changed, so the Tables step was read again from the new file. Check it, then run again.')
                     ->warning()->send();
             }
+
+            return;
+        }
+
+        // The tool refuses a run that would change nothing; say so here before a run is queued only to fail.
+        // A half-filled window is left to the form's own validation, which names the missing day.
+        $options = (array) ($this->data['options'] ?? []);
+        $windowStarted = filled($options['window_start'] ?? null) || filled($options['window_end'] ?? null);
+        if (! $windowStarted && TrimExportTool::changesNothing(TrimPlan::fromOptions($options, 'UTC'))) {
+            Notification::make()->title('The run did not start')
+                ->body('Choose tables to remove or rows to keep. Nothing would change.')
+                ->warning()->send();
 
             return;
         }

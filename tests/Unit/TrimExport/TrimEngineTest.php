@@ -250,3 +250,13 @@ it('gives the same kept rows and counts when the tables come in reverse order', 
         ->and($reversed->dangling)->toBe($forward->dangling)
         ->and($reversed->summaryLine(false))->toBe($forward->summaryLine(false));
 })->with(['xml', 'json']);
+
+it('builds the keep sets from removed tables too, so a removed table still decides which rows of kept tables go', function (string $format) {
+    [$report, $output] = runTrim(['tables' => ['Activity'], 'region_ids' => ['V1']], $format);
+    $rows = trimmedRows($output, $format);
+
+    expect($report->removedTables)->toBe(['Activity'])
+        ->and(array_keys($rows))->not->toContain('Activity')
+        ->and(array_column($rows['Activity_SLA'], 'activity_id'))->toBe(['A1', 'A3', 'A4', 'A4'])
+        ->and(array_column($rows['Activity_Skill'], 'activity_id'))->toBe(['A1']);
+})->with(['xml', 'json']);

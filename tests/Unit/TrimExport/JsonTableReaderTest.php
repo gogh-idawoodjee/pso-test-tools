@@ -89,3 +89,20 @@ it('stops looking for the wrapper once the head passes the cap, without holding 
         ->and(memory_get_peak_usage(true) - $before)->toBeLessThan(JsonTableReader::MAX_HEAD_BYTES + 8388608)
         ->and(filesize($path))->toBeGreaterThan(JsonTableReader::MAX_HEAD_BYTES + 16777216);
 });
+
+it('refuses a row that never closes once it passes the segment cap, without holding the rest of the file', function () {
+    $path = trimFixtureFile('{"dsScheduleData": {"Activity": [{"id": "A1"', 'json');
+    $handle = fopen($path, 'ab');
+    $chunk = str_repeat(', "note": "'.str_repeat('x', 1000).'"', 256);
+    for ($written = 0; $written <= JsonTableReader::MAX_SEGMENT_BYTES + 16777216; $written += strlen($chunk)) {
+        fwrite($handle, $chunk);
+    }
+    fclose($handle);
+
+    $before = memory_get_usage(true);
+
+    expect(fn () => iterator_to_array(app(JsonTableReader::class)->segments($path)))
+        ->toThrow(RuntimeException::class, 'MB long that never ends. It looks truncated or damaged.')
+        ->and(memory_get_peak_usage(true) - $before)->toBeLessThan(JsonTableReader::MAX_SEGMENT_BYTES + 8388608)
+        ->and(filesize($path))->toBeGreaterThan(JsonTableReader::MAX_SEGMENT_BYTES + 16777216);
+});

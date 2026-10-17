@@ -44,7 +44,7 @@ it('shows the counts, the dangling list, the new export and its download', funct
         ->assertSee('R9, R10, R11')
         ->assertSee('already broken in the original export')
         ->assertSee('north-load.trimmed.xml')
-        ->assertSee('It is being read; other tools can use it once it is ready.')
+        ->assertSee('The new export is being read; refresh in a moment.')
         ->assertSee('Download the trimmed export')
         ->assertSeeHtml(e(route('exports.download', ['exportFile' => $this->export->id])))
         ->assertSee('Open the dataset')
@@ -95,6 +95,17 @@ it('says when the export has expired and when no references are broken', functio
         ->assertSee('This export has expired, so it cannot be downloaded.')
         ->assertDontSee('Download the trimmed export')
         ->assertSee('No broken references were found.');
+});
+
+it('says the new export could not be read, with its error, when its summary failed', function () {
+    $this->export->update(['status' => ExportFileStatus::Failed, 'error_message' => 'This file has no Plan block, so it is not a plan export.']);
+
+    Livewire::test(ToolRunPage::class, $this->params)
+        ->assertSee('The new export could not be read: This file has no Plan block, so it is not a plan export.')
+        ->assertSeeHtml('text-danger-600')
+        ->assertDontSee('Saved as a new')
+        ->assertDontSee('Download the trimmed export')
+        ->assertDontSee('being read');
 });
 
 it('never shows the run to another user', function () {

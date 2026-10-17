@@ -82,9 +82,10 @@ class TrimExportTool implements TakesOneInput, Tool, WizardOnly
         $newFile = null;
         if ($output !== null) {
             $context->reportProgress('Storing the trimmed export', 100, null, 'store');
+            $kind = TrimmedExportStore::kindFor($input->kind, $report);
             $newFile = $source->zipped()
-                ? $this->store->store($context, $input, $this->zip($output, (string) $source->memberName, $scratch.'/trimmed.zip'), 'zip')
-                : $this->store->store($context, $input, $output, $source->format);
+                ? $this->store->store($context, $input, $this->zip($output, (string) $source->memberName, $scratch.'/trimmed.zip'), 'zip', $kind)
+                : $this->store->store($context, $input, $output, $source->format, $kind);
         }
 
         $warnings = [...TableDependencies::warnings(array_map('strval', array_keys($report->tables)), $report->removedTables), ...$report->notes];
@@ -115,7 +116,7 @@ class TrimExportTool implements TakesOneInput, Tool, WizardOnly
     }
 
     /** No table removed, no row filter, no Input_Reference override and not Count only: the copy would be the input under a new name. */
-    private static function changesNothing(TrimPlan $plan): bool
+    public static function changesNothing(TrimPlan $plan): bool
     {
         $dropsTables = $plan->mode === TrimPlan::MODE_KEEP
             || array_filter($plan->tables, static fn (string $table): bool => $plan->dropsTable($table)) !== [];
