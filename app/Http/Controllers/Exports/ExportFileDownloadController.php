@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers\Exports;
 
-use App\Enums\ExportFileStatus;
-use App\Enums\ExportKind;
 use App\Http\Controllers\Controller;
 use App\Models\ExportFile;
+use App\Models\User;
 use App\Support\Exports\ExportStorage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -16,8 +15,8 @@ class ExportFileDownloadController extends Controller
     {
         $file = ExportFile::query()->findOrFail($exportFile);
         // A SYS export holds live credentials (a TomTom key in plain text): it is never served back.
-        abort_if($file->kind === ExportKind::Sys || $file->isExpired()
-            || ! in_array($file->status, [ExportFileStatus::Ready, ExportFileStatus::Summarising], true), 404);
+        // The ownership scope already hides other users' files; this is the explicit second check.
+        abort_unless(auth()->user() instanceof User && $file->isOwnedBy(auth()->user()) && $file->isDownloadable(), 404);
 
         $stream = $storage->disk()->readStream($storage->objectKey($file));
         abort_if($stream === null, 404);

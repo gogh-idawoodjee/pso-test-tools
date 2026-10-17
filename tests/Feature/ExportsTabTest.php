@@ -64,6 +64,13 @@ it('shows a failed upload with its reason on the row', function () {
         ->assertSee('not a SYS');
 });
 
+it('offers no Download for a SYS export on the environment tab', function () {
+    $sys = ExportFile::factory()->for($this->dataset->environment, 'scope')->sys()->create();
+
+    Livewire::test(EnvironmentExports::class, ['ownerRecord' => $this->dataset->environment, 'pageClass' => ViewEnvironment::class])
+        ->assertTableActionHidden('download', $sys);
+});
+
 it('shows allocations for a plan export', function () {
     $file = ExportFile::factory()->for($this->dataset, 'scope')->create([
         'kind' => ExportKind::Plan, 'original_filename' => 'plan.zip',

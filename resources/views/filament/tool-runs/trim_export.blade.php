@@ -6,8 +6,7 @@
     $countOnly = (bool) ($result['count_only'] ?? false);
     $exportId = $result['export_file_id'] ?? null;
     $export = filled($exportId) ? \App\Models\ExportFile::query()->find($exportId) : null;
-    $downloadable = $export !== null && ! $export->isExpired()
-        && in_array($export->status, [\App\Enums\ExportFileStatus::Ready, \App\Enums\ExportFileStatus::Summarising], true);
+    $downloadable = $export?->isDownloadable() ?? false;
     $isDataset = $run->scope instanceof \App\Models\Dataset;
     $placeUrl = $isDataset
         ? \App\Filament\Resources\DatasetResource::getUrl('view', ['record' => $run->scope])
@@ -35,6 +34,8 @@
             <div class="flex flex-wrap gap-2">
                 @if ($downloadable)
                     <x-filament::button tag="a" href="{{ route('exports.download', ['exportFile' => $export->id]) }}" icon="heroicon-o-arrow-down-tray" size="sm">Download the trimmed export</x-filament::button>
+                @elseif ($export->isExpired() && $export->status !== \App\Enums\ExportFileStatus::Purged)
+                    <p class="self-center text-sm text-gray-500 dark:text-gray-400">This export has expired, so it cannot be downloaded.</p>
                 @endif
                 <x-filament::button tag="a" href="{{ $placeUrl }}" icon="heroicon-o-folder-open" color="gray" size="sm">{{ $isDataset ? 'Open the dataset' : 'Open My files' }}</x-filament::button>
             </div>
@@ -42,7 +43,11 @@
     </div>
 </x-filament::section>
 
-@if ($dangling !== [])
+@if ($dangling === [])
+    <x-filament::section>
+        <p class="text-sm text-gray-600 dark:text-gray-300">No broken references were found.</p>
+    </x-filament::section>
+@else
     <x-filament::section heading="References left pointing at nothing">
         <p class="mb-3 text-sm text-gray-600 dark:text-gray-300">These kept rows point at rows that are not in the trimmed file. This list cannot tell references that were already broken in the original export from ones the trim caused.</p>
         <table class="w-full text-sm">

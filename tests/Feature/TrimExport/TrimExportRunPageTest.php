@@ -87,6 +87,16 @@ it('links an Unfiled run to My files', function () {
         ->assertSee('Download the trimmed export');
 });
 
+it('says when the export has expired and when no references are broken', function () {
+    $this->export->update(['status' => ExportFileStatus::Ready, 'expires_at' => now()->subMinute()]);
+    $this->run->update(['result' => [...$this->run->result, 'dangling' => []]]);
+
+    Livewire::test(ToolRunPage::class, $this->params)
+        ->assertSee('This export has expired, so it cannot be downloaded.')
+        ->assertDontSee('Download the trimmed export')
+        ->assertSee('No broken references were found.');
+});
+
 it('never shows the run to another user', function () {
     $this->actingAs(User::factory()->create(['email' => 'other@mac.com']));
 

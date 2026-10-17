@@ -62,3 +62,26 @@ it('offers Download on the Exports table for a file that is still stored', funct
         ->assertTableActionHasUrl('download', route('exports.download', ['exportFile' => $mine->id]), record: $mine)
         ->assertTableActionHidden('download', $purged);
 });
+
+it('serves an Unfiled export to its owner only, and never an environment-scoped one (SYS)', function () {
+    $unfiled = ExportFile::factory()->for($this->user, 'scope')->create(['original_filename' => 'mine.xml', 'content_type' => 'xml']);
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($unfiled), '<x/>');
+    $onEnvironment = ExportFile::factory()->for($this->dataset->environment, 'scope')->sys()->create();
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($onEnvironment), '<x/>');
+
+    $this->get(route('exports.download', ['exportFile' => $unfiled->id]))->assertOk();
+    $this->get(route('exports.download', ['exportFile' => $onEnvironment->id]))->assertNotFound();
+
+    $this->actingAs(User::factory()->create(['email' => 'other@mac.com']));
+    $this->get(route('exports.download', ['exportFile' => $unfiled->id]))->assertNotFound();
+    $this->get(route('exports.download', ['exportFile' => $onEnvironment->id]))->assertNotFound();
+});
+
+it('checks ownership explicitly, whatever the query scope finds', function () {
+    $other = User::factory()->create(['email' => 'other@mac.com']);
+
+    expect($this->file->isOwnedBy($this->user))->toBeTrue()
+        ->and($this->file->isOwnedBy($other))->toBeFalse()
+        ->and(ExportFile::factory()->for($this->dataset->environment, 'scope')->sys()->create()->isOwnedBy($this->user))->toBeTrue()
+        ->and(ExportFile::factory()->for($this->dataset->environment, 'scope')->sys()->create()->isOwnedBy($other))->toBeFalse();
+});

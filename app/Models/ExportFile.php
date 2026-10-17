@@ -115,6 +115,26 @@ class ExportFile extends Model
         return $this->expires_at !== null && $this->expires_at->isPast();
     }
 
+    /** Ready or being read, not expired, and not a SYS export (it holds live credentials, so it is never served back). */
+    public function isDownloadable(): bool
+    {
+        return $this->kind !== ExportKind::Sys && ! $this->isExpired()
+            && in_array($this->status, [ExportFileStatus::Ready, ExportFileStatus::Summarising], true);
+    }
+
+    /** Whether the file sits on the user's own environment, a dataset of it, or the user. */
+    public function isOwnedBy(User $user): bool
+    {
+        $scope = $this->scope;
+
+        return match (true) {
+            $scope instanceof Dataset => $scope->environment?->user_id === $user->id,
+            $scope instanceof Environment => $scope->user_id === $user->id,
+            $scope instanceof User => (string) $scope->getKey() === (string) $user->getKey(),
+            default => false,
+        };
+    }
+
     public function isUsable(): bool
     {
         return $this->status === ExportFileStatus::Ready && ! $this->isExpired();

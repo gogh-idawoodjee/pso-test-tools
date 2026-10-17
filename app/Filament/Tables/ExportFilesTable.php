@@ -45,8 +45,7 @@ class ExportFilesTable
                     ->label('Download')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->url(static fn (ExportFile $record): string => route('exports.download', ['exportFile' => $record->id]))
-                    ->visible(static fn (ExportFile $record): bool => $record->kind !== ExportKind::Sys && ! $record->isExpired()
-                        && in_array($record->status, [ExportFileStatus::Ready, ExportFileStatus::Summarising], true)),
+                    ->visible(static fn (ExportFile $record): bool => $record->isDownloadable()),
                 DeleteAction::make()
                     ->modalDescription('The file is removed from storage too. Results from runs that used it are kept.')
                     ->using(static function (ExportFile $record): void {
