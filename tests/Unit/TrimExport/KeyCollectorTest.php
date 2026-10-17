@@ -68,6 +68,8 @@ it('keeps rows by their own id, by the cascade, and availability never by date',
         ->and($keep->keepsRow('Activity', ['id' => 'A2']))->toBeFalse()
         ->and($keep->keepsRow('Availability', ['id' => 'AV3', 'resource_id' => 'R1']))->toBeTrue()
         ->and($keep->keepsRow('Availability', ['id' => 'AV2', 'resource_id' => 'R2']))->toBeFalse()
+        ->and($keep->keepsRow('Availability', ['id' => 'AV1', 'resource_id' => 'R2']))->toBeTrue()
+        ->and($keep->keepsRow('Availability', ['id' => 'AVX', 'activity_id' => 'A1', 'resource_id' => 'R2']))->toBeTrue()
         ->and($keep->keepsRow('Shift_Break', ['shift_id' => 'S2']))->toBeFalse()
         ->and($keep->keepsRow('Activity_Group', ['activity_id1' => 'A1', 'activity_id2' => 'A2']))->toBeFalse()
         ->and($keep->keepsRow('Activity_Status', ['activity_id' => 'A1', 'resource_id' => 'R2']))->toBeTrue()

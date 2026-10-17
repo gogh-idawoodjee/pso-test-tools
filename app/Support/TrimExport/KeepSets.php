@@ -4,8 +4,9 @@ namespace App\Support\TrimExport;
 
 /**
  * The ids pass one decided to keep, and the rule pass two applies to every row of a kept table: the table's own
- * id for Resources, Shift, Activity and Location; for Availability, the cascade plus being referenced or owned
- * by a kept activity (never a date); for every other table, the generic cascade of #26.
+ * id for Resources, Shift, Activity and Location; for Availability, being referenced by a kept row or owned by
+ * a kept activity (never a date, and never the cascade: the reference is the reason to keep it, so one carrying a
+ * removed resource_id stays and is listed as dangling); for every other table, the generic cascade of #26.
  */
 class KeepSets
 {
@@ -58,8 +59,8 @@ class KeepSets
             'Shift' => $id !== null && isset($this->shifts[$id]),
             'Activity' => $id !== null && isset($this->activities[$id]),
             'Location' => $id !== null && isset($this->locations[$id]),
-            'Availability' => $this->cascades($table, $fields)
-                && (($id !== null && isset($this->availability[$id])) || (isset($fields['activity_id']) && isset($this->activities[$fields['activity_id']]))),
+            'Availability' => ($id !== null && isset($this->availability[$id]))
+                || (isset($fields['activity_id']) && isset($this->activities[$fields['activity_id']])),
             default => $this->cascades($table, $fields),
         };
     }
