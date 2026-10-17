@@ -47,6 +47,7 @@ expect()->extend('toBeOne', function () {
 */
 
 require_once __DIR__.'/Support/ExportFixtures.php';
+require_once __DIR__.'/Support/TrimExportFixtures.php';
 
 function callProtectedMethod(object $instance, string $method, array $args = []): mixed
 {

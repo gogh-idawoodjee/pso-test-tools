@@ -9,7 +9,6 @@ use App\Support\ScheduleDataSummaryExtractor;
 use App\Support\SysCompare\VersionAnalyzer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Throwable;
 use XMLReader;
 use ZipArchive;
@@ -30,14 +29,14 @@ class ExportSummariser
         }
 
         // Zips are often misnamed, so what the bytes are wins over what the file was called.
-        $contentType = $this->sniffFormat($localPath) ?? $file->content_type;
+        $contentType = ExportFormat::sniff($localPath) ?? $file->content_type;
 
         if ($kind === ExportKind::Audits) {
             return $this->summariseAudits($contentType, $localPath);
         }
 
         [$path, $format] = $contentType === 'zip'
-            ? $this->largestMember($localPath)
+            ? array_slice(ExportFormat::largestMember($localPath), 0, 2)
             : [$localPath, $contentType];
 
         $root = $this->detectRoot($path, $format);
@@ -548,7 +547,7 @@ class ExportSummariser
         try {
             for ($index = 0; $index < $zip->numFiles; $index++) {
                 $name = (string) $zip->getNameIndex($index);
-                if (! $this->isReadableMember($name, 'xml') || str_contains($name, '#')) {
+                if (! ExportFormat::isReadableMember($name, 'xml') || str_contains($name, '#')) {
                     continue;
                 }
 
@@ -600,84 +599,6 @@ class ExportSummariser
             'last_message_at' => $last?->toIso8601String(),
             'appointment_request_count' => $appointmentRequests,
         ]);
-    }
-
-    /**
-     * Copies the largest .xml or .json member of a zip next to it and returns its path and format.
-     *
-     * @return array{0: string, 1: string}
-     */
-    private function largestMember(string $zipPath): array
-    {
-        $zip = new ZipArchive;
-        if ($zip->open($zipPath) !== true) {
-            throw new InvalidExportException('The zip could not be opened. It may be damaged or incomplete.');
-        }
-
-        try {
-            $bestIndex = null;
-            $bestSize = -1;
-            for ($index = 0; $index < $zip->numFiles; $index++) {
-                $name = (string) $zip->getNameIndex($index);
-                $stat = $zip->statIndex($index);
-                if (! $this->isReadableMember($name) || $stat === false) {
-                    continue;
-                }
-                if ($stat['size'] > $bestSize) {
-                    $bestSize = $stat['size'];
-                    $bestIndex = $index;
-                }
-            }
-
-            if ($bestIndex === null) {
-                throw new InvalidExportException('The zip holds no .xml or .json file.');
-            }
-
-            $capMegabytes = (float) config('exports.max_member_megabytes', 600);
-            if ($bestSize > $capMegabytes * 1024 * 1024) {
-                throw new InvalidExportException('The file inside the zip is too large to read here ('.round($bestSize / 1024 / 1024).' MB uncompressed; the limit is '.round($capMegabytes).' MB).');
-            }
-
-            $format = strtolower(pathinfo((string) $zip->getNameIndex($bestIndex), PATHINFO_EXTENSION));
-            $target = dirname($zipPath).'/member-'.Str::uuid().'.'.$format;
-            $source = $zip->getStreamIndex($bestIndex);
-            $destination = fopen($target, 'wb');
-            try {
-                stream_copy_to_stream($source, $destination);
-            } finally {
-                fclose($destination);
-                fclose($source);
-            }
-
-            return [$target, $format];
-        } finally {
-            $zip->close();
-        }
-    }
-
-    /** zip, json or xml by the first bytes of the file; null when it is none of them. */
-    private function sniffFormat(string $path): ?string
-    {
-        $head = (string) file_get_contents($path, false, null, 0, 16);
-        $head = ltrim(str_starts_with($head, "\xEF\xBB\xBF") ? substr($head, 3) : $head);
-
-        return match (true) {
-            str_starts_with($head, "PK\x03\x04") => 'zip',
-            str_starts_with($head, '{') => 'json',
-            str_starts_with($head, '<') => 'xml',
-            default => null,
-        };
-    }
-
-    private function isReadableMember(string $name, ?string $only = null): bool
-    {
-        if (str_ends_with($name, '/') || str_starts_with($name, '__MACOSX/') || str_contains(basename($name), '._')) {
-            return false;
-        }
-
-        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-
-        return $only !== null ? $extension === $only : in_array($extension, ['xml', 'json'], true);
     }
 
     /** The root element (xml) or first key (json), normalised to the names we compare against. */
