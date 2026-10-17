@@ -141,3 +141,64 @@ function trimCopy(TableReader $reader, TableWriter $writer, string $source, stri
 
     return $writer->close();
 }
+
+/**
+ * A small export that exercises every rule. With region V1 and the window 2026-10-05 to 2026-10-09 (UTC) the
+ * kept ids are: resources R1; shifts S1; activities A1 (L1 is in V1) and A3 (L3 only through Location_Region);
+ * locations L1, L3, LS1 (R1 and S1 start there), LT (Resource_Type); availability AV1 (R1's region
+ * availability) and AV3 (R1's skill availability, dated 2025: never filtered by date).
+ *
+ * @return array<string, list<array<string, string>>>
+ */
+function trimDataset(): array
+{
+    return [
+        'Input_Reference' => [['id' => 'IR1', 'datetime' => '2026-10-04T08:00:00', 'dataset_id' => 'NORTH']],
+        'Region' => [['id' => 'V1', 'description' => 'Regina'], ['id' => 'V2', 'description' => 'Saskatoon']],
+        'Location' => [
+            ['id' => 'L1', 'region_id' => 'V1'], ['id' => 'L2', 'region_id' => 'V2'], ['id' => 'L3'],
+            ['id' => 'L4', 'region_id' => 'V1'], ['id' => 'LS1'], ['id' => 'LT'],
+        ],
+        'Location_Region' => [['location_id' => 'L3', 'region_id' => 'V1'], ['location_id' => 'L2', 'region_id' => 'V2']],
+        'Resource_Type' => [['id' => 'RT1', 'location_id_start' => 'LT', 'location_id_end' => 'LT']],
+        'Resources' => [
+            ['id' => 'R1', 'first_name' => 'Ada', 'surname' => 'Lovelace', 'location_id_start' => 'LS1'],
+            ['id' => 'R2', 'first_name' => 'Alan', 'surname' => 'Turing'],
+        ],
+        'Resource_Region' => [['resource_id' => 'R1', 'region_id' => 'V1'], ['resource_id' => 'R2', 'region_id' => 'V2']],
+        'Shift' => [
+            ['id' => 'S1', 'resource_id' => 'R1', 'start_datetime' => '2026-10-06T08:00:00', 'end_datetime' => '2026-10-06T16:00:00', 'location_id_start' => 'LS1'],
+            ['id' => 'S2', 'resource_id' => 'R2', 'start_datetime' => '2026-10-06T08:00:00', 'end_datetime' => '2026-10-06T16:00:00'],
+            ['id' => 'S3', 'resource_id' => 'R1', 'start_datetime' => '2026-10-20T08:00:00', 'end_datetime' => '2026-10-20T16:00:00'],
+        ],
+        'Shift_Break' => [['shift_id' => 'S1', 'duration' => '30'], ['shift_id' => 'S2', 'duration' => '30']],
+        'Availability' => [
+            ['id' => 'AV1', 'resource_id' => 'R1', 'datetime_start' => '2026-10-06T08:00:00'],
+            ['id' => 'AV2', 'resource_id' => 'R2', 'datetime_start' => '2026-10-06T08:00:00'],
+            ['id' => 'AV3', 'resource_id' => 'R1', 'datetime_start' => '2025-01-01T08:00:00'],
+            ['id' => 'AV4', 'datetime_start' => '2026-10-06T08:00:00'],
+        ],
+        'Resource_Region_Availability' => [['resource_id' => 'R1', 'availability_id' => 'AV1'], ['resource_id' => 'R2', 'availability_id' => 'AV2']],
+        'Resource_Skill_Availability' => [['resource_id' => 'R1', 'availability_id' => 'AV3']],
+        'Activity_Type' => [['id' => 'T1', 'description' => 'Install'], ['id' => 'T2', 'description' => 'Repair']],
+        'Activity' => [
+            ['id' => 'A1', 'location_id' => 'L1', 'activity_type_id' => 'T1'],
+            ['id' => 'A2', 'location_id' => 'L2', 'activity_type_id' => 'T1'],
+            ['id' => 'A3', 'location_id' => 'L3', 'activity_type_id' => 'T2'],
+            ['id' => 'A4', 'location_id' => 'L1', 'activity_type_id' => 'T1'],
+        ],
+        'Activity_SLA' => [
+            ['activity_id' => 'A1', 'sla_type_id' => 'APPOINTMENT', 'datetime_start' => '2026-10-06T08:00:00', 'datetime_end' => '2026-10-06T12:00:00'],
+            ['activity_id' => 'A2', 'sla_type_id' => 'APPOINTMENT', 'datetime_start' => '2026-10-06T08:00:00', 'datetime_end' => '2026-10-06T12:00:00'],
+            ['activity_id' => 'A3', 'sla_type_id' => 'APPOINTMENT', 'datetime_start' => '2026-10-07T08:00:00', 'datetime_end' => '2026-10-07T12:00:00'],
+            ['activity_id' => 'A4', 'sla_type_id' => 'APPOINTMENT', 'datetime_start' => '2026-10-20T08:00:00', 'datetime_end' => '2026-10-20T12:00:00'],
+            ['activity_id' => 'A4', 'sla_type_id' => 'COMMIT', 'datetime_start' => '2026-10-06T08:00:00', 'datetime_end' => '2026-10-06T12:00:00'],
+        ],
+        'Activity_Status' => [['activity_id' => 'A1', 'status_id' => '30', 'resource_id' => 'R2'], ['activity_id' => 'A2', 'status_id' => '0']],
+        'Activity_Group' => [['activity_id1' => 'A1', 'activity_id2' => 'A3'], ['activity_id1' => 'A1', 'activity_id2' => 'A2']],
+        'Activity_Skill' => [['activity_id' => 'A1', 'skill_id' => 'K1'], ['activity_id' => 'A2', 'skill_id' => 'K1']],
+        'Plan' => [['id' => 'P1', 'dataset_id' => 'NORTH']],
+        'Plan_Travel' => [['plan_id' => 'P1', 'resource_id' => 'R1'], ['plan_id' => 'P1', 'resource_id' => 'R2']],
+        'Allocation' => [['activity_id' => 'A1', 'resource_id' => 'R1'], ['activity_id' => 'A2', 'resource_id' => 'R2']],
+    ];
+}
