@@ -42,6 +42,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\HtmlString;
+use InvalidArgumentException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Override;
@@ -149,7 +150,7 @@ abstract class ToolWizardPage extends Page implements HasForms
     }
 
     /** The zone an Unfiled run's pages show times in; hidden (so neither validated nor kept) for a dataset run. */
-    private function timeZoneField(): Select
+    protected function timeZoneField(): Select
     {
         $zones = self::timeZones();
 
@@ -282,14 +283,14 @@ abstract class ToolWizardPage extends Page implements HasForms
         if (! $this->hasScope()) {
             return [Text::make($this->isDatasetScoped() ? 'Choose the environment and dataset first.' : 'Choose the environment first.')->color('gray')];
         }
-        $tool = app(ToolRegistry::class)->for(static::tool());
         $scope = $this->scopeModel();
         $options = app(RunInputPicker::class)->optionsWithExpiryFor($scope, static::tool());
         $pending = $this->pendingKinds();
         $rows = [];
 
-        foreach ([...$tool->requiredKinds(), ...$tool->optionalKinds()] as $kind) {
-            $required = in_array($kind, $tool->requiredKinds(), true);
+        $requiredKinds = $this->requiredInputKinds();
+        foreach ($this->inputKinds() as $kind) {
+            $required = in_array($kind, $requiredKinds, true);
             $kindOptions = $options[$kind->value] ?? [];
             $uploadScope = $this->uploadScopeFor($kind, $scope);
             // The drop target beside it shows the file being read; the select waits for it and then chooses it.
@@ -321,7 +322,7 @@ abstract class ToolWizardPage extends Page implements HasForms
             ]);
         }
 
-        return [
+        return [...$this->inputLead(),
             Group::make($rows)->extraAttributes($pending === [] ? [] : ['wire:poll.2s' => 'refreshInputs']),
             Text::make('Files are kept for '.(int) config('exports.ttl_hours', 12).' hours, then the raw file is deleted. Results from runs that used it are kept.')->color('gray'),
         ];
@@ -386,6 +387,35 @@ abstract class ToolWizardPage extends Page implements HasForms
     /** A tool page can derive an option from the chosen files here (Plan travels fills its first date). */
     protected function afterInputsChanged(): void {}
 
+    /** @return list<ExportKind> the kinds whose file pickers Inputs shows: every kind the tool takes, unless a page narrows them */
+    protected function inputKinds(): array
+    {
+        return app(RunInputPicker::class)->kindsOf(static::tool());
+    }
+
+    /** @return list<ExportKind> */
+    protected function requiredInputKinds(): array
+    {
+        return app(ToolRegistry::class)->for(static::tool())->requiredKinds();
+    }
+
+    /** @return list<Component> shown above the file pickers on Inputs */
+    protected function inputLead(): array
+    {
+        return [];
+    }
+
+    /**
+     * The files a run starts with; a page that shows only some pickers keeps only theirs.
+     *
+     * @param  array<string, string|null>  $files
+     * @return array<string, string|null>
+     */
+    protected function chosenFiles(array $files): array
+    {
+        return $files;
+    }
+
     /**
      * Select the newest file when it arrived since the last refresh (the upload the user just made),
      * then fill the remaining empty fields the user has not cleared with the picker's
@@ -432,7 +462,7 @@ abstract class ToolWizardPage extends Page implements HasForms
         }
         $scope = $this->scopeModel();
 
-        return array_values(array_filter(app(RunInputPicker::class)->kindsOf(static::tool()), function (ExportKind $kind) use ($scope): bool {
+        return array_values(array_filter($this->inputKinds(), function (ExportKind $kind) use ($scope): bool {
             $uploadScope = $this->uploadScopeFor($kind, $scope);
 
             return ExportFile::query()->where('scope_type', $uploadScope->getMorphClass())->where('scope_id', (string) $uploadScope->getKey())
@@ -477,14 +507,14 @@ abstract class ToolWizardPage extends Page implements HasForms
 
         try {
             // A file that expired since the form opened is no longer an option, so say so before the form's own validation does.
-            app(StartToolRun::class)->assertUsable($scope, static::tool(), $this->data['files'] ?? []);
+            app(StartToolRun::class)->assertUsable($scope, static::tool(), $this->chosenFiles($this->data['files'] ?? []));
             $state = $this->form->getState();
             $options = $state['options'] ?? [];
             if (! $this->isUnfiled()) {
                 // Only an Unfiled run takes a zone; a dataset run uses the dataset's.
                 unset($options['time_zone']);
             }
-            $run = app(StartToolRun::class)->start($scope, static::tool(), $state['files'] ?? [], $options, auth()->user());
+            $run = app(StartToolRun::class)->start($scope, static::tool(), $this->chosenFiles($state['files'] ?? []), $options, auth()->user());
         } catch (UnusableInputException $e) {
             // Empty on purpose, so the default does not put the same unusable file back.
             $this->data['files'][$e->kind->value] = null;
@@ -493,6 +523,11 @@ abstract class ToolWizardPage extends Page implements HasForms
             Notification::make()->title('The run did not start')->body($e->getMessage())->danger()->send();
             // The emptied field is on the Inputs step; take the user there rather than leave them on a later step.
             $this->dispatch('go-to-wizard-step', ...$this->inputsStepTarget());
+
+            return;
+        } catch (InvalidArgumentException $e) {
+            // None or several files where the tool takes one, or a scope it cannot run on: only a forged form state gets here.
+            Notification::make()->title('The run did not start')->body($e->getMessage())->danger()->send();
 
             return;
         }

@@ -12,6 +12,7 @@ it('puts every page in one of the four intent groups', function (string $class, 
     expect($class::getNavigationGroup())->toBe($group);
 })->with([
     [Pages\Tools\LoadAuditEntry::class, Groups::ANALYSE],
+    [Pages\Tools\TrimExportEntry::class, Groups::ANALYSE],
     [Pages\MyFiles::class, Groups::ANALYSE],
     [Pages\SysFileCompare::class, Groups::ANALYSE],
     [Pages\FilterLoadFile::class, Groups::ANALYSE],
