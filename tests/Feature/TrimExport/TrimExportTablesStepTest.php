@@ -11,6 +11,7 @@ use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -174,4 +175,90 @@ it('refuses a chosen export that is no longer usable as a notification and empti
         ->assertFormSet(['files.plan' => null]);
 
     expect(ToolRun::query()->count())->toBe(0);
+});
+
+it('sets the preset to Custom when the mode changes, and puts Remove back when Cleanup is chosen', function () {
+    trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
+
+    Livewire::test(TrimExportEntry::class)
+        ->call('prepareTables')
+        ->fillForm(['options.table_mode' => 'keep'])
+        ->assertFormSet(['options.preset' => 'custom', 'options.tables' => ['Plan', 'Plan_Travel']])
+        ->fillForm(['options.tables' => ['Activity']])
+        ->fillForm(['options.preset' => 'cleanup'])
+        ->assertFormSet(['options.table_mode' => 'remove', 'options.tables' => ['Plan', 'Plan_Travel']]);
+});
+
+it('drops an Input_Reference tick when its removal is no longer allowed, so the run still starts', function () {
+    Queue::fake();
+    trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
+
+    Livewire::test(TrimExportEntry::class)
+        ->call('prepareTables')
+        ->fillForm(['options.allow_input_reference_removal' => true])
+        ->fillForm(['options.tables' => ['Input_Reference', 'Plan']])
+        ->fillForm(['options.allow_input_reference_removal' => false])
+        ->assertFormSet(['options.tables' => ['Plan']])
+        ->call('start')
+        ->assertHasNoFormErrors();
+
+    expect(ToolRun::sole()->inputs['options']['tables'])->toBe(['Plan']);
+});
+
+it('rebuilds the list with the preset when another file is chosen after the tables were read', function () {
+    $first = trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
+
+    $component = Livewire::test(TrimExportEntry::class)
+        ->call('prepareTables')
+        ->fillForm(['options.allow_input_reference_removal' => true])
+        ->assertSet('tablesForFileId', $first->id);
+
+    // A newer upload finishes while the user is on Tables: the poll selects it and the old list goes.
+    $second = trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => ['Input_Reference' => 1, 'Plan' => 1, 'Plan_Route' => 9, 'Activity' => 3]]]);
+    $component->call('refreshInputs')
+        ->assertFormSet(['files.load' => $second->id, 'options.tables' => [], 'options.allow_input_reference_removal' => false])
+        ->assertSet('tablesForFileId', null)
+        ->assertSee('The tables are read from the file when you leave the Inputs step.')
+        ->call('prepareTables')
+        ->assertSet('tablesForFileId', $second->id)
+        ->assertFormSet(['options.preset' => 'cleanup', 'options.tables' => ['Plan', 'Plan_Route']])
+        ->assertSee('Plan output: Plan_Route, 9 rows');
+});
+
+it('refuses to start on a file whose tables were not reviewed, then starts once they are', function () {
+    Queue::fake();
+    trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
+
+    $component = Livewire::test(TrimExportEntry::class)->call('prepareTables');
+    $second = trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => ['Input_Reference' => 1, 'Plan' => 1, 'Activity' => 3]]]);
+
+    $component->call('refreshInputs')
+        ->call('start')
+        ->assertSet('runId', null)
+        ->assertNotified(Notification::make()->title('The run did not start')
+            ->body('The export changed, so the Tables step was read again from the new file. Check it, then run again.')->warning())
+        ->assertSet('tablesForFileId', $second->id)
+        ->assertFormSet(['options.tables' => ['Plan']]);
+    expect(ToolRun::query()->count())->toBe(0);
+
+    $component->call('start')->assertHasNoFormErrors();
+    expect(ToolRun::sole()->inputs['files'])->toBe(['load' => $second->id]);
+});
+
+it('says so when the file holds no tables', function () {
+    trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['export_date' => '2026-10-04'], 'content_type' => 'xml']);
+    $file = ExportFile::sole();
+    Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($file), '<?xml version="1.0"?><dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd"></dsScheduleData>');
+
+    Livewire::test(TrimExportEntry::class)
+        ->call('prepareTables')
+        ->assertSet('tablesForFileId', $file->id)
+        ->assertSee('No tables were found in this file.');
+});
+
+it('does not let the browser change the table counts', function () {
+    trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
+
+    expect(fn () => Livewire::test(TrimExportEntry::class)->call('prepareTables')->set('tableCounts', ['Plan' => 1]))
+        ->toThrow(CannotUpdateLockedPropertyException::class);
 });

@@ -46,11 +46,12 @@ class TableChoices
     /**
      * @param  array<string, int>  $counts
      * @param  list<string>  $dropped
+     * @param  bool  $read  whether the counts were read from the file (so empty means the file has no tables)
      */
-    public static function footer(array $counts, array $dropped): string
+    public static function footer(array $counts, array $dropped, bool $read = false): string
     {
         if ($counts === []) {
-            return 'The tables are read from the file when you leave the Inputs step.';
+            return $read ? 'No tables were found in this file.' : 'The tables are read from the file when you leave the Inputs step.';
         }
 
         $droppedSet = array_flip($dropped);

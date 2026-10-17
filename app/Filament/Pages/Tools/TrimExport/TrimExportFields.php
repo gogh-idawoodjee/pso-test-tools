@@ -35,7 +35,9 @@ class TrimExportFields
                     ->default(TrimPlan::MODE_REMOVE)
                     ->inline()
                     ->required()
-                    ->live(),
+                    ->live()
+                    // The preset is a Remove list: in Keep mode the same ticks mean something else.
+                    ->afterStateUpdated(static fn (Set $set) => $set('options.preset', self::PRESET_CUSTOM)),
                 Select::make('options.preset')
                     ->label('Preset')
                     ->options([self::PRESET_CLEANUP => 'Cleanup for input', self::PRESET_CUSTOM => 'Custom'])
@@ -46,6 +48,7 @@ class TrimExportFields
                     ->live()
                     ->afterStateUpdated(static function (?string $state, Set $set, TrimExportEntry $livewire): void {
                         if ($state === self::PRESET_CLEANUP) {
+                            $set('options.table_mode', TrimPlan::MODE_REMOVE);
                             $set('options.tables', TableDependencies::cleanupPresent(array_keys($livewire->tableCounts)));
                         }
                     }),
@@ -53,7 +56,13 @@ class TrimExportFields
                     ->label('Allow Input_Reference to be removed')
                     ->helperText('PSO will not load a file without it.')
                     ->default(false)
-                    ->live(),
+                    ->live()
+                    // A greyed tick the user cannot clear would fail validation: drop it when the lock goes back on.
+                    ->afterStateUpdated(static function (?bool $state, Get $get, Set $set): void {
+                        if (! $state) {
+                            $set('options.tables', array_values(array_diff($get('options.tables') ?? [], [TableDependencies::INPUT_REFERENCE])));
+                        }
+                    }),
             ]),
             CheckboxList::make('options.tables')
                 ->hiddenLabel()
@@ -67,7 +76,7 @@ class TrimExportFields
                 ->validationMessages(['required' => 'Tick at least one table to keep.'])
                 ->afterStateUpdated(static fn (Set $set) => $set('options.preset', self::PRESET_CUSTOM))
                 ->columnSpanFull(),
-            Text::make(static fn (Get $get, TrimExportEntry $livewire): string => TableChoices::footer($livewire->tableCounts, self::droppedTables($get, $livewire)))
+            Text::make(static fn (Get $get, TrimExportEntry $livewire): string => TableChoices::footer($livewire->tableCounts, self::droppedTables($get, $livewire), read: $livewire->tablesForFileId !== null))
                 ->columnSpanFull(),
             Group::make(static fn (Get $get, TrimExportEntry $livewire): array => array_map(
                 static fn (string $warning): Text => Text::make($warning)->color('warning'),

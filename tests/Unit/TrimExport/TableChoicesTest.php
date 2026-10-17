@@ -24,5 +24,6 @@ it('groups the tables in the spec order, by name within a group, with their row 
 it('sums the rows on each side of the selection for the footer', function () {
     expect(TableChoices::footer(['Plan' => 1, 'Plan_Travel' => 4812, 'Activity' => 7620, 'Input_Reference' => 1], ['Plan', 'Plan_Travel']))
         ->toBe('Removing 2 tables, 4,813 rows. Keeping 2 tables, 7,621 rows.')
-        ->and(TableChoices::footer([], []))->toBe('The tables are read from the file when you leave the Inputs step.');
+        ->and(TableChoices::footer([], []))->toBe('The tables are read from the file when you leave the Inputs step.')
+        ->and(TableChoices::footer([], [], read: true))->toBe('No tables were found in this file.');
 });

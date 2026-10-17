@@ -8,6 +8,7 @@ use App\Filament\Pages\Tools\TrimExport\TrimExportFields;
 use App\Models\ExportFile;
 use App\Support\TrimExport\ExportFileScanner;
 use App\Support\TrimExport\TableDependencies;
+use App\Support\TrimExport\TrimPlan;
 use Filament\Forms\Components\Radio;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Wizard\Step;
@@ -26,6 +27,7 @@ class TrimExportEntry extends ToolWizardPage
     private const array KINDS = [ExportKind::Load, ExportKind::Plan, ExportKind::Eod];
 
     /** @var array<string, int> table => rows in the chosen file (names and counts only) */
+    #[Locked]
     public array $tableCounts = [];
 
     #[Locked]
@@ -114,6 +116,28 @@ class TrimExportEntry extends ToolWizardPage
         }
     }
 
+    /**
+     * Never run on a table list read from another file: an upload that finished while the user was on a later
+     * step can change the chosen file and empty the list. Read the new file's tables and ask for another look.
+     * A missing or unusable file is the wizard's own refusal.
+     */
+    #[Override]
+    public function start(): void
+    {
+        $file = $this->chosenExportFile();
+        if ($file !== null && $file->id !== $this->tablesForFileId) {
+            if ($this->prepareTables()) {
+                Notification::make()->title('The run did not start')
+                    ->body('The export changed, so the Tables step was read again from the new file. Check it, then run again.')
+                    ->warning()->send();
+            }
+
+            return;
+        }
+
+        parent::start();
+    }
+
     public function chosenKind(): ExportKind
     {
         $kind = ExportKind::tryFrom((string) ($this->data['input_kind'] ?? ''));
@@ -152,6 +176,7 @@ class TrimExportEntry extends ToolWizardPage
 
         $this->tablesForFileId = $file->id;
         if (($this->data['options']['preset'] ?? TrimExportFields::PRESET_CLEANUP) === TrimExportFields::PRESET_CLEANUP) {
+            $this->data['options']['table_mode'] = TrimPlan::MODE_REMOVE;
             $this->data['options']['tables'] = TableDependencies::cleanupPresent(array_keys($this->tableCounts));
             $this->data['options']['preset'] = TrimExportFields::PRESET_CLEANUP;
         }
@@ -163,7 +188,10 @@ class TrimExportEntry extends ToolWizardPage
     {
         $this->tableCounts = [];
         $this->tablesForFileId = null;
+        $this->data['options']['table_mode'] = TrimPlan::MODE_REMOVE;
         $this->data['options']['tables'] = [];
         $this->data['options']['preset'] = TrimExportFields::PRESET_CLEANUP;
+        // The unlock was for the old file's Input_Reference; a new file starts locked.
+        $this->data['options']['allow_input_reference_removal'] = false;
     }
 }
