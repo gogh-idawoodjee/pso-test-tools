@@ -139,3 +139,11 @@ After this ships and Ish has used it on a real file: the Filter Load File page a
 - Golden (skipped when the files are absent): the SaskTel LOAD under `~/pso-data/SATE/2026-10-04/` with region V1,
   5 to 9 Oct: 85 resources, 8 activities, Location 3928 to 1362 (from #26 and #42); and the 135 MB plan export with
   the Cleanup preset: every Plan* and Allocation* table gone, Input_Reference kept, time under the target.
+
+## 9. Rulings made while planning (2026-10-17)
+
+- Input kinds: LOAD, plan and EOD are all optional on the tool; a `TakesOneInput` contract makes `start()` refuse none or more than one (the spec's "LOAD required" would refuse a plan alone).
+- Two Filter Load File behaviours are kept: the appointment window also drops shifts outside it; Activity_Status and Activity_SLA follow only their activity, so a status fixed to a resource outside the filter stays and is listed as dangling (the #26 check relied on this).
+- The golden test pins 85 resources and 8 activities for V1, 5 to 9 Oct, and that every kept location reference resolves; the 1,362 Location figure came from a different filter and is not pinned.
+- A zipped input gives a zip back (`<name>.trimmed.zip` holding `<member>.trimmed.xml`). The new owner-only export download refuses SYS exports, which hold live credentials.
+- Task 12 (removing Filter Load File and the public download route) runs only after Ish has used the tool on a real file.
