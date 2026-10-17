@@ -12,6 +12,8 @@ class ReferenceTally
     /** Reference field => the table holding the ids it points at (load-audit REFS in pso-tools). */
     public const array TARGETS = [
         'activity_id' => 'Activity',
+        'activity_id1' => 'Activity',
+        'activity_id2' => 'Activity',
         'resource_id' => 'Resources',
         'availability_id' => 'Availability',
         'location_id' => 'Location',
@@ -20,7 +22,7 @@ class ReferenceTally
         'shift_id' => 'Shift',
     ];
 
-    public const array FIELDS = ['id', 'activity_id', 'resource_id', 'availability_id', 'location_id', 'location_id_start', 'location_id_end', 'shift_id'];
+    public const array FIELDS = ['id', 'activity_id', 'activity_id1', 'activity_id2', 'resource_id', 'availability_id', 'location_id', 'location_id_start', 'location_id_end', 'shift_id'];
 
     /** @var array<string, array<string|int, true>> target table => kept ids */
     private array $ids = [];

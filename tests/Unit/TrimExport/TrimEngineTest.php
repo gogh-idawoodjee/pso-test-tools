@@ -86,7 +86,10 @@ it('lists the references a removed table leaves pointing at nothing, with three 
     [$report] = runTrim(['tables' => ['Activity']]);
 
     expect($report->tables['Activity_Status']['kept'])->toBe(2)
+        ->and($report->tables['Activity_Group']['kept'])->toBe(2)
         ->and($report->dangling)->toBe([
+            ['table' => 'Activity_Group', 'field' => 'activity_id1', 'count' => 2, 'examples' => ['A1']],
+            ['table' => 'Activity_Group', 'field' => 'activity_id2', 'count' => 2, 'examples' => ['A3', 'A2']],
             ['table' => 'Activity_SLA', 'field' => 'activity_id', 'count' => 5, 'examples' => ['A1', 'A2', 'A3']],
             ['table' => 'Activity_Skill', 'field' => 'activity_id', 'count' => 2, 'examples' => ['A1', 'A2']],
             ['table' => 'Activity_Status', 'field' => 'activity_id', 'count' => 2, 'examples' => ['A1', 'A2']],
@@ -152,14 +155,16 @@ it('notes filters that match nothing and still writes a loadable file', function
 });
 
 it('reports progress for each pass', function () {
-    $labels = [];
+    $calls = [];
     app(TrimEngine::class)->run(trimXml(trimDataset()), 'xml', TrimPlan::fromOptions(REGION_AND_WINDOW, 'UTC'), null,
-        static function (string $label, int $percent) use (&$labels): void {
-            $labels[$label] = $percent;
+        static function (string $label, int $percent) use (&$calls): void {
+            $calls[] = [$label, $percent];
         });
+    $passTwo = array_values(array_filter($calls, static fn (array $call): bool => $call[0] === TrimEngine::PASS_TWO));
 
-    expect(array_keys($labels))->toBe([TrimEngine::PASS_ONE, TrimEngine::PASS_TWO])
-        ->and($labels[TrimEngine::PASS_TWO])->toBe(50);
+    expect(array_values(array_unique(array_column($calls, 0))))->toBe([TrimEngine::PASS_ONE, TrimEngine::PASS_TWO])
+        ->and($passTwo[0][1])->toBe(50)
+        ->and(end($calls))->toBe([TrimEngine::PASS_TWO, 100]);
 });
 
 it('copies every row of the kept tables byte for byte when no row filter is set, without reading the keys', function (string $format) {

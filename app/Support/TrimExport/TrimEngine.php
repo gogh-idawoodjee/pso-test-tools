@@ -47,6 +47,7 @@ class TrimEngine
         }
 
         $writer = $outputPath === null ? null : ($format === 'json' ? new JsonTableWriter : new XmlTableWriter);
+        // Outside the try: a failed open leaves no .part, and abort() before open would have no path to remove.
         $writer?->open($outputPath);
 
         $fieldNames = array_values(array_unique([...KeepSets::FIELDS, ...ReferenceTally::FIELDS]));
@@ -106,6 +107,10 @@ class TrimEngine
             $writer?->abort();
 
             throw $exception;
+        }
+
+        if ($progress !== null) {
+            $progress(self::PASS_TWO, 100);
         }
 
         $notes = $keep?->notes ?? [];
