@@ -70,3 +70,22 @@ it('refuses json with no dsScheduleData wrapper, and a truncated file', function
     expect(fn () => iterator_to_array($reader->segments(trimFixtureFile('{"dsScheduleData": {"Activity": [{"id": "A1"}', 'json'))))
         ->toThrow(RuntimeException::class, 'looks truncated');
 });
+
+it('stops looking for the wrapper once the head passes the cap, without holding the file', function () {
+    $path = trimFixtureFile('{"Other": [', 'json');
+    $handle = fopen($path, 'ab');
+    $member = '{"x": "'.str_repeat('y', 4000).'"},';
+    for ($written = 0; $written <= JsonTableReader::MAX_HEAD_BYTES + 16777216; $written += strlen($member)) {
+        fwrite($handle, $member);
+    }
+    fwrite($handle, '{}], "dsScheduleData": {}}');
+    fclose($handle);
+
+    memory_reset_peak_usage();
+    $before = memory_get_usage(true);
+
+    expect(fn () => iterator_to_array(app(JsonTableReader::class)->segments($path)))
+        ->toThrow(RuntimeException::class, 'no dsScheduleData wrapper in its first 16 MB')
+        ->and(memory_get_peak_usage(true) - $before)->toBeLessThan(JsonTableReader::MAX_HEAD_BYTES + 8388608)
+        ->and(filesize($path))->toBeGreaterThan(JsonTableReader::MAX_HEAD_BYTES + 16777216);
+});

@@ -16,6 +16,9 @@ class JsonTableReader implements TableReader
 {
     private const array WRAPPER_KEYS = ['dsScheduleData', 'ScheduleData'];
 
+    /** How far into the file the wrapper is looked for before the file is refused, so memory stays flat. */
+    public const int MAX_HEAD_BYTES = 16 * 1048576;
+
     public function __construct(private JsonTokenReader $tokenReader) {}
 
     public function segments(string $path): Generator
@@ -46,6 +49,9 @@ class JsonTableReader implements TableReader
 
                 if ($state === 'head') {
                     $head .= $token;
+                    if (strlen($head) > self::MAX_HEAD_BYTES) {
+                        throw new RuntimeException('This file has no dsScheduleData wrapper in its first '.(self::MAX_HEAD_BYTES / 1048576).' MB, so it is not PSO schedule data.');
+                    }
                     if ($whitespace) {
                         continue;
                     }

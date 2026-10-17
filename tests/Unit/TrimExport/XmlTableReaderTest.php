@@ -74,3 +74,22 @@ it('refuses a file that is not schedule data, a truncated one and UTF-16', funct
     expect(fn () => iterator_to_array($reader->segments(trimFixtureFile("\xFF\xFE<\x00d\x00"))))
         ->toThrow(RuntimeException::class, 'UTF-16');
 });
+
+it('refuses an attribute that never closes once it passes the cap, without holding the file', function () {
+    $path = trimFixtureFile('<dsScheduleData><Activity note="');
+    $handle = fopen($path, 'ab');
+    $chunk = str_repeat('x > ', 262144);
+    for ($written = 0; $written <= XmlTableReader::MAX_SEGMENT_BYTES + 16777216; $written += strlen($chunk)) {
+        fwrite($handle, $chunk);
+    }
+    fclose($handle);
+    unset($chunk);
+
+    memory_reset_peak_usage();
+    $before = memory_get_usage(true);
+
+    expect(fn () => iterator_to_array(app(XmlTableReader::class)->segments($path)))
+        ->toThrow(RuntimeException::class, 'looks truncated or damaged')
+        ->and(memory_get_peak_usage(true) - $before)->toBeLessThan(XmlTableReader::MAX_SEGMENT_BYTES + 8388608)
+        ->and(filesize($path))->toBeGreaterThan(XmlTableReader::MAX_SEGMENT_BYTES + 16777216);
+});

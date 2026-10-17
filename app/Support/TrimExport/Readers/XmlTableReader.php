@@ -18,6 +18,9 @@ class XmlTableReader implements TableReader
 
     private const int READ_CHUNK_BYTES = 1048576;
 
+    /** The longest single row, markup construct or tail held in memory; past it the file is truncated or damaged. */
+    public const int MAX_SEGMENT_BYTES = 16 * 1048576;
+
     private const string NAME = '[A-Za-z_][\w.\-]*';
 
     public function segments(string $path): Generator
@@ -65,6 +68,7 @@ class XmlTableReader implements TableReader
                     $position = $resumeAt - $segmentStart;
                     $bodyStart -= $segmentStart;
                     $segmentStart = 0;
+                    $this->guardSegmentLength(strlen($buffer));
                     $this->readChunk($handle, $buffer, $endOfFile);
 
                     continue;
@@ -208,10 +212,18 @@ class XmlTableReader implements TableReader
     private function tail($handle, string $rest, bool $endOfFile): Segment
     {
         while (! $endOfFile) {
+            $this->guardSegmentLength(strlen($rest));
             $this->readChunk($handle, $rest, $endOfFile);
         }
 
         return new Segment(Segment::TAIL, body: $rest, offset: (int) ftell($handle));
+    }
+
+    private function guardSegmentLength(int $bytes): void
+    {
+        if ($bytes > self::MAX_SEGMENT_BYTES) {
+            throw new RuntimeException('The export has a row or markup more than '.(self::MAX_SEGMENT_BYTES / 1048576).' MB long that never ends. It looks truncated or damaged.');
+        }
     }
 
     private function localName(string $buffer, int $tagStart): string
