@@ -46,3 +46,7 @@ it('writes the override the way PSO writes times, in UTC with no offset', functi
         ->and(TrimPlan::fromOptions(['input_reference_datetime' => 'not a time'], 'UTC')->inputReferenceDatetime)->toBeNull()
         ->and(TrimPlan::fromOptions(['count_only' => true], 'UTC')->countOnly)->toBeTrue();
 });
+
+it('maps the wizard key for the Default activity type to a blank type id', function () {
+    expect(TrimPlan::fromOptions(['activity_type_ids' => [TrimPlan::DEFAULT_ACTIVITY_TYPE, 'T1']], 'UTC')->activityTypeIds)->toBe(['', 'T1']);
+});

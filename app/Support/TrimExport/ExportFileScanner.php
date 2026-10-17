@@ -106,8 +106,9 @@ class ExportFileScanner
                     break;
                 case 'Activity':
                     if ($id !== null) {
-                        $type = $row['activity_type_id'] ?? '';
-                        $activities[$id] = $type === '' ? $id : "{$id} - {$type}";
+                        // A blank type is the Default type (PSO's rule): offer it under a key the plan maps back to blank.
+                        $type = ($row['activity_type_id'] ?? '') === '' ? TrimPlan::DEFAULT_ACTIVITY_TYPE : $row['activity_type_id'];
+                        $activities[$id] = $type === TrimPlan::DEFAULT_ACTIVITY_TYPE ? "{$id} - Default" : "{$id} - {$type}";
                         $activityTypeOf[$id] = $type;
                         $typeCounts[$type] = ($typeCounts[$type] ?? 0) + 1;
                     }
@@ -122,11 +123,13 @@ class ExportFileScanner
         // Only types some activity has, with how many; a type the file uses but does not define still shows.
         $activityTypes = [];
         foreach ($typeCounts as $type => $count) {
-            if ((string) $type !== '') {
-                $activityTypes[$type] = ($typeNames[$type] ?? (string) $type).' ('.number_format($count).')';
-            }
+            $name = $type === TrimPlan::DEFAULT_ACTIVITY_TYPE ? 'Default' : ($typeNames[$type] ?? (string) $type);
+            $activityTypes[(string) $type] = $name.' ('.number_format($count).')';
         }
         ksort($activityTypes, SORT_NATURAL);
+        if (isset($activityTypes[TrimPlan::DEFAULT_ACTIVITY_TYPE])) {
+            $activityTypes = [TrimPlan::DEFAULT_ACTIVITY_TYPE => $activityTypes[TrimPlan::DEFAULT_ACTIVITY_TYPE]] + $activityTypes;
+        }
 
         return new FilterChoices($regions, $resources, $activityTypes, $activities, $resourceRegions, $activityTypeOf);
     }

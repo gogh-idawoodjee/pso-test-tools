@@ -118,19 +118,17 @@ class TrimExportFields
                     ->options(static fn (TrimExportEntry $livewire): array => $choices($livewire)->regions)
                     ->helperText('Keeps resources in these regions (Resource_Region) and activities at their locations (Location.region_id or Location_Region).')
                     ->afterStateUpdated(static function (?array $state, Get $get, Set $set, TrimExportEntry $livewire) use ($choices): void {
-                        $allowed = $choices($livewire)->resourcesIn($state ?? []);
-                        $set('options.resource_ids', array_values(array_filter(
-                            $get('options.resource_ids') ?? [],
-                            static fn (mixed $resourceId): bool => array_key_exists((string) $resourceId, $allowed),
-                        )));
+                        $set('options.resource_ids', self::keepAllowed($get('options.resource_ids'), $choices($livewire)->resourcesIn($state ?? [])));
                     }),
+                // Searched, not listed: a LOAD can hold thousands of resources and activities.
                 Select::make('options.resource_ids')
                     ->label('Resources')
                     ->multiple()
                     ->searchable()
                     ->native(false)
-                    ->options(static fn (Get $get, TrimExportEntry $livewire): array => $choices($livewire)->resourcesIn($get('options.region_ids') ?? []))
-                    ->helperText('Optional. Narrows the kept resources to these, within the regions above.'),
+                    ->getSearchResultsUsing(static fn (string $search, Get $get, TrimExportEntry $livewire): array => FilterChoices::matching($choices($livewire)->resourcesIn($get('options.region_ids') ?? []), $search))
+                    ->getOptionLabelsUsing(static fn (array $values, Get $get, TrimExportEntry $livewire): array => FilterChoices::labelsOf($choices($livewire)->resourcesIn($get('options.region_ids') ?? []), $values))
+                    ->helperText('Optional. Type an id or name to search. Narrows the kept resources to these, within the regions above.'),
                 Select::make('options.activity_type_ids')
                     ->label('Activity types')
                     ->multiple()
@@ -138,14 +136,18 @@ class TrimExportFields
                     ->native(false)
                     ->live()
                     ->options(static fn (TrimExportEntry $livewire): array => $choices($livewire)->activityTypes)
-                    ->helperText('Only types that have activities in this file, with how many.'),
+                    ->helperText('Only types that have activities in this file, with how many. Default is activities with no type.')
+                    ->afterStateUpdated(static function (?array $state, Get $get, Set $set, TrimExportEntry $livewire) use ($choices): void {
+                        $set('options.activity_ids', self::keepAllowed($get('options.activity_ids'), $choices($livewire)->activitiesOf($state ?? [])));
+                    }),
                 Select::make('options.activity_ids')
                     ->label('Activities')
                     ->multiple()
                     ->searchable()
                     ->native(false)
-                    ->options(static fn (Get $get, TrimExportEntry $livewire): array => $choices($livewire)->activitiesOf($get('options.activity_type_ids') ?? []))
-                    ->helperText('Optional. Only these activities are kept.'),
+                    ->getSearchResultsUsing(static fn (string $search, Get $get, TrimExportEntry $livewire): array => FilterChoices::matching($choices($livewire)->activitiesOf($get('options.activity_type_ids') ?? []), $search))
+                    ->getOptionLabelsUsing(static fn (array $values, Get $get, TrimExportEntry $livewire): array => FilterChoices::labelsOf($choices($livewire)->activitiesOf($get('options.activity_type_ids') ?? []), $values))
+                    ->helperText('Optional. Type an id to search. Only these activities are kept.'),
                 DatePicker::make('options.window_start')
                     ->label('Appointment window from')
                     ->native(false)
@@ -169,6 +171,9 @@ class TrimExportFields
                     ->label('Input_Reference datetime override (UTC)')
                     ->native(false)
                     ->seconds(false)
+                    ->format('Y-m-d H:i:s')
+                    // Shown as stored, with no zone conversion: the value is UTC, as the label says.
+                    ->timezone(config('app.timezone'))
                     ->nullable()
                     ->helperText('Optional. Replaces the datetime in the Input_Reference row.'),
                 Toggle::make('options.count_only')
@@ -177,5 +182,19 @@ class TrimExportFields
                     ->default(false),
             ]),
         ];
+    }
+
+    /**
+     * The chosen ids still among the allowed options, in their order.
+     *
+     * @param  array<string, string>  $allowed
+     * @return list<mixed>
+     */
+    private static function keepAllowed(mixed $chosen, array $allowed): array
+    {
+        return array_values(array_filter(
+            is_array($chosen) ? $chosen : [],
+            static fn (mixed $id): bool => is_scalar($id) && array_key_exists((string) $id, $allowed),
+        ));
     }
 }

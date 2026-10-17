@@ -22,3 +22,18 @@ it('offers only the activities of the chosen types, or every activity when none 
     expect($this->choices->activitiesOf(['T2']))->toBe(['A3' => 'A3 - T2'])
         ->and($this->choices->activitiesOf([]))->toHaveCount(3);
 });
+
+it('finds options by id or name, ignoring case, at most fifty', function () {
+    $many = [];
+    foreach (range(1, 60) as $n) {
+        $many["A{$n}"] = "A{$n} - T1";
+    }
+
+    expect(FilterChoices::matching($this->choices->resources, 'turing'))->toBe(['R2' => 'R2 - Alan Turing'])
+        ->and(FilterChoices::matching($many, 'a'))->toHaveCount(FilterChoices::SEARCH_LIMIT)
+        ->and(FilterChoices::matching($many, 'A60'))->toBe(['A60' => 'A60 - T1']);
+});
+
+it('labels only the chosen ids that are among the options', function () {
+    expect(FilterChoices::labelsOf($this->choices->resourcesIn(['V1']), ['R1', 'R3']))->toBe(['R1' => 'R1 - Ada Lovelace']);
+});

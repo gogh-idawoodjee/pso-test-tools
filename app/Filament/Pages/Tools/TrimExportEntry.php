@@ -37,6 +37,11 @@ class TrimExportEntry extends ToolWizardPage
     #[Locked]
     public ?string $choicesForFileId = null;
 
+    /** The decrypted choices for $choicesForFileId, kept for this request only (never sent to the browser). */
+    private ?FilterChoices $choicesMemo = null;
+
+    private ?string $choicesMemoFileId = null;
+
     public static function tool(): ToolId
     {
         return ToolId::TrimExport;
@@ -235,6 +240,7 @@ class TrimExportEntry extends ToolWizardPage
         }
 
         $this->choicesForFileId = $file->id;
+        $this->choicesMemoFileId = null;
 
         return true;
     }
@@ -242,8 +248,17 @@ class TrimExportEntry extends ToolWizardPage
     /** The chosen file's filter choices once the Tables step has read them; null before, so no scan runs while the page renders. */
     public function filterChoices(): ?FilterChoices
     {
-        $file = $this->chosenExportFile();
+        $fileId = $this->data['files'][$this->chosenKind()->value] ?? null;
+        if (blank($fileId) || (string) $fileId !== $this->choicesForFileId) {
+            return null;
+        }
 
-        return $file === null || $file->id !== $this->choicesForFileId ? null : app(ExportFileScanner::class)->cachedChoices($file);
+        if ($this->choicesMemoFileId !== $this->choicesForFileId) {
+            $file = $this->chosenExportFile();
+            $this->choicesMemo = $file === null ? null : app(ExportFileScanner::class)->cachedChoices($file);
+            $this->choicesMemoFileId = $this->choicesForFileId;
+        }
+
+        return $this->choicesMemo;
     }
 }

@@ -17,6 +17,9 @@ class TrimPlan
 
     public const string MODE_KEEP = 'keep';
 
+    /** The wizard's key for the Default activity type (a blank activity_type_id), which a form option cannot be. */
+    public const string DEFAULT_ACTIVITY_TYPE = '__default__';
+
     /**
      * @param  list<string>  $tables  the ticked tables
      * @param  list<string>  $regionIds
@@ -49,7 +52,11 @@ class TrimPlan
             allowInputReferenceRemoval: (bool) ($options['allow_input_reference_removal'] ?? false),
             regionIds: self::strings($options['region_ids'] ?? []),
             resourceIds: self::strings($options['resource_ids'] ?? []),
-            activityTypeIds: self::strings($options['activity_type_ids'] ?? []),
+            // The wizard offers the Default type (a blank activity_type_id) under a key; the engine compares with blank.
+            activityTypeIds: array_map(
+                static fn (string $typeId): string => $typeId === self::DEFAULT_ACTIVITY_TYPE ? '' : $typeId,
+                self::strings($options['activity_type_ids'] ?? []),
+            ),
             activityIds: self::strings($options['activity_ids'] ?? []),
             windowStart: $windowStart,
             windowEnd: $windowEnd,
