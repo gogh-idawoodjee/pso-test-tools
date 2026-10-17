@@ -4,6 +4,8 @@ namespace App\Support\TrimExport;
 
 use App\Models\ExportFile;
 use App\Support\Exports\ExportStorage;
+use App\Support\TrimExport\Readers\JsonTableReader;
+use App\Support\TrimExport\Readers\XmlTableReader;
 use Closure;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Cache;
@@ -21,6 +23,8 @@ class ExportFileScanner
         private ExportStorage $storage,
         private ExportSource $source,
         private TableCounter $counter,
+        private XmlTableReader $xmlReader,
+        private JsonTableReader $jsonReader,
     ) {}
 
     /** @return array<string, int> table => rows */
@@ -32,6 +36,99 @@ class ExportFileScanner
         }
 
         return $this->remember($file, 'tables', fn (string $path, string $format): array => $this->counter->count($path, $format));
+    }
+
+    public function choices(ExportFile $file): FilterChoices
+    {
+        return $this->remember($file, 'choices', fn (string $path, string $format): FilterChoices => $this->scanChoices($path, $format));
+    }
+
+    /** The choices a scan already cached for this file; null before the first scan. */
+    public function cachedChoices(ExportFile $file): ?FilterChoices
+    {
+        $cached = Cache::get($this->cacheKey($file, 'choices'));
+        if (! is_string($cached)) {
+            return null;
+        }
+
+        try {
+            $choices = Crypt::decrypt($cached);
+        } catch (DecryptException) {
+            return null;
+        }
+
+        return $choices instanceof FilterChoices ? $choices : null;
+    }
+
+    /** One streamed pass over the tables the filters offer, as Filter Load File listed them. */
+    private function scanChoices(string $path, string $format): FilterChoices
+    {
+        $reader = $format === 'json' ? $this->jsonReader : $this->xmlReader;
+        $fields = [
+            'Region' => ['id', 'description'],
+            'Resources' => ['id', 'first_name', 'surname'],
+            'Activity_Type' => ['id', 'description'],
+            'Activity' => ['id', 'activity_type_id'],
+            'Resource_Region' => ['resource_id', 'region_id'],
+        ];
+        $regions = [];
+        $resources = [];
+        $typeNames = [];
+        $activities = [];
+        $activityTypeOf = [];
+        $typeCounts = [];
+        $resourceRegions = [];
+
+        foreach ($reader->segments($path) as $segment) {
+            if ($segment->type !== Segment::ROW || ! isset($fields[$segment->table])) {
+                continue;
+            }
+
+            $row = $reader->fieldsOf($segment->body, $fields[$segment->table]);
+            $id = $row['id'] ?? null;
+
+            switch ($segment->table) {
+                case 'Region':
+                    if ($id !== null) {
+                        $regions[$id] = isset($row['description']) ? "{$id} - {$row['description']}" : $id;
+                    }
+                    break;
+                case 'Resources':
+                    if ($id !== null) {
+                        $name = trim(($row['first_name'] ?? '').' '.($row['surname'] ?? ''));
+                        $resources[$id] = $name === '' ? $id : "{$id} - {$name}";
+                    }
+                    break;
+                case 'Activity_Type':
+                    if ($id !== null) {
+                        $typeNames[$id] = isset($row['description']) ? "{$id} - {$row['description']}" : $id;
+                    }
+                    break;
+                case 'Activity':
+                    if ($id !== null) {
+                        $type = $row['activity_type_id'] ?? '';
+                        $activities[$id] = $type === '' ? $id : "{$id} - {$type}";
+                        $activityTypeOf[$id] = $type;
+                        $typeCounts[$type] = ($typeCounts[$type] ?? 0) + 1;
+                    }
+                    break;
+                default:
+                    if (isset($row['resource_id'], $row['region_id'])) {
+                        $resourceRegions[$row['resource_id']][] = $row['region_id'];
+                    }
+            }
+        }
+
+        // Only types some activity has, with how many; a type the file uses but does not define still shows.
+        $activityTypes = [];
+        foreach ($typeCounts as $type => $count) {
+            if ((string) $type !== '') {
+                $activityTypes[$type] = ($typeNames[$type] ?? (string) $type).' ('.number_format($count).')';
+            }
+        }
+        ksort($activityTypes, SORT_NATURAL);
+
+        return new FilterChoices($regions, $resources, $activityTypes, $activities, $resourceRegions, $activityTypeOf);
     }
 
     private function cacheKey(ExportFile $file, string $what): string

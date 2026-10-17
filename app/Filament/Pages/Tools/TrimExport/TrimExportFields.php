@@ -3,10 +3,14 @@
 namespace App\Filament\Pages\Tools\TrimExport;
 
 use App\Filament\Pages\Tools\TrimExportEntry;
+use App\Support\TrimExport\FilterChoices;
 use App\Support\TrimExport\TableChoices;
 use App\Support\TrimExport\TableDependencies;
 use App\Support\TrimExport\TrimPlan;
+use Closure;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
@@ -93,5 +97,85 @@ class TrimExportFields
             'tables' => $get('options.tables') ?? [],
             'allow_input_reference_removal' => $get('options.allow_input_reference_removal'),
         ], 'UTC')->droppedTables(array_map('strval', array_keys($livewire->tableCounts)));
+    }
+
+    /** @return list<Component> */
+    public static function rows(): array
+    {
+        $choices = static fn (TrimExportEntry $livewire): FilterChoices => $livewire->filterChoices() ?? new FilterChoices;
+
+        return [
+            Text::make('Leave every filter empty to keep all rows: the run then only removes the tables chosen on the Tables step.')
+                ->color('gray')
+                ->columnSpanFull(),
+            Grid::make(['default' => 1, 'md' => 2])->schema([
+                Select::make('options.region_ids')
+                    ->label('Regions')
+                    ->multiple()
+                    ->searchable()
+                    ->native(false)
+                    ->live()
+                    ->options(static fn (TrimExportEntry $livewire): array => $choices($livewire)->regions)
+                    ->helperText('Keeps resources in these regions (Resource_Region) and activities at their locations (Location.region_id or Location_Region).')
+                    ->afterStateUpdated(static function (?array $state, Get $get, Set $set, TrimExportEntry $livewire) use ($choices): void {
+                        $allowed = $choices($livewire)->resourcesIn($state ?? []);
+                        $set('options.resource_ids', array_values(array_filter(
+                            $get('options.resource_ids') ?? [],
+                            static fn (mixed $resourceId): bool => array_key_exists((string) $resourceId, $allowed),
+                        )));
+                    }),
+                Select::make('options.resource_ids')
+                    ->label('Resources')
+                    ->multiple()
+                    ->searchable()
+                    ->native(false)
+                    ->options(static fn (Get $get, TrimExportEntry $livewire): array => $choices($livewire)->resourcesIn($get('options.region_ids') ?? []))
+                    ->helperText('Optional. Narrows the kept resources to these, within the regions above.'),
+                Select::make('options.activity_type_ids')
+                    ->label('Activity types')
+                    ->multiple()
+                    ->searchable()
+                    ->native(false)
+                    ->live()
+                    ->options(static fn (TrimExportEntry $livewire): array => $choices($livewire)->activityTypes)
+                    ->helperText('Only types that have activities in this file, with how many.'),
+                Select::make('options.activity_ids')
+                    ->label('Activities')
+                    ->multiple()
+                    ->searchable()
+                    ->native(false)
+                    ->options(static fn (Get $get, TrimExportEntry $livewire): array => $choices($livewire)->activitiesOf($get('options.activity_type_ids') ?? []))
+                    ->helperText('Optional. Only these activities are kept.'),
+                DatePicker::make('options.window_start')
+                    ->label('Appointment window from')
+                    ->native(false)
+                    ->live()
+                    ->required(static fn (Get $get): bool => filled($get('options.window_end')))
+                    ->helperText('Keeps activities whose APPOINTMENT window overlaps these days, and shifts that overlap them.'),
+                DatePicker::make('options.window_end')
+                    ->label('Appointment window to')
+                    ->native(false)
+                    ->live()
+                    ->required(static fn (Get $get): bool => filled($get('options.window_start')))
+                    ->rule(static fn (Get $get): Closure => static function (string $attribute, mixed $value, Closure $fail) use ($get): void {
+                        $start = $get('options.window_start');
+                        if (filled($value) && filled($start) && substr((string) $value, 0, 10) < substr((string) $start, 0, 10)) {
+                            $fail('The window must end on or after the day it starts.');
+                        }
+                    }),
+            ]),
+            Grid::make(['default' => 1, 'md' => 2])->schema([
+                DateTimePicker::make('options.input_reference_datetime')
+                    ->label('Input_Reference datetime override (UTC)')
+                    ->native(false)
+                    ->seconds(false)
+                    ->nullable()
+                    ->helperText('Optional. Replaces the datetime in the Input_Reference row.'),
+                Toggle::make('options.count_only')
+                    ->label('Count only')
+                    ->helperText('Show the counts and warnings, but write no file.')
+                    ->default(false),
+            ]),
+        ];
     }
 }

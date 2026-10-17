@@ -7,6 +7,7 @@ use App\Enums\Tool as ToolId;
 use App\Filament\Pages\Tools\TrimExport\TrimExportFields;
 use App\Models\ExportFile;
 use App\Support\TrimExport\ExportFileScanner;
+use App\Support\TrimExport\FilterChoices;
 use App\Support\TrimExport\TableDependencies;
 use App\Support\TrimExport\TrimPlan;
 use Filament\Forms\Components\Radio;
@@ -32,6 +33,9 @@ class TrimExportEntry extends ToolWizardPage
 
     #[Locked]
     public ?string $tablesForFileId = null;
+
+    #[Locked]
+    public ?string $choicesForFileId = null;
 
     public static function tool(): ToolId
     {
@@ -69,7 +73,19 @@ class TrimExportEntry extends ToolWizardPage
             }),
             Step::make('Tables')
                 ->description('Which whole tables to remove or keep. Counts are rows in the chosen file.')
-                ->schema(TrimExportFields::tables()),
+                ->schema(TrimExportFields::tables())
+                ->afterValidation(function (): void {
+                    if (! $this->prepareRows()) {
+                        throw new Halt;
+                    }
+                }),
+            Step::make('Rows')
+                ->description('Which rows to keep. Leave every filter empty to keep all rows.')
+                ->schema([
+                    ...TrimExportFields::rows(),
+                    // Shown for an Unfiled run only (the field hides itself otherwise); a dataset run uses the dataset's zone.
+                    $this->timeZoneField()->helperText('The window days are whole days in this zone.'),
+                ]),
         ];
     }
 
@@ -184,14 +200,50 @@ class TrimExportEntry extends ToolWizardPage
         return true;
     }
 
+    /** Another file: its tables, choices and chosen ids are not this one's. */
     public function resetTables(): void
     {
         $this->tableCounts = [];
         $this->tablesForFileId = null;
+        $this->choicesForFileId = null;
         $this->data['options']['table_mode'] = TrimPlan::MODE_REMOVE;
         $this->data['options']['tables'] = [];
         $this->data['options']['preset'] = TrimExportFields::PRESET_CLEANUP;
         // The unlock was for the old file's Input_Reference; a new file starts locked.
         $this->data['options']['allow_input_reference_removal'] = false;
+        foreach (['region_ids', 'resource_ids', 'activity_type_ids', 'activity_ids'] as $key) {
+            $this->data['options'][$key] = [];
+        }
+    }
+
+    /** Reads the chosen file's filter choices (one streamed pass, cached per file). False keeps the wizard on Tables. */
+    public function prepareRows(): bool
+    {
+        $file = $this->chosenExportFile();
+        if ($file === null) {
+            Notification::make()->title('Choose an export first')->body('Pick the '.$this->chosenKind()->getLabel().' export to trim.')->warning()->send();
+
+            return false;
+        }
+
+        try {
+            app(ExportFileScanner::class)->choices($file);
+        } catch (RuntimeException $exception) {
+            Notification::make()->title('The rows could not be read')->body($exception->getMessage())->danger()->send();
+
+            return false;
+        }
+
+        $this->choicesForFileId = $file->id;
+
+        return true;
+    }
+
+    /** The chosen file's filter choices once the Tables step has read them; null before, so no scan runs while the page renders. */
+    public function filterChoices(): ?FilterChoices
+    {
+        $file = $this->chosenExportFile();
+
+        return $file === null || $file->id !== $this->choicesForFileId ? null : app(ExportFileScanner::class)->cachedChoices($file);
     }
 }
