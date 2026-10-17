@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Exports\ExportFileDownloadController;
 use App\Http\Controllers\ToolRunPageController;
 use Filament\Http\Middleware\Authenticate;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,11 @@ Route::get('/download/{filename}', static function (string $filename) {
         'Content-Type' => str_ends_with($filename, '.zip') ? 'application/zip' : 'application/json',
     ]);
 })->middleware(['web', Authenticate::class])->name('download.filtered')->where('filename', '[A-Za-z0-9._-]+');
+
+Route::get('/exports/{exportFile}/download', ExportFileDownloadController::class)
+    ->middleware(['web', Authenticate::class])
+    ->whereUuid('exportFile')
+    ->name('exports.download');
 
 Route::middleware(['web', Authenticate::class])
     ->prefix('{scopeType}/{scopeId}/runs/{run}')

@@ -13,6 +13,7 @@ use App\Models\Environment;
 use App\Models\ToolRun;
 use App\Models\User;
 use App\Tools\ToolRegistry;
+use App\Tools\TrimExport\TrimExportTool;
 use Livewire\Livewire;
 use Tests\Support\FakeTool;
 
@@ -25,6 +26,7 @@ beforeEach(function () {
 it('lists registered tools with their question and the files they need, grouped by intent', function () {
     app()->instance(ToolRegistry::class, new ToolRegistry);
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
+    app(ToolRegistry::class)->register(ToolId::TrimExport, TrimExportTool::class);
 
     Livewire::test(ToolCatalogue::class)
         ->assertSee('Analysis tools')
@@ -32,6 +34,8 @@ it('lists registered tools with their question and the files they need, grouped 
         ->assertSee(ToolId::LoadAudit->question())
         ->assertSee('Needs a '.ExportKind::Load->getLabel().' export; '.ExportKind::Sys->getLabel().' optional')
         ->assertDontSee(ToolId::RegionAvailability->getLabel())
+        ->assertSee('Trim export')
+        ->assertSee('Needs one LOAD, Plan or End of day export')
         ->assertSee('Live PSO actions')
         ->assertSee('Setup');
 });
