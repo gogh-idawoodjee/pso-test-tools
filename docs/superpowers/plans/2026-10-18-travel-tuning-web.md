@@ -45,8 +45,8 @@
 4. **Labels.** Blank means the positional default (Baseline, Run 1, Run 2, the script's), resolved by `StartToolRun` from the final order, so reordering keeps typed labels with their runs. Whitespace is collapsed and labels cut to 60 characters.
 5. **Limits.** At least 2 runs, at most 10 (the page stays readable); the same run twice is refused.
 6. **Polygon table check.** A SYS export "has a Polygon table" when it holds at least one `Polygon` row directly under `DsSystemData` (the real 251-polygon file has them at that depth). `ExportSummariser` records `polygon_count` for every new SYS upload; an older SYS without it is scanned once when picked (zip or XML) and the count is written back to its summary. A SYS that is not XML is refused with a sentence. The check runs on pick (wizard) and again in `StartToolRun`.
-7. **Options.** Title (default "Travel Tuning Report"), client (dataset settings `display_name`, else the environment's account id), dataset name (settings `dataset_display_name`, else the dataset name), both blank for Unfiled and kept once the user types; the five thresholds with the script's defaults; region label default "GB"; map tiles default esri-gray; notes as a Markdown textarea written to `notes.md`. No review CSV, no offline.
-8. **Region label from account settings.** No such setting exists today (`DatasetSettings` has `region_labels`, a map of region names, not the word for a region). The field defaults to "GB". Flagged for Ish.
+7. **Options.** Title (default "Travel Tuning Report"), client (dataset settings `display_name`, else the environment's account id), dataset name (settings `dataset_display_name`, else the dataset name), both blank for Unfiled and kept once the user types; the five thresholds with the script's defaults; region label (see 8); map tiles default esri-gray; notes as a Markdown textarea written to `notes.md`. No review CSV, no offline.
+8. **Region label (decided by the product owner, 2026-10-18).** The label never defaults to "GB". A new dataset setting `region_label` (string or null, Task 5A, modelled on `supervisor_label`) relabels it per dataset. The option is prefilled from the dataset's `region_label` setting, else "Region"; an Unfiled run gets "Region". The user can still edit it in the options. `TravelTuningCommand` always passes `--region-label` explicitly, so the web never relies on the script's own default (which is now "Region" too, pso-tools commit d35fe3f). `region_label` is written to a pso-tools account file when set, like `supervisor_label` (the generic `toAccountFile()` rule; the scripts read accounts with `.get()` and ignore keys they do not use), and `fromAccountFile()` reads it back unchanged.
 9. **Generated time.** `--generated` is the app clock in the run's zone (the dataset's, or the Unfiled run's Time zone option), `Y-m-d H:i`.
 10. **Stored result and summary.** `result = ['html' => ...]` only. `summary = runs, baseline_flagged, final_flagged, baseline_error_hours, final_error_hours, fixed, newly_broken, shared_legs, first_date, line`. `first_date` is the baseline run's first date (a date, no id) so downloads are named `travel_tuning_<account>_<dataset>_<date>.html`. `line` is built in PHP from counts ("2 runs: flagged 75 to 10, total error 138.2 to 98.2 hours, 44 fixed, 0 newly broken, 2,112 shared legs"); the script's stdout summary line names the labels and is not stored.
 11. **Run page.** The report in the sandboxed iframe under the standard `SANDBOX` CSP (no app links), Open full page and Download HTML. No JSON or CSV download. The Inputs panel lists the source runs in order with a link to each while it exists ("plan travels run deleted" after), and the SYS file name per row or "None".
@@ -1147,13 +1147,13 @@ beforeEach(function () {
 });
 
 it('passes the manifest, outputs, template, generated time, options and defaults', function () {
-    $argv = TravelTuningCommand::build(PsoToolsCheckout::fromConfig(), '/work/', ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'North', 'region_label' => 'GB'], '2026-10-18 09:30', false);
+    $argv = TravelTuningCommand::build(PsoToolsCheckout::fromConfig(), '/work/', ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'North', 'region_label' => 'Territory'], '2026-10-18 09:30', false);
 
     expect($argv)->toBe([
         'python3', $this->root.'/travel/travel_tuning.py',
         '--manifest', '/work/manifest.csv', '--out', '/work/travel_tuning.html', '--json', '/work/travel_tuning.json',
         '--template', $this->root.'/travel/travel_tuning_template.html', '--generated', '2026-10-18 09:30',
-        '--title=Travel Tuning Report', '--client=SaskTel', '--dataset=North', '--region-label=GB',
+        '--title=Travel Tuning Report', '--client=SaskTel', '--dataset=North', '--region-label=Territory',
         '--review-minutes=20', '--small-minutes=5', '--model-tol-min=1', '--model-tol-pct=5', '--long-leg-km=300',
         '--tiles=esri-gray',
     ]);
@@ -1354,7 +1354,7 @@ total_h = [138.2] + [116.7] * middle + [98.2]
 timeline = [{'label': l, 'flagged': f, 'total_h': h, 'total_min': round(h * 60)} for l, f, h in zip(labels, flagged, total_h)]
 warnings = ['Legs common to every run are 55% of the smallest run.']
 data = {'meta': {'title': arg('--title', 'Travel Tuning Report'), 'generated': arg('--generated'), 'shared': 2112,
-                 'region': arg('--region-label', 'GB'), 'tiles': arg('--tiles', 'esri-gray'), 'warnings': warnings},
+                 'region': arg('--region-label', 'Region'), 'tiles': arg('--tiles', 'esri-gray'), 'warnings': warnings},
         'timeline': timeline, 'acc': {'pair': {'shared': 2112, 'fixed': 44, 'newly_broken': 0, 'still': 10}}}
 with open(arg('--template'), encoding='utf-8') as fh:
     template = fh.read()
@@ -1691,7 +1691,7 @@ class TravelTuningTool implements TakesRunInputs, Tool, WizardOnly
                 TextInput::make('options.long_leg_km')->label('Long leg (km)')->helperText('Legs at least this long are left off the map.')->numeric()->minValue(0)->default(300)->required(),
                 TextInput::make('options.model_tol_min')->label('Model tolerance (minutes)')->helperText('How close a leg must move to the polygon prediction to count as predicted.')->numeric()->minValue(0)->default(1)->required(),
                 TextInput::make('options.model_tol_pct')->label('Model tolerance (%)')->numeric()->minValue(0)->default(5)->required(),
-                TextInput::make('options.region_label')->label('Region label')->helperText('What the page calls a region, as in "GB summary".')->default('GB')->maxLength(20)->required(),
+                TextInput::make('options.region_label')->label('Region label')->helperText('What the page calls a region, as in "Region summary". Filled in from the dataset\'s Region label setting, else Region.')->default('Region')->maxLength(20)->required(),
             ]),
             Select::make('options.tiles')->label('Map tiles')->options(TravelTuningCommand::TILES)->default('esri-gray')->native(false)->required(),
             Textarea::make('options.notes')->label('Consultant notes')
@@ -1892,6 +1892,97 @@ EOF
 
 ---
 
+### Task 5A: The Region label dataset setting
+
+**Files:**
+- Modify: `app/Support/DatasetSettings.php`, `app/Models/Dataset.php`
+- Test: `tests/Unit/DatasetSettingsTest.php`
+
+**Interfaces:**
+- Produces: `DatasetSettings::$regionLabel` (`?string`), key `region_label` in `KEYS`, `fromArray()` and `toArray()`; a "Region label" input on the Dataset edit form. Consumed by Task 6's `prefillOptions()`.
+- Ruling on the account file: `toAccountFile()` writes every non-null key under its own name, so `region_label` is written when set (as `supervisor_label` is) and `fromAccountFile()` reads it back with no alias. The existing test's `not->toHaveKeys([...])` list stays as it is: `region_label` is null there, so it is absent without being listed.
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `tests/Unit/DatasetSettingsTest.php`:
+
+```php
+it('keeps the region label, blank means none, and writes it to the account file when set', function () {
+    expect(DatasetSettings::fromArray([])->regionLabel)->toBeNull()
+        ->and(DatasetSettings::fromArray(['region_label' => ''])->regionLabel)->toBeNull();
+
+    $settings = DatasetSettings::fromArray(['region_label' => 'Territory']);
+
+    expect($settings->regionLabel)->toBe('Territory')
+        ->and($settings->toArray()['region_label'])->toBe('Territory')
+        ->and($settings->toAccountFile()['region_label'])->toBe('Territory')
+        ->and(DatasetSettings::fromAccountFile($settings->toAccountFile())->toArray())->toBe($settings->toArray())
+        ->and(DatasetSettings::fromArray([])->toAccountFile())->not->toHaveKey('region_label');
+});
+```
+
+- [ ] **Step 2: Run it and see it fail**
+
+```bash
+php artisan test --compact tests/Unit/DatasetSettingsTest.php
+```
+
+Expected: FAIL (`Unknown dataset setting: region_label`).
+
+- [ ] **Step 3: Add the setting**
+
+In `app/Support/DatasetSettings.php`, change the end of `KEYS` so it lists `'supervisor_label', 'region_label',` before `'supervisor_label_plural'`:
+
+```php
+        'resource_type_names', 'attribute_labels', 'region_pivot', 'region_labels', 'supervisor_label', 'region_label',
+        'supervisor_label_plural', 'notes', 'windows_time_zone', 'time_zone', 'ifs_time_zone',
+```
+
+In the constructor, after `public ?string $supervisorLabelPlural = null,` add:
+
+```php
+        public ?string $regionLabel = null,
+```
+
+In `fromArray()`, after the `supervisorLabelPlural:` line add:
+
+```php
+            regionLabel: self::stringOrNull($values['region_label'] ?? null),
+```
+
+In `toArray()`, after the `'supervisor_label_plural'` line add:
+
+```php
+            'region_label' => $this->regionLabel,
+```
+
+(Constructor arguments are named everywhere `new self(` is used; check with `grep -rn "new DatasetSettings(" app tests` and fix any positional call.)
+
+- [ ] **Step 4: Add the form field**
+
+In `app/Models/Dataset.php`, after the `settings.supervisor_label_plural` input (the one that follows `Supervisor label`), add:
+
+```php
+                    Forms\Components\TextInput::make('settings.region_label')->label('Region label')->helperText('What reports call a region, such as GB or Territory. Blank means Region.')->maxLength(20),
+```
+
+- [ ] **Step 5: Run the tests**
+
+```bash
+php artisan test --compact tests/Unit/DatasetSettingsTest.php tests/Feature
+```
+
+Expected: PASS (apart from the known failing `Tests\Feature\ExampleTest`).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add app/Support/DatasetSettings.php app/Models/Dataset.php tests/Unit/DatasetSettingsTest.php
+git commit -m "Dataset settings: a Region label that reports use instead of a hard coded word"
+```
+
+---
+
 ### Task 6: The wizard page
 
 **Files:**
@@ -1932,7 +2023,7 @@ beforeEach(function () {
     config(['exports.disk' => 'r2', 'exports.scratch_path' => sys_get_temp_dir().'/exports-tuning-'.uniqid()]);
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
     $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'SATE']);
-    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel', 'dataset_display_name' => 'North']]);
+    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel', 'dataset_display_name' => 'North', 'region_label' => 'Territory']]);
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
     $this->actingAs($this->user);
     $this->base = planTravelsRun($this->dataset, ['created_at' => Carbon::parse('2026-10-13 04:35:00', 'UTC')]);
@@ -1969,10 +2060,17 @@ it('lists the dataset\'s finished plan travels runs and says which need Google',
 
 it('prefills the options from the dataset settings and the script defaults', function () {
     Livewire::test(TravelTuningEntry::class)->assertFormSet([
-        'options.title' => 'Travel Tuning Report', 'options.client' => 'SaskTel', 'options.dataset' => 'North', 'options.region_label' => 'GB',
+        'options.title' => 'Travel Tuning Report', 'options.client' => 'SaskTel', 'options.dataset' => 'North', 'options.region_label' => 'Territory',
         'options.tiles' => 'esri-gray', 'options.review_minutes' => 20, 'options.small_minutes' => 5, 'options.long_leg_km' => 300,
         'options.model_tol_min' => 1, 'options.model_tol_pct' => 5,
     ]);
+});
+
+it('prefills the region label with Region when the dataset sets none and for Unfiled', function () {
+    $this->dataset->update(['settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel']]);
+
+    Livewire::test(TravelTuningEntry::class)->assertFormSet(['options.region_label' => 'Region']);
+    Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'unfiled'])->assertFormSet(['options.region_label' => 'Region']);
 });
 
 it('starts a run with the runs in order, the default labels and the chosen SYS', function () {
@@ -2247,7 +2345,7 @@ class TravelTuningEntry extends ToolWizardPage
         return [(string) Str::uuid() => $empty, (string) Str::uuid() => $empty];
     }
 
-    /** Client and dataset name follow the scope until the user types their own; both are blank for Unfiled. */
+    /** Client, dataset name and region label follow the scope until the user types their own; client and dataset are blank for Unfiled, the region label is "Region". */
     private function prefillOptions(): void
     {
         $dataset = $this->hasScope() && ! $this->isUnfiled() ? $this->scopeModel() : null;
@@ -2255,6 +2353,7 @@ class TravelTuningEntry extends ToolWizardPage
         $suggested = [
             'client' => (string) ($settings?->displayName ?: ($dataset instanceof Dataset ? ($dataset->environment?->account_id ?? '') : '')),
             'dataset' => (string) ($settings?->datasetDisplayName ?: ($dataset instanceof Dataset ? $dataset->name : '')),
+            'region_label' => (string) ($settings?->regionLabel ?: 'Region'),
         ];
 
         foreach ($suggested as $key => $value) {
@@ -2322,7 +2421,7 @@ git add app/Filament/Pages/Tools/ToolWizardPage.php app/Filament/Pages/Tools/Tra
 git commit -m "$(cat <<'EOF'
 Travel tuning (#31): the wizard picks plan travels runs in order, each with optional polygons
 
-A table of the scope's finished runs, a repeater with up and down buttons, labels defaulting to Baseline, Run 1; a SYS export without a Polygon table is refused on pick. Options are prefilled from the dataset.
+A table of the scope's finished runs, a repeater with up and down buttons, labels defaulting to Baseline, Run 1; a SYS export without a Polygon table is refused on pick. Options are prefilled from the dataset (the region label from its Region label setting, else Region).
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TMSuKwN5UjNYXzPgUfXPFu
@@ -2804,7 +2903,7 @@ EOF
 
 ## Self-review
 
-- **Spec 4 coverage.** Tool under Analyse and in the wizard, accepts Unfiled: Tasks 1, 6. Runs of the run's own scope only: Task 3 (`finished()` filters by scope), Task 5 (re-check). Inputs table with dates, made, legs, flagged, Google: Task 6 view. Two or more, ordered with up and down: Task 6 repeater. Labels default Baseline, Run 1: Task 3. Polygons from the environment's SYS or the user's Unfiled SYS, or None, Polygon table check with the spec's sentence: Tasks 2, 3, 6. Run without Google cannot be picked, its row says so: Tasks 3, 6. Options 4.2 (prefill, thresholds, region label, tiles, notes, no review CSV, no offline): Tasks 4, 5, 6. Running 4.3 (CSVs from the encrypted result, SYS to scratch and deleted, manifest, ScriptRun, html encrypted, counts-only summary, script warnings): Task 5. Run page with sandboxed iframe and Download HTML: Task 7. 4.4 (own copy of the page): Task 7's deleted-source test. Spec 3.1 contract (manifest columns, `--json`, `--generated`, `Stopped during`, `warning:` lines): Tasks 4, 5, 8. Spec 6 (no uploaded CSVs, no review CSV): no task offers either.
+- **Spec 4 coverage.** Tool under Analyse and in the wizard, accepts Unfiled: Tasks 1, 6. Runs of the run's own scope only: Task 3 (`finished()` filters by scope), Task 5 (re-check). Inputs table with dates, made, legs, flagged, Google: Task 6 view. Two or more, ordered with up and down: Task 6 repeater. Labels default Baseline, Run 1: Task 3. Polygons from the environment's SYS or the user's Unfiled SYS, or None, Polygon table check with the spec's sentence: Tasks 2, 3, 6. Run without Google cannot be picked, its row says so: Tasks 3, 6. Options 4.2 (prefill, thresholds, region label, tiles, notes, no review CSV, no offline): Tasks 4, 5, 5A, 6. Running 4.3 (CSVs from the encrypted result, SYS to scratch and deleted, manifest, ScriptRun, html encrypted, counts-only summary, script warnings): Task 5. Run page with sandboxed iframe and Download HTML: Task 7. 4.4 (own copy of the page): Task 7's deleted-source test. Spec 3.1 contract (manifest columns, `--json`, `--generated`, `Stopped during`, `warning:` lines): Tasks 4, 5, 8. Spec 6 (no uploaded CSVs, no review CSV): no task offers either.
 - **Placeholders.** None: every code step carries the code; the one conditional (Task 6 Step 5, `cacheSchema`) names the exact line to add.
 - **Names across tasks.** `SourceRuns::check/rows/optionLabel/sysError/label/defaultLabel/MAX_RUNS/NO_POLYGONS`, `SysPolygons::count/localXml/countIn`, `RunInputPicker::optionsForKind`, `TravelTuningCommand::build/MANIFEST/NOTES/OUT_HTML/OUT_JSON/TILES/NUMBERS`, `StartToolRun::start(..., $runs)`, `ToolWizardPage::chosenRuns`, `SourceRunList::for`, summary keys: used with the same spelling in every task.
 - **Review Focus.** Each line has its test: 1 Task 5 (deleted run, expired SYS, SYS copy deleted on failure), 2 Tasks 4 and 5 (dash title, newline, `Grid, "v6"` label), 3 Tasks 3 and 6, 4 Task 2, 5 Tasks 3 and 6.

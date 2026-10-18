@@ -45,7 +45,7 @@ can be large (the 251-polygon one is 4.4 MB).
 
 ```
 travel_tuning.py --manifest <csv> --out <html> [--json <path>] [--title ..] [--client ..] [--dataset ..]
-                 [--region-label GB] [--review-minutes 20] [--small-minutes 5] [--model-tol-min 1]
+                 [--region-label Region] [--review-minutes 20] [--small-minutes 5] [--model-tol-min 1]
                  [--model-tol-pct 5] [--long-leg-km 300] [--tiles esri-gray|esri|osm|none] [--offline]
                  [--review-csv <csv>] [--notes <md>] [--generated "YYYY-MM-DD HH:MM"]
 travel_tuning.py --runs a.csv b.csv .. [--labels ..] [--polygons '' p.xml ..]   (instead of --manifest)
@@ -151,7 +151,7 @@ A run without Google columns cannot be picked. Its row says "Run plan travels ag
 
 - Title, client, dataset name: prefilled from the account and dataset.
 - Review threshold (minutes), small error (minutes), model tolerance (minutes and %), long leg (km).
-- Region label: prefilled from the account settings, else GB.
+- Region label: prefilled from the dataset's Region label setting, else Region.
 - Map tiles: esri-gray by default.
 - Notes: a Markdown text box. It replaces the notes file and is rendered by the same Markdown subset.
 - Review CSV: not on the web in this version. The corridor rows then fall back to the polygon description, as in the
