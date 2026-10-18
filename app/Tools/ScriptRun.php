@@ -3,6 +3,7 @@
 namespace App\Tools;
 
 use App\Tools\LoadAudit\ProgressLine;
+use Closure;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
@@ -25,17 +26,18 @@ final class ScriptRun
      * @param  list<string>  $argv
      * @param  ?int  $reasonExitCode  an exit code the script uses for "nothing to show, and here is why": its last stderr line becomes the whole message
      * @param  ?string  $progressLabel  names what the script is doing in place of ProgressLine's stage label ("Building legs: 40%")
+     * @param  ?Closure(string): string  $redact  applied to every stderr line kept, before it is logged or put in a message (Travel tuning swaps the run labels for Run N)
      *
      * @throws RuntimeException when the script times out or exits non-zero, in plain words
      */
-    public static function execute(ToolContext $context, string $workDir, array $argv, int $timeout, string $noun, ?int $reasonExitCode = null, ?string $progressLabel = null): self
+    public static function execute(ToolContext $context, string $workDir, array $argv, int $timeout, string $noun, ?int $reasonExitCode = null, ?string $progressLabel = null, ?Closure $redact = null): self
     {
         $lastLabel = 'starting';
         $stderr = [];
         $stdout = '';
         $pending = '';
 
-        $handleLine = static function (string $line) use (&$lastLabel, &$stderr, $context, $progressLabel): void {
+        $handleLine = static function (string $line) use (&$lastLabel, &$stderr, $context, $progressLabel, $redact): void {
             if ($line === '') {
                 return;
             }
@@ -47,7 +49,7 @@ final class ScriptRun
                 $lastLabel = $progress['label'];
                 $context->reportProgress($progress['label'], $progress['percent'], $progress['seconds_left'], $progress['stage']);
             } elseif (! str_starts_with($line, 'PROGRESS ') && ! str_starts_with($line, 'warning: ')) {
-                $stderr[] = $line;
+                $stderr[] = $redact === null ? $line : $redact($line);
                 $stderr = array_slice($stderr, -200);
             }
         };

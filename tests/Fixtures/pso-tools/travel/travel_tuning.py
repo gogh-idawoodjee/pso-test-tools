@@ -4,7 +4,8 @@ FAKE_TUNING_MODE: ok (default) | fail (exit 1 with a Stopped during line) | sile
 FAKE_TUNING_ARGS_FILE: append one JSON line per call: argv, cwd, the manifest rows as read (label, run CSV name, its
 header line, polygon file name and how many <Polygon> rows it holds) and the notes text.
 Numbers: the baseline has 75 flagged legs and 138.2 hours of error, the final run 10 and 98.2 hours, a run between
-them 40 and 116.7; 44 fixed, 0 newly broken, 2,112 shared legs. One warning, labels and counts only, as the script's.
+them 40 and 116.7; 44 fixed, 0 newly broken, 2,112 shared legs. Two warnings, counts and the run labels, as the
+script's; the failure line names the second run's label, as the script's "reading <label>" stage does.
 """
 import csv, json, os, sys
 
@@ -40,8 +41,9 @@ if log:
         fh.write(json.dumps(record) + '\n')
 
 if mode == 'fail':
-    sys.stderr.write('Stopped during: reading Run 1: Run 1 (run-2.csv) has no Google columns. Run plan travels again '
-                     'for this run with the Google check on.\n')
+    second = rows[1]['Label']
+    sys.stderr.write('Stopped during: reading %s: %s (run-2.csv) has no Google columns. Run plan travels again '
+                     'for this run with the Google check on.\n' % (second, second))
     sys.exit(1)
 if mode == 'silent':
     print('summary: nothing written')
@@ -52,7 +54,8 @@ middle = len(rows) - 2
 flagged = [75] + [40] * middle + [10]
 total_h = [138.2] + [116.7] * middle + [98.2]
 timeline = [{'label': l, 'flagged': f, 'total_h': h, 'total_min': round(h * 60)} for l, f, h in zip(labels, flagged, total_h)]
-warnings = ['Legs common to every run are 55% of the smallest run.']
+warnings = ['Legs common to every run are 55% of the smallest run.',
+            'Model check %s to %s: 30 of 44 legs moved as predicted (68%%).' % (labels[0], labels[-1])]
 data = {'meta': {'title': arg('--title', 'Travel Tuning Report'), 'generated': arg('--generated'), 'shared': 2112,
                  'region': arg('--region-label', 'Region'), 'tiles': arg('--tiles', 'esri-gray'), 'warnings': warnings},
         'timeline': timeline, 'acc': {'pair': {'shared': 2112, 'fixed': 44, 'newly_broken': 0, 'still': 10}}}

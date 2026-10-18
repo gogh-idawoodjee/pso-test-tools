@@ -9,6 +9,7 @@ use App\Tools\LoadAudit\LoadAuditTool;
 use App\Tools\PlanTravels\PlanTravelsTool;
 use App\Tools\RegionAvailability\RegionAvailabilityTool;
 use App\Tools\ToolRegistry;
+use App\Tools\TravelTuning\TravelTuningTool;
 use App\Tools\TrimExport\TrimExportTool;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Gate;
@@ -36,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
             $registry->register(ToolId::AppointmentTimeline, ActivityTraceTool::class);
             $registry->register(ToolId::PlanTravels, PlanTravelsTool::class);
             $registry->register(ToolId::TrimExport, TrimExportTool::class);
+            $registry->register(ToolId::TravelTuning, TravelTuningTool::class);
         });
 
         if ($this->app->environment('local') && class_exists(\Laravel\Telescope\TelescopeServiceProvider::class)) {
