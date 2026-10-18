@@ -105,8 +105,8 @@ abstract class ToolWizardPage extends Page implements HasForms
         $this->form->fill();
         $this->data = [...$this->data ?? [], 'environment_id' => $environmentId, 'dataset_id' => $datasetId, 'files' => $this->emptyFiles()];
         if (static::tool()->acceptsUnfiled()) {
-            // The remembered choice, else Unfiled: a context saved before Unfiled existed has no `unfiled` key.
-            $this->data['where'] = ($remembered['unfiled'] ?? true) === true ? self::WHERE_UNFILED : self::WHERE_DATASET;
+            // Always opens on A dataset (Ish, 2026-10-18); Unfiled is one click away.
+            $this->data['where'] = self::WHERE_DATASET;
             $this->data['options'] = [...($this->data['options'] ?? []), 'time_zone' => self::rememberedTimeZone($remembered)];
         }
         $this->refreshInputs();
@@ -199,10 +199,10 @@ abstract class ToolWizardPage extends Page implements HasForms
             ->schema(array_values(array_filter([
                 $acceptsUnfiled ? Radio::make('where')
                     ->hiddenLabel()
-                    ->options([self::WHERE_UNFILED => 'Unfiled', self::WHERE_DATASET => 'A dataset'])
+                    ->options([self::WHERE_DATASET => 'A dataset', self::WHERE_UNFILED => 'Unfiled'])
                     ->descriptions([
-                        self::WHERE_UNFILED => 'Just the file. Nothing is sent to PSO and the run is listed under My files.',
                         self::WHERE_DATASET => 'The exports belong to an environment and dataset you have set up.',
+                        self::WHERE_UNFILED => 'Just the file. Nothing is sent to PSO and the run is listed under My files.',
                     ])
                     ->required()
                     ->live()

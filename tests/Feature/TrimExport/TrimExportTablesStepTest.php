@@ -3,6 +3,8 @@
 use App\Enums\ExportFileStatus;
 use App\Enums\ExportKind;
 use App\Filament\Pages\Tools\TrimExportEntry;
+use App\Models\Dataset;
+use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
@@ -40,7 +42,7 @@ function trimUnfiledExport(User $user, ExportKind $kind, array $attributes = [])
 it('asks which export to trim and shows one picker for that kind', function () {
     trimUnfiledExport($this->user, ExportKind::Load);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->assertFormSet(['where' => 'unfiled', 'input_kind' => 'load'])
         ->assertSee('Export to trim')
         ->assertFormFieldExists('files.load')
@@ -51,9 +53,10 @@ it('asks which export to trim and shows one picker for that kind', function () {
 });
 
 it('opens on the kind of export the user has', function () {
-    trimUnfiledExport($this->user, ExportKind::Plan);
+    $dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->create())->create();
+    ExportFile::factory()->for($dataset, 'scope')->create(['kind' => ExportKind::Plan]);
 
-    Livewire::test(TrimExportEntry::class)->assertFormSet(['input_kind' => 'plan']);
+    Livewire::test(TrimExportEntry::class)->assertFormSet(['where' => 'dataset', 'input_kind' => 'plan']);
 });
 
 it('sends only the chosen kind even when a LOAD, plan and End of day are all preselected', function () {
@@ -63,7 +66,7 @@ it('sends only the chosen kind even when a LOAD, plan and End of day are all pre
     $plan = trimUnfiledExport($this->user, ExportKind::Plan, ['summary' => $summary]);
     $eod = trimUnfiledExport($this->user, ExportKind::Eod, ['summary' => $summary]);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->assertFormSet(['files.load' => $load->id, 'files.plan' => $plan->id, 'files.eod' => $eod->id])
         ->fillForm(['input_kind' => 'plan'])
         ->call('prepareTables')
@@ -76,7 +79,7 @@ it('sends only the chosen kind even when a LOAD, plan and End of day are all pre
 it('lists the tables in the file with their row counts and ticks the Cleanup preset', function () {
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->assertFormSet(['options.tables' => ['Plan', 'Plan_Travel'], 'options.preset' => 'cleanup', 'options.table_mode' => 'remove'])
         ->assertSee('Plan output: Plan_Travel, 4,812 rows')
@@ -86,7 +89,7 @@ it('lists the tables in the file with their row counts and ticks the Cleanup pre
 it('switches the preset to Custom when a tick changes, and back to the Cleanup list when chosen', function () {
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->fillForm(['options.tables' => ['Plan']])
         ->assertFormSet(['options.preset' => 'custom'])
@@ -97,7 +100,7 @@ it('switches the preset to Custom when a tick changes, and back to the Cleanup l
 it('warns as soon as a kept table loses its parent', function () {
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->assertDontSee('is kept but')
         ->fillForm(['options.tables' => ['Activity']])
@@ -107,7 +110,7 @@ it('warns as soon as a kept table loses its parent', function () {
 it('keeps Input_Reference locked until its removal is allowed', function () {
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->assertSee('(always kept unless allowed below)')
         ->fillForm(['options.tables' => ['Input_Reference', 'Plan']])
@@ -121,18 +124,18 @@ it('reads the tables from the file when its summary has none, once, and keeps th
     $key = app(ExportStorage::class)->objectKey($file);
     Storage::disk('r2')->put($key, file_get_contents(trimXml(trimDataset())));
 
-    Livewire::test(TrimExportEntry::class)->call('prepareTables')->assertSee('Activities: Activity, 4 rows');
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])->call('prepareTables')->assertSee('Activities: Activity, 4 rows');
 
     expect(Cache::get("trim-export:tables:{$file->id}"))->toBeString()->not->toContain('Activity');
 
     Storage::disk('r2')->delete($key);
-    Livewire::test(TrimExportEntry::class)->call('prepareTables')->assertSee('Activities: Activity, 4 rows');
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])->call('prepareTables')->assertSee('Activities: Activity, 4 rows');
 });
 
 it('needs at least one tick in Keep mode', function () {
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->fillForm(['options.table_mode' => 'keep', 'options.tables' => []])
         ->call('start')
@@ -145,7 +148,7 @@ it('refuses a trim that would change nothing before queuing a run', function () 
     Queue::fake();
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->fillForm(['options.table_mode' => 'remove', 'options.tables' => []])
         ->call('start')
@@ -157,7 +160,7 @@ it('refuses a trim that would change nothing before queuing a run', function () 
 });
 
 it('does not leave Inputs without a file to read', function () {
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->assertNotified('Choose an export first');
 });
@@ -168,7 +171,7 @@ it('refuses more than one export as a notification, not an error page', function
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => $summary]);
     trimUnfiledExport($this->user, ExportKind::Plan, ['summary' => $summary]);
 
-    Livewire::test(TrimExportEntryWithoutChosenFiles::class)
+    Livewire::test(TrimExportEntryWithoutChosenFiles::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->call('start')
         ->assertSet('runId', null)
@@ -181,7 +184,7 @@ it('refuses a chosen export that is no longer usable as a notification and empti
     Queue::fake();
     $plan = trimUnfiledExport($this->user, ExportKind::Plan, ['summary' => ['table_counts' => $this->counts]]);
 
-    $component = Livewire::test(TrimExportEntry::class)->assertFormSet(['input_kind' => 'plan', 'files.plan' => $plan->id])->call('prepareTables');
+    $component = Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled', 'input_kind' => 'plan'])->assertFormSet(['input_kind' => 'plan', 'files.plan' => $plan->id])->call('prepareTables');
     $plan->update(['status' => ExportFileStatus::Purged]);
 
     $component->call('start')
@@ -195,7 +198,7 @@ it('refuses a chosen export that is no longer usable as a notification and empti
 it('sets the preset to Custom when the mode changes, and puts Remove back when Cleanup is chosen', function () {
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->fillForm(['options.table_mode' => 'keep'])
         ->assertFormSet(['options.preset' => 'custom', 'options.tables' => ['Plan', 'Plan_Travel']])
@@ -208,7 +211,7 @@ it('drops an Input_Reference tick when its removal is no longer allowed, so the 
     Queue::fake();
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->fillForm(['options.allow_input_reference_removal' => true])
         ->fillForm(['options.tables' => ['Input_Reference', 'Plan']])
@@ -223,7 +226,7 @@ it('drops an Input_Reference tick when its removal is no longer allowed, so the 
 it('rebuilds the list with the preset when another file is chosen after the tables were read', function () {
     $first = trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    $component = Livewire::test(TrimExportEntry::class)
+    $component = Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->fillForm(['options.allow_input_reference_removal' => true])
         ->assertSet('tablesForFileId', $first->id);
@@ -244,7 +247,7 @@ it('refuses to start on a file whose tables were not reviewed, then starts once 
     Queue::fake();
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    $component = Livewire::test(TrimExportEntry::class)->call('prepareTables');
+    $component = Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])->call('prepareTables');
     $second = trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => ['Input_Reference' => 1, 'Plan' => 1, 'Activity' => 3]]]);
 
     $component->call('refreshInputs')
@@ -265,7 +268,7 @@ it('says so when the file holds no tables', function () {
     $file = ExportFile::sole();
     Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($file), '<?xml version="1.0"?><dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd"></dsScheduleData>');
 
-    Livewire::test(TrimExportEntry::class)
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])
         ->call('prepareTables')
         ->assertSet('tablesForFileId', $file->id)
         ->assertSee('No tables were found in this file.');
@@ -274,6 +277,6 @@ it('says so when the file holds no tables', function () {
 it('does not let the browser change the table counts', function () {
     trimUnfiledExport($this->user, ExportKind::Load, ['summary' => ['table_counts' => $this->counts]]);
 
-    expect(fn () => Livewire::test(TrimExportEntry::class)->call('prepareTables')->set('tableCounts', ['Plan' => 1]))
+    expect(fn () => Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])->call('prepareTables')->set('tableCounts', ['Plan' => 1]))
         ->toThrow(CannotUpdateLockedPropertyException::class);
 });

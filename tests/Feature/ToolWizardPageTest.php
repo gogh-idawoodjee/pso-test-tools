@@ -57,11 +57,11 @@ it('shows the tool question and only the user own environments and datasets', fu
         ->assertDontSee('THEIRS');
 });
 
-it('pre-fills the only environment and dataset when nothing was remembered, behind Unfiled', function () {
+it('pre-fills the only environment and dataset when nothing was remembered, on A dataset', function () {
     $this->user->forceFill(['last_tool_context' => null])->save();
 
     Livewire::test(LoadAuditEntry::class)
-        ->assertFormSet(['where' => 'unfiled', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
+        ->assertFormSet(['where' => 'dataset', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
 });
 
 it('pre-fills the remembered environment and dataset', function () {

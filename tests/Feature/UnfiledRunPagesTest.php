@@ -89,7 +89,7 @@ it('links the wizard run panel of an unfiled run to unfiled/me', function () {
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
     ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load]);
 
-    $component = Livewire::test(LoadAuditEntry::class)->call('start')->assertHasNoFormErrors();
+    $component = Livewire::test(LoadAuditEntry::class)->fillForm(['where' => 'unfiled'])->call('start')->assertHasNoFormErrors();
     $run = ToolRun::query()->whereKeyNot($this->run->id)->sole();
 
     $component->assertSee(ToolRunPage::urlFor($this->user, $run), false);

@@ -27,7 +27,7 @@ beforeEach(function () {
 
 function trimRowsReady(): Testable
 {
-    return Livewire::test(TrimExportEntry::class)->call('prepareTables')->call('prepareRows');
+    return Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])->call('prepareTables')->call('prepareRows');
 }
 
 /** @return array<string, string> what the Select's search offers for the text, as the browser would ask for it */
@@ -48,7 +48,7 @@ function trimStoreWithActivities(ExportFile $file, array $activities): void
 }
 
 it('fills the filters from the chosen file once the Tables step is done', function () {
-    $component = Livewire::test(TrimExportEntry::class)->call('prepareTables');
+    $component = Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'unfiled'])->call('prepareTables');
 
     expect($component->instance()->filterChoices())->toBeNull();
 
