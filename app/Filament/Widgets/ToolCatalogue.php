@@ -8,6 +8,7 @@ use App\Filament\Navigation\Groups;
 use App\Filament\Pages;
 use App\Filament\Resources;
 use App\Tools\Contracts\TakesOneInput;
+use App\Tools\Contracts\TakesRunInputs;
 use App\Tools\ToolRegistry;
 use Filament\Pages\Page;
 use Filament\Resources\Resource as FilamentResource;
@@ -33,7 +34,12 @@ class ToolCatalogue extends Widget
                 continue;
             }
             $impl = $registry->for($tool);
-            $analyse[] = $this->item($page, $tool->getLabel(), $tool->question(), $impl instanceof TakesOneInput ? $this->needsOne($impl->oneOfKinds()) : $this->needs($impl->requiredKinds(), $impl->optionalKinds()));
+            $needs = match (true) {
+                $impl instanceof TakesRunInputs => $impl->needs(),
+                $impl instanceof TakesOneInput => $this->needsOne($impl->oneOfKinds()),
+                default => $this->needs($impl->requiredKinds(), $impl->optionalKinds()),
+            };
+            $analyse[] = $this->item($page, $tool->getLabel(), $tool->question(), $needs);
         }
         $analyse[] = $this->item(Pages\SysFileCompare::class, 'PSO Sys File Compare', 'What differs between two or more SYS exports?', 'Needs two or more '.ExportKind::Sys->getLabel().' exports');
         $analyse[] = $this->item(Pages\PreferenceCalculator::class, 'Preference Calculator', 'Which of two technicians will PSO prefer for an activity, given costs, distances and preference values?', null);
@@ -85,7 +91,7 @@ class ToolCatalogue extends Widget
     /** @return class-string<Pages\Tools\ToolWizardPage>|null */
     private function wizardPageFor(ToolId $tool): ?string
     {
-        foreach ([Pages\Tools\LoadAuditEntry::class, Pages\Tools\RegionAvailabilityEntry::class, Pages\Tools\AppointmentTimelineEntry::class, Pages\Tools\PlanTravelsEntry::class, Pages\Tools\ScheduleReviewEntry::class, Pages\Tools\SysCompareEntry::class, Pages\Tools\TrimExportEntry::class] as $page) {
+        foreach ([Pages\Tools\LoadAuditEntry::class, Pages\Tools\RegionAvailabilityEntry::class, Pages\Tools\AppointmentTimelineEntry::class, Pages\Tools\PlanTravelsEntry::class, Pages\Tools\ScheduleReviewEntry::class, Pages\Tools\SysCompareEntry::class, Pages\Tools\TrimExportEntry::class, Pages\Tools\TravelTuningEntry::class] as $page) {
             if ($page::tool() === $tool) {
                 return $page;
             }

@@ -15,6 +15,7 @@ use App\Models\ToolRun;
 use App\Support\Exports\RunInputPicker;
 use App\Support\Tools\StartToolRun;
 use App\Support\Tools\UnusableInputException;
+use App\Support\Tools\UnusableRunInputException;
 use App\Support\Tools\WeekLink;
 use App\Tools\ToolRegistry;
 use BackedEnum;
@@ -417,6 +418,17 @@ abstract class ToolWizardPage extends Page implements HasForms
     }
 
     /**
+     * The source runs a run starts with, for a tool whose inputs are other runs (TakesRunInputs); none otherwise.
+     *
+     * @param  array<string, mixed>  $state  the form state
+     * @return list<array<string, mixed>>
+     */
+    protected function chosenRuns(array $state): array
+    {
+        return [];
+    }
+
+    /**
      * Select the newest file when it arrived since the last refresh (the upload the user just made),
      * then fill the remaining empty fields the user has not cleared with the picker's
      * default (the newest set that belongs together).
@@ -514,7 +526,7 @@ abstract class ToolWizardPage extends Page implements HasForms
                 // Only an Unfiled run takes a zone; a dataset run uses the dataset's.
                 unset($options['time_zone']);
             }
-            $run = app(StartToolRun::class)->start($scope, static::tool(), $this->chosenFiles($state['files'] ?? []), $options, auth()->user());
+            $run = app(StartToolRun::class)->start($scope, static::tool(), $this->chosenFiles($state['files'] ?? []), $options, auth()->user(), $this->chosenRuns($state));
         } catch (UnusableInputException $e) {
             // Empty on purpose, so the default does not put the same unusable file back.
             $this->data['files'][$e->kind->value] = null;
@@ -522,6 +534,11 @@ abstract class ToolWizardPage extends Page implements HasForms
             $this->refreshInputs();
             Notification::make()->title('The run did not start')->body($e->getMessage())->danger()->send();
             // The emptied field is on the Inputs step; take the user there rather than leave them on a later step.
+            $this->dispatch('go-to-wizard-step', ...$this->inputsStepTarget());
+
+            return;
+        } catch (UnusableRunInputException $e) {
+            Notification::make()->title('The run did not start')->body($e->getMessage())->danger()->send();
             $this->dispatch('go-to-wizard-step', ...$this->inputsStepTarget());
 
             return;
