@@ -11,6 +11,7 @@ use App\Models\ToolRun;
 use App\Models\User;
 use App\Support\Exports\RunInputPicker;
 use App\Tools\Contracts\TakesOneInput;
+use App\Tools\Contracts\TakesRunInputs;
 use App\Tools\ToolRegistry;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
@@ -25,10 +26,12 @@ class StartToolRun
     /**
      * @param  array<string, string|null>  $files  kind value => export file id
      * @param  array<string, mixed>  $options
+     * @param  list<array<string, mixed>>  $runs  source runs in order, for a tool that takes runs (TakesRunInputs)
      *
      * @throws UnusableInputException
+     * @throws UnusableRunInputException
      */
-    public function start(Model $scope, ToolId $toolId, array $files, array $options, User $user): ToolRun
+    public function start(Model $scope, ToolId $toolId, array $files, array $options, User $user, array $runs = []): ToolRun
     {
         if ($scope instanceof User && ($scope->isNot($user) || ! $toolId->acceptsUnfiled())) {
             throw new InvalidArgumentException("{$toolId->getLabel()} cannot run on these unfiled exports.");
@@ -59,9 +62,16 @@ class StartToolRun
         }
         $this->assertUsable($scope, $toolId, $chosen);
 
+        $inputs = ['files' => $chosen, 'options' => $options];
+        if ($tool instanceof TakesRunInputs) {
+            $inputs['runs'] = $tool->checkRunInputs($scope, array_values($runs));
+        } elseif ($runs !== []) {
+            throw new InvalidArgumentException("{$toolId->getLabel()} does not take other runs as inputs.");
+        }
+
         $run = $scope->toolRuns()->create([
             'tool' => $toolId,
-            'inputs' => ['files' => $chosen, 'options' => $options],
+            ...ToolRun::inputAttributes($tool, $inputs),
             'started_by_user_id' => $user->id,
             'status' => ToolRunStatus::Queued,
         ]);
@@ -109,9 +119,7 @@ class StartToolRun
      */
     public function rerun(ToolRun $run, array $options, User $user): ToolRun
     {
-        $inputs = $run->inputs ?? [];
-
-        return $this->start($run->scope, $run->tool, $inputs['files'] ?? [], [...($inputs['options'] ?? []), ...$options], $user);
+        return $this->start($run->scope, $run->tool, $run->inputs['files'] ?? [], [...$run->options(), ...$options], $user, $run->sourceRuns());
     }
 
     /**

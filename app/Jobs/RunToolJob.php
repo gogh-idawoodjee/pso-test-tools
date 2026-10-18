@@ -67,7 +67,7 @@ class RunToolJob implements ShouldQueue
             $settings = $scope instanceof Dataset ? $scope->settings : null;
             $timeZone = $scope instanceof Dataset ? $scope->timeZone() : self::optionTimeZone($run);
 
-            $output = $tool->run(new ToolContext($run, $scope, $settings, $timeZone, $timeZoneIsDefault), $inputPaths, $run->inputs['options'] ?? []);
+            $output = $tool->run(new ToolContext($run, $scope, $settings, $timeZone, $timeZoneIsDefault), $inputPaths, $run->options());
             $summary = $output->summary;
             if ($meta !== []) {
                 $summary['meta'] = [...(is_array($summary['meta'] ?? null) ? $summary['meta'] : []), ...$meta];
