@@ -275,6 +275,7 @@ class ExportSummariser
         $reader = $this->openReader($path);
         $parameters = 0;
         $exceptionTypes = 0;
+        $polygons = 0;
         $version = null;
 
         try {
@@ -290,6 +291,8 @@ class ExportSummariser
                 match ($reader->localName) {
                     'Profile_Parameter' => $parameters++,
                     'Org_Schedule_Exception_Type' => $exceptionTypes++,
+                    // Travel tuning refuses a SYS export with no polygons; counted here so a pick needs no second read.
+                    'Polygon' => $polygons++,
                     default => null,
                 };
 
@@ -312,6 +315,7 @@ class ExportSummariser
             'pso_version' => $version,
             'parameter_count' => $parameters,
             'exception_type_count' => $exceptionTypes,
+            'polygon_count' => $polygons,
         ]);
     }
 

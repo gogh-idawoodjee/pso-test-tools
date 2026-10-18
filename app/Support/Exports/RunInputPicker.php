@@ -55,6 +55,19 @@ class RunInputPicker
         return $options;
     }
 
+    /**
+     * One kind's usable files on this scope with the purge countdown, newest first (a dataset sees its environment's
+     * SYS exports, Unfiled the user's own), for a tool that picks files per row (Travel tuning's polygons).
+     *
+     * @return array<string, string> export file id => label
+     */
+    public function optionsForKind(Model $scope, ExportKind $kind): array
+    {
+        return $this->candidates($scope, $kind)
+            ->mapWithKeys(fn (ExportFile $file): array => [$file->id => $this->labelFor($file, $scope).', '.$this->purgeCountdown($file)])
+            ->all();
+    }
+
     public function purgeCountdown(ExportFile $file): string
     {
         $minutes = (int) floor(now()->diffInMinutes($file->expires_at, false));

@@ -31,8 +31,14 @@ it('rejects a SYS export uploaded as a LOAD, naming both roots', function () {
 it('summarises a SYS export without touching users or credentials', function () {
     $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Sys, 'xml'), sysXml(), 'UTC');
 
-    expect($summary->toArray())->toMatchArray(['root' => 'DsSystemData', 'pso_version' => '6.14.0.0', 'parameter_count' => 2, 'exception_type_count' => 1])
+    expect($summary->toArray())->toMatchArray(['root' => 'DsSystemData', 'pso_version' => '6.14.0.0', 'parameter_count' => 2, 'exception_type_count' => 1, 'polygon_count' => 0])
         ->and(json_encode($summary->toArray()))->not->toContain('secret')->not->toContain('admin');
+});
+
+it('counts the Polygon rows of a SYS export', function () {
+    $summary = app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Sys, 'xml'), polygonSysXml(3), 'UTC');
+
+    expect($summary->toArray()['polygon_count'])->toBe(3);
 });
 
 it('summarises an audits zip by message count and time span, keeping no contact fields', function () {
