@@ -4,7 +4,7 @@
 
 **Goal:** A wizard tool, Travel tuning, that takes two or more finished Plan travels runs (checked with Google) of one scope, in order, each with an optional SYS export for its polygons, runs pso-tools `travel/travel_tuning.py` on them and keeps the report page.
 
-**Architecture:** The first tool whose inputs are other runs. A new contract `TakesRunInputs` lets `StartToolRun` check and store the picked runs as `inputs['runs']` (a list of `run_id`, `label`, `sys_file_id`); the tool declares no export kinds, so `RunToolJob` stays unchanged and only makes the scratch folder. `TravelTuningTool::run` writes each source run's stored CSV, an XML copy of each picked SYS export and a manifest into that folder, runs the script through `ScriptRun`, deletes the SYS copies and stores the page (encrypted) with a counts-only summary. `TravelTuningEntry` replaces the Inputs step with a run table and an ordered repeater (up and down buttons), and prefills the options from the dataset.
+**Architecture:** The first tool whose inputs are other runs. A new contract `TakesRunInputs` lets `StartToolRun` check and store the picked runs as `inputs['runs']` (a list of `run_id` and `sys_file_id`, with each row's `label` kept encrypted, see below); the tool declares no export kinds, so `RunToolJob` only makes the scratch folder and hands the tool `$run->options()`. The free text a user types (run labels, title, client, dataset name, notes) never goes into the plain `inputs` JSON: a new encrypted column `ToolRun.private_inputs` holds it, and `ToolRun::options()` and `ToolRun::sourceRuns()` put it back for the job, a rerun and the run page. `TravelTuningTool::run` writes each source run's stored CSV, an XML copy of each picked SYS export and a manifest into that folder, runs the script through `ScriptRun`, deletes the SYS copies and stores the page (encrypted) with a counts-only summary. `TravelTuningEntry` replaces the Inputs step with a run table and an ordered repeater (up and down buttons), and prefills the options from the dataset.
 
 **Tech Stack:** Laravel 13, PHP 8.5, Filament v5 (Schemas, Wizard, Repeater, Select, TextInput, Textarea, View, Text), Livewire 4, Pest 4, SQLite in memory for tests (MySQL in production). Python 3.9+ for the pso-tools script.
 
@@ -15,6 +15,7 @@
 - Work in pso-test-tools (`~/Herd/pso-test-tools`) on a branch `travel-tuning-web` made from `main`. Never commit to `main` directly. Before Task 1, `git status` must be clean: main may still carry the coordinator's uncommitted wizard change (the Where step opens on "A dataset"); wait until it is committed.
 - Do not modify pso-tools. The script `travel/travel_tuning.py` and its template are read from the configured checkout (`config('tools.pso_tools_path')`).
 - Customer identifiers (resource, activity, shift, polygon ids, GB codes, file contents) never go into `ToolRun.summary`, `ToolRun.warnings`, `ToolRun.error_message` or a log line. They live only in the encrypted `ToolRun.result`. The summary holds counts (and the baseline's first date). Warnings are the script's `meta.warnings`, which by spec 3.1 carry only labels and counts. `ScriptRun` never logs `warning:` lines; keep it that way.
+- Free text the user types for a run (run labels, title, client, dataset name, notes) is stored only in the encrypted `ToolRun.private_inputs` column, never in `ToolRun.inputs`, and is read back only through `ToolRun::options()` and `ToolRun::sourceRuns()`. It never appears in a list, a log line, the summary, the warnings or the dashboard; only the run page (owner only) and the report page show it.
 - A SYS export holds live credentials. It is copied only into the run's scratch folder (`ExportStorage::scratchDirectoryFor()`), its copy is deleted in a `finally` as soon as the script ends, it is never stored anywhere else and never served. Only the polygon numbers reach the page.
 - Scope ids are compared as strings: `(string) $scope->getKey()` on every query and every comparison (a user's id is an integer; `scope_id` is a char column).
 - Wording: plain English for a customer audience. "Allocated", never "placed". No em dashes anywhere (copy, comments, commit messages, code). Warnings show on the page, not only in tooltips.
@@ -39,11 +40,11 @@
 
 ## Settled rulings
 
-1. **Inputs on the run.** `ToolRun.inputs = ['files' => [], 'options' => [...], 'runs' => [['run_id' => uuid, 'label' => string, 'sys_file_id' => uuid|null], ...]]`, baseline first. A new contract `App\Tools\Contracts\TakesRunInputs` (`needs()`, `checkRunInputs()`) is the only extension point: `StartToolRun::start()` gains a trailing `array $runs = []`, calls `checkRunInputs()` for such a tool and refuses runs for any other tool; `rerun()` passes them on. `RunToolJob` is unchanged: the tool declares no kinds, the job still makes and removes the scratch folder, and the tool writes into the same folder (`scratchDirectoryFor($run->id)`).
+1. **Inputs on the run.** The checked runs are `[['run_id' => uuid, 'label' => string, 'sys_file_id' => uuid|null], ...]`, baseline first. They are stored split (ruling 13): `ToolRun.inputs = ['files' => [], 'options' => [...plain options], 'runs' => [['run_id' => uuid, 'sys_file_id' => uuid|null], ...]]` and the labels and typed options in the encrypted `ToolRun.private_inputs`; `ToolRun::sourceRuns()` returns the whole rows and `ToolRun::options()` all the options. A new contract `App\Tools\Contracts\TakesRunInputs` (`needs()`, `checkRunInputs()`) is the only extension point: `StartToolRun::start()` gains a trailing `array $runs = []`, calls `checkRunInputs()` for such a tool and refuses runs for any other tool; `rerun()` passes them on (from `sourceRuns()` and `options()`, so the labels and notes come back). `RunToolJob` changes one line (it hands the tool `$run->options()`, ruling 13); otherwise the tool declares no kinds, the job still makes and removes the scratch folder, and the tool writes into the same folder (`scratchDirectoryFor($run->id)`).
 2. **Which runs can be picked.** Succeeded Plan travels runs on the same scope (`scope_type` and `(string) scope_id` equal). "Has Google" means `summary['google']` is an array: a run without the Google check, or whose Google step failed, keeps it null and its CSV has no Google columns (plan_travels.py writes them only when `meta.google`). The job checks the CSV header again (`Google Duration (min)`) before running.
 3. **Picker.** A read-only table of every finished Plan travels run on the scope (dates, made, legs, flagged, Google), greyed with "Run plan travels again with Google on" when it has no Google; under it a Repeater (two rows to start, item numbers, up and down buttons, "Add a run") with a run select (runs without Google disabled), a label and a polygons select (SYS exports of the scope, placeholder "None"). A SYS drop zone sits below for a new upload.
 4. **Labels.** Blank means the positional default (Baseline, Run 1, Run 2, the script's), resolved by `StartToolRun` from the final order, so reordering keeps typed labels with their runs. Whitespace is collapsed and labels cut to 60 characters.
-5. **Limits.** At least 2 runs, at most 10 (the page stays readable); the same run twice is refused.
+5. **Limits (the maximum decided by Ish, 2026-10-18).** At least 2 runs, at most 10 (the page stays readable); the same run twice is refused. The maximum of 10 is confirmed and settled.
 6. **Polygon table check.** A SYS export "has a Polygon table" when it holds at least one `Polygon` row directly under `DsSystemData` (the real 251-polygon file has them at that depth). `ExportSummariser` records `polygon_count` for every new SYS upload; an older SYS without it is scanned once when picked (zip or XML) and the count is written back to its summary. A SYS that is not XML is refused with a sentence. The check runs on pick (wizard) and again in `StartToolRun`.
 7. **Options.** Title (default "Travel Tuning Report"), client (dataset settings `display_name`, else the environment's account id), dataset name (settings `dataset_display_name`, else the dataset name), both blank for Unfiled and kept once the user types; the five thresholds with the script's defaults; region label (see 8); map tiles default esri-gray; notes as a Markdown textarea written to `notes.md`. No review CSV, no offline.
 8. **Region label (decided by the product owner, 2026-10-18).** The label never defaults to "GB". A new dataset setting `region_label` (string or null, Task 5A, modelled on `supervisor_label`) relabels it per dataset. The option is prefilled from the dataset's `region_label` setting, else "Region"; an Unfiled run gets "Region". The user can still edit it in the options. `TravelTuningCommand` always passes `--region-label` explicitly, so the web never relies on the script's own default (which is now "Region" too, pso-tools commit d35fe3f). `region_label` is written to a pso-tools account file when set, like `supervisor_label` (the generic `toAccountFile()` rule; the scripts read accounts with `.get()` and ignore keys they do not use), and `fromAccountFile()` reads it back unchanged.
@@ -51,13 +52,15 @@
 10. **Stored result and summary.** `result = ['html' => ...]` only. `summary = runs, baseline_flagged, final_flagged, baseline_error_hours, final_error_hours, fixed, newly_broken, shared_legs, first_date, line`. `first_date` is the baseline run's first date (a date, no id) so downloads are named `travel_tuning_<account>_<dataset>_<date>.html`. `line` is built in PHP from counts ("2 runs: flagged 75 to 10, total error 138.2 to 98.2 hours, 44 fixed, 0 newly broken, 2,112 shared legs"); the script's stdout summary line names the labels and is not stored.
 11. **Run page.** The report in the sandboxed iframe under the standard `SANDBOX` CSP (no app links), Open full page and Download HTML. No JSON or CSV download. The Inputs panel lists the source runs in order with a link to each while it exists ("plan travels run deleted" after), and the SYS file name per row or "None".
 12. **Runs tab.** The tool is `WizardOnly`: no Run action on a dataset's Runs tab (its inputs need the wizard).
-13. **Free text in `inputs`.** Labels, title, client and notes are stored in `ToolRun.inputs['options']` and `inputs['runs']` (plain JSON), like every other tool's options. Flagged for Ish (notes may carry customer wording).
+13. **Free text is stored encrypted (decided by Ish, 2026-10-18).** Run labels, title, client, dataset name and notes can hold customer wording, so they never go into the plain `ToolRun.inputs` JSON. A new nullable column `tool_runs.private_inputs` (mediumText, cast `encrypted:array`, the same mechanism as `result`) holds them as `['options' => [title, client, dataset, notes], 'runs' => [['label' => ...], ...]]`, rows in the same order as `inputs['runs']`. A small contract `App\Tools\Contracts\KeepsInputsPrivate` (`privateOptionKeys()`, `privateRunKeys()`) names the keys; `ToolRun::inputAttributes(Tool, array $inputs)` splits them out when `StartToolRun` creates the run (a tool without the contract is stored exactly as before, `private_inputs` null). `ToolRun::options()` and `ToolRun::sourceRuns()` merge them back, and are the only readers: `RunToolJob` (options for the tool), `StartToolRun::rerun()` (so a rerun keeps the labels and notes), `TravelTuningTool::run()` and `SourceRunList` (the run page's Inputs panel, which only the run's owner can open: `ScopeOwnedModel`). `scopeWithoutResult()` does not select `private_inputs`, so lists and polls never load or decrypt it. Chosen over encrypting `inputs` itself because that would need a data migration of every existing run and would decrypt on every list row; the region label, thresholds and tiles stay plain (the region label comes from a dataset setting).
 14. **Tests.** Feature tests run a stub `tests/Fixtures/pso-tools/travel/travel_tuning.py` (as Plan travels does). Task 8 runs the real script: on a synthetic set when `TOOLS_PSO_TOOLS_PATH` is set, and against `~/pso-data/SATE/1013` when `TRAVEL_TUNING_SAMPLE_DIR` is set too (like the Region availability golden).
 
 ## File Structure
 
 Create:
 - `app/Tools/Contracts/TakesRunInputs.php`: the run-inputs contract.
+- `app/Tools/Contracts/KeepsInputsPrivate.php`: the input keys a tool keeps encrypted.
+- `database/migrations/2026_10_18_000001_add_private_inputs_to_tool_runs_table.php`: the encrypted `private_inputs` column.
 - `app/Support/Tools/UnusableRunInputException.php`: a refused pick, with its row number.
 - `app/Support/Tools/SourceRunList.php`: the source runs of a run, for the Inputs panel.
 - `app/Tools/TravelTuning/SysPolygons.php`: polygon count of a SYS export, and its XML copy in scratch.
@@ -72,7 +75,7 @@ Create:
 - `tests/Feature/TravelTuning/*Test.php`: the tests named in each task.
 
 Modify:
-- `app/Enums/Tool.php`, `app/Support/Tools/StartToolRun.php`, `app/Support/Exports/RunInputPicker.php`, `app/Support/Exports/ExportSummariser.php`, `app/Tools/LoadAudit/PsoToolsCheckout.php`, `config/tools.php`, `app/Providers/AppServiceProvider.php`, `app/Filament/Pages/Tools/ToolWizardPage.php`, `app/Filament/Widgets/ToolCatalogue.php`, `resources/views/filament/tool-runs/_run-panel.blade.php`, `tests/Pest.php`, `tests/Unit/ToolAcceptsUnfiledTest.php`, `tests/Feature/NavigationGroupsTest.php`, `tests/Feature/ExportSummariserTest.php`.
+- `app/Enums/Tool.php`, `app/Models/ToolRun.php`, `app/Jobs/RunToolJob.php`, `app/Support/Tools/StartToolRun.php`, `app/Support/Exports/RunInputPicker.php`, `app/Support/Exports/ExportSummariser.php`, `app/Tools/LoadAudit/PsoToolsCheckout.php`, `config/tools.php`, `app/Providers/AppServiceProvider.php`, `app/Filament/Pages/Tools/ToolWizardPage.php`, `app/Filament/Widgets/ToolCatalogue.php`, `resources/views/filament/tool-runs/_run-panel.blade.php`, `tests/Pest.php`, `tests/Unit/ToolAcceptsUnfiledTest.php`, `tests/Feature/NavigationGroupsTest.php`, `tests/Feature/ExportSummariserTest.php`.
 
 ---
 
@@ -94,6 +97,10 @@ git switch main && git switch -c travel-tuning-web
 - Modify: `app/Enums/Tool.php`
 - Create: `app/Tools/Contracts/TakesRunInputs.php`
 - Create: `app/Support/Tools/UnusableRunInputException.php`
+- Create: `app/Tools/Contracts/KeepsInputsPrivate.php`
+- Create: `database/migrations/2026_10_18_000001_add_private_inputs_to_tool_runs_table.php`
+- Modify: `app/Models/ToolRun.php` (`private_inputs` cast, `inputAttributes()`, `options()`, `sourceRuns()`)
+- Modify: `app/Jobs/RunToolJob.php` (hands the tool `$run->options()`)
 - Modify: `app/Support/Tools/StartToolRun.php` (`start()`, `rerun()`)
 - Create: `tests/Support/FakeRunInputTool.php`
 - Modify: `tests/Unit/ToolAcceptsUnfiledTest.php`
@@ -104,6 +111,8 @@ git switch main && git switch -c travel-tuning-web
 - Produces: `interface TakesRunInputs { public function needs(): string; public function checkRunInputs(Model $scope, array $picked): array; }`
 - Produces: `UnusableRunInputException(int $row, string $message)` with `public readonly int $row` (1-based row, 0 for the whole list).
 - Produces: `StartToolRun::start(Model $scope, ToolId $toolId, array $files, array $options, User $user, array $runs = []): ToolRun`; stores `inputs['runs']` only for a `TakesRunInputs` tool.
+- Produces: `interface KeepsInputsPrivate { public function privateOptionKeys(): array; public function privateRunKeys(): array; }` (lists of keys).
+- Produces: column `tool_runs.private_inputs` (cast `encrypted:array`); `ToolRun::inputAttributes(Tool $tool, array $inputs): array{inputs: array, private_inputs: ?array}` (static); `ToolRun::options(): array` (plain options with the private ones on top); `ToolRun::sourceRuns(): list<array>` (`inputs['runs']` rows with their private keys merged back, in order). Every later task reads options and source runs through these two methods, never `inputs['options']` or `inputs['runs']` directly.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -116,6 +125,7 @@ namespace Tests\Support;
 
 use App\Enums\Tool as ToolId;
 use App\Support\Tools\UnusableRunInputException;
+use App\Tools\Contracts\KeepsInputsPrivate;
 use App\Tools\Contracts\TakesRunInputs;
 use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolResult;
@@ -123,8 +133,11 @@ use App\Tools\Contracts\WizardOnly;
 use App\Tools\ToolContext;
 use Illuminate\Database\Eloquent\Model;
 
-/** A tool that takes other runs as inputs, for the StartToolRun tests: refuses fewer than two, keeps only run_id. */
-class FakeRunInputTool implements TakesRunInputs, Tool, WizardOnly
+/**
+ * A tool that takes other runs as inputs, for the StartToolRun tests: refuses fewer than two, keeps run_id and any
+ * label, and keeps the title option and the labels private (encrypted).
+ */
+class FakeRunInputTool implements KeepsInputsPrivate, TakesRunInputs, Tool, WizardOnly
 {
     /** @var list<array<string, mixed>>|null what checkRunInputs() was given last */
     public static ?array $seen = null;
@@ -154,6 +167,16 @@ class FakeRunInputTool implements TakesRunInputs, Tool, WizardOnly
         return 'Needs two or more test runs';
     }
 
+    public function privateOptionKeys(): array
+    {
+        return ['title'];
+    }
+
+    public function privateRunKeys(): array
+    {
+        return ['label'];
+    }
+
     public function checkRunInputs(Model $scope, array $picked): array
     {
         self::$seen = $picked;
@@ -161,7 +184,10 @@ class FakeRunInputTool implements TakesRunInputs, Tool, WizardOnly
             throw new UnusableRunInputException(0, 'Pick at least two runs.');
         }
 
-        return array_map(static fn (array $row): array => ['run_id' => (string) $row['run_id']], $picked);
+        return array_map(static fn (array $row): array => [
+            'run_id' => (string) $row['run_id'],
+            ...(isset($row['label']) ? ['label' => (string) $row['label']] : []),
+        ], $picked);
     }
 
     public function run(ToolContext $context, array $inputPaths, array $options): ToolResult
@@ -185,6 +211,7 @@ use App\Models\User;
 use App\Support\Tools\StartToolRun;
 use App\Support\Tools\UnusableRunInputException;
 use App\Tools\ToolRegistry;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\FakeRunInputTool;
 use Tests\Support\FakeTool;
@@ -205,7 +232,9 @@ afterEach(function () {
 it('stores the runs the tool checked, in order, and dispatches the job', function () {
     $run = app(StartToolRun::class)->start($this->dataset, ToolId::TravelTuning, [], ['title' => 'T'], $this->user, [['run_id' => 'b'], ['run_id' => 'a']]);
 
-    expect($run->inputs)->toBe(['files' => [], 'options' => ['title' => 'T'], 'runs' => [['run_id' => 'b'], ['run_id' => 'a']]])
+    expect($run->inputs)->toBe(['files' => [], 'options' => [], 'runs' => [['run_id' => 'b'], ['run_id' => 'a']]])
+        ->and($run->options())->toBe(['title' => 'T'])
+        ->and($run->sourceRuns())->toBe([['run_id' => 'b'], ['run_id' => 'a']])
         ->and(FakeRunInputTool::$seen)->toBe([['run_id' => 'b'], ['run_id' => 'a']]);
     Queue::assertPushed(RunToolJob::class, fn (RunToolJob $job): bool => $job->toolRunId === $run->id);
 });
@@ -240,7 +269,54 @@ it('passes the runs on when a run is started again', function () {
     $again = app(StartToolRun::class)->rerun($first, ['title' => 'U'], $this->user);
 
     expect($again->inputs['runs'])->toBe([['run_id' => 'a'], ['run_id' => 'b']])
-        ->and($again->inputs['options'])->toBe(['title' => 'U']);
+        ->and($again->options())->toBe(['title' => 'U']);
+});
+
+it('keeps typed free text out of the plain inputs column and reads it back', function () {
+    $run = app(StartToolRun::class)->start($this->dataset, ToolId::TravelTuning, [], ['title' => 'Acme corridor review', 'tiles' => 'esri-gray'], $this->user, [
+        ['run_id' => 'a', 'label' => 'Acme baseline'],
+        ['run_id' => 'b', 'label' => 'Grid, "v6" for Acme'],
+    ]);
+
+    $raw = DB::table('tool_runs')->where('id', $run->id)->first();
+    expect($raw->inputs)->not->toContain('Acme')
+        ->and(json_decode($raw->inputs, true))->toBe(['files' => [], 'options' => ['tiles' => 'esri-gray'], 'runs' => [['run_id' => 'a'], ['run_id' => 'b']]])
+        ->and($raw->private_inputs)->toBeString()->not->toContain('Acme')
+        ->and($run->fresh()->options())->toBe(['tiles' => 'esri-gray', 'title' => 'Acme corridor review'])
+        ->and($run->fresh()->sourceRuns())->toBe([
+            ['run_id' => 'a', 'label' => 'Acme baseline'],
+            ['run_id' => 'b', 'label' => 'Grid, "v6" for Acme'],
+        ]);
+});
+
+it('restores the labels and the title when a run is started again', function () {
+    $first = app(StartToolRun::class)->start($this->dataset, ToolId::TravelTuning, [], ['title' => 'Acme corridor review'], $this->user, [
+        ['run_id' => 'a', 'label' => 'Acme baseline'],
+        ['run_id' => 'b', 'label' => 'Run 1'],
+    ]);
+
+    $again = app(StartToolRun::class)->rerun($first->fresh(), [], $this->user)->fresh();
+
+    expect(FakeRunInputTool::$seen)->toBe([['run_id' => 'a', 'label' => 'Acme baseline'], ['run_id' => 'b', 'label' => 'Run 1']])
+        ->and($again->options())->toBe(['title' => 'Acme corridor review'])
+        ->and($again->sourceRuns())->toBe([['run_id' => 'a', 'label' => 'Acme baseline'], ['run_id' => 'b', 'label' => 'Run 1']])
+        ->and(DB::table('tool_runs')->where('id', $again->id)->value('inputs'))->not->toContain('Acme');
+});
+
+it('stores the inputs of a tool that keeps nothing private as before', function () {
+    app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
+    FakeTool::$kinds = [[], []];
+
+    $run = app(StartToolRun::class)->start($this->dataset, ToolId::LoadAudit, [], ['week_of' => '2026-10-12'], $this->user);
+
+    expect($run->inputs)->toBe(['files' => [], 'options' => ['week_of' => '2026-10-12']])
+        ->and(DB::table('tool_runs')->where('id', $run->id)->value('private_inputs'))->toBeNull()
+        ->and($run->fresh()->options())->toBe(['week_of' => '2026-10-12'])
+        ->and($run->fresh()->sourceRuns())->toBe([]);
+});
+
+it('never selects the encrypted inputs for lists', function () {
+    expect(ToolRun::query()->withoutResult()->toSql())->not->toContain('private_inputs');
 });
 ```
 
@@ -253,7 +329,7 @@ Change `tests/Unit/ToolAcceptsUnfiledTest.php` so the expected list ends with th
 - [ ] **Step 2: Run the tests to verify they fail**
 
 Run: `php artisan test tests/Feature/TravelTuning/RunInputsContractTest.php tests/Unit/ToolAcceptsUnfiledTest.php`
-Expected: FAIL (`Undefined constant App\Enums\Tool::TravelTuning`, class `TakesRunInputs` not found).
+Expected: FAIL (`Undefined constant App\Enums\Tool::TravelTuning`, class `TakesRunInputs` not found, no `private_inputs` column).
 
 - [ ] **Step 3: Implement**
 
@@ -301,7 +377,8 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * A tool whose inputs are other finished runs (Travel tuning reads Plan travels runs), not export files. It declares
- * no export kinds; StartToolRun stores what checkRunInputs() returns as the run's inputs['runs'], in order.
+ * no export kinds; StartToolRun stores what checkRunInputs() returns as the run's inputs['runs'], in order (keys a
+ * KeepsInputsPrivate tool names go to the encrypted private_inputs instead; read the rows with ToolRun::sourceRuns()).
  */
 interface TakesRunInputs
 {
@@ -340,6 +417,135 @@ class UnusableRunInputException extends RuntimeException
 }
 ```
 
+`app/Tools/Contracts/KeepsInputsPrivate.php`:
+
+```php
+<?php
+
+namespace App\Tools\Contracts;
+
+/**
+ * A tool whose options or source run rows carry text the user typed that can hold customer wording (Travel tuning:
+ * run labels, title, client, dataset name, notes). StartToolRun stores those keys in the run's encrypted
+ * private_inputs column instead of the plain inputs JSON (ToolRun::inputAttributes()); ToolRun::options() and
+ * ToolRun::sourceRuns() put them back for the job, a rerun and the run page.
+ */
+interface KeepsInputsPrivate
+{
+    /** @return list<string> option keys stored encrypted */
+    public function privateOptionKeys(): array;
+
+    /** @return list<string> keys of each source run row (TakesRunInputs) stored encrypted */
+    public function privateRunKeys(): array;
+}
+```
+
+`database/migrations/2026_10_18_000001_add_private_inputs_to_tool_runs_table.php`:
+
+```php
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('tool_runs', static function (Blueprint $table) {
+            // Encrypted JSON: free text the user typed for a run (labels, title, notes), kept out of the plain inputs column.
+            // mediumText: 20,000 characters of notes, encrypted and base64 encoded, can pass the 64 KB of a MySQL text column.
+            $table->mediumText('private_inputs')->nullable()->after('inputs');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('tool_runs', static function (Blueprint $table) {
+            $table->dropColumn('private_inputs');
+        });
+    }
+};
+```
+
+`app/Models/ToolRun.php`: add `use App\Tools\Contracts\KeepsInputsPrivate;` and `use App\Tools\Contracts\Tool as ToolImplementation;` (the enum is already imported as `Tool`), add `'private_inputs'` to `$fillable` after `'inputs'`, add the cast after `'inputs' => 'array',`:
+
+```php
+            'private_inputs' => 'encrypted:array',
+```
+
+change the docblock of `scopeWithoutResult()` (its select list stays as it is, without `private_inputs`):
+
+```php
+    /** Every column except `result` (1 to 2 MB a row) and `private_inputs`, both encrypted; lists and polls must not load or decrypt them. */
+```
+
+and add after `scopeWithoutResult()`:
+
+```php
+    /**
+     * The inputs and private_inputs attributes of a new run. For a tool that keeps inputs private (KeepsInputsPrivate)
+     * the option keys and source run keys it names move into private_inputs, which is encrypted; every other tool's
+     * inputs are stored as they are, with private_inputs null.
+     *
+     * @param  array<string, mixed>  $inputs  files, options and, for a tool that takes runs, runs
+     * @return array{inputs: array<string, mixed>, private_inputs: array<string, mixed>|null}
+     */
+    public static function inputAttributes(ToolImplementation $tool, array $inputs): array
+    {
+        if (! $tool instanceof KeepsInputsPrivate) {
+            return ['inputs' => $inputs, 'private_inputs' => null];
+        }
+
+        $optionKeys = array_flip($tool->privateOptionKeys());
+        $options = (array) ($inputs['options'] ?? []);
+        $private = ['options' => array_intersect_key($options, $optionKeys)];
+        $inputs['options'] = array_diff_key($options, $optionKeys);
+        if (isset($inputs['runs'])) {
+            $runKeys = array_flip($tool->privateRunKeys());
+            $rows = array_values(array_filter((array) $inputs['runs'], 'is_array'));
+            $private['runs'] = array_map(static fn (array $row): array => array_intersect_key($row, $runKeys), $rows);
+            $inputs['runs'] = array_map(static fn (array $row): array => array_diff_key($row, $runKeys), $rows);
+        }
+
+        return ['inputs' => $inputs, 'private_inputs' => $private];
+    }
+
+    /**
+     * The run's options: the plain ones in inputs, with the typed free text kept encrypted in private_inputs on top.
+     *
+     * @return array<string, mixed>
+     */
+    public function options(): array
+    {
+        return [...(array) ($this->inputs['options'] ?? []), ...(array) ($this->private_inputs['options'] ?? [])];
+    }
+
+    /**
+     * The runs this run was built from (inputs['runs'], a TakesRunInputs tool), in order, each with its encrypted
+     * keys (the label) put back. Empty for any other tool.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function sourceRuns(): array
+    {
+        $private = array_values((array) ($this->private_inputs['runs'] ?? []));
+        $rows = [];
+        foreach (array_values(array_filter((array) ($this->inputs['runs'] ?? []), 'is_array')) as $index => $row) {
+            $rows[] = [...$row, ...(is_array($private[$index] ?? null) ? $private[$index] : [])];
+        }
+
+        return $rows;
+    }
+```
+
+`app/Jobs/RunToolJob.php`: the tool gets every option, the private ones included:
+
+```php
+            $output = $tool->run(new ToolContext($run, $scope, $settings, $timeZone, $timeZoneIsDefault), $inputPaths, $run->options());
+```
+
 `app/Support/Tools/StartToolRun.php`: add `use App\Tools\Contracts\TakesRunInputs;`, change the signature and docblock of `start()`, and replace the `create([...])` call:
 
 ```php
@@ -366,32 +572,35 @@ class UnusableRunInputException extends RuntimeException
 
         $run = $scope->toolRuns()->create([
             'tool' => $toolId,
-            'inputs' => $inputs,
+            ...ToolRun::inputAttributes($tool, $inputs),
             'started_by_user_id' => $user->id,
             'status' => ToolRunStatus::Queued,
         ]);
 ```
 
-In `rerun()`:
+Replace the body of `rerun()`, so the labels and notes come back from the encrypted column:
 
 ```php
-        return $this->start($run->scope, $run->tool, $inputs['files'] ?? [], [...($inputs['options'] ?? []), ...$options], $user, $inputs['runs'] ?? []);
+    public function rerun(ToolRun $run, array $options, User $user): ToolRun
+    {
+        return $this->start($run->scope, $run->tool, $run->inputs['files'] ?? [], [...$run->options(), ...$options], $user, $run->sourceRuns());
+    }
 ```
 
 - [ ] **Step 4: Run the tests to verify they pass**
 
-Run: `php artisan test tests/Feature/TravelTuning/RunInputsContractTest.php tests/Unit/ToolAcceptsUnfiledTest.php tests/Unit/ToolIconTest.php tests/Unit/ToolQuestionTest.php tests/Feature/StartToolRunTest.php`
-Expected: PASS.
+Run: `php artisan test tests/Feature/TravelTuning/RunInputsContractTest.php tests/Unit/ToolAcceptsUnfiledTest.php tests/Unit/ToolIconTest.php tests/Unit/ToolQuestionTest.php tests/Feature/StartToolRunTest.php tests/Feature/RunToolJobTest.php tests/Feature/RunResultNotLoadedTest.php`
+Expected: PASS (every other tool's inputs and options are stored and passed as before).
 
 - [ ] **Step 5: Commit**
 
 ```bash
 vendor/bin/pint --dirty
-git add app/Enums/Tool.php app/Tools/Contracts/TakesRunInputs.php app/Support/Tools/UnusableRunInputException.php app/Support/Tools/StartToolRun.php tests/Support/FakeRunInputTool.php tests/Unit/ToolAcceptsUnfiledTest.php tests/Feature/TravelTuning/RunInputsContractTest.php
+git add app/Enums/Tool.php app/Tools/Contracts/TakesRunInputs.php app/Tools/Contracts/KeepsInputsPrivate.php app/Support/Tools/UnusableRunInputException.php app/Support/Tools/StartToolRun.php app/Models/ToolRun.php app/Jobs/RunToolJob.php database/migrations/2026_10_18_000001_add_private_inputs_to_tool_runs_table.php tests/Support/FakeRunInputTool.php tests/Unit/ToolAcceptsUnfiledTest.php tests/Feature/TravelTuning/RunInputsContractTest.php
 git commit -m "$(cat <<'EOF'
 Travel tuning (#31): tool id and the run-inputs contract
 
-StartToolRun stores the source runs a TakesRunInputs tool checked as inputs['runs'], and passes them on when a run is started again.
+StartToolRun stores the source runs a TakesRunInputs tool checked as inputs['runs'], and passes them on when a run is started again. Free text a KeepsInputsPrivate tool names (labels, title, notes) goes into the new encrypted private_inputs column, never the plain inputs; ToolRun::options() and sourceRuns() read it back for the job and a rerun.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TMSuKwN5UjNYXzPgUfXPFu
@@ -1398,8 +1607,8 @@ EOF
 - Test: `tests/Feature/TravelTuning/TravelTuningToolTest.php`
 
 **Interfaces:**
-- Consumes: `SourceRuns` (Task 3), `SysPolygons::localXml()` (Task 2), `TravelTuningCommand::build()` (Task 4), `ScriptRun::execute()`, `ExportStorage::scratchDirectoryFor()`.
-- Produces: `TravelTuningTool implements TakesRunInputs, Tool, WizardOnly`; `optionFields()` names `options.title`, `options.client`, `options.dataset`, `options.review_minutes`, `options.small_minutes`, `options.long_leg_km`, `options.model_tol_min`, `options.model_tol_pct`, `options.region_label`, `options.tiles`, `options.notes`; `run()` returns `result = ['html' => string]`, summary keys `runs, baseline_flagged, final_flagged, baseline_error_hours, final_error_hours, fixed, newly_broken, shared_legs, first_date, line`; static `summary(array $data, ?string $firstDate): array`.
+- Consumes: `SourceRuns` (Task 3), `SysPolygons::localXml()` (Task 2), `TravelTuningCommand::build()` (Task 4), `ScriptRun::execute()`, `ExportStorage::scratchDirectoryFor()`, `KeepsInputsPrivate`, `ToolRun::sourceRuns()`, `ToolRun::options()` and `ToolRun::inputAttributes()` (Task 1).
+- Produces: `TravelTuningTool implements KeepsInputsPrivate, TakesRunInputs, Tool, WizardOnly`; `privateOptionKeys()` = `['title', 'client', 'dataset', 'notes']`, `privateRunKeys()` = `['label']` (ruling 13); `run()` reads its rows from `$context->run->sourceRuns()` and its options from the `$options` RunToolJob passes (`$run->options()`); `optionFields()` names `options.title`, `options.client`, `options.dataset`, `options.review_minutes`, `options.small_minutes`, `options.long_leg_km`, `options.model_tol_min`, `options.model_tol_pct`, `options.region_label`, `options.tiles`, `options.notes`; `run()` returns `result = ['html' => string]`, summary keys `runs, baseline_flagged, final_flagged, baseline_error_hours, final_error_hours, fixed, newly_broken, shared_legs, first_date, line`; static `summary(array $data, ?string $firstDate): array`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1421,6 +1630,7 @@ use App\Tools\ToolRegistry;
 use App\Tools\TravelTuning\TravelTuningTool;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
@@ -1465,11 +1675,14 @@ afterEach(function () {
     tuningEnv('FAKE_TUNING_MODE', null);
 });
 
+/** A queued tuning run stored the way StartToolRun stores one: labels and typed options in the encrypted private_inputs. */
 function tuningRun(Model $scope, array $runs, array $options = []): ToolRun
 {
     return ToolRun::factory()->for($scope, 'scope')->create([
         'tool' => ToolId::TravelTuning, 'status' => ToolRunStatus::Queued, 'result' => null, 'summary' => null, 'run_date' => null,
-        'inputs' => ['files' => [], 'options' => ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'NORTH', ...$options], 'runs' => $runs],
+        ...ToolRun::inputAttributes(app(TravelTuningTool::class), [
+            'files' => [], 'options' => ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'NORTH', ...$options], 'runs' => $runs,
+        ]),
     ]);
 }
 
@@ -1486,7 +1699,9 @@ it('is registered as a wizard-only tool that takes runs', function () {
     expect($tool)->toBeInstanceOf(TravelTuningTool::class)
         ->and($tool->requiredKinds())->toBe([])
         ->and($tool->optionalKinds())->toBe([])
-        ->and($tool->needs())->toBe('Needs two or more Plan travels runs checked with Google');
+        ->and($tool->needs())->toBe('Needs two or more Plan travels runs checked with Google')
+        ->and($tool->privateOptionKeys())->toBe(['title', 'client', 'dataset', 'notes'])
+        ->and($tool->privateRunKeys())->toBe(['label']);
 });
 
 it('writes the runs, the polygons and the manifest, runs the script and keeps the page with counts only', function () {
@@ -1514,18 +1729,21 @@ it('writes the runs, the polygons and the manifest, runs the script and keeps th
             'line' => '2 runs: flagged 75 to 10, total error 138.2 to 98.2 hours, 44 fixed, 0 newly broken, 2,112 shared legs',
         ])
         ->and(glob(config('exports.scratch_path').'/*'))->toBe([])
-        ->and(Storage::disk('r2')->allFiles())->toBe([app(ExportStorage::class)->objectKey($this->sys)]);
+        ->and(Storage::disk('r2')->allFiles())->toBe([app(ExportStorage::class)->objectKey($this->sys)])
+        // The label and client reached the script from the encrypted column; the plain one never held them.
+        ->and(DB::table('tool_runs')->where('id', $run->id)->value('inputs'))->not->toContain('Grid')->not->toContain('SaskTel');
 });
 
-it('writes the notes for the script when there are some', function () {
-    runTuningJob(tuningRun($this->dataset, [
+it('writes the notes for the script when there are some, from the encrypted inputs', function () {
+    $run = runTuningJob(tuningRun($this->dataset, [
         ['run_id' => $this->base->id, 'label' => 'Baseline', 'sys_file_id' => null],
         ['run_id' => $this->final->id, 'label' => 'Run 1', 'sys_file_id' => null],
     ], ['notes' => "## Round 2\n- **Corridors** tightened"]));
 
     $call = tuningCalls($this->argsFile)[0];
     expect($call['argv'])->toContain('--notes')
-        ->and($call['notes'])->toBe("## Round 2\n- **Corridors** tightened\n");
+        ->and($call['notes'])->toBe("## Round 2\n- **Corridors** tightened\n")
+        ->and(DB::table('tool_runs')->where('id', $run->id)->value('inputs'))->not->toContain('Corridors');
 });
 
 it('fails in plain words when the script stops, and deletes the SYS copy at once', function () {
@@ -1537,7 +1755,7 @@ it('fails in plain words when the script stops, and deletes the SYS copy at once
     $scratch = app(ExportStorage::class)->scratchDirectoryFor($run->id);
     $context = new ToolContext($run, $this->dataset, $this->dataset->settings, 'America/Regina');
 
-    expect(fn () => app(TravelTuningTool::class)->run($context, [], $run->inputs['options']))
+    expect(fn () => app(TravelTuningTool::class)->run($context, [], $run->options()))
         ->toThrow(RuntimeException::class, 'The travel tuning report stopped while reading Run 1: Run 1 (run-2.csv) has no Google columns.');
     expect(glob($scratch.'/polygons-*'))->toBe([])
         ->and(is_file($scratch.'/run-2.csv'))->toBeTrue();
@@ -1626,6 +1844,7 @@ use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Support\Exports\ExportStorage;
+use App\Tools\Contracts\KeepsInputsPrivate;
 use App\Tools\Contracts\TakesRunInputs;
 use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolResult;
@@ -1644,11 +1863,13 @@ use RuntimeException;
 /**
  * Runs pso-tools/travel/travel_tuning.py on two or more Plan travels runs of one scope (baseline first), each with
  * an optional SYS export for its polygons, and keeps the page. The tool takes no export files: its inputs are
- * inputs['runs'], checked by SourceRuns when the run starts and again here. Each source run's stored CSV and an
+ * the run's source runs (ToolRun::sourceRuns(): inputs['runs'] with the labels from the encrypted private_inputs),
+ * checked by SourceRuns when the run starts and again here. The labels, title, client, dataset name and notes are
+ * typed by the user and can hold customer wording, so they are kept encrypted (KeepsInputsPrivate). Each source run's stored CSV and an
  * XML copy of each SYS export go into the run's scratch folder with a manifest; the SYS copies are deleted as soon
  * as the script ends (they hold live credentials). The page outlives the runs and exports it was built from.
  */
-class TravelTuningTool implements TakesRunInputs, Tool, WizardOnly
+class TravelTuningTool implements KeepsInputsPrivate, TakesRunInputs, Tool, WizardOnly
 {
     public function __construct(private SourceRuns $sourceRuns, private SysPolygons $polygons, private ExportStorage $storage) {}
 
@@ -1677,6 +1898,16 @@ class TravelTuningTool implements TakesRunInputs, Tool, WizardOnly
         return $this->sourceRuns->check($scope, $picked);
     }
 
+    public function privateOptionKeys(): array
+    {
+        return ['title', 'client', 'dataset', 'notes'];
+    }
+
+    public function privateRunKeys(): array
+    {
+        return ['label'];
+    }
+
     public function optionFields(): array
     {
         return [
@@ -1702,7 +1933,7 @@ class TravelTuningTool implements TakesRunInputs, Tool, WizardOnly
 
     public function run(ToolContext $context, array $inputPaths, array $options): ToolResult
     {
-        $rows = array_values(array_filter((array) ($context->run->inputs['runs'] ?? []), 'is_array'));
+        $rows = $context->run->sourceRuns();
         if (count($rows) < 2) {
             throw new RuntimeException('This run has fewer than two plan travels runs to compare.');
         }
@@ -1882,7 +2113,7 @@ git add app/Tools/TravelTuning/TravelTuningTool.php app/Providers/AppServiceProv
 git commit -m "$(cat <<'EOF'
 Travel tuning (#31): the tool runs travel_tuning.py on the picked plan travels runs
 
-Stores the page encrypted and counts only in the summary; SYS copies live only in the scratch folder and are deleted when the script ends.
+Stores the page encrypted and counts only in the summary; SYS copies live only in the scratch folder and are deleted when the script ends. Labels, title, client, dataset name and notes are kept in the encrypted private_inputs.
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TMSuKwN5UjNYXzPgUfXPFu
@@ -1994,7 +2225,7 @@ git commit -m "Dataset settings: a Region label that reports use instead of a ha
 - Test: `tests/Feature/TravelTuning/TravelTuningWizardTest.php`
 
 **Interfaces:**
-- Consumes: `SourceRuns::rows()`, `optionLabel()`, `sysError()`, `NO_POLYGONS`, `MAX_RUNS` (Task 3); `RunInputPicker::optionsForKind()` (Task 2); `StartToolRun::start(..., array $runs)` and `UnusableRunInputException` (Task 1); `TakesRunInputs::needs()`.
+- Consumes: `SourceRuns::rows()`, `optionLabel()`, `sysError()`, `NO_POLYGONS`, `MAX_RUNS` (Task 3); `RunInputPicker::optionsForKind()` (Task 2); `StartToolRun::start(..., array $runs)`, `UnusableRunInputException`, `ToolRun::options()` and `ToolRun::sourceRuns()` (Task 1); `TakesRunInputs::needs()`. The page hands the labels and options to `StartToolRun` as before; the split into the encrypted column happens there (ruling 13), so the page itself changes nothing for it. The options are prefilled from the dataset only, never from an earlier run.
 - Produces: `ToolWizardPage::chosenRuns(array $state): array` (protected, default `[]`); `TravelTuningEntry` at `tools/travel-tuning`; form state `data.runs` (uuid-keyed repeater items `run_id`, `label`, `sys_file_id`).
 
 - [ ] **Step 1: Write the failing tests**
@@ -2014,6 +2245,7 @@ use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -2082,11 +2314,14 @@ it('starts a run with the runs in order, the default labels and the chosen SYS',
         ->assertHasNoFormErrors();
 
     $run = ToolRun::query()->where('tool', ToolId::TravelTuning)->sole();
-    expect($run->inputs['runs'])->toBe([
+    $raw = (string) DB::table('tool_runs')->where('id', $run->id)->value('inputs');
+    // toEqual: the merged rows carry the label last (it comes back from the encrypted column).
+    expect($run->sourceRuns())->toEqual([
         ['run_id' => $this->base->id, 'label' => 'Baseline', 'sys_file_id' => null],
         ['run_id' => $this->final->id, 'label' => 'Grid v6', 'sys_file_id' => $this->sys->id],
-    ])->and($run->inputs['options']['client'])->toBe('SaskTel')
-        ->and($run->inputs['options'])->not->toHaveKey('time_zone');
+    ])->and($run->options()['client'])->toBe('SaskTel')
+        ->and($run->options())->not->toHaveKey('time_zone')
+        ->and($raw)->not->toContain('Grid v6')->not->toContain('Baseline')->not->toContain('SaskTel')->not->toContain('Travel Tuning Report');
     Queue::assertPushed(RunToolJob::class, 1);
 });
 
@@ -2135,7 +2370,7 @@ it('lists the user\'s Unfiled runs on Unfiled, and starts one there', function (
 
     $run = ToolRun::query()->where('tool', ToolId::TravelTuning)->sole();
     expect((string) $run->scope_id)->toBe((string) $this->user->getKey())
-        ->and($run->inputs['runs'][1]['label'])->toBe('Run 1');
+        ->and($run->sourceRuns()[1]['label'])->toBe('Run 1');
 });
 ```
 
@@ -2440,8 +2675,8 @@ EOF
 - Test: `tests/Feature/TravelTuning/TravelTuningRunPageTest.php`
 
 **Interfaces:**
-- Consumes: summary keys from Task 5; `SourceRuns::defaultLabel()`; `ToolRunPage::urlFor()`; routes `tool-runs.page`, `tool-runs.download-html`.
-- Produces: `SourceRunList::for(ToolRun $run): list<array{label: string, url: ?string, made: ?string, polygons: ?string}>` (empty for a run without `inputs['runs']`).
+- Consumes: summary keys from Task 5; `SourceRuns::defaultLabel()`; `ToolRunPage::urlFor()`; routes `tool-runs.page`, `tool-runs.download-html`; `ToolRun::sourceRuns()` and `ToolRun::inputAttributes()` (Task 1), `TravelTuningTool` (Task 5).
+- Produces: `SourceRunList::for(ToolRun $run): list<array{label: string, url: ?string, made: ?string, polygons: ?string}>` (empty for a run without source runs). It reads `$run->sourceRuns()`, so the labels shown are decrypted on the run page only (owner only, `ScopeOwnedModel`); the run lists select `withoutResult()` and never load them.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -2452,13 +2687,16 @@ EOF
 
 use App\Enums\Tool as ToolId;
 use App\Filament\Pages\ToolRunPage;
+use App\Filament\Widgets\RecentRuns;
 use App\Http\Controllers\ToolRunPageController;
 use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
+use App\Tools\TravelTuning\TravelTuningTool;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -2470,10 +2708,10 @@ beforeEach(function () {
     $this->sys = ExportFile::factory()->for($this->environment, 'scope')->sys()->create(['original_filename' => 'PSO_Sys_pass_1.xml']);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::TravelTuning, 'started_by_user_id' => $this->user->id, 'run_date' => null,
-        'inputs' => ['files' => [], 'options' => [], 'runs' => [
+        ...ToolRun::inputAttributes(app(TravelTuningTool::class), ['files' => [], 'options' => [], 'runs' => [
             ['run_id' => $this->base->id, 'label' => 'Prod (no polygons)', 'sys_file_id' => null],
             ['run_id' => $this->final->id, 'label' => 'Grid v6', 'sys_file_id' => $this->sys->id],
-        ]],
+        ]]),
         'result' => ['html' => '<!doctype html><title>Travel Tuning Report</title><p>tuning page</p>'],
         'summary' => ['runs' => 2, 'baseline_flagged' => 75, 'final_flagged' => 10, 'baseline_error_hours' => 138.2, 'final_error_hours' => 98.2,
             'fixed' => 44, 'newly_broken' => 0, 'shared_legs' => 2112, 'first_date' => '2026-10-05',
@@ -2503,6 +2741,11 @@ it('shows the headline, the downloads, the page and the source runs with their p
         ->assertSee('Legs common to every run are 55% of the smallest run.')
         ->assertDontSee('No inputs recorded.')
         ->assertDontSee('Download JSON');
+});
+
+it('shows the labels on the run page only, never in the run lists or the plain inputs', function () {
+    Livewire::test(RecentRuns::class)->assertCanSeeTableRecords([$this->run])->assertDontSee('Grid v6');
+    expect(DB::table('tool_runs')->where('id', $this->run->id)->value('inputs'))->not->toContain('Grid v6')->not->toContain('Prod (no polygons)');
 });
 
 it('names a source run that has been deleted, and keeps the page', function () {
@@ -2536,7 +2779,7 @@ it('shows an Unfiled tuning run at unfiled/me', function () {
     $mine = planTravelsRun($this->user);
     $run = ToolRun::factory()->for($this->user, 'scope')->create([
         'tool' => ToolId::TravelTuning, 'started_by_user_id' => $this->user->id,
-        'inputs' => ['files' => [], 'options' => [], 'runs' => [['run_id' => $mine->id, 'label' => 'Baseline', 'sys_file_id' => null], ['run_id' => $mine->id, 'label' => 'Run 1', 'sys_file_id' => null]]],
+        ...ToolRun::inputAttributes(app(TravelTuningTool::class), ['files' => [], 'options' => [], 'runs' => [['run_id' => $mine->id, 'label' => 'Baseline', 'sys_file_id' => null], ['run_id' => $mine->id, 'label' => 'Run 1', 'sys_file_id' => null]]]),
         'result' => ['html' => '<p>tuning page</p>'], 'summary' => ['runs' => 2, 'line' => '2 runs'],
     ]);
 
@@ -2567,7 +2810,7 @@ use App\Models\ToolRun;
 use App\Tools\TravelTuning\SourceRuns;
 
 /**
- * The runs another run was built from (inputs['runs'], Travel tuning), for the Inputs panel: each row's label, a
+ * The runs another run was built from (ToolRun::sourceRuns(), Travel tuning), for the Inputs panel: each row's label (decrypted), a
  * link to the source run while it exists, when it was made, and the SYS export named for its polygons. Runs and
  * exports that have gone since are named as gone; the run's own result does not depend on them.
  */
@@ -2576,7 +2819,7 @@ class SourceRunList
     /** @return list<array{label: string, url: ?string, made: ?string, polygons: ?string}> */
     public static function for(ToolRun $run): array
     {
-        $rows = array_values(array_filter((array) ($run->inputs['runs'] ?? []), 'is_array'));
+        $rows = $run->sourceRuns();
         if ($rows === []) {
             return [];
         }
@@ -2743,6 +2986,7 @@ use App\Support\Exports\ExportStorage;
 use App\Tools\LoadAudit\PsoToolsCheckout;
 use App\Tools\ToolRegistry;
 use App\Tools\TravelTuning\TravelTuningCommand;
+use App\Tools\TravelTuning\TravelTuningTool;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
@@ -2788,10 +3032,10 @@ it('builds the report from synthetic runs and a zipped SYS export with the real 
     $sys = storedSys($this->environment, polygonSysXml(1), zipped: true);
     $run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::TravelTuning, 'status' => ToolRunStatus::Queued, 'result' => null, 'summary' => null, 'run_date' => null,
-        'inputs' => ['files' => [], 'options' => ['title' => 'Travel tuning test', 'client' => 'SaskTel', 'dataset' => 'North'], 'runs' => [
+        ...ToolRun::inputAttributes(app(TravelTuningTool::class), ['files' => [], 'options' => ['title' => 'Travel tuning test', 'client' => 'SaskTel', 'dataset' => 'North'], 'runs' => [
             ['run_id' => $base->id, 'label' => 'Baseline', 'sys_file_id' => null],
             ['run_id' => $final->id, 'label' => 'Grid v1', 'sys_file_id' => $sys->id],
-        ]],
+        ]]),
     ]);
 
     (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
@@ -2826,10 +3070,10 @@ it('matches the command line on the SaskTel 2026-10-13 runs', function () {
     $options = ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'North'];
     $run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::TravelTuning, 'status' => ToolRunStatus::Queued, 'result' => null, 'summary' => null, 'run_date' => null,
-        'inputs' => ['files' => [], 'options' => $options, 'runs' => [
+        ...ToolRun::inputAttributes(app(TravelTuningTool::class), ['files' => [], 'options' => $options, 'runs' => [
             ['run_id' => $base->id, 'label' => 'Prod (no polygons)', 'sys_file_id' => null],
             ['run_id' => $final->id, 'label' => 'Grid v6', 'sys_file_id' => $sys->id],
-        ]],
+        ]]),
     ]);
 
     (new RunToolJob($run->id))->handle(app(ExportStorage::class), app(ToolRegistry::class));
@@ -2904,6 +3148,7 @@ EOF
 ## Self-review
 
 - **Spec 4 coverage.** Tool under Analyse and in the wizard, accepts Unfiled: Tasks 1, 6. Runs of the run's own scope only: Task 3 (`finished()` filters by scope), Task 5 (re-check). Inputs table with dates, made, legs, flagged, Google: Task 6 view. Two or more, ordered with up and down: Task 6 repeater. Labels default Baseline, Run 1: Task 3. Polygons from the environment's SYS or the user's Unfiled SYS, or None, Polygon table check with the spec's sentence: Tasks 2, 3, 6. Run without Google cannot be picked, its row says so: Tasks 3, 6. Options 4.2 (prefill, thresholds, region label, tiles, notes, no review CSV, no offline): Tasks 4, 5, 5A, 6. Running 4.3 (CSVs from the encrypted result, SYS to scratch and deleted, manifest, ScriptRun, html encrypted, counts-only summary, script warnings): Task 5. Run page with sandboxed iframe and Download HTML: Task 7. 4.4 (own copy of the page): Task 7's deleted-source test. Spec 3.1 contract (manifest columns, `--json`, `--generated`, `Stopped during`, `warning:` lines): Tasks 4, 5, 8. Spec 6 (no uploaded CSVs, no review CSV): no task offers either.
+- **Encrypted free text (ruling 13).** Stored split by `ToolRun::inputAttributes()` in Task 1 and read only through `ToolRun::options()` and `sourceRuns()`: Task 1 (`StartToolRun`, `rerun()`, `RunToolJob`), Task 5 (`run()`), Task 7 (`SourceRunList`), with test fixtures in Tasks 5, 7 and 8 built through `inputAttributes()`. Raw `inputs` column free of the labels, title, client and notes: Tasks 1, 5, 6, 7. Rerun restores them: Task 1. Lists never select `private_inputs`: Task 1 (`withoutResult()`), Task 7 (Recent runs).
 - **Placeholders.** None: every code step carries the code; the one conditional (Task 6 Step 5, `cacheSchema`) names the exact line to add.
-- **Names across tasks.** `SourceRuns::check/rows/optionLabel/sysError/label/defaultLabel/MAX_RUNS/NO_POLYGONS`, `SysPolygons::count/localXml/countIn`, `RunInputPicker::optionsForKind`, `TravelTuningCommand::build/MANIFEST/NOTES/OUT_HTML/OUT_JSON/TILES/NUMBERS`, `StartToolRun::start(..., $runs)`, `ToolWizardPage::chosenRuns`, `SourceRunList::for`, summary keys: used with the same spelling in every task.
+- **Names across tasks.** `SourceRuns::check/rows/optionLabel/sysError/label/defaultLabel/MAX_RUNS/NO_POLYGONS`, `SysPolygons::count/localXml/countIn`, `RunInputPicker::optionsForKind`, `TravelTuningCommand::build/MANIFEST/NOTES/OUT_HTML/OUT_JSON/TILES/NUMBERS`, `StartToolRun::start(..., $runs)`, `KeepsInputsPrivate::privateOptionKeys/privateRunKeys`, `ToolRun::inputAttributes/options/sourceRuns`, `ToolWizardPage::chosenRuns`, `SourceRunList::for`, summary keys: used with the same spelling in every task.
 - **Review Focus.** Each line has its test: 1 Task 5 (deleted run, expired SYS, SYS copy deleted on failure), 2 Tasks 4 and 5 (dash title, newline, `Grid, "v6"` label), 3 Tasks 3 and 6, 4 Task 2, 5 Tasks 3 and 6.

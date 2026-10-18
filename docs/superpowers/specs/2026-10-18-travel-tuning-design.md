@@ -167,6 +167,8 @@ The page loads Chart.js and Leaflet from cdnjs. There is no offline mode on the 
 - each picked SYS export, decrypted to a temporary file and deleted after the run
 - a manifest that lists them
 
+The run's labels, title, client, dataset name and notes are stored encrypted, not in the plain `ToolRun.inputs`.
+
 The stored result is the HTML (encrypted). `ToolRun.summary` holds counts only:
 - runs
 - flagged in the baseline and the final run
