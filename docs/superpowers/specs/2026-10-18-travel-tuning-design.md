@@ -3,7 +3,7 @@
 Issue #31. This ports pso-tools `travel/Build-TravelTuningReport.ps1` (1,046 lines): Python first in pso-tools, then a
 dataset tool in pso-test-tools that runs it. The behaviour reference is
 `docs/superpowers/notes/2026-10-18-travel-tuning-inventory.md` (the inventory). Where this spec says nothing, the
-inventory is the rule. Draft for Ish, 2026-10-18.
+inventory is the rule. Approved by Ish, 2026-10-18.
 
 ## 1. Goal
 
@@ -188,8 +188,7 @@ from, which expire on their usual schedule.
 1. Python port and tests in pso-tools (plan A). The PowerShell script and the Windows bundle stay unchanged.
 2. The web tool in pso-test-tools (plan B), after Ish has checked the Python page against his Windows report.
 
-## 6. Questions for Ish
+## 6. Answered by Ish (2026-10-18)
 
-1. Web inputs are plan travels runs only (section 4.1). CSVs from the Windows script stay a Windows-only route. Is
-   that right, or should the web also take uploaded CSVs?
-2. Leaving the review CSV off the web for now (section 4.2): fine?
+1. Web inputs are plan travels runs only. CSVs from the Windows script stay a Windows-only route.
+2. No review CSV on the web. Route names and map notes come from the polygon descriptions (`Corridor w0.67 | <route>`), as in Ish's 2026-10-13 report.
