@@ -131,7 +131,7 @@ class TravelTuningEntry extends ToolWizardPage
                 ->addActionLabel('Add a run'),
             Livewire::make(ExportDropZone::class, ['scope' => $sysScope, 'kinds' => [ExportKind::Sys], 'compact' => true])
                 ->key("drop-sys-{$sysScope->getKey()}"),
-            Text::make('A new SYS export appears in the Polygons lists once it has been read. SYS exports are kept for '.(int) config('exports.ttl_hours', 12).' hours; the report keeps its own copy of the page.')->color('gray'),
+            Text::make('A new SYS export appears in the Polygons lists once it has been read. SYS exports are kept for '.(int) config('exports.ttl_hours', 12).' hours. A finished report keeps working after its plan travels runs and SYS exports are gone.')->color('gray'),
         ];
     }
 

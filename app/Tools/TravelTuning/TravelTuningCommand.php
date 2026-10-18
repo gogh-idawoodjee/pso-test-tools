@@ -56,7 +56,7 @@ class TravelTuningCommand
         }
         foreach (self::NUMBERS as $key => [$flag, $default]) {
             $value = $options[$key] ?? null;
-            $argv[] = $flag.'='.self::number(is_numeric($value) && (float) $value >= 0 ? (float) $value : $default);
+            $argv[] = $flag.'='.self::number(is_numeric($value) && is_finite((float) $value) && (float) $value >= 0 ? (float) $value : $default);
         }
         $tiles = (string) ($options['tiles'] ?? '');
         $argv[] = '--tiles='.(array_key_exists($tiles, self::TILES) ? $tiles : 'esri-gray');

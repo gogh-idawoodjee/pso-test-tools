@@ -19,7 +19,8 @@ use RuntimeException;
  * The Plan travels runs a Travel tuning report can be built from: the finished runs of one scope (a dataset, or a
  * user's Unfiled runs), newest first. Only a run checked with Google has the Google columns the report compares
  * against: its summary's `google` is set (a run without the check, or whose Google step failed, keeps it null).
- * The queries skip the global scope and name the scope themselves, so a job can use them too.
+ * finished() and rows() skip the global scope and name the scope themselves, so a job can use them. check() is not job-safe:
+ * its SYS lookup goes through RunInputPicker::optionsForKind(), which needs the signed-in owner.
  */
 class SourceRuns
 {

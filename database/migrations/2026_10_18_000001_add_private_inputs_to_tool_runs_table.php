@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::table('tool_runs', static function (Blueprint $table) {
             // Encrypted JSON: free text the user typed for a run (labels, title, notes), kept out of the plain inputs column.
             // mediumText: 20,000 characters of notes, encrypted and base64 encoded, can pass the 64 KB of a MySQL text column.
-            $table->mediumText('private_inputs')->nullable()->after('inputs');
+            $table->mediumText('private_inputs')->nullable();
         });
     }
 

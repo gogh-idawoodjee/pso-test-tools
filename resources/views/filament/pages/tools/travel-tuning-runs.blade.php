@@ -12,7 +12,7 @@
         </thead>
         <tbody class="divide-y divide-gray-950/5 dark:divide-white/10">
             @foreach ($rows as $row)
-                <tr @class(['text-gray-400 dark:text-gray-500' => ! $row['google'], 'text-gray-900 dark:text-gray-100' => $row['google']])>
+                <tr @class(['text-gray-600 dark:text-gray-400' => ! $row['google'], 'text-gray-900 dark:text-gray-100' => $row['google']])>
                     <td class="px-3 py-2">{{ $row['range'] }}</td>
                     <td class="px-3 py-2">{{ $row['made'] }}</td>
                     <td class="px-3 py-2 text-right">{{ number_format($row['legs']) }}</td>

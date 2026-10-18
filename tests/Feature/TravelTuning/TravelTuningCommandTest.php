@@ -31,6 +31,15 @@ it('keeps text that starts with a dash, folds newlines, drops blanks and falls b
         ->and(implode(' ', $argv))->not->toContain('--client')->not->toContain('--offline')->not->toContain('--review-csv');
 });
 
+it('ignores non-finite numbers and uses the defaults', function () {
+    $argv = TravelTuningCommand::build(PsoToolsCheckout::fromConfig(), '/work', [
+        'review_minutes' => '1e400', 'small_minutes' => 'INF', 'long_leg_km' => 'NAN', 'model_tol_min' => '2',
+    ], '2026-10-18 09:30', false);
+
+    expect($argv)->toContain('--review-minutes=20', '--small-minutes=5', '--long-leg-km=300', '--model-tol-min=2')
+        ->and(implode(' ', $argv))->not->toContain('INF')->not->toContain('NAN');
+});
+
 it('says the checkout is not set up when the script is missing', function () {
     config(['tools.pso_tools_path' => sys_get_temp_dir()]);
 

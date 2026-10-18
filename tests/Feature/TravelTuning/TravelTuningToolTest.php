@@ -231,3 +231,27 @@ it('puts Run N in place of the labels in the warnings, the failure and the log, 
         ->and($plain($failed))->not->toContain('Acme')
         ->and(implode("\n", $logged))->toContain('Run 2 (run-2.csv)')->not->toContain('Acme');
 });
+
+it('caps the number options so a huge value is refused', function () {
+    $flatten = function (array $components) use (&$flatten): array {
+        $found = [];
+        foreach ($components as $component) {
+            $found[] = $component;
+            if (method_exists($component, 'getDefaultChildComponents')) {
+                $found = [...$found, ...$flatten($component->getDefaultChildComponents())];
+            }
+        }
+
+        return $found;
+    };
+    $fields = collect($flatten(app(TravelTuningTool::class)->optionFields()))
+        ->filter(fn ($component) => method_exists($component, 'getMaxValue'))
+        ->keyBy(fn ($field) => $field->getName());
+    $max = fn (string $key) => $fields->get('options.'.$key)?->getMaxValue();
+
+    expect($max('review_minutes'))->toBe(1440)
+        ->and($max('small_minutes'))->toBe(1440)
+        ->and($max('model_tol_min'))->toBe(1440)
+        ->and($max('model_tol_pct'))->toBe(100)
+        ->and($max('long_leg_km'))->toBe(5000);
+});

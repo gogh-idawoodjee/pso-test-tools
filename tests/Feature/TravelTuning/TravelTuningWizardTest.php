@@ -52,6 +52,7 @@ it('lists the dataset\'s finished plan travels runs and says which need Google',
         ->assertSee('12 Oct 2026 22:35')
         ->assertSee('1 Sep 2026 to 2 Sep 2026')
         ->assertSee('Run plan travels again with Google on')
+        ->assertSee('A finished report keeps working after its plan travels runs and SYS exports are gone.')
         ->assertDontSee('1 Aug 2026');
 });
 

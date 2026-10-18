@@ -116,6 +116,8 @@ class StartToolRun
      * @param  array<string, mixed>  $options  option keys to change; the rest come from the run
      *
      * @throws UnusableInputException
+     * @throws UnusableRunInputException
+     * @throws InvalidArgumentException
      */
     public function rerun(ToolRun $run, array $options, User $user): ToolRun
     {
