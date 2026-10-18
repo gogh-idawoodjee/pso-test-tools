@@ -96,8 +96,8 @@ Pinned behaviour, where the script is ambiguous or version-dependent:
 4. **"Check these" ties:** a stable sort in file order.
 5. **Sums:** plain left-to-right addition in list order (not `fsum`), so that values that land on halves round the
    same way as the script.
-6. **Corridor weightings** (`0.00` text): formatted as .NET Core does (exact decimal value, halves away from zero).
-
+6. **Corridor weightings** (`0.00` text): formatted as pwsh 7 does: round to 15 significant digits, then halves away
+   from zero (`(1.005).ToString('0.00')` gives `1.01`). Corrected while planning.
 Deviations from the script, each listed on the page's footer:
 
 1. A flagged map leg with no distance gets `km: null` instead of `0.0`. The popup no longer says "0 km".
