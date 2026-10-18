@@ -132,6 +132,7 @@ class Dataset extends Model
                     Forms\Components\KeyValue::make('settings.region_labels')->label('Region labels')->columnSpanFull(),
                     Forms\Components\TextInput::make('settings.supervisor_label')->label('Supervisor label'),
                     Forms\Components\TextInput::make('settings.supervisor_label_plural')->label('Supervisor label (plural)'),
+                    Forms\Components\TextInput::make('settings.region_label')->label('Region label')->helperText('What reports call a region, such as GB or Territory. Blank means Region.')->maxLength(20),
                     Forms\Components\KeyValue::make('settings.notes')->label('Notes')->columnSpanFull(),
                 ]),
         ];

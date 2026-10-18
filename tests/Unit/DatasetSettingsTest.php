@@ -68,3 +68,16 @@ it('writes the pso-tools account file keys and round trips through fromAccountFi
         ->and($file['region_pivot'])->toBe(['red_below' => 1, 'amber_below' => 3])
         ->and(DatasetSettings::fromAccountFile($file)->toArray())->toBe($settings->toArray());
 });
+
+it('keeps the region label, blank means none, and writes it to the account file when set', function () {
+    expect(DatasetSettings::fromArray([])->regionLabel)->toBeNull()
+        ->and(DatasetSettings::fromArray(['region_label' => ''])->regionLabel)->toBeNull();
+
+    $settings = DatasetSettings::fromArray(['region_label' => 'Territory']);
+
+    expect($settings->regionLabel)->toBe('Territory')
+        ->and($settings->toArray()['region_label'])->toBe('Territory')
+        ->and($settings->toAccountFile()['region_label'])->toBe('Territory')
+        ->and(DatasetSettings::fromAccountFile($settings->toAccountFile())->toArray())->toBe($settings->toArray())
+        ->and(DatasetSettings::fromArray([])->toAccountFile())->not->toHaveKey('region_label');
+});

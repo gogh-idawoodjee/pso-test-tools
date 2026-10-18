@@ -16,7 +16,7 @@ class DatasetSettings implements Arrayable, JsonSerializable
 {
     public const array KEYS = [
         'display_name', 'dataset_display_name', 'coverage_km', 'eod_cutoff_hour', 'exclude_resource_types',
-        'resource_type_names', 'attribute_labels', 'region_pivot', 'region_labels', 'supervisor_label',
+        'resource_type_names', 'attribute_labels', 'region_pivot', 'region_labels', 'supervisor_label', 'region_label',
         'supervisor_label_plural', 'notes', 'windows_time_zone', 'time_zone', 'ifs_time_zone',
     ];
 
@@ -39,6 +39,7 @@ class DatasetSettings implements Arrayable, JsonSerializable
         public array $regionLabels = [],
         public ?string $supervisorLabel = null,
         public ?string $supervisorLabelPlural = null,
+        public ?string $regionLabel = null,
         public array $notes = [],
         public ?string $windowsTimeZone = null,
         public ?string $timeZone = null,
@@ -99,6 +100,7 @@ class DatasetSettings implements Arrayable, JsonSerializable
             regionLabels: $map($values['region_labels'] ?? []),
             supervisorLabel: self::stringOrNull($values['supervisor_label'] ?? null),
             supervisorLabelPlural: self::stringOrNull($values['supervisor_label_plural'] ?? null),
+            regionLabel: self::stringOrNull($values['region_label'] ?? null),
             notes: $map($values['notes'] ?? []),
             windowsTimeZone: self::stringOrNull($values['windows_time_zone'] ?? null),
             timeZone: self::stringOrNull($timeZone),
@@ -153,6 +155,7 @@ class DatasetSettings implements Arrayable, JsonSerializable
             'region_labels' => $this->regionLabels,
             'supervisor_label' => $this->supervisorLabel,
             'supervisor_label_plural' => $this->supervisorLabelPlural,
+            'region_label' => $this->regionLabel,
             'notes' => $this->notes,
             'windows_time_zone' => $this->windowsTimeZone,
             'time_zone' => $this->timeZone,
