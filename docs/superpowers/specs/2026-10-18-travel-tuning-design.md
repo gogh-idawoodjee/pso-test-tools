@@ -123,13 +123,14 @@ Deviations from the script, each listed on the page's footer:
 
 ## 4. pso-test-tools: Travel tuning tool
 
-A dataset tool, `Tool::TravelTuning`, under Analysis tools and in the wizard. It does not accept Unfiled: plan
-travels runs belong to a dataset.
+A tool, `Tool::TravelTuning`, under Analysis tools and in the wizard. It accepts Unfiled
+(`Tool::acceptsUnfiled()` true), like Plan travels: plan travels runs can belong to a dataset or to a user's Unfiled
+scope. All runs in one report come from the same scope as the run being started (amended with Ish, 2026-10-18).
 
 ### 4.1 Inputs: runs, not files
 
-This is the first tool whose inputs are other runs. The wizard's Inputs step shows the dataset's finished Plan
-travels runs that have Google columns, with these columns:
+This is the first tool whose inputs are other runs. The wizard's Inputs step shows the finished Plan travels runs
+of the chosen scope (the dataset's, or the user's Unfiled runs) that have Google columns, with these columns:
 - the date range
 - when the run was made
 - legs
@@ -140,7 +141,7 @@ The user picks two or more of them and puts them in order (baseline first) with 
 run gets:
 
 - **Label:** editable. It defaults to "Baseline" for the first, then "Run 1", "Run 2" (the script's defaults).
-- **Polygons:** optional. A SYS export of the dataset's environment (a polygon import XML is a `DsSystemData`
+- **Polygons:** optional. A SYS export of the dataset's environment (from Unfiled: one of the user's Unfiled SYS exports) (a polygon import XML is a `DsSystemData`
   file, so it is stored as SYS too), or "None". Every SYS export is checked for a `Polygon` table when it is picked.
   One without polygons is refused with "This SYS export has no Polygon table".
 
