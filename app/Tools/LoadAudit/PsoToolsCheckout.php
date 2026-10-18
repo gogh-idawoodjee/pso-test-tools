@@ -63,6 +63,16 @@ class PsoToolsCheckout
         return $this->file('plan-travels/plan_travels_template.html');
     }
 
+    public function travelTuningScript(): string
+    {
+        return $this->file('travel/travel_tuning.py');
+    }
+
+    public function travelTuningTemplate(): string
+    {
+        return $this->file('travel/travel_tuning_template.html');
+    }
+
     public function paramsFile(): string
     {
         return $this->file('kb/pso_parameters_reference.csv');

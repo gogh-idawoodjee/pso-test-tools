@@ -25,4 +25,8 @@ return [
         // at most 270 s) still fits before this deadline. 0 means stop at once: no Google calls are made.
         'google_deadline_seconds' => (int) env('TOOLS_PLAN_TRAVELS_GOOGLE_DEADLINE_SECONDS', 720),
     ],
+    'travel_tuning' => [
+        // One script run over the picked plan travels CSVs and polygon files; the 2026-10-13 SaskTel pair takes seconds.
+        'timeout_seconds' => (int) env('TOOLS_TRAVEL_TUNING_TIMEOUT_SECONDS', 600),
+    ],
 ];
