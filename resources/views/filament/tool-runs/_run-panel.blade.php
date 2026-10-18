@@ -51,24 +51,43 @@
     </div>
 @endif
 
+@php
+    $sourceRuns = \App\Support\Tools\SourceRunList::for($run);
+@endphp
 <x-filament::section heading="Inputs">
-    <ul class="space-y-1 text-sm">
-        @forelse ($inputFiles as $kindValue => $file)
-            <li>
-                <span class="font-medium">{{ \App\Enums\ExportKind::tryFrom($kindValue)?->getLabel() ?? $kindValue }}</span>:
-                @if ($file)
-                    {{ $file->original_filename }}
-                    @if ($file->status === \App\Enums\ExportFileStatus::Purged)
-                        <span class="text-gray-500">(raw file purged)</span>
+    @if ($sourceRuns !== [])
+        <ol class="space-y-1 text-sm list-decimal pl-5">
+            @foreach ($sourceRuns as $source)
+                <li>
+                    <span class="font-medium">{{ $source['label'] }}</span>:
+                    @if ($source['url'])
+                        <x-filament::link :href="$source['url']">Plan travels run of {{ $source['made'] }}</x-filament::link>.
+                    @else
+                        <span class="text-gray-500">Plan travels run deleted.</span>
                     @endif
-                @else
-                    <span class="text-gray-500">export deleted</span>
-                @endif
-            </li>
-        @empty
-            <li class="text-gray-500">No inputs recorded.</li>
-        @endforelse
-    </ul>
+                    Polygons: {{ $source['polygons'] ?? 'None' }}
+                </li>
+            @endforeach
+        </ol>
+    @else
+        <ul class="space-y-1 text-sm">
+            @forelse ($inputFiles as $kindValue => $file)
+                <li>
+                    <span class="font-medium">{{ \App\Enums\ExportKind::tryFrom($kindValue)?->getLabel() ?? $kindValue }}</span>:
+                    @if ($file)
+                        {{ $file->original_filename }}
+                        @if ($file->status === \App\Enums\ExportFileStatus::Purged)
+                            <span class="text-gray-500">(raw file purged)</span>
+                        @endif
+                    @else
+                        <span class="text-gray-500">export deleted</span>
+                    @endif
+                </li>
+            @empty
+                <li class="text-gray-500">No inputs recorded.</li>
+            @endforelse
+        </ul>
+    @endif
 </x-filament::section>
 
 @if ($run->result !== null)
