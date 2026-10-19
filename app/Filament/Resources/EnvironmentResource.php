@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Navigation\Groups;
 use App\Filament\Resources\EnvironmentResource\Pages;
 use App\Filament\Resources\EnvironmentResource\RelationManagers;
 use App\Models\Environment;
@@ -17,7 +16,6 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
-use UnitEnum;
 
 class EnvironmentResource extends Resource
 {
@@ -27,9 +25,8 @@ class EnvironmentResource extends Resource
 
     protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::CircleStack;
 
-    protected static string|UnitEnum|null $navigationGroup = Groups::SETUP;
-
-    protected static ?int $navigationSort = -2;
+    // Top level, above Customers (which has no group and the default sort of 0).
+    protected static ?int $navigationSort = -10;
 
     protected static string|Htmlable|null $navigationBadgeTooltip = 'The number of configured environments';
 

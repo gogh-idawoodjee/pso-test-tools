@@ -27,7 +27,6 @@ it('puts every page in one of the four intent groups', function (string $class, 
     [Pages\GenericDelete::class, Groups::LIVE],
     [Pages\GenerateCustomException::class, Groups::LIVE],
     [Pages\TravelAnalyzer::class, Groups::LIVE],
-    [Resources\EnvironmentResource::class, Groups::SETUP],
     [Resources\DatasetResource::class, Groups::SETUP],
     [Resources\DatasetReferenceValueResource::class, Groups::SETUP],
     [Resources\TokenUsageLogResource::class, Groups::ADMIN],
@@ -35,6 +34,12 @@ it('puts every page in one of the four intent groups', function (string $class, 
     [Pages\HealthCheckResults::class, Groups::ADMIN],
     [Pages\IssueToken::class, Groups::ADMIN],
 ]);
+
+it('keeps environments at the top level, above customers', function () {
+    expect(Resources\EnvironmentResource::getNavigationGroup())->toBeNull()
+        ->and(Resources\CustomerResource::getNavigationGroup())->toBeNull()
+        ->and(Resources\EnvironmentResource::getNavigationSort())->toBeLessThan(Resources\CustomerResource::getNavigationSort());
+});
 
 it('orders the groups analyse, live, setup, admin', function () {
     $labels = collect(filament()->getPanel('app')->getNavigationGroups())
