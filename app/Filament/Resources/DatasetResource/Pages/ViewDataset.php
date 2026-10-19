@@ -4,6 +4,7 @@ namespace App\Filament\Resources\DatasetResource\Pages;
 
 use App\Filament\Resources\DatasetResource;
 use App\Jobs\SyncDatasetReferenceValuesJob;
+use App\Models\Dataset;
 use Filament\Actions;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -40,6 +41,12 @@ class ViewDataset extends ViewRecord
 
                     Notification::make()->title('Sync queued')->body('This page refreshes itself while the sync runs.')->success()->send();
                 }),
+            Actions\EditAction::make('editSettings')
+                ->label('Edit settings')
+                ->icon(Heroicon::OutlinedAdjustmentsHorizontal)
+                ->modalHeading(fn (): string => 'Settings for '.$this->record->name)
+                ->schema(Dataset::settingsSchema())
+                ->slideOver(),
             Actions\EditAction::make(),
         ];
     }

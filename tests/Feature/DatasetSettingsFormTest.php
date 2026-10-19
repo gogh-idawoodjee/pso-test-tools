@@ -1,9 +1,11 @@
 <?php
 
 use App\Filament\Resources\DatasetResource\Pages\EditDataset;
+use App\Filament\Resources\DatasetResource\Pages\ViewDataset;
 use App\Models\Dataset;
 use App\Models\Environment;
 use App\Models\User;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Support\Facades\Artisan;
 use Livewire\Livewire;
 
@@ -17,7 +19,6 @@ it('saves typed settings from the dataset form', function () {
     Livewire::test(EditDataset::class, ['record' => $this->dataset->getRouteKey()])
         ->fillForm([
             'settings.display_name' => 'SaskTel',
-            'settings.coverage_km' => 50,
             'settings.time_zone' => 'America/Regina',
             'settings.exclude_resource_types' => ['LONGCYCLE', 'SHORTCYCLE'],
         ])
@@ -60,4 +61,33 @@ it('falls back to UTC when the dataset has no time zone, and says whether it has
 it('explains the default booking SLA type as the fallback for task types without one', function () {
     Livewire::test(EditDataset::class, ['record' => $this->dataset->getRouteKey()])
         ->assertSee('Used when the task type has none.');
+});
+
+it('shows the settings on the dataset page and edits them from there', function () {
+    $this->dataset->update(['settings' => ['display_name' => 'SaskTel', 'resource_type_names' => ['CONSUMER' => 'consumer']]]);
+
+    Livewire::test(ViewDataset::class, ['record' => $this->dataset->getRouteKey()])
+        ->assertSee('SaskTel')
+        ->assertSee('CONSUMER: consumer')
+        ->assertSee('Same as time zone')
+        ->assertDontSee('Windows time zone')
+        ->callAction(TestAction::make('editSettings'), [
+            'settings.time_zone' => 'America/Regina',
+            'settings.supervisor_label' => 'Team lead',
+        ])
+        ->assertHasNoActionErrors();
+
+    $settings = $this->dataset->fresh()->settings;
+    expect($settings->timeZone)->toBe('America/Regina')
+        ->and($settings->supervisorLabel)->toBe('Team lead')
+        ->and($settings->displayName)->toBe('SaskTel');
+});
+
+it('no longer offers the settings nothing reads', function () {
+    Livewire::test(EditDataset::class, ['record' => $this->dataset->getRouteKey()])
+        ->assertDontSee('Windows time zone')
+        ->assertDontSee('Coverage radius')
+        ->assertDontSee('End of day cut-off')
+        ->assertSee('Names and time zones')
+        ->assertSee('Region availability');
 });
