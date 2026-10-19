@@ -222,7 +222,7 @@
                             <input type="checkbox" role="switch" wire:model.live="showUtc" class="peer sr-only" @checked($this->showUtc)>
                             <span
                                 aria-hidden="true"
-                                class="peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1"
+                                class="pso-switch-track peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1"
                                 style="position: relative; display: inline-block; width: 2rem; height: 1.125rem; border-radius: 9999px; transition: background 0.15s; background: {{ $this->showUtc ? 'var(--pso-accent)' : 'var(--pso-border-strong)' }};"
                             >
                                 <span style="position: absolute; top: 0.125rem; left: {{ $this->showUtc ? '1rem' : '0.125rem' }}; width: 0.875rem; height: 0.875rem; border-radius: 9999px; background: var(--pso-surface); transition: left 0.15s;"></span>
@@ -293,7 +293,7 @@
                                     $maxLanes = max(1, ...array_map(static fn (array $b): int => (int) $b['lanes'], $column['blocks']));
                                 @endphp
 
-                                <div wire:key="agenda-column-{{ $day }}" data-day="{{ $day }}" style="flex: 1 1 0; min-width: {{ max(10, $maxLanes * 8) }}rem; border-left: 1px solid var(--pso-border);">
+                                <div wire:key="agenda-column-{{ $day }}" data-day="{{ $day }}" class="pso-agenda-column" style="flex: 1 1 0; min-width: {{ max(10, $maxLanes * 8) }}rem; border-left: 1px solid var(--pso-border);">
                                     <div
                                         class="flex items-center justify-center text-sm font-semibold"
                                         style="height: 2.25rem; color: var(--pso-text); border-bottom: 1px solid var(--pso-border-strong);"
@@ -325,8 +325,9 @@
                                                 @if ($block['valid'])
                                                     x-on:click="if (! $event.target.closest('button')) $el.querySelector('[data-book]')?.click()"
                                                 @endif
-                                                class="rounded-md px-2 py-1 text-xs"
+                                                class="pso-agenda-block {{ $block['valid'] ? 'pso-agenda-block--valid' : 'pso-agenda-block--invalid' }} {{ $block['best'] ? 'pso-agenda-block--best' : '' }} rounded-md px-2 py-1 text-xs"
                                                 style="{{ $blockStyle }}"
+                                                title="{{ $block['times'] }}{{ $block['best'] ? ', best offer' : '' }}{{ $block['valid'] ? '' : ', not available' }}{{ $block['value'] !== null ? ', value '.$block['value'] : '' }}{{ $block['allocated'] ? ', allocated '.$block['allocated'] : '' }}"
                                             >
                                                 <div class="flex flex-wrap items-start justify-between gap-1">
                                                     <span class="font-semibold">{{ $block['times'] }}</span>

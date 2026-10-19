@@ -964,3 +964,47 @@ pre {
         bottom: calc(-16px - var(--pso-timeline-title-line) / 2);
     }
 }
+
+/* Booking agenda grid: offer blocks and day columns respond to the pointer. */
+.pso-agenda-column {
+    transition: background-color 0.15s;
+}
+
+.pso-agenda-column:hover {
+    background: color-mix(in srgb, var(--pso-accent) 4%, transparent);
+}
+
+.pso-agenda-block {
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.pso-agenda-block--valid:hover,
+.pso-agenda-block--valid:focus-within {
+    z-index: 2;
+    transform: translateY(-1px);
+    border-color: var(--pso-accent) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.pso-agenda-block--valid.pso-agenda-block--best:hover,
+.pso-agenda-block--valid.pso-agenda-block--best:focus-within {
+    box-shadow: inset 3px 0 0 var(--pso-accent), 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.pso-agenda-block--invalid:hover {
+    opacity: 0.95 !important;
+    cursor: not-allowed;
+}
+
+.pso-agenda-block .fi-btn {
+    opacity: 0.85;
+    transition: opacity 0.15s;
+}
+
+.pso-agenda-block:hover .fi-btn {
+    opacity: 1;
+}
+
+.pso-switch-track:hover {
+    filter: brightness(1.1);
+}
