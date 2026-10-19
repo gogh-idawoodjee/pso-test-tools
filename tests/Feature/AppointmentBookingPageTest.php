@@ -752,3 +752,44 @@ it('says when the display zone is UTC only because nothing is set', function () 
 
     expect($component->instance()->timeZoneLabel())->toBe('UTC (no time zone on the customer or the dataset)');
 });
+
+it('asks again from where the last offer ended when Next is pressed on the agenda', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::sequence()
+        ->push(bookingOffersResponse([bookingOffer(1, '2026-10-22T14:00:00Z')], [bookingOffer(2, '2026-10-22T18:00:00Z', false)], 'REQ-1'))
+        ->push(['data' => []], 200)
+        ->push(bookingOffersResponse([bookingOffer(3, '2026-10-22T22:00:00Z')], [], 'REQ-2'))]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('selectDay', '2026-10-22')
+        ->call('nextAgenda');
+
+    $calls = appointmentCalls();
+    expect($calls)->toHaveCount(3)
+        ->and($calls[1]->method())->toBe('DELETE')
+        ->and($calls[2]->data()['data']['appointmentTemplateDatetime'])->toBe('2026-10-22T22:00:00')
+        ->and($calls[2]->data()['data']['appointmentBaseDateTime'])->toBe('2026-10-22T04:00:00')
+        ->and($component->get('appointmentRequestId'))->toBe('REQ-2')
+        ->and($component->get('selectedDay'))->toBe('2026-10-22')
+        ->and($component->get('cursor'))->toBe('2026-10-23T02:00:00+00:00');
+});
+
+it('moves the month view three weeks on from where the survey offers ended, and back to today', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::sequence()
+        ->push(bookingOffersResponse([bookingOffer(1, '2026-11-06T12:00:00Z')], [], 'S-1', true))
+        ->push(bookingOffersResponse([], [], 'S-2', true))
+        ->push(bookingOffersResponse([], [], 'S-3', true))]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('loadSurvey')
+        ->call('nextMonth');
+
+    expect($component->get('windowStart'))->toBe('2026-11-06')
+        ->and($component->instance()->windowDays()[0])->toBe('2026-11-06')
+        ->and(appointmentCalls()[1]->data()['data']['appointmentBaseDateTime'])->toBe('2026-11-06T05:00:00');
+    $component->assertSee('Three weeks from Fri Nov 6')->assertSee('Back to today');
+
+    $component->call('backToToday');
+
+    expect($component->get('windowStart'))->toBeNull()
+        ->and($component->instance()->windowDays()[0])->toBe('2026-10-19');
+});

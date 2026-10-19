@@ -54,6 +54,17 @@ class AppointmentBooking extends Page
 
     public ?string $selectedDay = null;
 
+    /** First day of the month view's window (Y-m-d in the booking zone); null means today. */
+    public ?string $windowStart = null;
+
+    /** The latest window end PSO returned for the survey, as a UTC instant; the month's Next starts there. */
+    #[Locked]
+    public ?string $surveyEnd = null;
+
+    /** The latest window end of the open day request, as a UTC instant; the agenda's Next starts there. */
+    #[Locked]
+    public ?string $cursor = null;
+
     /** The services appointmentOffers block of the open request. */
     #[Locked]
     public ?array $offers = null;
@@ -417,12 +428,65 @@ class AppointmentBooking extends Page
             ])->statePath('task_data');
     }
 
-    /** The 21 calendar days from today in the dataset's zone, as Y-m-d. */
+    /** The 21 calendar days of the month view in the booking zone, from today or from windowStart, as Y-m-d. */
     public function windowDays(): array
     {
-        $today = CarbonImmutable::now($this->timeZone())->startOfDay();
+        $first = $this->windowFirstDay();
 
-        return array_map(static fn (int $i): string => $today->addDays($i)->toDateString(), range(0, self::WINDOW_DAYS - 1));
+        return array_map(static fn (int $i): string => $first->addDays($i)->toDateString(), range(0, self::WINDOW_DAYS - 1));
+    }
+
+    private function windowFirstDay(): CarbonImmutable
+    {
+        return filled($this->windowStart)
+            ? CarbonImmutable::parse($this->windowStart, $this->timeZone())->startOfDay()
+            : CarbonImmutable::now($this->timeZone())->startOfDay();
+    }
+
+    /** The zone the month and agenda are based in: the customer's, else the dataset's, else UTC. */
+    public function bookingTimeZone(): string
+    {
+        return $this->timeZone();
+    }
+
+    /** Month view Next: three more weeks, starting where the last offer ended (or the day after the window). */
+    public function nextMonth(): void
+    {
+        $from = self::utcMoment($this->surveyEnd)?->setTimezone($this->timeZone());
+        $this->windowStart = ($from ?? $this->windowFirstDay()->addDays(self::WINDOW_DAYS))->toDateString();
+        $this->loadSurvey();
+    }
+
+    /** Month view: back to the three weeks from today. */
+    public function backToToday(): void
+    {
+        $this->windowStart = null;
+        $this->loadSurvey();
+    }
+
+    /** Agenda Next: ask for the template's offers again, starting where the last offer (available or not) ended. */
+    public function nextAgenda(): void
+    {
+        $from = self::utcMoment($this->cursor);
+        if ($from === null) {
+            return;
+        }
+
+        $this->requestDay($from->setTimezone($this->timeZone())->toDateString(), $from->format('Y-m-d\\TH:i:s'));
+    }
+
+    /** The latest window end across every offer of a services reply, valid or not, as a UTC instant. */
+    private static function latestWindowEnd(array $offers): ?string
+    {
+        $latest = null;
+        foreach ([...(array) data_get($offers, 'validOffers', []), ...(array) data_get($offers, 'allOfferValues', [])] as $offer) {
+            $end = self::utcMoment(data_get($offer, 'windowEndDatetime'));
+            if ($end !== null && ($latest === null || $end->gt($latest))) {
+                $latest = $end;
+            }
+        }
+
+        return $latest?->toIso8601String();
     }
 
     /** The customer's zone, else the dataset's, else UTC. */
@@ -455,7 +519,7 @@ class AppointmentBooking extends Page
         }
 
         try {
-            $payload = $this->payloads()->survey(CarbonImmutable::now($this->timeZone()));
+            $payload = $this->payloads()->survey($this->windowFirstDay());
         } catch (RuntimeException $exception) {
             $this->pageError = $exception->getMessage();
 
@@ -468,6 +532,8 @@ class AppointmentBooking extends Page
 
             return;
         }
+
+        $this->surveyEnd = self::latestWindowEnd((array) data_get($result['data'], 'appointmentOffers', []));
 
         $states = array_fill_keys($days, 'none');
         foreach ((array) data_get($result['data'], 'appointmentOffers.validOffers', []) as $offer) {
@@ -485,6 +551,13 @@ class AppointmentBooking extends Page
         if (! array_key_exists($day, $this->dayStates)) {
             return;
         }
+
+        $this->requestDay($day);
+    }
+
+    /** One day request: the template from the base day, or from an exact UTC instant (Next). */
+    private function requestDay(string $day, ?string $templateDatetimeUtc = null): void
+    {
 
         if (! $this->slaTypes()->complete()) {
             $this->pageError = $this->slaTypes()->missingMessage();
@@ -510,6 +583,7 @@ class AppointmentBooking extends Page
                 data_get($this->task_data, 'slotUsageRuleId'),
                 $this->blockingOverride,
                 self::inputDatetimeUtc(data_get($this->task_data, 'input_datetime')),
+                $templateDatetimeUtc,
             );
         } catch (RuntimeException $exception) {
             $this->pageError = $exception->getMessage();
@@ -530,6 +604,7 @@ class AppointmentBooking extends Page
 
         $offers = (array) data_get($result['data'], 'appointmentOffers', []);
         $this->offers = $offers;
+        $this->cursor = self::latestWindowEnd($offers);
         $this->appointmentRequestId = data_get($offers, 'appointmentRequestId');
         $this->countdownExpiresAt = now()->addMinutes(self::OFFER_MINUTES)->toIso8601String(); // DO NOT USE ->format(), do not force UTC
         $this->requestBlocking = $blocking;

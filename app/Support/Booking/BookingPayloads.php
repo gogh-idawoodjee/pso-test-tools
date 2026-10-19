@@ -31,10 +31,14 @@ final class BookingPayloads
     }
 
     /** Ask PSO for one template's slots; optional fields only when given. */
-    public function day(CarbonImmutable $baseDay, string $templateId, ?string $slotUsageRuleId, ?bool $blocking, ?string $inputDatetime): array
+    public function day(CarbonImmutable $baseDay, string $templateId, ?string $slotUsageRuleId, ?bool $blocking, ?string $inputDatetime, ?string $templateDatetimeUtc = null): array
     {
         $data = $this->common($baseDay);
         $data['appointmentTemplateId'] = $templateId;
+        // Next: the template starts at an exact instant (the previous reply's last window end), not at midnight.
+        if (filled($templateDatetimeUtc)) {
+            $data['appointmentTemplateDatetime'] = $templateDatetimeUtc;
+        }
 
         if (filled($slotUsageRuleId)) {
             $data['slotUsageRuleId'] = $slotUsageRuleId;

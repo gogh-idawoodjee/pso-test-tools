@@ -41,7 +41,7 @@
     >
         <div
             wire:loading.flex
-            wire:target="loadSurvey,selectDay,backToMonth,releaseOffers,book"
+            wire:target="loadSurvey,selectDay,backToMonth,releaseOffers,book,nextAgenda,nextMonth,backToToday"
             class="absolute inset-0 z-10 items-center justify-center rounded-xl text-sm font-medium"
             style="background: color-mix(in srgb, var(--pso-surface) 80%, transparent); color: var(--pso-text);"
         >
@@ -50,7 +50,7 @@
 
         @if ($this->screen === 'month')
             @php
-                $tz = $this->record->dataset->timeZone();
+                $tz = $this->bookingTimeZone();
                 $days = array_keys($this->dayStates);
                 $first = \Carbon\CarbonImmutable::parse($days[0] ?? now($tz)->toDateString(), $tz);
                 $last = \Carbon\CarbonImmutable::parse(end($days) ?: $first->toDateString(), $tz);
@@ -66,20 +66,30 @@
 
             <x-filament::section
                 icon="heroicon-o-calendar-days"
-                heading="Next three weeks"
+                :heading="filled($this->windowStart) ? 'Three weeks from '.$first->format('D M j') : 'Next three weeks'"
                 description="Pick a day to see its offers for the chosen template. A dot means PSO has at least one valid slot that day; a grey day has none. Days are in {{ $tz }}."
             >
                 <x-slot name="afterHeader">
-                    <x-filament::button
-                        size="sm"
-                        color="gray"
-                        icon="heroicon-o-arrow-path"
-                        wire:click="loadSurvey"
-                        wire:loading.attr="disabled"
-                        :disabled="! $canRequest"
-                    >
-                        Check again
-                    </x-filament::button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if (filled($this->windowStart))
+                            <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-uturn-left" wire:click="backToToday" wire:loading.attr="disabled" :disabled="! $canRequest">
+                                Back to today
+                            </x-filament::button>
+                        @endif
+                        <x-filament::button
+                            size="sm"
+                            color="gray"
+                            icon="heroicon-o-arrow-path"
+                            wire:click="loadSurvey"
+                            wire:loading.attr="disabled"
+                            :disabled="! $canRequest"
+                        >
+                            Check again
+                        </x-filament::button>
+                        <x-filament::button size="sm" icon="heroicon-o-arrow-right" iconPosition="after" wire:click="nextMonth" wire:loading.attr="disabled" :disabled="! $canRequest" title="Three more weeks, starting where the last offer ended">
+                            Next
+                        </x-filament::button>
+                    </div>
                 </x-slot>
 
                 <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold uppercase" style="color: var(--pso-text-muted);">
@@ -239,6 +249,9 @@
                             </x-filament::tabs.item>
                         </x-filament::tabs>
 
+                        <x-filament::button size="sm" icon="heroicon-o-arrow-right" iconPosition="after" wire:click="nextAgenda" wire:loading.attr="disabled" :disabled="blank($this->cursor)" title="Ask again from where the last offer ended, available or not">
+                            Next
+                        </x-filament::button>
                         <x-filament::button size="sm" color="gray" icon="heroicon-o-x-mark" wire:click="releaseOffers" wire:loading.attr="disabled">
                             Release offers
                         </x-filament::button>
