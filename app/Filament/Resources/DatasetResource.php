@@ -15,6 +15,7 @@ use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
@@ -90,47 +91,57 @@ class DatasetResource extends Resource
                         ->state(static fn (Dataset $record): array => static::countLines($record)),
                 ])->columns(2),
             Section::make('Settings')
-                ->description('What the tools read for this dataset. Use Edit settings above to change them.')
+                ->description('What the tools read for this dataset. Use Edit settings above to change them. Grey means the default.')
                 ->collapsible()
+                ->columnSpanFull()
                 ->columns(3)
                 ->schema(static::settingsEntries()),
         ]);
     }
 
-    /** Read-only view of the settings the form edits, in the same order; blanks say what the default is. */
+    /** Read-only view of the settings the form edits, grouped by tool, as pills: coloured when set, grey for the default. */
     public static function settingsEntries(): array
     {
-        $text = static fn (string $name, string $label, string $blank, callable $pick): TextEntry => TextEntry::make($name)
+        $pill = static fn (string $name, string $label, string $blank, callable $pick): TextEntry => TextEntry::make($name)
             ->label($label)
-            ->placeholder($blank)
-            ->state(static fn (Dataset $record): mixed => $pick($record->settings) ?: null);
-        $pairs = static fn (string $name, string $label, callable $pick): TextEntry => TextEntry::make($name)
+            ->badge()
+            ->state(static fn (Dataset $record): string => (string) ($pick($record->settings) ?: $blank))
+            ->color(static fn (Dataset $record): string => $pick($record->settings) ? 'primary' : 'gray');
+        $pills = static fn (string $name, string $label, callable $pick): TextEntry => TextEntry::make($name)
             ->label($label)
-            ->placeholder('None')
-            ->listWithLineBreaks()
-            ->state(static function (Dataset $record) use ($pick): ?array {
+            ->badge()
+            ->state(static function (Dataset $record) use ($pick): array {
                 $lines = [];
                 foreach ((array) $pick($record->settings) as $key => $value) {
                     $lines[] = is_int($key) ? (string) $value : "{$key}: {$value}";
                 }
 
-                return $lines === [] ? null : $lines;
-            });
+                return $lines === [] ? ['None'] : $lines;
+            })
+            ->color(static fn (Dataset $record): string => (array) $pick($record->settings) === [] ? 'gray' : 'info');
 
         return [
-            $text('display_name', 'Customer name on reports', 'Environment name', static fn (DatasetSettings $s) => $s->displayName),
-            $text('dataset_display_name', 'Dataset name on reports', 'Dataset ID', static fn (DatasetSettings $s) => $s->datasetDisplayName),
-            $text('time_zone', 'Time zone', 'UTC', static fn (DatasetSettings $s) => $s->timeZone),
-            $text('ifs_time_zone', 'IFS event log time zone', 'Same as time zone', static fn (DatasetSettings $s) => $s->ifsTimeZone),
-            $text('region_pivot', 'Region colours', 'Red below 1, amber below 3', static fn (DatasetSettings $s) => sprintf('Red below %d, amber below %d', $s->regionPivot['red_below'] ?? 1, $s->regionPivot['amber_below'] ?? 3)),
-            $text('supervisor_label', 'Supervisor label', 'Supervisor', static fn (DatasetSettings $s) => $s->supervisorLabel),
-            $text('region_label', 'Region label (travel tuning)', 'Region', static fn (DatasetSettings $s) => $s->regionLabel),
-            $text('appointment_sla_type_id', 'SLA type for appointment offers', 'Not set', static fn (DatasetSettings $s) => $s->appointmentSlaTypeId),
-            $text('default_booking_sla_type_id', 'Default SLA type for booking', 'Not set', static fn (DatasetSettings $s) => $s->defaultBookingSlaTypeId),
-            $pairs('exclude_resource_types', 'Resource types left out', static fn (DatasetSettings $s) => $s->excludeResourceTypes),
-            $pairs('resource_type_names', 'Resource type names', static fn (DatasetSettings $s) => $s->resourceTypeNames),
-            $pairs('region_labels', 'Region names', static fn (DatasetSettings $s) => $s->regionLabels),
-            $pairs('attribute_labels', 'Attribute labels', static fn (DatasetSettings $s) => $s->attributeLabels),
+            Fieldset::make('Names and time zones')->columns(1)->schema([
+                $pill('display_name', 'Customer name on reports', 'Environment name', static fn (DatasetSettings $s) => $s->displayName),
+                $pill('dataset_display_name', 'Dataset name on reports', 'Dataset ID', static fn (DatasetSettings $s) => $s->datasetDisplayName),
+                $pill('time_zone', 'Time zone', 'UTC', static fn (DatasetSettings $s) => $s->timeZone),
+                $pill('ifs_time_zone', 'IFS event log time zone', 'Same as time zone', static fn (DatasetSettings $s) => $s->ifsTimeZone),
+                $pill('region_label', 'Region label (travel tuning)', 'Region', static fn (DatasetSettings $s) => $s->regionLabel),
+            ]),
+            Fieldset::make('Region availability')->columns(1)->schema([
+                $pill('region_pivot', 'Region colours', 'Red below 1, amber below 3', static fn (DatasetSettings $s) => ($s->regionPivot['red_below'] ?? 1) === 1 && ($s->regionPivot['amber_below'] ?? 3) === 3
+                    ? null
+                    : sprintf('Red below %d, amber below %d', $s->regionPivot['red_below'] ?? 1, $s->regionPivot['amber_below'] ?? 3)),
+                $pill('supervisor_label', 'Supervisor label', 'Supervisor', static fn (DatasetSettings $s) => $s->supervisorLabel),
+                $pills('exclude_resource_types', 'Resource types left out', static fn (DatasetSettings $s) => $s->excludeResourceTypes),
+                $pills('resource_type_names', 'Resource type names', static fn (DatasetSettings $s) => $s->resourceTypeNames),
+                $pills('region_labels', 'Region names', static fn (DatasetSettings $s) => $s->regionLabels),
+                $pills('attribute_labels', 'Attribute labels', static fn (DatasetSettings $s) => $s->attributeLabels),
+            ]),
+            Fieldset::make('Appointment booking')->columns(1)->schema([
+                $pill('appointment_sla_type_id', 'SLA type for appointment offers', 'Not set', static fn (DatasetSettings $s) => $s->appointmentSlaTypeId),
+                $pill('default_booking_sla_type_id', 'Default SLA type for booking', 'Not set', static fn (DatasetSettings $s) => $s->defaultBookingSlaTypeId),
+            ]),
         ];
     }
 
