@@ -66,7 +66,13 @@ class UpdateActivityStatus extends PSOActivityBasePage
                             ->prefixIcon('heroicon-o-user')
                             ->label('Resource ID')
                             ->helperText('Required if Status is Committed or higher')
-                            ->required(static fn (Get $get) => $get('status') > 29)
+                            ->required(static function (Get $get): bool {
+                                // Select->enum() makes $get('status') a TaskStatus; a raw int or string is also handled.
+                                $status = $get('status');
+                                $value = $status instanceof TaskStatus ? $status->value : $status;
+
+                                return is_numeric($value) && (int) $value > 29;
+                            })
                             ->validationMessages([
                                 'required' => 'A resources is required for statuses Committed and higher'])
                             ->live(),
@@ -120,7 +126,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
             ],
             optional: [
                 'dateTimeFixed' => filled($this->activity_data['datetimefixed'])
-                    ? Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i')
+                    ? Carbon::parse($this->activity_data['datetimefixed'])->format('Y-m-d\TH:i:s')
                     : null,
                 'duration' => $this->activity_data['duration'],
                 'inputDatetime' => $this->inputDatetimePayloadValue($this->activity_data['input_datetime'] ?? null),

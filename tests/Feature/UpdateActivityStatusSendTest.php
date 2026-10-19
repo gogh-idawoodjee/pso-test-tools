@@ -85,7 +85,7 @@ it('sends dateTimeFixed in the format pso-services validates (Y-m-d\TH:i:s)', fu
     submitStatus($this, ['datetimefixed' => '2026-04-01 08:00:00']);
 
     expect(data_get(sentPsoRequest()->data(), 'data.dateTimeFixed'))->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/');
-})->skip('Bug: page sends dateTimeFixed as Y-m-d\TH:i (no seconds) but pso-services ActivityStatusRequest.php:52 requires date_format:Y-m-d\TH:i:s');
+});
 
 it('sends the duration when set', function () {
     submitStatus($this, ['duration' => 45]);
@@ -100,4 +100,4 @@ it('requires a resource for Committed and higher and sends nothing', function ()
         ->assertHasErrors(['activity_data.resource_id' => 'required']);
 
     Http::assertNothingSent();
-})->skip('Bug: resource_id is never required in the form for Committed and higher (required(fn (Get $get) => $get(\'status\') > 29) is false), so the request goes out and only pso-services rejects it; UpdateActivityStatus.php:69');
+});
