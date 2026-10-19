@@ -20,6 +20,17 @@ class CustomerMap extends Widget
      *
      * @return list<array{name: string, address: ?string, city: ?string, lat: float, long: float, url: string}>
      */
+    /** @return array{url: string, subdomains: string, maxZoom: int, attribution: string} */
+    public function tiles(): array
+    {
+        return [
+            'url' => (string) config('psott.map_tiles.url'),
+            'subdomains' => (string) config('psott.map_tiles.subdomains'),
+            'maxZoom' => (int) config('psott.map_tiles.max_zoom'),
+            'attribution' => (string) config('psott.map_tiles.attribution'),
+        ];
+    }
+
     public function pins(): array
     {
         return Customer::query()

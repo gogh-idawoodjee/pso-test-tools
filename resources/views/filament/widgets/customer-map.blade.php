@@ -15,7 +15,7 @@
                     .pso-customer-map .pso-pin-link { display: inline-block; margin-top: 0.25rem; color: var(--pso-link); font-weight: 500; }
                 </style>
                 <script>
-                    window.psoCustomerMap = function (el, pins) {
+                    window.psoCustomerMap = function (el, pins, tiles) {
                         if (el._psoMap) {
                             return;
                         }
@@ -25,9 +25,10 @@
                             }
                             const map = L.map(el, { scrollWheelZoom: false });
                             el._psoMap = map;
-                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                                maxZoom: 19,
-                                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                            L.tileLayer(tiles.url, {
+                                subdomains: tiles.subdomains,
+                                maxZoom: tiles.maxZoom,
+                                attribution: tiles.attribution,
                             }).addTo(map);
                             const line = function (parent, cls, text) {
                                 if (text) {
@@ -68,7 +69,7 @@
                 </script>
             @endonce
             <div wire:ignore>
-                <div class="pso-customer-map" role="region" aria-label="Map of customers" x-data x-init="psoCustomerMap($el, @js($pins))"></div>
+                <div class="pso-customer-map" role="region" aria-label="Map of customers" x-data x-init="psoCustomerMap($el, @js($pins), @js($this->tiles()))"></div>
             </div>
         @endif
     </x-filament::section>
