@@ -284,7 +284,7 @@ it('shows the Rebook action on a booked task', function () {
  * Fakes the appointment endpoints by method: a POST without an offer id is a request (offers), a POST with one is
  * the check, PATCH is the accept, DELETE the decline.
  */
-function appointmentEndpointFake(mixed $slotAvailable = true, ?int $acceptStatus = null): array
+function appointmentEndpointFake(mixed $slotAvailable = true, ?int $acceptStatus = null, int $deleteStatus = 200): array
 {
     $offers = bookingOffersResponse(
         [
@@ -306,7 +306,7 @@ function appointmentEndpointFake(mixed $slotAvailable = true, ?int $acceptStatus
         $offers['data']['appointmentOffers']['allOfferValues'],
     );
 
-    return [...PsoServicesFake::session(), '*/api/v2/appointment*' => static function (Request $request) use ($offers, $slotAvailable, $acceptStatus) {
+    return [...PsoServicesFake::session(), '*/api/v2/appointment*' => static function (Request $request) use ($offers, $slotAvailable, $acceptStatus, $deleteStatus) {
         return match ($request->method()) {
             'PATCH' => $acceptStatus !== null ? Http::response(['message' => $acceptStatus === 406 ? 'The appointment request is no longer open.' : 'PSO could not accept the offer.'], $acceptStatus) : Http::response(['data' => ['acceptedAppointmentSummary' => [
                 'appointmentRequestId' => 'REQ-22',
@@ -320,7 +320,7 @@ function appointmentEndpointFake(mixed $slotAvailable = true, ?int $acceptStatus
                 'previousSlaTypeId' => data_get($request->data(), 'data.previousSlaTypeId'),
                 'temporaryActivityDeleted' => true,
             ]]]),
-            'DELETE' => Http::response(['data' => ['message' => 'Declined.']]),
+            'DELETE' => $deleteStatus === 200 ? Http::response(['data' => ['message' => 'Declined.']]) : Http::response(['error' => 'Internal server error.'], $deleteStatus),
             default => data_get($request->data(), 'data.appointmentOfferId') !== null
                 ? Http::response(['data' => ['appointment_summary' => ['isSlotAvailable' => $slotAvailable]]])
                 : Http::response($offers),
@@ -583,6 +583,26 @@ it('releases the offers when the page is left or the tab closed', function () {
         ->assertSeeHtml('pagehide')
         ->assertSeeHtml('livewire:navigating')
         ->assertSeeHtml('sendBeacon');
+});
+
+it('shows on the page when releasing the offers failed', function () {
+    Http::fake(appointmentEndpointFake(deleteStatus: 500));
+
+    $component = openAgenda($this->task)->call('backToMonth');
+
+    expect(callsAfterDayRequest())->toBe(['DELETE /api/v2/appointment/REQ-22'])
+        ->and($component->get('screen'))->toBe('month')
+        ->and($component->get('pageError'))->toBe('The offers could not be released: The PSO services API answered 500.');
+    $component->assertSee('The offers could not be released');
+});
+
+it('keeps the failed release message when the next day request works', function () {
+    Http::fake(appointmentEndpointFake(deleteStatus: 500));
+
+    $component = openAgenda($this->task)->call('selectDay', '2026-10-23');
+
+    expect($component->get('screen'))->toBe('agenda')
+        ->and($component->get('pageError'))->toBe('The offers could not be released: The PSO services API answered 500.');
 });
 
 it('uses the appointment timeout from config and still reaches services', function () {

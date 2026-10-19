@@ -693,7 +693,11 @@ class AppointmentBooking extends Page
 
         // An expired request is gone on the PSO side: services would answer 406, so only forget it here.
         if (! $this->expired) {
-            (new OfferRelease($this->record))->release($requestId);
+            $release = (new OfferRelease($this->record))->release($requestId);
+            if (! $release['ok']) {
+                // Set after selectDay clears the error, so a following day request that works leaves it showing.
+                $this->pageError = 'The offers could not be released: '.$release['error'];
+            }
         }
 
         $this->appointmentRequestId = null;
