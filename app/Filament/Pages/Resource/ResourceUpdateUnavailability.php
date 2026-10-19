@@ -68,7 +68,7 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                                     ->label('Unavailability ID')
                                     ->prefixIcon('heroicon-o-no-symbol') // Unavailability/blocked
                                     ->required()
-                                    ->live(onBlur: true),
+                                    ->live(debounce: 500),
 
                             )->addActionLabel('Add another unavailability')
                             ->reorderable(false),

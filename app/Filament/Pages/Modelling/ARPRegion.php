@@ -54,7 +54,7 @@ class ARPRegion extends ModellingBasePage
                                     ->label('Region ID')
                                     ->prefixIcon(Heroicon::OutlinedTag)
                                     ->required()
-                                    ->live(onBlur: true),
+                                    ->live(debounce: 500),
                                 TextInput::make('description')
                                     ->label('Description')
                                     ->prefixIcon(Heroicon::OutlinedDocumentText)

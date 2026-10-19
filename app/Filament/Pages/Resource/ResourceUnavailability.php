@@ -52,7 +52,7 @@ class ResourceUnavailability extends PSOResourceBasePage
                         DateTimePicker::make('base_time')
                             ->label('Base Date/Time')
                             ->required()
-                            ->live(onBlur: true),
+                            ->live(debounce: 500),
                         TextInput::make('duration')
                             ->label('Duration (minutes)')
                             ->prefixIcon('heroicon-s-arrows-up-down')

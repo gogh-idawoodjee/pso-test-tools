@@ -291,6 +291,7 @@
                                                     size="sm"
                                                     icon="heroicon-o-check"
                                                     wire:click="book({{ $offerId }})"
+                                                    x-on:click="released = $wire.appointmentRequestId"
                                                     wire:loading.attr="disabled"
                                                     wire:target="book,releaseOffers,backToMonth,markExpired"
                                                     :disabled="$this->expired"

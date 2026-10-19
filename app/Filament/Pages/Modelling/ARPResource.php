@@ -51,7 +51,7 @@ class ARPResource extends ModellingBasePage
                             ->label('Resource Type ID')
                             ->prefixIcon(Heroicon::OutlinedWrenchScrewdriver)
                             ->required()
-                            ->live(onBlur: true),
+                            ->live(debounce: 500),
                         TagsInput::make('skills')
                             ->label('Skills')
                             ->prefixIcon(Heroicon::OutlinedBookmark)
@@ -85,14 +85,14 @@ class ARPResource extends ModellingBasePage
                                 TextInput::make('latitude')
                                     ->prefixIcon('heroicon-s-arrows-up-down')
                                     ->required()
-                                    ->live(onBlur: true)
+                                    ->live(debounce: 500)
                                     ->numeric()
                                     ->minValue(-90)
                                     ->maxValue(90),
                                 TextInput::make('longitude')
                                     ->prefixIcon('heroicon-s-arrows-right-left')
                                     ->required()
-                                    ->live(onBlur: true)
+                                    ->live(debounce: 500)
                                     ->numeric()
                                     ->minValue(-180)
                                     ->maxValue(180),
