@@ -144,6 +144,9 @@ Per-dataset settings (display names, coverage, exclusions, labels, time zone) li
 form. Seed one from a pso-tools account file with
 `php artisan datasets:seed-settings <dataset id> accounts/SATE.json --time-zone=America/Regina`.
 
+To try the appointment booking page, `php artisan booking:seed-customers "<environment name>" <dataset name> --count=12` creates sample
+Saskatchewan customers in a dataset (`--fresh` replaces earlier sample ones, except any that have tasks).
+
 ### Load Health Audit
 
 The audit is the Python script in the private `pso-tools` repo, run as a child process; nothing is ported.
