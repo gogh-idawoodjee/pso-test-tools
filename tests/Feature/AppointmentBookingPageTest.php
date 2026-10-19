@@ -479,16 +479,16 @@ it('renders unavailable offers greyed in detail mode', function () {
 
     $component = openAgenda($this->task);
 
-    // Call centre: the valid offers only, grouped by period of day, best marked.
+    // Call centre: the valid offers only, best marked.
     $component->assertSet('mode', 'callcentre')
-        ->assertSee(['Morning', 'Midday', 'Best offer'])
-        ->assertDontSee('Afternoon')
+        ->assertSee(['8:00 AM to 12:00 PM', '1:00 PM to 5:00 PM', 'Best offer'])
+        ->assertDontSee(['4:00 PM to 8:00 PM', 'Not available'])
         ->assertSeeHtml('wire:click="book(7)"')
         ->assertSeeHtml('wire:click="book(8)"')
         ->assertDontSeeHtml('wire:click="book(9)"');
 
     $component->set('mode', 'detail')
-        ->assertSee(['Afternoon', 'RES-1', 'Not available'])
+        ->assertSee(['4:00 PM to 8:00 PM', 'Value 100', 'Resource RES-1', 'Allocated 8:00 AM', 'Not available'])
         ->assertSeeHtml('data-offer="9" data-valid="false"')
         ->assertSeeHtml('data-offer="7" data-valid="true"')
         ->assertDontSeeHtml('wire:click="book(9)"');
@@ -517,22 +517,68 @@ it('leaves inputDatetime out when the field is blank', function () {
         && ! array_key_exists('inputDatetime', (array) data_get($request->data(), 'data')));
 });
 
-it('groups an invalid offer from allOfferValues under its day with its times in the dataset zone', function () {
+it('puts an invalid offer from allOfferValues in its day column with its times in the dataset zone', function () {
     Http::fake(appointmentEndpointFake());
 
     $component = openAgenda($this->task)->set('mode', 'detail');
-    $groups = $component->instance()->agendaGroups();
+    $grid = $component->instance()->agendaGrid();
 
-    expect(array_keys($groups))->toBe(['Thu, Oct 22, 2026'])
-        ->and(array_keys($groups['Thu, Oct 22, 2026']))->toBe(['Morning', 'Midday', 'Afternoon']);
+    expect(array_keys($grid['columns']))->toBe(['2026-10-22'])
+        ->and($grid['columns']['2026-10-22']['label'])->toBe('Thu Oct 22')
+        ->and($grid['axis']['startHour'])->toBe(8)
+        ->and($grid['axis']['endHour'])->toBe(20);
 
-    $invalid = $groups['Thu, Oct 22, 2026']['Afternoon'][0];
-    expect($invalid['id'])->toBe(9)
-        ->and($invalid['valid'])->toBeFalse()
-        ->and($invalid['windowStartTime'])->toBe('4:00 PM')
-        ->and($invalid['windowEndTime'])->toBe('8:00 PM');
+    $invalid = collect($grid['columns']['2026-10-22']['blocks'])->firstWhere('id', 9);
+    expect($invalid['valid'])->toBeFalse()
+        ->and($invalid['times'])->toBe('4:00 PM to 8:00 PM');
 
-    $component->assertSee('4:00 PM to 8:00 PM')->assertDontSee('Unknown day');
+    $component->assertSee('4:00 PM to 8:00 PM')->assertDontSee('2026-10-22T');
+});
+
+it('shows the dataset zone and its abbreviation on the selected day in the pill', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)
+        ->assertSee('America/Toronto (EDT)')
+        ->assertSee('Show in UTC');
+
+    expect($component->instance()->timeZoneLabel())->toBe('America/Toronto (EDT)')
+        ->and($component->instance()->displayTimeZone())->toBe('America/Toronto');
+});
+
+it('shows every time in UTC when the switch is on', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)
+        ->assertSee('8:00 AM to 12:00 PM')
+        ->assertSee('8 AM')
+        ->set('showUtc', true)
+        ->assertSee('UTC')
+        ->assertDontSee('America/Toronto (EDT)')
+        ->assertSee('12:00 PM to 4:00 PM')
+        ->assertDontSee('8:00 AM to 12:00 PM');
+
+    expect($component->instance()->timeZoneLabel())->toBe('UTC')
+        ->and($component->instance()->displayTimeZone())->toBe('UTC')
+        ->and($component->instance()->agendaGrid()['axis']['startHour'])->toBe(12);
+
+    $component->set('showUtc', false)->assertSee('America/Toronto (EDT)')->assertSee('8:00 AM to 12:00 PM');
+});
+
+it('renders one column per day for a week of offers', function () {
+    $offers = array_map(
+        static fn (int $i): array => bookingOffer(20 + $i, CarbonImmutable::parse('2026-10-22T08:00:00-04:00')->addDays($i)->toIso8601String()),
+        range(0, 6),
+    );
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(bookingOffersResponse($offers, requestId: 'REQ-W'))]);
+
+    $component = openAgenda($this->task)
+        ->assertSeeInOrder(['Thu Oct 22', 'Fri Oct 23', 'Sat Oct 24', 'Sun Oct 25', 'Mon Oct 26', 'Tue Oct 27', 'Wed Oct 28']);
+
+    expect($component->instance()->agendaGrid()['columns'])->toHaveCount(7);
+    foreach (range(20, 26) as $id) {
+        $component->assertSeeHtml('wire:click="book('.$id.')"');
+    }
 });
 
 it('reads the string "false" from the check as slot taken', function () {

@@ -71,6 +71,9 @@ class AppointmentBooking extends Page
     /** Agenda layout: 'callcentre' (valid offers, Book) or 'detail' (every offer, values and resources). */
     public string $mode = 'callcentre';
 
+    /** Show the agenda's times in UTC instead of the dataset zone, for this page visit. */
+    public bool $showUtc = false;
+
     /** The acceptedAppointmentSummary of the booking made on this page. */
     #[Locked]
     public ?array $booking = null;
@@ -662,14 +665,32 @@ class AppointmentBooking extends Page
     }
 
     /**
-     * The agenda rows for the current mode, grouped by windowDayEnglish then period of day. Call centre: the
-     * valid offers. Detail: allOfferValues merged with validOffers by id, 'valid' false for any id not valid.
-     *
-     * @return array<string, array<string, list<array>>>
+     * The agenda as a day grid for the current mode, in the display zone: one column per day with each offer a
+     * block against a shared hour axis. See AgendaPresenter::grid for the shape.
      */
-    public function agendaGroups(): array
+    public function agendaGrid(): array
     {
-        return $this->agenda()->groups((array) $this->offers, (string) $this->mode);
+        return $this->agenda()->grid((array) $this->offers, (string) $this->mode, $this->displayTimeZone());
+    }
+
+    /** The zone the agenda shows its times in: UTC when the switch is on, else the dataset's. */
+    public function displayTimeZone(): string
+    {
+        return $this->showUtc ? 'UTC' : $this->timeZone();
+    }
+
+    /** The time zone pill: the dataset zone with its abbreviation on the selected day, e.g. "America/Toronto (EDT)", or "UTC". */
+    public function timeZoneLabel(): string
+    {
+        $zone = $this->displayTimeZone();
+        if ($zone === 'UTC') {
+            return 'UTC';
+        }
+
+        $day = filled($this->selectedDay) ? CarbonImmutable::parse($this->selectedDay, $zone)->setTime(12, 0) : CarbonImmutable::now($zone);
+        $abbreviation = $day->format('T');
+
+        return $abbreviation === $zone ? $zone : $zone.' ('.$abbreviation.')';
     }
 
     /** The slot length of the open request, from its first offer's window, e.g. "4 hours". */

@@ -149,7 +149,7 @@
             </x-filament::section>
         @elseif ($this->screen === 'agenda')
             @php
-                $groups = $this->agendaGroups();
+                $grid = $this->agendaGrid();
                 $detail = $this->mode === 'detail';
                 $slotLength = $this->slotLength();
                 $templateId = data_get($this->task_data, 'appointmentTemplateId');
@@ -159,6 +159,11 @@
                     ($this->requestBlocking ?? true) ? 'blocking' : 'not blocking',
                     data_get($this->offers, 'summary'),
                 ])->filter()->implode(' · ');
+                // Fixed height per hour of the axis; detail mode shows three more lines per block, so it gets more room.
+                $hourRem = $detail ? 4 : 3;
+                $startHour = (int) data_get($grid, 'axis.startHour', 0);
+                $hours = max(1, (int) data_get($grid, 'axis.endHour', $startHour + 1) - $startHour);
+                $bodyHeight = $hours * $hourRem;
             @endphp
 
             <x-filament::section
@@ -204,6 +209,26 @@
                             </span>
                         @endif
 
+                        <span
+                            data-time-zone
+                            class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold"
+                            style="background: var(--pso-surface-2); color: var(--pso-text); border: 1px solid var(--pso-border);"
+                        >
+                            <x-filament::icon icon="heroicon-o-globe-americas" class="h-4 w-4" />
+                            <span>{{ $this->timeZoneLabel() }}</span>
+                        </span>
+
+                        <label class="inline-flex cursor-pointer items-center gap-2 text-xs font-medium" style="color: var(--pso-text);">
+                            <input type="checkbox" role="switch" wire:model.live="showUtc" class="sr-only" @checked($this->showUtc)>
+                            <span
+                                aria-hidden="true"
+                                style="position: relative; display: inline-block; width: 2rem; height: 1.125rem; border-radius: 9999px; transition: background 0.15s; background: {{ $this->showUtc ? 'var(--pso-accent)' : 'var(--pso-border-strong)' }};"
+                            >
+                                <span style="position: absolute; top: 0.125rem; left: {{ $this->showUtc ? '1rem' : '0.125rem' }}; width: 0.875rem; height: 0.875rem; border-radius: 9999px; background: var(--pso-surface); transition: left 0.15s;"></span>
+                            </span>
+                            Show in UTC
+                        </label>
+
                         <x-filament::tabs>
                             <x-filament::tabs.item :active="! $detail" wire:click="$set('mode', 'callcentre')">
                                 Call centre
@@ -242,74 +267,112 @@
                     </div>
                 @endif
 
-                @forelse ($groups as $dayLabel => $periods)
-                    <div wire:key="agenda-day-{{ md5($dayLabel) }}" class="mb-4 last:mb-0">
-                        <h3 class="mb-2 text-sm font-semibold" style="color: var(--pso-text);">{{ $dayLabel }}</h3>
-
-                        @foreach ($periods as $period => $rows)
-                            <div class="mb-3 last:mb-0">
-                                <div class="mb-1 text-xs font-semibold uppercase" style="color: var(--pso-text-muted);">{{ $period }}</div>
-
-                                <div class="flex flex-col gap-1">
-                                    @foreach ($rows as $row)
-                                        @php
-                                            $offerId = (int) data_get($row, 'id');
-                                            $rowStyle = $row['valid']
-                                                ? 'background: var(--pso-surface); color: var(--pso-text); border: 1px solid var(--pso-border-strong);'
-                                                : 'background: var(--pso-surface-2); color: var(--pso-text-muted); border: 1px solid var(--pso-border); opacity: 0.7;';
-                                            if ($row['best']) {
-                                                $rowStyle .= ' box-shadow: inset 3px 0 0 var(--pso-accent);';
-                                            }
-                                        @endphp
-
-                                        <div
-                                            wire:key="offer-{{ $offerId }}"
-                                            data-offer="{{ $offerId }}" data-valid="{{ $row['valid'] ? 'true' : 'false' }}"
-                                            class="flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm"
-                                            style="{{ $rowStyle }}"
-                                        >
-                                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-                                                <span class="font-semibold">{{ data_get($row, 'windowStartTime') }} to {{ data_get($row, 'windowEndTime') }}</span>
-                                                @if ($row['best'])
-                                                    <x-filament::badge color="success" size="sm">Best offer</x-filament::badge>
-                                                @endif
-                                                @if ($detail)
-                                                    <span>Value {{ data_get($row, 'offerValue') }}</span>
-                                                    <span>Resource {{ data_get($row, 'prospectiveResourceId') ?? 'none' }}</span>
-                                                    <span>Allocation start {{ data_get($row, 'prospectiveAllocationStart') ?? 'none' }}</span>
-                                                    <span class="text-xs" style="color: var(--pso-text-muted);">
-                                                        Window {{ data_get($row, 'windowStartDatetime') }} to {{ data_get($row, 'windowEndDatetime') }}
-                                                    </span>
-                                                    @unless ($row['valid'])
-                                                        <x-filament::badge color="gray" size="sm">Not available</x-filament::badge>
-                                                    @endunless
-                                                @endif
-                                            </div>
-
-                                            @if ($row['valid'])
-                                                <x-filament::button
-                                                    size="sm"
-                                                    icon="heroicon-o-check"
-                                                    wire:click="book({{ $offerId }})"
-                                                    x-on:click="released = $wire.appointmentRequestId"
-                                                    wire:loading.attr="disabled"
-                                                    wire:target="book,releaseOffers,backToMonth,markExpired"
-                                                    :disabled="$this->expired"
-                                                >
-                                                    Book
-                                                </x-filament::button>
-                                            @endif
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endforeach
-                    </div>
-                @empty
+                @if (empty($grid['columns']))
                     <p class="text-sm" style="color: var(--pso-text-muted);">
                         PSO returned no valid offers for template {{ data_get($this->task_data, 'appointmentTemplateId') }} on this day.
                     </p>
-                @endforelse
+                @else
+                    {{-- Outlook style week: an hour axis, then one column per day; each offer a block at its window. --}}
+                    <div class="overflow-x-auto">
+                        <div class="flex" style="min-width: 100%; padding-bottom: 0.75rem;">
+                            <div style="flex: 0 0 3.5rem;">
+                                <div style="height: 2.25rem;"></div>
+                                <div style="position: relative; height: {{ $bodyHeight }}rem;">
+                                    @foreach ($grid['axis']['labels'] as $i => $hourLabel)
+                                        <div
+                                            class="text-xs tabular-nums"
+                                            style="position: absolute; right: 0.5rem; top: {{ round($i / $hours * 100, 3) }}%; transform: translateY(-50%); white-space: nowrap; color: var(--pso-text-muted);"
+                                        >{{ $hourLabel }}</div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            @foreach ($grid['columns'] as $day => $column)
+                                @php
+                                    $maxLanes = max(1, ...array_map(static fn (array $b): int => (int) $b['lanes'], $column['blocks']));
+                                @endphp
+
+                                <div wire:key="agenda-column-{{ $day }}" data-day="{{ $day }}" style="flex: 1 1 0; min-width: {{ max(10, $maxLanes * 8) }}rem; border-left: 1px solid var(--pso-border);">
+                                    <div
+                                        class="flex items-center justify-center text-sm font-semibold"
+                                        style="height: 2.25rem; color: var(--pso-text); border-bottom: 1px solid var(--pso-border-strong);"
+                                    >{{ $column['label'] }}</div>
+
+                                    <div style="position: relative; height: {{ $bodyHeight }}rem;">
+                                        @for ($i = 1; $i < $hours; $i++)
+                                            <div aria-hidden="true" style="position: absolute; left: 0; right: 0; top: {{ round($i / $hours * 100, 3) }}%; border-top: 1px solid var(--pso-border); opacity: 0.6;"></div>
+                                        @endfor
+
+                                        @foreach ($column['blocks'] as $block)
+                                            @php
+                                                $offerId = (int) $block['id'];
+                                                $lanes = max(1, (int) $block['lanes']);
+                                                $lane = (int) $block['lane'];
+                                                $blockStyle = 'position: absolute; overflow: hidden; top: '.$block['top'].'%; height: '.$block['height'].'%;'
+                                                    .' left: calc('.round($lane / $lanes * 100, 3).'% + 2px); width: calc('.round(100 / $lanes, 3).'% - 4px);';
+                                                $blockStyle .= $block['valid']
+                                                    ? ' background: var(--pso-surface); color: var(--pso-text); border: 1px solid var(--pso-border-strong); cursor: pointer;'
+                                                    : ' background: var(--pso-surface-2); color: var(--pso-text-muted); border: 1px solid var(--pso-border); opacity: 0.7;';
+                                                if ($block['best']) {
+                                                    $blockStyle .= ' box-shadow: inset 3px 0 0 var(--pso-accent);';
+                                                }
+                                            @endphp
+
+                                            <div
+                                                wire:key="offer-{{ $offerId }}"
+                                                data-offer="{{ $offerId }}" data-valid="{{ $block['valid'] ? 'true' : 'false' }}"
+                                                @if ($block['valid'])
+                                                    x-on:click="if (! $event.target.closest('button')) $el.querySelector('[data-book]')?.click()"
+                                                @endif
+                                                class="rounded-md px-2 py-1 text-xs"
+                                                style="{{ $blockStyle }}"
+                                            >
+                                                <div class="flex flex-wrap items-start justify-between gap-1">
+                                                    <span class="font-semibold">{{ $block['times'] }}</span>
+                                                    @if ($block['valid'])
+                                                        <x-filament::button
+                                                            data-book
+                                                            size="xs"
+                                                            icon="heroicon-o-check"
+                                                            wire:click="book({{ $offerId }})"
+                                                            x-on:click="released = $wire.appointmentRequestId"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="book,releaseOffers,backToMonth,markExpired"
+                                                            :disabled="$this->expired"
+                                                        >
+                                                            Book
+                                                        </x-filament::button>
+                                                    @endif
+                                                </div>
+
+                                                <div class="mt-1 flex flex-wrap gap-1">
+                                                    @if ($block['best'])
+                                                        <x-filament::badge color="success" size="sm">Best offer</x-filament::badge>
+                                                    @endif
+                                                    @if ($detail && ! $block['valid'])
+                                                        <x-filament::badge color="gray" size="sm">Not available</x-filament::badge>
+                                                    @endif
+                                                </div>
+
+                                                @if ($detail)
+                                                    <div class="mt-1 flex flex-col">
+                                                        @if ($block['value'] !== null)
+                                                            <span>Value {{ $block['value'] }}</span>
+                                                        @endif
+                                                        <span>{{ $block['resource'] === 'no resource' ? 'no resource' : 'Resource '.$block['resource'] }}</span>
+                                                        @if (filled($block['allocated']))
+                                                            <span>Allocated {{ $block['allocated'] }}</span>
+                                                        @endif
+                                                    </div>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </x-filament::section>
         @elseif ($this->screen === 'booked')
             @php
