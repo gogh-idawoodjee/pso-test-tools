@@ -50,6 +50,7 @@ it('lays out valid and invalid offers in a day column in the display zone', func
         'allocated' => '8:42 AM',
         'planId' => null, 'reason' => null, 'offerSpan' => null,
         'window' => 'Thu Oct 22, 8:00 AM to 12:00 PM America/Regina CST',
+        'current' => false,
     ])
         ->and($invalid)->toBe([
             'id' => '13', 'valid' => false, 'best' => false,
@@ -60,6 +61,7 @@ it('lays out valid and invalid offers in a day column in the display zone', func
             'allocated' => null,
             'planId' => null, 'reason' => null, 'offerSpan' => null,
             'window' => 'Thu Oct 22, 12:00 PM to 4:00 PM America/Regina CST',
+            'current' => false,
         ]);
 });
 
@@ -189,4 +191,23 @@ it('carries the plan, reason, offer span and window with offset on a block', fun
         ->and($block['reason'])->toBe('2')
         ->and($block['offerSpan'])->toBe('8:00 AM to 10:30 AM')
         ->and($block['window'])->toBe('Thu Oct 22, 8:00 AM to 12:00 PM America/Regina CST');
+});
+
+it('marks the block whose window is the current booking, matching the instant whatever the offset', function () {
+    $presenter = new AgendaPresenter('America/Regina');
+
+    // The task is booked 8:00 AM to 12:00 PM Regina (14:00 to 18:00 UTC), given with an offset.
+    $grid = $presenter->grid(gridOffers(), 'detail', 'America/Regina', '2026-10-22T08:00:00-06:00', '2026-10-22T12:00:00-06:00');
+    $byId = array_column($grid['columns']['2026-10-22']['blocks'], null, 'id');
+
+    expect($byId['12']['current'])->toBeTrue()
+        ->and($byId['12']['valid'])->toBeTrue()
+        ->and($byId['13']['current'])->toBeFalse();
+
+    // Same start, different end: not the booking.
+    $other = $presenter->grid(gridOffers(), 'detail', 'America/Regina', '2026-10-22T14:00:00Z', '2026-10-22T17:00:00Z');
+    expect(array_column($other['columns']['2026-10-22']['blocks'], 'current'))->toBe([false, false]);
+
+    // No booking: nothing is current.
+    expect(array_column($presenter->grid(gridOffers(), 'detail', 'America/Regina')['columns']['2026-10-22']['blocks'], 'current'))->toBe([false, false]);
 });

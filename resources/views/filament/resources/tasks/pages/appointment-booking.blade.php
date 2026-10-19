@@ -41,7 +41,7 @@
     >
         <div
             wire:loading.flex
-            wire:target="loadSurvey,selectDay,backToMonth,releaseOffers,book,nextAgenda,nextMonth,backToToday"
+            wire:target="loadSurvey,selectDay,backToMonth,releaseOffers,book,nextAgenda,nextMonth,backToToday,rebook"
             class="absolute inset-0 z-10 items-center justify-center rounded-xl text-sm font-medium"
             style="background: color-mix(in srgb, var(--pso-surface) 80%, transparent); color: var(--pso-text);"
         >
@@ -62,6 +62,7 @@
                 }
                 $today = $first->toDateString();
                 $canRequest = $this->slaTypes()->complete();
+                $current = $this->currentBooking();
             @endphp
 
             <x-filament::section
@@ -92,6 +93,17 @@
                     </div>
                 </x-slot>
 
+                @if ($current !== null)
+                    <div
+                        data-current-booking
+                        class="mb-3 flex items-center gap-2 rounded-md px-4 py-3 text-sm"
+                        style="background: var(--pso-surface-2); color: var(--pso-text); border: 1px solid var(--pso-border-strong);"
+                    >
+                        <x-filament::icon icon="heroicon-o-calendar" class="h-4 w-4" />
+                        <span>{{ 'Booked: '.$current['label'].(filled($this->record->booking_sla_type_id) ? ', SLA '.$this->record->booking_sla_type_id : '') }}</span>
+                    </div>
+                @endif
+
                 <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold uppercase" style="color: var(--pso-text-muted);">
                     @foreach (['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as $weekday)
                         <div class="py-1">{{ $weekday }}</div>
@@ -114,7 +126,8 @@
                                     'none' => 'background: var(--pso-surface-2); color: var(--pso-text-muted); border: 1px solid var(--pso-border);',
                                     default => 'background: var(--pso-surface); color: var(--pso-text); border: 1px solid var(--pso-border-strong);',
                                 };
-                                if ($key === $this->selectedDay) {
+                                $isBookedDay = $key === ($current['day'] ?? null);
+                                if ($key === $this->selectedDay || $isBookedDay) {
                                     $style .= ' box-shadow: var(--pso-focus-ring);';
                                 }
                                 $title = match ($state) {
@@ -132,9 +145,13 @@
                                 @disabled(! $canRequest)
                                 class="flex min-h-16 disabled:cursor-not-allowed disabled:opacity-60 flex-col items-center justify-between rounded-md px-1 py-2 text-sm transition hover:opacity-80"
                                 style="{{ $style }}"
-                                aria-label="{{ $cell->format('l F j') }}: {{ $title }}"
+                                aria-label="{{ $cell->format('l F j') }}: {{ $title }}{{ $isBookedDay ? ', booked' : '' }}"
+                                @if ($isBookedDay) data-booked-day="{{ $key }}" @endif
                             >
                                 <span @class(['font-semibold' => $key === $today])>{{ $label }}</span>
+                                @if ($isBookedDay)
+                                    <span class="rounded px-1 text-[10px] font-semibold uppercase leading-4" style="background: var(--pso-accent); color: var(--pso-surface);">Booked</span>
+                                @endif
                                 @if ($state === 'slots')
                                     <span class="h-2.5 w-2.5 rounded-full" style="background: var(--pso-accent);"></span>
                                 @else
@@ -325,28 +342,34 @@
                                         @foreach ($column['blocks'] as $block)
                                             @php
                                                 $offerId = (int) $block['id'];
+                                                // The task's current booking is shown, tagged, but never offered again.
+                                                $bookable = $block['valid'] && ! $block['current'];
                                                 $lanes = max(1, (int) $block['lanes']);
                                                 $lane = (int) $block['lane'];
                                                 $blockStyle = 'position: absolute; overflow: hidden; top: '.$block['top'].'%; height: '.$block['height'].'%;'
                                                     .' left: calc('.round($lane / $lanes * 100, 3).'% + 2px); width: calc('.round(100 / $lanes, 3).'% - 4px);';
                                                 $blockStyle .= $block['valid']
-                                                    ? ' background: var(--pso-surface); color: var(--pso-text); border: 1px solid var(--pso-border-strong); cursor: pointer;'
+                                                    ? ' background: var(--pso-surface); color: var(--pso-text); border: 1px solid var(--pso-border-strong);'.($bookable ? ' cursor: pointer;' : '')
                                                     : ' background: var(--pso-surface-2); color: var(--pso-text-muted); border: 1px solid var(--pso-border); opacity: 0.7;';
                                                 if ($block['best']) {
                                                     $blockStyle .= ' box-shadow: inset 3px 0 0 var(--pso-accent);';
+                                                }
+                                                if ($block['current']) {
+                                                    $blockStyle .= ' outline: 2px dashed var(--pso-accent); outline-offset: -2px;';
                                                 }
                                             @endphp
 
                                             <div
                                                 wire:key="offer-{{ $offerId }}"
-                                                data-offer="{{ $offerId }}" data-valid="{{ $block['valid'] ? 'true' : 'false' }}"
-                                                @if ($block['valid'])
+                                                data-offer="{{ $offerId }}" data-valid="{{ $block['valid'] ? 'true' : 'false' }}" data-current="{{ $block['current'] ? 'true' : 'false' }}"
+                                                @if ($bookable)
                                                     x-on:click="if (! $event.target.closest('button')) $el.querySelector('[data-book]')?.click()"
                                                 @endif
                                                 class="pso-agenda-block {{ $block['valid'] ? 'pso-agenda-block--valid' : 'pso-agenda-block--invalid' }} {{ $block['best'] ? 'pso-agenda-block--best' : '' }} rounded-md px-2 py-1 text-xs"
                                                 style="{{ $blockStyle }}"
                                                 title="{{ collect([
                                                     'Offer '.$offerId.': '.$block['times'],
+                                                    $block['current'] ? 'the current booking' : null,
                                                     $block['best'] ? 'best offer' : null,
                                                     $block['valid'] ? null : 'not available'.($block['reason'] ? ' (reason '.$block['reason'].')' : ''),
                                                     $block['value'] !== null ? 'value '.$block['value'] : null,
@@ -359,7 +382,7 @@
                                             >
                                                 <div class="flex flex-wrap items-start justify-between gap-1">
                                                     <span class="font-semibold">{{ $block['times'] }}</span>
-                                                    @if ($block['valid'])
+                                                    @if ($bookable)
                                                         <x-filament::button
                                                             data-book
                                                             size="xs"
@@ -376,6 +399,9 @@
                                                 </div>
 
                                                 <div class="mt-1 flex flex-wrap gap-1">
+                                                    @if ($block['current'])
+                                                        <x-filament::badge color="info" size="sm">Current</x-filament::badge>
+                                                    @endif
                                                     @if ($block['best'])
                                                         <x-filament::badge color="success" size="sm">Best offer</x-filament::badge>
                                                     @endif
@@ -424,6 +450,7 @@
             @php
                 $summary = $this->booking ?? [];
                 $window = $this->formatAppointmentWindow($this->record->appt_window_start, $this->record->appt_window_finish);
+                $previousWindow = data_get($this->previousBooking, 'window');
                 $rows = array_filter([
                     'Window' => $window ?? data_get($summary, 'selectedWindow'),
                     'Activity' => data_get($summary, 'activityId'),
@@ -436,17 +463,25 @@
                 ], static fn ($value) => filled($value));
             @endphp
 
-            <x-filament::section icon="heroicon-o-check-circle" icon-color="success" heading="Booked">
+            <x-filament::section icon="heroicon-o-check-circle" icon-color="success" :heading="$previousWindow !== null ? 'Rebooked' : 'Booked'">
                 <x-slot name="afterHeader">
-                    <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-left" wire:click="backToMonth">
-                        Back to month
-                    </x-filament::button>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <x-filament::button size="sm" icon="heroicon-o-arrow-path" wire:click="rebook" wire:loading.attr="disabled" title="Back to the month to pick another window">
+                            Rebook
+                        </x-filament::button>
+                        <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-left" wire:click="backToMonth">
+                            Back to month
+                        </x-filament::button>
+                    </div>
                 </x-slot>
 
                 <dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
                     @foreach ($rows as $label => $value)
                         <div>
                             <dt class="text-xs font-semibold uppercase" style="color: var(--pso-text-muted);">{{ $label }}</dt>
+                            @if ($label === 'Window' && $previousWindow !== null)
+                                <dd data-previous-window style="color: var(--pso-text-muted);" title="The window this booking replaced"><del>{{ $previousWindow }}</del></dd>
+                            @endif
                             <dd style="color: var(--pso-text);">{{ $value }}</dd>
                         </div>
                     @endforeach

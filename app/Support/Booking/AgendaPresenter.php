@@ -14,11 +14,16 @@ final class AgendaPresenter
      * The agenda as a day grid: one column per day (Y-m-d in $timeZone, ascending) with each offer as a block
      * positioned against a shared hour axis. Rows are allOfferValues merged with validOffers by id, 'valid' false
      * for any id not valid; call centre mode drops the invalid rows first. Rows without a window are left out.
+     * A block whose window is the task's current booking (same start and end instants) has 'current' true: the page
+     * tags it and offers no Book on it, while 'valid' keeps saying what PSO said.
      *
      * @return array{axis: array{startHour?: int, endHour?: int, labels?: list<string>}, columns: array<string, array{label: string, blocks: list<array>}>}
      */
-    public function grid(array $offers, string $mode, string $timeZone): array
+    public function grid(array $offers, string $mode, string $timeZone, ?string $currentStartUtc = null, ?string $currentEndUtc = null): array
     {
+        $currentStart = self::utcMoment($currentStartUtc);
+        $currentEnd = self::utcMoment($currentEndUtc);
+
         $valid = [];
         foreach ((array) data_get($offers, 'validOffers', []) as $offer) {
             $valid[(string) data_get($offer, 'id')] = (array) $offer;
@@ -54,6 +59,7 @@ final class AgendaPresenter
                 'to' => $from + max(0, (int) $start->diffInMinutes($end)),
                 'times' => $start->format('g:i A').' to '.$end->format('g:i A'),
                 'best' => (bool) data_get($row, 'isBestOffer') || ($row['valid'] && $bestId !== null && (string) $bestId === (string) data_get($row, 'id')),
+                'current' => $currentStart !== null && $currentEnd !== null && $start->eq($currentStart) && $end->eq($currentEnd),
             ];
         }
         if ($placed === []) {
@@ -111,6 +117,7 @@ final class AgendaPresenter
             'reason' => self::text(data_get($row, 'reasonTypeId')),
             'offerSpan' => self::span(data_get($row, 'offerStartDatetime'), data_get($row, 'offerEndDatetime'), $timeZone),
             'window' => self::span(data_get($row, 'windowStartDatetime'), data_get($row, 'windowEndDatetime'), $timeZone, iso: true),
+            'current' => $placed['current'],
         ];
     }
 

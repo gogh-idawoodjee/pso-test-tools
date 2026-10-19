@@ -926,3 +926,121 @@ it('links the task page to the booking history', function () {
         ->assertActionHasLabel('bookingHistory', 'History')
         ->assertActionHasUrl('bookingHistory', TaskResource::getUrl('bookAppointment', ['record' => $this->task, 'history' => 1]));
 });
+
+/** Mark the task booked for a window given as UTC instants, as book() leaves it. */
+function markBooked(Task $task, string $startUtc, string $endUtc, string $slaTypeId = 'INSTALL'): void
+{
+    $task->forceFill([
+        'appointment_request_id' => 'REQ-OLD',
+        'booking_sla_type_id' => $slaTypeId,
+        'booked_at' => now(),
+        'appt_window_start' => CarbonImmutable::parse($startUtc)->setTimezone(config('app.timezone')),
+        'appt_window_finish' => CarbonImmutable::parse($endUtc)->setTimezone(config('app.timezone')),
+    ])->save();
+}
+
+it('shows the current booking above the month and rings its day', function () {
+    markBooked($this->task, '2026-10-22T12:00:00Z', '2026-10-22T16:00:00Z');
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(bookingOffersResponse(
+        [bookingOffer(1, '2026-10-23T08:00:00-04:00')], survey: true,
+    ))]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])->call('loadSurvey');
+
+    expect($component->instance()->currentBooking())->toBe([
+        'day' => '2026-10-22',
+        'label' => 'Thu Oct 22, 8:00 AM to 12:00 PM America/Toronto EDT',
+        'start' => '2026-10-22T12:00:00+00:00',
+        'end' => '2026-10-22T16:00:00+00:00',
+    ])->and($component->get('dayStates')['2026-10-23'])->toBe('slots');
+
+    $component->assertSee('Booked: Thu Oct 22, 8:00 AM to 12:00 PM America/Toronto EDT, SLA INSTALL')
+        ->assertSeeHtml('data-booked-day="2026-10-22"');
+    expect(substr_count($component->html(), 'data-booked-day'))->toBe(1);
+});
+
+it('shows no booking banner on a task that is not booked', function () {
+    Http::fake();
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()]);
+
+    expect($component->instance()->currentBooking())->toBeNull();
+    $component->assertDontSee('Booked:')->assertDontSeeHtml('data-booked-day');
+});
+
+it('tags the offer of the current booking on the agenda and will not book it', function () {
+    // Offer 7 is 8:00 AM to 12:00 PM Toronto on the 22nd: the task's booking.
+    markBooked($this->task, '2026-10-22T12:00:00Z', '2026-10-22T16:00:00Z');
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task);
+
+    $component->assertSee('Current')
+        ->assertDontSeeHtml('wire:click="book(7)"')
+        ->assertSeeHtml('wire:click="book(8)"')
+        ->assertSeeHtml('data-current="true"');
+    expect($component->html())->not->toMatch('/data-offer="7"[^>]*x-on:click/');
+
+    $component->call('book', 7);
+
+    expect(callsAfterDayRequest())->toBe([])
+        ->and($component->get('screen'))->toBe('agenda')
+        ->and($this->task->fresh()->appointment_request_id)->toBe('REQ-OLD');
+});
+
+it('rebooks: sends the previous SLA type, heads the panel Rebooked with the old window struck through, clears the history', function () {
+    markBooked($this->task, '2026-10-21T12:00:00Z', '2026-10-21T16:00:00Z');
+    $fake = appointmentEndpointFake();
+    $endpoint = $fake['*/api/v2/appointment*'];
+    $fake['*/api/v2/appointment*'] = static fn (Request $request) => $request->method() === 'GET'
+        ? Http::response(['data' => ['history' => []]])
+        : $endpoint($request);
+    Http::fake($fake);
+
+    $component = openAgenda($this->task)->call('toggleHistory');
+    expect($component->get('history'))->toBe([]);
+
+    $component->call('book', 8);
+
+    Http::assertSent(fn (Request $request) => $request->method() === 'PATCH'
+        && data_get($request->data(), 'data.previousSlaTypeId') === 'INSTALL');
+    expect($component->get('screen'))->toBe('booked')
+        ->and($component->get('history'))->toBeNull()
+        ->and($component->get('previousBooking'))->toBe(['window' => 'Wednesday October 21st 08:00-12:00', 'slaTypeId' => 'INSTALL']);
+
+    $component->assertSee('Rebooked')
+        ->assertSeeHtml('<del>Wednesday October 21st 08:00-12:00</del>')
+        ->assertSee('Thursday October 22nd 13:00-17:00');
+});
+
+it('heads the panel Booked on a first booking, with no previous window', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)->call('book', 7);
+
+    expect($component->get('previousBooking'))->toBeNull();
+    $component->assertDontSee('Rebooked')->assertDontSeeHtml('<del>');
+});
+
+it('goes from the booked panel back to the month with Rebook, showing the new booking', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)->call('book', 7)
+        ->assertSeeHtml('wire:click="rebook"')
+        ->call('rebook');
+
+    expect($component->get('screen'))->toBe('month')
+        ->and($component->get('booking'))->toBeNull()
+        ->and($component->get('previousBooking'))->toBeNull()
+        ->and($component->get('selectedDay'))->toBeNull()
+        ->and(appointmentCalls()[array_key_last(appointmentCalls())]->method())->toBe('POST');
+    $component->assertSee('Booked: Thu Oct 22, 8:00 AM to 12:00 PM America/Toronto EDT, SLA Appointment')
+        ->assertSeeHtml('data-booked-day="2026-10-22"');
+});
+
+it('refuses to let the browser set the previous booking', function () {
+    Http::fake();
+
+    Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->set('previousBooking', ['window' => 'x']);
+})->throws(Exception::class, 'Cannot update locked property: [previousBooking]');

@@ -90,6 +90,10 @@ class AppointmentBooking extends Page
     #[Locked]
     public ?array $booking = null;
 
+    /** The booking this page replaced (window text and SLA type), when the task was booked before the accept. */
+    #[Locked]
+    public ?array $previousBooking = null;
+
     public ?string $slotMessage = null;
 
     /** Whether the open request blocks its offers, fixed when it was sent. */
@@ -492,6 +496,39 @@ class AppointmentBooking extends Page
         $this->loadSurvey();
     }
 
+    /**
+     * The task's current booking: its day (Y-m-d in the booking zone), the window as readable text, and the window
+     * start and end as UTC instants. Null when the task is not booked or has no window.
+     *
+     * @return array{day: string, label: string, start: string, end: string}|null
+     */
+    public function currentBooking(): ?array
+    {
+        if (! $this->record->isBooked() || blank($this->record->appt_window_start) || blank($this->record->appt_window_finish)) {
+            return null;
+        }
+
+        // The cast reads the stored wall time in the app zone; the instant is what matters.
+        $start = CarbonImmutable::instance($this->record->appt_window_start)->utc();
+        $end = CarbonImmutable::instance($this->record->appt_window_finish)->utc();
+
+        return [
+            'day' => $start->setTimezone($this->timeZone())->toDateString(),
+            'label' => (string) AgendaPresenter::readableWindow($start->toIso8601String(), $end->toIso8601String(), $this->timeZone()),
+            'start' => $start->toIso8601String(),
+            'end' => $end->toIso8601String(),
+        ];
+    }
+
+    /** The booked panel's Rebook: back to the month, which shows the booking just made and asks PSO again. */
+    public function rebook(): void
+    {
+        $this->backToMonth();
+        $this->booking = null;
+        $this->previousBooking = null;
+        $this->loadSurvey();
+    }
+
     /** Month view: back to the three weeks from today. */
     public function backToToday(): void
     {
@@ -698,7 +735,7 @@ class AppointmentBooking extends Page
         }
 
         $offer = $this->validOffer($offerId);
-        if ($offer === null) {
+        if ($offer === null || $this->isCurrentBooking($offer)) {
             return;
         }
 
@@ -749,6 +786,12 @@ class AppointmentBooking extends Page
             return;
         }
 
+        // A rebooking: keep the window being replaced for the panel (the history section is the lasting record).
+        $this->previousBooking = $this->record->isBooked() ? [
+            'window' => $this->formatAppointmentWindow($this->record->appt_window_start, $this->record->appt_window_finish),
+            'slaTypeId' => $this->record->booking_sla_type_id,
+        ] : null;
+
         $this->record->forceFill([
             'appointment_request_id' => data_get($summary, 'appointmentRequestId') ?: $this->appointmentRequestId,
             'booking_sla_type_id' => data_get($summary, 'bookingSlaTypeId') ?: $this->slaTypes()->bookingSlaTypeId,
@@ -765,6 +808,19 @@ class AppointmentBooking extends Page
         $this->countdownExpiresAt = null;
         $this->booking = $summary;
         $this->screen = 'booked';
+        // The history gained a row: read it again the next time the section is opened.
+        $this->history = null;
+    }
+
+    /** Whether an offer's window is the task's current booking (same start and end instants). */
+    private function isCurrentBooking(array $offer): bool
+    {
+        $current = $this->currentBooking();
+        $start = self::utcMoment(data_get($offer, 'windowStartDatetime'));
+        $end = self::utcMoment(data_get($offer, 'windowEndDatetime'));
+
+        return $current !== null && $start !== null && $end !== null
+            && $start->eq(CarbonImmutable::parse($current['start'])) && $end->eq(CarbonImmutable::parse($current['end']));
     }
 
     /** The open request's valid offer with this id, if any. */
@@ -791,7 +847,9 @@ class AppointmentBooking extends Page
      */
     public function agendaGrid(): array
     {
-        return $this->agenda()->grid((array) $this->offers, (string) $this->mode, $this->displayTimeZone());
+        $current = $this->currentBooking();
+
+        return $this->agenda()->grid((array) $this->offers, (string) $this->mode, $this->displayTimeZone(), $current['start'] ?? null, $current['end'] ?? null);
     }
 
     /** The zone the agenda shows its times in: UTC when the switch is on, else the dataset's. */
