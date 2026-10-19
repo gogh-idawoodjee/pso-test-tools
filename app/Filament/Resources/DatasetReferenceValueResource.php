@@ -116,6 +116,23 @@ abstract class DatasetReferenceValueResource extends Resource
             $fields[] = Forms\Components\TextInput::make('attributes.priority')->label('Priority')->numeric()->integer()->minValue(1)->maxValue(10);
             $fields[] = Forms\Components\TextInput::make('attributes.base_value')->label('Base value')->numeric()->minValue(0);
             $fields[] = Forms\Components\TextInput::make('attributes.base_duration')->label('Base duration (minutes)')->numeric()->integer()->minValue(1);
+            $fields[] = Forms\Components\Select::make('attributes.booking_sla_type_id')
+                ->label('Booking SLA type')
+                ->options(static fn (Get $get, ?DatasetReferenceValue $record): array => DatasetReferenceValue::psoIdOptionsFor(
+                    $record?->dataset_id ?? ($datasetId ? $datasetId() : $get('dataset_id')),
+                    ReferenceEntityType::SlaType,
+                ))
+                ->searchable()
+                ->nullable()
+                ->helperText('Blank uses the dataset default. Kept here only; a PSO sync never changes it.');
+        }
+
+        if ($type === ReferenceEntityType::AppointmentTemplate) {
+            $fields[] = Forms\Components\Toggle::make('attributes.blocking')
+                ->label('Blocking')
+                ->default(true)
+                ->formatStateUsing(static fn (?bool $state): bool => $state ?? true)
+                ->helperText('From PSO when synced; change it here if PSO is wrong.');
         }
 
         return $fields;
@@ -145,6 +162,11 @@ abstract class DatasetReferenceValueResource extends Resource
             $columns[] = Tables\Columns\TextColumn::make('attributes.priority')->label('Priority');
             $columns[] = Tables\Columns\TextColumn::make('attributes.base_value')->label('Base value');
             $columns[] = Tables\Columns\TextColumn::make('attributes.base_duration')->label('Duration (min)');
+            $columns[] = Tables\Columns\TextColumn::make('attributes.booking_sla_type_id')->label('Booking SLA type')->placeholder('Dataset default');
+        }
+
+        if ($type === ReferenceEntityType::AppointmentTemplate) {
+            $columns[] = static::blockingColumn();
         }
 
         $columns[] = Tables\Columns\TextColumn::make('origin')->badge();
@@ -167,6 +189,15 @@ abstract class DatasetReferenceValueResource extends Resource
             ->toolbarActions([
                 BulkActionGroup::make([DeleteBulkAction::make()]),
             ]);
+    }
+
+    /** Appointment templates: Blocking yes/no, unset reads as PSO's default (yes). Shared with the relation managers. */
+    public static function blockingColumn(): Tables\Columns\IconColumn
+    {
+        return Tables\Columns\IconColumn::make('blocking')
+            ->label('Blocking')
+            ->boolean()
+            ->state(static fn (DatasetReferenceValue $record): bool => $record->blockingDefault());
     }
 
     /** "Missing from PSO" / "Edited" badge, shared with the relation managers. */

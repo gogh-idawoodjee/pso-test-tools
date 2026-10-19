@@ -115,3 +115,78 @@ it('ignores tables it does not know and rows without an id', function () {
     expect(DatasetReferenceValue::withoutGlobalScopes()->count())->toBe(0)
         ->and($summary)->not->toHaveKey('resources');
 });
+
+it('stores blocking from PSO on appointment templates', function () {
+    app(ReferenceValuesUpserter::class)->apply($this->dataset, emptyTables([
+        'Appointment_Template' => [
+            ['id' => 'STANDARD', 'description' => 'Std', 'blocking' => false],
+            ['id' => 'RUSH', 'description' => 'Rush', 'blocking' => true],
+            ['id' => 'PLAIN', 'description' => 'Plain'],
+        ],
+    ]), $this->now);
+
+    $template = fn (string $id) => DatasetReferenceValue::withoutGlobalScopes()->where('pso_id', $id)->first();
+
+    expect($template('STANDARD')->attribute('blocking'))->toBeFalse()
+        ->and($template('STANDARD')->blockingDefault())->toBeFalse()
+        ->and($template('RUSH')->attribute('blocking'))->toBeTrue()
+        ->and($template('PLAIN')->attribute('blocking'))->toBeNull()
+        ->and($template('PLAIN')->blockingDefault())->toBeTrue();
+});
+
+it('keeps booking_sla_type_id when PSO updates a task type', function () {
+    $row = DatasetReferenceValue::factory()->for($this->dataset)->create([
+        'entity_type' => ReferenceEntityType::TaskType, 'pso_id' => 'INSTALL', 'label' => 'Install',
+        'attributes' => ['priority' => 1, 'base_value' => 500, 'base_duration' => 30, 'booking_sla_type_id' => 'Appointment'],
+    ]);
+
+    app(ReferenceValuesUpserter::class)->apply($this->dataset, emptyTables([
+        'Activity_Type' => [['id' => 'INSTALL', 'description' => 'Install', 'priority' => 7, 'base_value' => 2000, 'base_duration' => 120]],
+    ]), $this->now);
+
+    $row->refresh();
+    expect($row->attribute('priority'))->toBe(7)
+        ->and($row->attribute('base_value'))->toEqual(2000)
+        ->and($row->attribute('booking_sla_type_id'))->toBe('Appointment');
+});
+
+it('keeps PSO fields fresh on a row with only local attributes edited', function () {
+    $row = DatasetReferenceValue::factory()->for($this->dataset)->taskType(1, 500, 30)->create(['pso_id' => 'INSTALL', 'label' => 'Old']);
+
+    $row->update(['attributes' => array_merge($row->attributes ?? [], ['booking_sla_type_id' => 'Appointment'])]);
+    expect($row->refresh()->is_locally_modified)->toBeFalse();
+
+    $summary = app(ReferenceValuesUpserter::class)->apply($this->dataset, emptyTables([
+        'Activity_Type' => [['id' => 'INSTALL', 'description' => 'New', 'priority' => 7, 'base_value' => 500, 'base_duration' => 30]],
+    ]), $this->now);
+
+    $row->refresh();
+    expect($row->label)->toBe('New')
+        ->and($row->attribute('priority'))->toBe(7)
+        ->and($row->attribute('booking_sla_type_id'))->toBe('Appointment')
+        ->and($row->is_locally_modified)->toBeFalse()
+        ->and($summary['task_type']['updated'])->toBe(1);
+});
+
+it('still freezes a row whose PSO attribute was edited', function () {
+    $taskType = DatasetReferenceValue::factory()->for($this->dataset)->taskType(1, 500, 30)->create(['pso_id' => 'INSTALL', 'label' => 'Install']);
+    $template = DatasetReferenceValue::factory()->for($this->dataset)->create([
+        'entity_type' => ReferenceEntityType::AppointmentTemplate, 'pso_id' => 'STANDARD', 'label' => 'Std', 'attributes' => ['blocking' => true],
+    ]);
+
+    $taskType->update(['attributes' => array_merge($taskType->attributes ?? [], ['priority' => 9])]);
+    $template->update(['attributes' => ['blocking' => false]]);
+    expect($taskType->refresh()->is_locally_modified)->toBeTrue()
+        ->and($template->refresh()->is_locally_modified)->toBeTrue();
+
+    $summary = app(ReferenceValuesUpserter::class)->apply($this->dataset, emptyTables([
+        'Activity_Type' => [['id' => 'INSTALL', 'description' => 'New', 'priority' => 7, 'base_value' => 500, 'base_duration' => 30]],
+        'Appointment_Template' => [['id' => 'STANDARD', 'description' => 'Standard', 'blocking' => true]],
+    ]), $this->now);
+
+    expect($taskType->refresh()->attribute('priority'))->toBe(9)
+        ->and($taskType->label)->toBe('Install')
+        ->and($template->refresh()->attribute('blocking'))->toBeFalse()
+        ->and($summary['task_type']['kept'])->toBe(1)
+        ->and($summary['appointment_template']['kept'])->toBe(1);
+});

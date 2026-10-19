@@ -80,11 +80,24 @@ enum ReferenceEntityType: string implements HasLabel
         return str_replace('_', '-', $this->value).'s';
     }
 
-    /** JSON attribute keys stored for this type; only task type has any. */
+    /** JSON attribute keys PSO supplies for this type; a sync overwrites them. */
     public function attributeKeys(): array
     {
         return match ($this) {
             self::TaskType => ['priority', 'base_value', 'base_duration'],
+            self::AppointmentTemplate => ['blocking'],
+            default => [],
+        };
+    }
+
+    /**
+     * JSON attribute keys that never come from PSO: a sync keeps them as they
+     * are, and editing one does not mark the row locally modified.
+     */
+    public function localAttributeKeys(): array
+    {
+        return match ($this) {
+            self::TaskType => ['booking_sla_type_id'],
             default => [],
         };
     }

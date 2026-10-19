@@ -82,6 +82,7 @@ class ReferenceValuesRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         $isTaskType = fn (): bool => $this->currentType() === ReferenceEntityType::TaskType;
+        $isTemplate = fn (): bool => $this->currentType() === ReferenceEntityType::AppointmentTemplate;
 
         return $table
             ->recordTitleAttribute('label')
@@ -91,6 +92,8 @@ class ReferenceValuesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('attributes.priority')->label('Priority')->visible($isTaskType),
                 Tables\Columns\TextColumn::make('attributes.base_value')->label('Base value')->visible($isTaskType),
                 Tables\Columns\TextColumn::make('attributes.base_duration')->label('Duration (min)')->visible($isTaskType),
+                Tables\Columns\TextColumn::make('attributes.booking_sla_type_id')->label('Booking SLA type')->placeholder('Dataset default')->visible($isTaskType),
+                DatasetReferenceValueResource::blockingColumn()->visible($isTemplate),
                 Tables\Columns\TextColumn::make('origin')->badge(),
                 DatasetReferenceValueResource::statusColumn(),
             ])

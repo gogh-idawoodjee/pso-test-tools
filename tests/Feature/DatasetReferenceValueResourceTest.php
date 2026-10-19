@@ -2,6 +2,7 @@
 
 use App\Enums\ReferenceEntityType;
 use App\Enums\ReferenceValueOrigin;
+use App\Filament\Resources\AppointmentTemplateResource\Pages\ListAppointmentTemplates;
 use App\Filament\Resources\RegionResource\Pages\ListRegions;
 use App\Filament\Resources\SlaTypeResource\Pages\ListSlaTypes;
 use App\Filament\Resources\TaskTypeResource\Pages\ListTaskTypes;
@@ -102,4 +103,36 @@ it('marks a manual row edited at creation when the label is not just the pso id'
 
     expect(DatasetReferenceValue::where('pso_id', 'R1')->first()->is_locally_modified)->toBeTrue()
         ->and(DatasetReferenceValue::where('pso_id', 'R2')->first()->is_locally_modified)->toBeFalse();
+});
+
+it('sets a task type booking SLA type without marking the row edited', function () {
+    DatasetReferenceValue::factory()->for($this->dataset)->create(['entity_type' => ReferenceEntityType::SlaType, 'pso_id' => 'Appointment', 'label' => 'Appointment SLA']);
+    $row = DatasetReferenceValue::factory()->for($this->dataset)->taskType(5, 1500, 90)->create(['pso_id' => 'INSTALL', 'label' => 'Install']);
+
+    Livewire::test(ListTaskTypes::class)
+        ->callAction(TestAction::make('edit')->table($row), data: ['attributes' => ['booking_sla_type_id' => 'Appointment']])
+        ->assertHasNoActionErrors();
+
+    $row->refresh();
+    expect($row->attribute('booking_sla_type_id'))->toBe('Appointment')
+        ->and($row->attribute('priority'))->toEqual(5)
+        ->and($row->is_locally_modified)->toBeFalse();
+});
+
+it('defaults a new template to blocking and marks a template edited when blocking is switched off', function () {
+    Livewire::test(ListAppointmentTemplates::class)
+        ->callAction(TestAction::make('create'), data: ['dataset_id' => $this->dataset->id, 'pso_id' => 'STANDARD'])
+        ->assertHasNoActionErrors();
+
+    $row = DatasetReferenceValue::first();
+    expect($row->attribute('blocking'))->toBeTrue();
+
+    $row->forceFill(['origin' => ReferenceValueOrigin::Pso, 'is_locally_modified' => false])->saveQuietly();
+
+    Livewire::test(ListAppointmentTemplates::class)
+        ->callAction(TestAction::make('edit')->table($row), data: ['attributes' => ['blocking' => false]])
+        ->assertHasNoActionErrors();
+
+    expect($row->refresh()->attribute('blocking'))->toBeFalse()
+        ->and($row->is_locally_modified)->toBeTrue();
 });

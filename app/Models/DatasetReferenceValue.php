@@ -18,8 +18,10 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * One identifier PSO will accept in a request (a region, skill, task type,
  * slot usage rule, appointment template or SLA type), scoped to a dataset.
  * Rows come from a PSO sync (origin pso) or are typed in (origin manual);
- * either kind is editable. A user edit on a pso row sets is_locally_modified
- * so the next sync leaves its fields alone.
+ * either kind is editable. A user edit of the PSO ID, the label or a
+ * PSO-sourced attribute sets is_locally_modified so the next sync leaves the
+ * row alone; local-only attributes (ReferenceEntityType::localAttributeKeys)
+ * can be edited without that, and a sync keeps them.
  *
  * @mixin Builder
  */
@@ -51,7 +53,7 @@ class DatasetReferenceValue extends Model
         // has: a manual row that PSO later also returns keeps the typed label.
         // The sync itself writes with saveQuietly(), so this never fires for it.
         static::updating(static function (self $row): void {
-            if ($row->isDirty(['pso_id', 'label', 'attributes'])) {
+            if ($row->isDirty(['pso_id', 'label']) || $row->psoAttributesChanged()) {
                 $row->is_locally_modified = true;
             }
         });
@@ -123,7 +125,52 @@ class DatasetReferenceValue extends Model
         ]);
     }
 
-    /** Read one field of the attributes JSON (priority, base_value, base_duration). */
+    /** Appointment templates: whether a booking blocks the slot; PSO's default when unset is true. */
+    public function blockingDefault(): bool
+    {
+        return (bool) ($this->attribute('blocking') ?? true);
+    }
+
+    /** True when an edit changed a PSO-sourced attribute key (local-only keys are ignored). */
+    private function psoAttributesChanged(): bool
+    {
+        if (! $this->isDirty('attributes')) {
+            return false;
+        }
+
+        $before = (array) ($this->getOriginal('attributes') ?? []);
+        $after = $this->attributeValues();
+
+        foreach ($this->entity_type?->attributeKeys() ?? [] as $key) {
+            if (! self::sameAttributeValue($key, $before[$key] ?? null, $after[$key] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Form state can carry "5" where the row holds 5, and an unset blocking
+     * means true, so compare what the values mean rather than their types.
+     */
+    private static function sameAttributeValue(string $key, mixed $before, mixed $after): bool
+    {
+        if ($key === 'blocking') {
+            return (bool) ($before ?? true) === (bool) ($after ?? true);
+        }
+
+        $before = $before === '' ? null : $before;
+        $after = $after === '' ? null : $after;
+
+        if (is_numeric($before) && is_numeric($after)) {
+            return (float) $before === (float) $after;
+        }
+
+        return $before === $after;
+    }
+
+    /** Read one field of the attributes JSON (priority, base_value, base_duration, blocking, booking_sla_type_id). */
     public function attribute(string $key): mixed
     {
         return data_get($this->attributeValues(), $key);
