@@ -9,6 +9,7 @@ use App\Filament\Resources\DatasetReferenceValueResource;
 use App\Filament\Resources\TaskResource;
 use App\Models\DatasetReferenceValue;
 use App\Models\Environment;
+use App\Support\Booking\AgendaPresenter;
 use App\Support\Booking\BookingPayloads;
 use App\Support\Booking\BookingSlaTypes;
 use App\Traits\FormTrait;
@@ -112,16 +113,7 @@ class AppointmentBooking extends Page
      */
     protected function formatDuration(int $durationInMinutes): string
     {
-        $hours = floor($durationInMinutes / 60);
-        $minutes = $durationInMinutes % 60;
-
-        $formattedDuration = $hours.' hour'.($hours != 1 ? 's' : '');
-
-        if ($minutes > 0) {
-            $formattedDuration .= ' '.$minutes.' minute'.($minutes !== 1 ? 's' : '');
-        }
-
-        return $formattedDuration;
+        return AgendaPresenter::formatDuration($durationInMinutes);
     }
 
     /**
@@ -651,15 +643,7 @@ class AppointmentBooking extends Page
     /** An offer time as UTC; times with an offset keep it, offsetless times are UTC. */
     private static function utcMoment(mixed $value): ?CarbonImmutable
     {
-        if (! is_string($value) || $value === '') {
-            return null;
-        }
-
-        try {
-            return CarbonImmutable::parse($value, 'UTC')->utc();
-        } catch (Throwable) {
-            return null;
-        }
+        return AgendaPresenter::utcMoment($value);
     }
 
     /**
@@ -670,78 +654,18 @@ class AppointmentBooking extends Page
      */
     public function agendaGroups(): array
     {
-        $valid = [];
-        foreach ((array) data_get($this->offers, 'validOffers', []) as $offer) {
-            $valid[(string) data_get($offer, 'id')] = (array) $offer;
-        }
-
-        $rows = [];
-        if ($this->mode === 'detail') {
-            foreach ((array) data_get($this->offers, 'allOfferValues', []) as $offer) {
-                $id = (string) data_get($offer, 'id');
-                $rows[$id] = isset($valid[$id]) ? [...(array) $offer, ...$valid[$id], 'valid' => true] : [...(array) $offer, 'valid' => false];
-            }
-        }
-        foreach ($valid as $id => $offer) {
-            $rows[$id] ??= [...$offer, 'valid' => true];
-        }
-
-        // allOfferValues carries no English day or times: derive them so invalid offers group with the valid ones.
-        $rows = array_map(fn (array $row): array => $this->withEnglishWindow($row), $rows);
-
-        $bestId = data_get($this->offers, 'bestOffer.id');
-        $periods = array_fill_keys(['Morning', 'Midday', 'Afternoon', 'Evening'], []);
-        $groups = [];
-        foreach ($rows as $row) {
-            $row['best'] = (bool) data_get($row, 'isBestOffer') || ($row['valid'] && $bestId !== null && (string) $bestId === (string) data_get($row, 'id'));
-            $day = (string) (data_get($row, 'windowDayEnglish') ?: 'Unknown day');
-            $groups[$day] ??= $periods;
-            $groups[$day][self::periodOfDay(data_get($row, 'windowStartTime'))][] = $row;
-        }
-
-        return array_map(static fn (array $byPeriod): array => array_filter($byPeriod), $groups);
-    }
-
-    /** Fill windowDayEnglish, windowStartTime and windowEndTime from the window datetimes when missing. */
-    private function withEnglishWindow(array $row): array
-    {
-        $timeZone = $this->timeZone();
-        $start = self::utcMoment(data_get($row, 'windowStartDatetime'))?->setTimezone($timeZone);
-        $end = self::utcMoment(data_get($row, 'windowEndDatetime'))?->setTimezone($timeZone);
-
-        if ($start !== null) {
-            $row['windowDayEnglish'] = filled(data_get($row, 'windowDayEnglish')) ? $row['windowDayEnglish'] : $start->format('D, M j, Y');
-            $row['windowStartTime'] = filled(data_get($row, 'windowStartTime')) ? $row['windowStartTime'] : $start->format('g:i A');
-        }
-        if ($end !== null) {
-            $row['windowEndTime'] = filled(data_get($row, 'windowEndTime')) ? $row['windowEndTime'] : $end->format('g:i A');
-        }
-
-        return $row;
-    }
-
-    /** Morning before 12, Midday 12 to 15, Afternoon 15 to 18, Evening after, from "8:00 AM" style times. */
-    public static function periodOfDay(mixed $startTime): string
-    {
-        $time = is_string($startTime) ? date_parse($startTime) : false;
-        $hour = is_array($time) && is_int($time['hour']) ? $time['hour'] : 0;
-
-        return match (true) {
-            $hour < 12 => 'Morning',
-            $hour < 15 => 'Midday',
-            $hour < 18 => 'Afternoon',
-            default => 'Evening',
-        };
+        return $this->agenda()->groups((array) $this->offers, (string) $this->mode);
     }
 
     /** The slot length of the open request, from its first offer's window, e.g. "4 hours". */
     public function slotLength(): ?string
     {
-        $offer = data_get($this->offers, 'allOfferValues.0') ?? data_get($this->offers, 'validOffers.0');
-        $start = self::utcMoment(data_get($offer, 'windowStartDatetime'));
-        $end = self::utcMoment(data_get($offer, 'windowEndDatetime'));
+        return $this->agenda()->slotLength((array) $this->offers);
+    }
 
-        return $start === null || $end === null || $end->lte($start) ? null : $this->formatDuration((int) $start->diffInMinutes($end));
+    private function agenda(): AgendaPresenter
+    {
+        return new AgendaPresenter($this->timeZone());
     }
 
     /** Release the open request's offers (DELETE) so they do not wait to time out. */
