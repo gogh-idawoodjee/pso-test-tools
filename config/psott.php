@@ -14,14 +14,14 @@ return [
         // Logon goes pso-test-tools -> pso-services -> PSO, so it needs more than the 5s default.
         'timeout' => (int) env('PSO_SESSION_TIMEOUT', 20),
     ],
-    // Map tiles for the customer map. OpenStreetMap's own servers refuse apps under their usage policy, so the
-    // default is CARTO's free basemap (no key). Point MAP_TILES_URL at a keyed provider to change it; {s} {z} {x} {y}
-    // {r} are Leaflet placeholders.
+    // Map tiles for the customer map. OpenStreetMap's own servers refuse apps and CARTO now wants a key, so the
+    // default is Esri's World Street Map, which serves without one (note its z/y/x order). Point MAP_TILES_URL at
+    // any other Leaflet tile URL ({s} {z} {x} {y} {r} placeholders), with the key inside the URL, to change it.
     'map_tiles' => [
-        'url' => env('MAP_TILES_URL', 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'),
-        'subdomains' => env('MAP_TILES_SUBDOMAINS', 'abcd'),
+        'url' => env('MAP_TILES_URL', 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'),
+        'subdomains' => env('MAP_TILES_SUBDOMAINS', ''),
         'max_zoom' => (int) env('MAP_TILES_MAX_ZOOM', 19),
-        'attribution' => env('MAP_TILES_ATTRIBUTION', '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'),
+        'attribution' => env('MAP_TILES_ATTRIBUTION', 'Tiles &copy; <a href="https://www.esri.com/">Esri</a>'),
     ],
 
     'appointment' => [

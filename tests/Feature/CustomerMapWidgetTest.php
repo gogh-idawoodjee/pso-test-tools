@@ -76,10 +76,10 @@ it('says so when no customer has coordinates', function () {
         ->assertSee('No customers have coordinates yet');
 });
 
-it('uses the configured tile source, CARTO by default, never OpenStreetMap own servers', function () {
-    expect(config('psott.map_tiles.url'))->toContain('basemaps.cartocdn.com')
-        ->and((new \App\Filament\Widgets\CustomerMap)->tiles()['url'])->not->toContain('tile.openstreetmap.org');
+it('uses the configured tile source, Esri by default, never OpenStreetMap own servers', function () {
+    expect(config('psott.map_tiles.url'))->toContain('server.arcgisonline.com')
+        ->and((new CustomerMap)->tiles()['url'])->not->toContain('tile.openstreetmap.org');
 
     config(['psott.map_tiles.url' => 'https://tiles.example.com/{z}/{x}/{y}.png?key=abc']);
-    expect((new \App\Filament\Widgets\CustomerMap)->tiles()['url'])->toBe('https://tiles.example.com/{z}/{x}/{y}.png?key=abc');
+    expect((new CustomerMap)->tiles()['url'])->toBe('https://tiles.example.com/{z}/{x}/{y}.png?key=abc');
 });
