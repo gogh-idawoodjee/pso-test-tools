@@ -58,9 +58,10 @@ class TasksRelationManager extends RelationManager
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
                     ->label('Status')
-                    ->formatStateUsing(fn (int $state) => TaskStatus::tryFrom($state)?->getLabel())
+                    // The model casts status to TaskStatus; a new task is a shell at Ignore until it is booked.
+                    ->formatStateUsing(static fn (TaskStatus|int|null $state): ?string => self::taskStatus($state) === TaskStatus::IGNORE ? 'Not booked' : self::taskStatus($state)?->getLabel())
                     ->badge()
-                    ->color(static fn (int $state) => match (TaskStatus::tryFrom($state)) {
+                    ->color(static fn (TaskStatus|int|null $state) => match (self::taskStatus($state)) {
                         TaskStatus::IGNORE => 'gray',
                         TaskStatus::UNALLOCATED, TaskStatus::ALLOCATED => 'warning',
                         TaskStatus::FOLLOW_ON, TaskStatus::COMMITTED, TaskStatus::SENT, TaskStatus::DOWNLOADED => 'info',
@@ -99,12 +100,12 @@ class TasksRelationManager extends RelationManager
                     EditAction::make(),
                     DeleteAction::make(),
                     Action::make('bookOrRebook')
-                        ->label(static fn (Task $record) => $record->appt_window_start ? 'Rebook' : 'Book')
+                        ->label(static fn (Task $record) => $record->isBooked() ? 'Rebook' : 'Book')
                         ->icon(Heroicon::OutlinedCalendar)
-                        ->color(static fn (Task $record) => $record->appt_window_start ? 'warning' : 'primary')
+                        ->color(static fn (Task $record) => $record->isBooked() ? 'warning' : 'primary')
                         ->slideOver()->modalWidth('6xl')
                         ->visible(static fn (Task $record) => ! in_array(
-                            TaskStatus::tryFrom($record->status),
+                            self::taskStatus($record->status),
                             TaskStatus::endStateStatuses(),
                             true
                         ))
@@ -236,4 +237,8 @@ class TasksRelationManager extends RelationManager
     //        ];
     //    }
 
+    private static function taskStatus(TaskStatus|int|null $state): ?TaskStatus
+    {
+        return $state instanceof TaskStatus ? $state : ($state === null ? null : TaskStatus::tryFrom($state));
+    }
 }

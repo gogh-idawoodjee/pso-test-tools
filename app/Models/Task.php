@@ -117,9 +117,6 @@ class Task extends Model
                 ->searchable()
                 ->options(static fn (Get $get, ?Task $record): array => DatasetReferenceValue::optionsFor($resolveDataset($get, $record), ReferenceEntityType::TaskType))
                 ->rules([static fn (Get $get, ?Task $record) => new ReferenceValueInDataset($resolveDataset($get, $record), ReferenceEntityType::TaskType)]),
-            Forms\Components\Select::make('status')->required()
-                ->enum(TaskStatus::class)
-                ->options(TaskStatus::class),
             Forms\Components\Select::make('regions')
                 ->label('Regions')
                 ->multiple()

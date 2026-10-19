@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ReferenceEntityType;
+use App\Enums\TaskStatus;
 use App\Filament\Resources\TaskResource;
 use App\Filament\Resources\TaskResource\Pages\AppointmentBooking;
 use App\Filament\Resources\TaskResource\Pages\EditTask;
@@ -360,6 +361,7 @@ it('accepts straight away on a blocking request', function () {
     expect($task->appointment_request_id)->toBe('REQ-22')
         ->and($task->booking_sla_type_id)->toBe('Appointment')
         ->and($task->booked_at)->not->toBeNull()
+        ->and($task->status)->toBe(TaskStatus::UNALLOCATED)
         ->and($task->appt_window_start->utc()->toDateTimeString())->toBe('2026-10-22 12:00:00')
         ->and($task->appt_window_finish->utc()->toDateTimeString())->toBe('2026-10-22 16:00:00');
 });

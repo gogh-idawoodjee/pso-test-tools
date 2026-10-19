@@ -622,6 +622,8 @@ class AppointmentBooking extends Page
             'appointment_request_id' => data_get($summary, 'appointmentRequestId') ?: $this->appointmentRequestId,
             'booking_sla_type_id' => data_get($summary, 'bookingSlaTypeId') ?: $this->slaTypes()->bookingSlaTypeId,
             'booked_at' => now(),
+            // Booked: the real activity is in PSO at status 0 now.
+            'status' => TaskStatus::UNALLOCATED,
             // The datetime cast keeps the wall time and reads it in the app zone, so hand it the instant in that zone.
             'appt_window_start' => self::utcMoment(data_get($offer, 'windowStartDatetime'))?->setTimezone(config('app.timezone')),
             'appt_window_finish' => self::utcMoment(data_get($offer, 'windowEndDatetime'))?->setTimezone(config('app.timezone')),
