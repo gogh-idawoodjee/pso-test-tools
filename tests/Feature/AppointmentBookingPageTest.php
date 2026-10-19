@@ -145,6 +145,21 @@ it('locks the environment and dataset to the task', function () {
         ]);
 });
 
+it('renders first and leaves the survey to wire:init', function () {
+    Http::fake();
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->assertSeeHtml('wire:init="loadSurvey"')
+        ->assertSee('Asking PSO for slots');
+
+    Http::assertNothingSent();
+    expect($component->get('dayStates'))->toHaveCount(21)
+        ->and(array_unique(array_values($component->get('dayStates'))))->toBe(['unknown'])
+        ->and($component->get('screen'))->toBe('month')
+        ->and($component->get('pageError'))->toBeNull()
+        ->and($component->html())->not->toMatch('/wire:click="selectDay\(\'2026-10-22\'\)"[^>]*\sdisabled[\s>]/');
+});
+
 it('loads the survey on open and marks the days that have slots', function () {
     Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(bookingOffersResponse(
         [bookingOffer(1, '2026-10-22T08:00:00-04:00'), bookingOffer(2, '2026-10-23T23:30:00-04:00')],
@@ -152,7 +167,7 @@ it('loads the survey on open and marks the days that have slots', function () {
         survey: true,
     ))]);
 
-    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()]);
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])->call('loadSurvey');
 
     $states = $component->get('dayStates');
     expect($states)->toHaveCount(21)
@@ -162,7 +177,7 @@ it('loads the survey on open and marks the days that have slots', function () {
         ->and($states['2026-10-23'])->toBe('slots')   // 23:30 Toronto is the 24th in UTC: the day is the dataset's
         ->and($states['2026-10-24'])->toBe('none')
         ->and($component->get('pageError'))->toBeNull()
-        ->and($component->get('view'))->toBe('month');
+        ->and($component->get('screen'))->toBe('month');
 
     Http::assertSent(fn (Request $request) => str_contains($request->url(), '/api/v2/appointment')
         && data_get($request->data(), 'data.surveyTemplate') === true
@@ -175,6 +190,7 @@ it('shows the services error and no dots when the survey fails', function () {
     Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(['message' => 'The appointment template could not be found.'], 422)]);
 
     $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('loadSurvey')
         ->assertSee('The appointment template could not be found.');
 
     expect($component->get('pageError'))->toBe('The appointment template could not be found.')
@@ -187,14 +203,16 @@ it('disables the request when the SLA types are not set', function () {
     $this->dataset->update(['settings' => ['time_zone' => 'America/Toronto']]);
 
     $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('loadSurvey')
         ->assertSee('Set the appointment SLA type');
 
-    expect($component->get('pageError'))->toContain('Set the appointment SLA type');
+    expect($component->get('pageError'))->toContain('Set the appointment SLA type')
+        ->and($component->html())->toMatch('/wire:click="selectDay\(\'2026-10-22\'\)"[^>]*\sdisabled[\s>]/');
     Http::assertNothingSent();
 
     $component->set('task_data.appointmentTemplateId', 'STANDARD')->call('selectDay', '2026-10-22');
     Http::assertNothingSent();
-    expect($component->get('view'))->toBe('month');
+    expect($component->get('screen'))->toBe('month');
 });
 
 it('requests the chosen day with the real template and opens the agenda', function () {
@@ -204,6 +222,7 @@ it('requests the chosen day with the real template and opens the agenda', functi
     ]);
 
     $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('loadSurvey')
         ->set('task_data.appointmentTemplateId', 'STANDARD')
         ->call('selectDay', '2026-10-22')
         ->assertSee('Back to month');
@@ -212,9 +231,9 @@ it('requests the chosen day with the real template and opens the agenda', functi
         && str_contains($request->url(), '/api/v2/appointment')
         && data_get($request->data(), 'data.appointmentTemplateDatetime') === '2026-10-22T04:00:00'
         && data_get($request->data(), 'data.appointmentTemplateId') === 'STANDARD'
-        && ! data_get($request->data(), 'data.surveyTemplate') !== null);
+        && ! data_get($request->data(), 'data.surveyTemplate'));
 
-    expect($component->get('view'))->toBe('agenda')
+    expect($component->get('screen'))->toBe('agenda')
         ->and($component->get('selectedDay'))->toBe('2026-10-22')
         ->and($component->get('appointmentRequestId'))->toBe('REQ-22')
         ->and($component->get('offers.validOffers.0.id'))->toBe(7)
@@ -231,6 +250,7 @@ it('releases the previous day\'s offers before requesting another day', function
     ]);
 
     $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('loadSurvey')
         ->set('task_data.appointmentTemplateId', 'STANDARD')
         ->call('selectDay', '2026-10-22')
         ->call('selectDay', '2026-10-23');

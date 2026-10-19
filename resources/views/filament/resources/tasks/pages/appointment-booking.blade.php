@@ -20,7 +20,7 @@
         </div>
     @endif
 
-    <div class="relative">
+    <div class="relative" wire:init="loadSurvey">
         <div
             wire:loading.flex
             wire:target="loadSurvey,selectDay,backToMonth"
@@ -30,7 +30,7 @@
             Asking PSO for slots...
         </div>
 
-        @if ($this->view === 'month')
+        @if ($this->screen === 'month')
             @php
                 $tz = $this->record->dataset->timeZone();
                 $days = array_keys($this->dayStates);
@@ -43,6 +43,7 @@
                     $cells[] = $d;
                 }
                 $today = $first->toDateString();
+                $canRequest = $this->slaTypes()->complete();
             @endphp
 
             <x-filament::section
@@ -57,6 +58,7 @@
                         icon="heroicon-o-arrow-path"
                         wire:click="loadSurvey"
                         wire:loading.attr="disabled"
+                        :disabled="! $canRequest"
                     >
                         Check again
                     </x-filament::button>
@@ -99,7 +101,8 @@
                                 wire:key="day-{{ $key }}"
                                 wire:click="selectDay('{{ $key }}')"
                                 wire:loading.attr="disabled"
-                                class="flex min-h-16 flex-col items-center justify-between rounded-md px-1 py-2 text-sm transition hover:opacity-80"
+                                @disabled(! $canRequest)
+                                class="flex min-h-16 disabled:cursor-not-allowed disabled:opacity-60 flex-col items-center justify-between rounded-md px-1 py-2 text-sm transition hover:opacity-80"
                                 style="{{ $style }}"
                                 aria-label="{{ $cell->format('l F j') }}: {{ $title }}"
                             >
@@ -126,7 +129,7 @@
                     </span>
                 </div>
             </x-filament::section>
-        @elseif ($this->view === 'agenda')
+        @elseif ($this->screen === 'agenda')
             {{-- Task 7 builds the agenda (call centre and detail views, book, release) from $this->offers. --}}
             <x-filament::section
                 icon="heroicon-o-clock"

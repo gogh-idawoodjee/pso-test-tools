@@ -41,8 +41,10 @@ class AppointmentBooking extends Page
 
     protected static string $resource = TaskResource::class;
 
-    /** Which part of the page shows: 'month', 'agenda' or 'booked'. Filament's blade view is in getView(). */
-    public string $view = 'month';
+    protected string $view = 'filament.resources.tasks.pages.appointment-booking';
+
+    /** Which part of the page shows: 'month', 'agenda' or 'booked'. */
+    public string $screen = 'month';
 
     /** Y-m-d => 'slots' | 'none' | 'unknown', for the 21 days from today in the dataset zone. */
     public array $dayStates = [];
@@ -66,11 +68,6 @@ class AppointmentBooking extends Page
     public ?array $task_data = [];
 
     private ?BookingSlaTypes $slaTypesCache = null;
-
-    public function getView(): string
-    {
-        return 'filament.resources.tasks.pages.appointment-booking';
-    }
 
     /** The booked window in the dataset's zone, e.g. "Thursday October 22nd 08:00-12:00". */
     protected function formatAppointmentWindow(Carbon|string|null $startDate, Carbon|string|null $endDate): ?string
@@ -256,14 +253,9 @@ class AppointmentBooking extends Page
         }
         $this->task_data['blocking_choice'] = 'template';
 
+        // The survey runs after the first render (wire:init), so the grid shows its loading state.
         $this->dayStates = array_fill_keys($this->windowDays(), 'unknown');
-
-        $sla = $this->slaTypes();
-        if ($sla->complete()) {
-            $this->loadSurvey();
-        } else {
-            $this->pageError = $sla->missingMessage();
-        }
+        $this->pageError = $this->slaTypes()->missingMessage();
     }
 
     /** The task's dataset decides the environment: shown, not selectable. */
@@ -478,6 +470,8 @@ class AppointmentBooking extends Page
             );
         } catch (RuntimeException $exception) {
             $this->pageError = $exception->getMessage();
+            $this->screen = 'month';
+            $this->selectedDay = null;
 
             return;
         }
@@ -485,7 +479,8 @@ class AppointmentBooking extends Page
         $result = $this->sendAppointment('appointment', $payload);
         if ($result['error'] !== null) {
             $this->pageError = $result['error'];
-            $this->view = 'month';
+            $this->screen = 'month';
+            $this->selectedDay = null;
 
             return;
         }
@@ -495,14 +490,14 @@ class AppointmentBooking extends Page
         $this->appointmentRequestId = data_get($offers, 'appointmentRequestId');
         $this->countdownExpiresAt = now()->addMinutes(self::OFFER_MINUTES)->toIso8601String(); // DO NOT USE ->format(), do not force UTC
         $this->selectedDay = $day;
-        $this->view = 'agenda';
+        $this->screen = 'agenda';
     }
 
     public function backToMonth(): void
     {
         $this->declineOpenRequest();
         $this->selectedDay = null;
-        $this->view = 'month';
+        $this->screen = 'month';
     }
 
     /** Release the open request's offers (DELETE) so they do not wait to time out. */
