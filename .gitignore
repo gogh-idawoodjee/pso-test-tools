@@ -26,3 +26,4 @@ yarn-error.log
 
 # Customer SYS exports never belong in the repo (the golden test reads SYS_COMPARE_SAMPLES)
 docs/sys-compare-handoff/reference/*.xml
+.superpowers/
