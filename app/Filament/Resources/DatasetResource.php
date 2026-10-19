@@ -91,7 +91,7 @@ class DatasetResource extends Resource
                         ->state(static fn (Dataset $record): array => static::countLines($record)),
                 ])->columns(2),
             Section::make('Settings')
-                ->description('What the tools read for this dataset. Use Edit settings above to change them. Grey means the default.')
+                ->description('What the tools read for this dataset. Use Edit above to change them. Grey means the default.')
                 ->collapsible()
                 ->columnSpanFull()
                 ->columns(3)

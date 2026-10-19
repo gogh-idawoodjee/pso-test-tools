@@ -71,7 +71,7 @@ it('shows the settings on the dataset page and edits them from there', function 
         ->assertSee('CONSUMER: consumer')
         ->assertSee('Same as time zone')
         ->assertDontSee('Windows time zone')
-        ->callAction(TestAction::make('editSettings'), [
+        ->callAction(TestAction::make('edit'), [
             'settings.time_zone' => 'America/Regina',
             'settings.supervisor_label' => 'Team lead',
         ])

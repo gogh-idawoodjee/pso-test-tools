@@ -91,6 +91,12 @@ class Dataset extends Model
 
     public static function getForm(): array
     {
+        return [...self::identitySchema(), ...self::settingsSchema()];
+    }
+
+    /** Name, rota and environment: what identifies the dataset on the PSO gateway. */
+    public static function identitySchema(): array
+    {
         return [
             Forms\Components\TextInput::make('name')
                 ->required(),
@@ -99,7 +105,6 @@ class Dataset extends Model
             Forms\Components\Select::make('environment_id')
                 ->relationship('environment', 'name')
                 ->required(),
-            ...self::settingsSchema(),
         ];
     }
 

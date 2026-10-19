@@ -41,13 +41,11 @@ class ViewDataset extends ViewRecord
 
                     Notification::make()->title('Sync queued')->body('This page refreshes itself while the sync runs.')->success()->send();
                 }),
-            Actions\EditAction::make('editSettings')
-                ->label('Edit settings')
+            Actions\EditAction::make()
                 ->icon(Heroicon::OutlinedAdjustmentsHorizontal)
-                ->modalHeading(fn (): string => 'Settings for '.$this->record->name)
-                ->schema(Dataset::settingsSchema())
+                ->modalHeading(fn (): string => 'Dataset '.$this->record->name)
+                ->schema(Dataset::getForm())
                 ->slideOver(),
-            Actions\EditAction::make(),
         ];
     }
 
