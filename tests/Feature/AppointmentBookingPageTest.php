@@ -367,6 +367,39 @@ it('accepts straight away on a blocking request', function () {
         ->and($task->appt_window_finish->utc()->toDateTimeString())->toBe('2026-10-22 16:00:00');
 });
 
+it('shows the booked window in the dataset zone when it differs from the app zone', function () {
+    config(['app.timezone' => 'America/Toronto']);
+    $this->dataset->update(['settings' => [
+        'time_zone' => 'America/Regina',
+        'appointment_sla_type_id' => 'Appointment',
+        'default_booking_sla_type_id' => 'Appointment',
+    ]]);
+
+    // Offsetless window times are UTC: 14:00 to 18:00 UTC is 08:00 to 12:00 in Regina (UTC-6, no DST).
+    $offer = [...bookingOffer(7, '2026-10-22T14:00:00Z'), 'windowStartDatetime' => '2026-10-22T14:00:00', 'windowEndDatetime' => '2026-10-22T18:00:00'];
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => static fn (Request $request) => $request->method() === 'PATCH'
+        ? Http::response(['data' => ['acceptedAppointmentSummary' => [
+            'appointmentRequestId' => 'REQ-22',
+            'activityId' => 'ACT-1',
+            'assignmentStart' => '2026-10-22T14:00:00',
+            'assignmentFinish' => '2026-10-22T15:30:00',
+            'bookingSlaTypeId' => 'Appointment',
+        ]]])
+        : Http::response(bookingOffersResponse([$offer], requestId: 'REQ-22')),
+    ]);
+
+    $component = openAgenda($this->task)->call('book', 7);
+
+    expect($component->get('screen'))->toBe('booked');
+    $component->assertSee('Thursday October 22nd 08:00-12:00')
+        ->assertSee('Thursday October 22nd 08:00-09:30')
+        ->assertDontSee('Thursday October 22nd 10:00-14:00');
+
+    $task = $this->task->fresh();
+    expect($task->appt_window_start->utc()->toDateTimeString())->toBe('2026-10-22 14:00:00')
+        ->and($task->appt_window_finish->utc()->toDateTimeString())->toBe('2026-10-22 18:00:00');
+});
+
 it('checks first on a non-blocking request and books when appointed', function () {
     Http::fake(appointmentEndpointFake());
 
