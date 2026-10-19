@@ -40,6 +40,9 @@ trait FormTrait
 
     public bool $isAuthenticationRequired = false;
 
+    /** Environment and dataset are fixed by the page (shown, not selectable). */
+    public bool $isEnvironmentLocked = false;
+
     public ?string $headerActionLabel = 'Header Action Label';
 
     public function validateForms(array $forms): void
@@ -88,6 +91,7 @@ trait FormTrait
                         ->required()
                         ->preload()
                         ->native(false)
+                        ->disabled(fn (): bool => $this->isEnvironmentLocked)
                         ->afterStateUpdated(function ($livewire, $component, Set $set, ?string $state) {
                             $livewire->validateOnly($component->getStatePath());
                             $this->setCurrentEnvironment($state);
@@ -101,7 +105,7 @@ trait FormTrait
                         ->options(fn (Get $get) => $this->getDatasetOptions($get))
                         ->required(! $this->isDataSetRequired)
                         ->hidden($this->isDataSetHidden)
-                        ->disabled(static fn (Get $get) => blank($get('environment_id')))
+                        ->disabled(fn (Get $get): bool => $this->isEnvironmentLocked || blank($get('environment_id')))
                         ->live()
                         ->native(false)
                         ->searchable()

@@ -2,59 +2,88 @@
 
 namespace App\Filament\Resources\TaskResource\Pages;
 
+use App\Enums\HttpMethod;
 use App\Enums\ReferenceEntityType;
 use App\Enums\TaskStatus;
 use App\Filament\Resources\DatasetReferenceValueResource;
 use App\Filament\Resources\TaskResource;
 use App\Models\DatasetReferenceValue;
 use App\Models\Environment;
+use App\Support\Booking\BookingPayloads;
+use App\Support\Booking\BookingSlaTypes;
 use App\Traits\FormTrait;
 use Carbon\Carbon;
-use Filament\Actions\Action;
-use Filament\Forms\Components\DateTimePicker;
+use Carbon\CarbonImmutable;
 use Filament\Forms\Components\Select;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
-use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\VerticalAlignment;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Arr;
+use JsonException;
+use RuntimeException;
+use Throwable;
 
+/**
+ * Appointment booking for one task: a survey request fills a three week month view, a day opens
+ * that day's offers for the chosen template (the agenda). Environment and dataset are the task's.
+ */
 class AppointmentBooking extends Page
 {
     use FormTrait, InteractsWithRecord;
 
+    private const int WINDOW_DAYS = 21;
+
+    private const int OFFER_MINUTES = 5;
+
     protected static string $resource = TaskResource::class;
 
-    protected string $view = 'filament.resources.tasks.pages.appointment-booking';
+    /** Which part of the page shows: 'month', 'agenda' or 'booked'. Filament's blade view is in getView(). */
+    public string $view = 'month';
+
+    /** Y-m-d => 'slots' | 'none' | 'unknown', for the 21 days from today in the dataset zone. */
+    public array $dayStates = [];
+
+    public ?string $selectedDay = null;
+
+    /** The services appointmentOffers block of the open request. */
+    public ?array $offers = null;
+
+    public ?string $appointmentRequestId = null;
 
     public ?string $countdownExpiresAt = null;
 
     public bool $countdownExpired = false;
 
+    public ?string $pageError = null;
+
+    /** Null means "as the template". */
+    public ?bool $blockingOverride = null;
+
     public ?array $task_data = [];
 
-    /**
-     * Format a time window between two dates
-     */
-    protected function formatAppointmentWindow(Carbon|string|null $startDate, Carbon|string|null $endDate): string
+    private ?BookingSlaTypes $slaTypesCache = null;
+
+    public function getView(): string
     {
-        // Parse dates if they're not already Carbon instances
-        $start = $startDate instanceof Carbon ? $startDate : Carbon::parse($startDate);
-        $end = $endDate instanceof Carbon ? $endDate : Carbon::parse($endDate);
+        return 'filament.resources.tasks.pages.appointment-booking';
+    }
 
-        // Format the date and time
-        $formattedDate = $start->format('l F jS');
-        $formattedTime = $start->format('H:i').'-'.$end->format('H:i');
+    /** The booked window in the dataset's zone, e.g. "Thursday October 22nd 08:00-12:00". */
+    protected function formatAppointmentWindow(Carbon|string|null $startDate, Carbon|string|null $endDate): ?string
+    {
+        if (blank($startDate) || blank($endDate)) {
+            return null;
+        }
 
-        return $formattedDate.' '.$formattedTime;
+        $timeZone = $this->record->dataset->timeZone();
+        $start = Carbon::parse($startDate)->setTimezone($timeZone);
+        $end = Carbon::parse($endDate)->setTimezone($timeZone);
+
+        return $start->format('l F jS').' '.$start->format('H:i').'-'.$end->format('H:i');
     }
 
     /**
@@ -79,6 +108,10 @@ class AppointmentBooking extends Page
      */
     protected function isAppointmentUrgent(Carbon|string|null $appointmentStart): bool
     {
+        if (blank($appointmentStart)) {
+            return false;
+        }
+
         $start = $appointmentStart instanceof Carbon ? $appointmentStart : Carbon::parse($appointmentStart);
         $now = Carbon::now();
         $timeUntilStart = $now->diffInMinutes($start);
@@ -98,7 +131,7 @@ class AppointmentBooking extends Page
         );
 
         // Get duration data
-        $formattedDuration = $this->formatDuration($this->record->duration);
+        $formattedDuration = $this->formatDuration((int) $this->record->duration);
 
         // Check urgency
         $isUrgent = $this->isAppointmentUrgent($this->record->appt_window_start);
@@ -170,18 +203,19 @@ class AppointmentBooking extends Page
                         Section::make()
                             ->schema([
                                 TextEntry::make('appointment')
-                                    ->label('Appointment Window')
-                                    ->state($appointmentTime)
-                                    ->formatStateUsing(static function ($state) use ($isUrgent) {
-                                        $colorClass = $isUrgent ? 'text-red-600' : 'text-purple-600';
-
-                                        return '<span class="'.$colorClass.'">'.$state.'</span>';
-                                    })
+                                    ->label($this->record->isBooked() ? 'Booked window' : 'Booking')
+                                    ->state($appointmentTime ?? 'Not booked')
+                                    ->color($appointmentTime === null ? 'gray' : ($isUrgent ? 'danger' : 'primary'))
                                     ->icon(Heroicon::OutlinedCalendar)
                                     ->iconColor($isUrgent ? 'danger' : 'primary')
-                                    ->size('lg')
-                                    ->html(),
-
+                                    ->size('lg'),
+                                TextEntry::make('booking_sla_type_id')
+                                    ->label('Booking SLA type')
+                                    ->visible($this->record->isBooked())
+                                    ->placeholder('Not recorded'),
+                                TextEntry::make('appointment_request_id')
+                                    ->label('Appointment request')
+                                    ->visible($this->record->isBooked()),
                             ]),
 
                         //                        // Base Value, Task Type, and Location
@@ -205,35 +239,58 @@ class AppointmentBooking extends Page
     public function mount(int|string $record): void
     {
         $this->record = $this->resolveRecord($record);
+        $this->record->loadMissing(['dataset.environment', 'customer', 'taskType']);
 
         $this->environments = Environment::with('datasets')->get();
         $this->isAuthenticationRequired = true;
+        $this->isEnvironmentLocked = true;
 
-        // Initialize task_data
         $this->task_data = $this->record->toArray();
-
-        // Call form fill to populate the forms
         $this->fillForms($this->getForms());
 
-        $this->setTaskData();
+        $this->lockEnvironment();
 
+        $templates = $this->templateOptions();
+        if (count($templates) === 1) {
+            $this->task_data['appointmentTemplateId'] = array_key_first($templates);
+        }
+        $this->task_data['blocking_choice'] = 'template';
+
+        $this->dayStates = array_fill_keys($this->windowDays(), 'unknown');
+
+        $sla = $this->slaTypes();
+        if ($sla->complete()) {
+            $this->loadSurvey();
+        } else {
+            $this->pageError = $sla->missingMessage();
+        }
     }
 
-    public function setTaskData(): void
+    /** The task's dataset decides the environment: shown, not selectable. */
+    private function lockEnvironment(): void
     {
-        // maybe we can do this after in the payload instead of adding it to record
-        // some of them we should just display though.
-        $this->task_data['sla_start'] = now()->format('Y-m-d\TH:i');
+        $dataset = $this->record->dataset;
 
-        if (array_key_exists('Appointment', $this->slaTypeOptions())) {
-            $this->task_data['slaTypeId'] = 'Appointment';
-        }
+        // Load the environment through the user's list (owner scope), falling back to the relation.
+        $this->selectedEnvironment = $this->environments->find($dataset->environment_id) ?? $dataset->environment;
+        // PSO knows a dataset by its name; the env form's dataset options are keyed by name too.
+        $this->selectedDataset = $dataset->name;
 
+        $this->env_form->fill([
+            'environment_id' => $dataset->environment_id,
+            'dataset_id' => $dataset->name,
+            'send_to_pso' => true,
+        ]);
     }
 
     protected function getForms(): array
     {
         return ['env_form', 'taskForm'];
+    }
+
+    public function slaTypes(): BookingSlaTypes
+    {
+        return $this->slaTypesCache ??= BookingSlaTypes::for($this->record);
     }
 
     /** Appointment templates of the task's dataset, keyed by the PSO id the request carries. */
@@ -257,125 +314,280 @@ class AppointmentBooking extends Page
         return DatasetReferenceValue::createManual($this->record->dataset_id, $type, $data)->pso_id;
     }
 
+    /** The selected template's row in the task's dataset, if any. */
+    private function selectedTemplate(): ?DatasetReferenceValue
+    {
+        $templateId = data_get($this->task_data, 'appointmentTemplateId');
+        if (blank($templateId)) {
+            return null;
+        }
+
+        return DatasetReferenceValue::query()
+            ->where('dataset_id', $this->record->dataset_id)
+            ->ofType(ReferenceEntityType::AppointmentTemplate)
+            ->where('pso_id', $templateId)
+            ->first();
+    }
+
+    /** Whether the next request blocks its offers: the override, else the template's flag, else true. */
+    public function blockingForRequest(): bool
+    {
+        return $this->blockingOverride ?? $this->selectedTemplate()?->blockingDefault() ?? true;
+    }
+
     public function taskForm(Schema $form): Schema
     {
+        $slaLabel = static fn (?string $id, string $source): string => $id === null
+            ? 'Not set'
+            : "{$id} (from the {$source})";
+
         return $form
-            ->schema(
-                [
-                    Section::make('Appointment Booking')->schema([
+            ->schema([
+                Section::make('Appointment booking')
+                    ->icon(Heroicon::OutlinedCalendarDays)
+                    ->schema([
                         Select::make('appointmentTemplateId')
-                            ->label('Appointment Template')
+                            ->label('Appointment template')
                             ->options(fn (): array => $this->templateOptions())
                             ->searchable()
+                            ->live()
+                            ->helperText(function (): ?string {
+                                $template = $this->selectedTemplate();
+
+                                return $template === null ? null : 'Template blocking: '.($template->blockingDefault() ? 'yes' : 'no').'.';
+                            })
                             ->createOptionForm(fn (): array => DatasetReferenceValueResource::formSchema(ReferenceEntityType::AppointmentTemplate, lockDataset: true, datasetId: fn (): string => $this->record->dataset_id))
                             ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::AppointmentTemplate, $data))
-                            ->createOptionModalHeading('Create Template')
+                            ->createOptionModalHeading('Create template')
                             ->required(),
+                        Select::make('blocking_choice')
+                            ->label('Blocking for this request')
+                            ->options([
+                                'template' => 'As the template',
+                                'yes' => 'Blocking',
+                                'no' => 'Not blocking',
+                            ])
+                            ->selectablePlaceholder(false)
+                            ->live()
+                            ->afterStateUpdated(function (?string $state): void {
+                                $this->blockingOverride = match ($state) {
+                                    'yes' => true,
+                                    'no' => false,
+                                    default => null,
+                                };
+                            }),
                         Select::make('slotUsageRuleId')
-                            ->label('Slot Usage Rule Set')
+                            ->label('Slot usage rule set')
                             ->options(fn (): array => $this->slotUsageRuleOptions())
                             ->searchable()
                             ->createOptionForm(fn (): array => DatasetReferenceValueResource::formSchema(ReferenceEntityType::SlotUsageRule, lockDataset: true, datasetId: fn (): string => $this->record->dataset_id))
                             ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::SlotUsageRule, $data))
-                            ->createOptionModalHeading('Create Slot Usage Rule Set'),
-                        Select::make('slaTypeId')
-                            ->label('SLA Type')
-                            ->options(fn (): array => $this->slaTypeOptions())
-                            ->searchable()
-                            ->createOptionForm(fn (): array => DatasetReferenceValueResource::formSchema(ReferenceEntityType::SlaType, lockDataset: true, datasetId: fn (): string => $this->record->dataset_id))
-                            ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::SlaType, $data))
-                            ->createOptionModalHeading('Create SLA Type')
-                            ->required(),
-                        DateTimePicker::make('sla_start')
-                            ->label('Search for Appointments from:')
-                            ->closeOnDateSelection()
-                            ->seconds(false)
-                            ->suffixAction(
-                                Action::make('set_sla_start')
-                                    ->icon(Heroicon::Clock)
-                                    ->action(function (Get $get, Set $set) {
-                                        $this->setSlaStart($set);
-
-                                    }))
-                            ->hint('Reset to current date/time')
-                            ->required()
-                            ->live()->columnSpan(2),
-
+                            ->createOptionModalHeading('Create slot usage rule set'),
                         $this->inputDatetimeField(),
-
-                        Actions::make([Action::make('get_appointments')
-                            ->label('Get Appointments')
-                            ->icon(Heroicon::OutlinedCalendar)
-                            ->action(function () {
-                                $this->getAppointments();
-                            }),
-                        ])->verticalAlignment(VerticalAlignment::End),
+                        TextEntry::make('appointment_sla_type')
+                            ->label('Appointment SLA type')
+                            ->state(fn (): string => $slaLabel($this->slaTypes()->appointmentSlaTypeId, $this->slaTypes()->appointmentSource)),
+                        TextEntry::make('booking_sla_type')
+                            ->label('Booking SLA type')
+                            ->state(fn (): string => $slaLabel($this->slaTypes()->bookingSlaTypeId, $this->slaTypes()->bookingSource)),
                     ])->columns(),
-
-                ])->statePath('task_data');
-
+            ])->statePath('task_data');
     }
 
-    private function getAppointments()
+    /** The 21 calendar days from today in the dataset's zone, as Y-m-d. */
+    public function windowDays(): array
     {
+        $today = CarbonImmutable::now($this->timeZone())->startOfDay();
 
-        $this->validateForms($this->getForms());
-        $this->response = null;
-        $data = $this->setDataPayload();
+        return array_map(static fn (int $i): string => $today->addDays($i)->toDateString(), range(0, self::WINDOW_DAYS - 1));
+    }
 
-        // done eventually do this on the formtrait since all payloads are now env => env_d
-        $environment = $this->environment_payload_data();
+    private function timeZone(): string
+    {
+        return $this->record->dataset->timeZone();
+    }
 
-        $payload = array_merge($data, $environment);
+    /** Ask PSO which of the next 21 days have slots (survey request, no template). */
+    public function loadSurvey(): void
+    {
+        $days = $this->windowDays();
+        $this->dayStates = array_fill_keys($days, 'unknown');
+        $this->pageError = null;
 
-        if ($tokenized_payload = $this->prepareTokenizedPayload($this->environment_data['send_to_pso'], $payload)) {
+        if (! $this->slaTypes()->complete()) {
+            $this->pageError = $this->slaTypes()->missingMessage();
 
-            $this->response = $this->sendToPSONew('appointment', $tokenized_payload);
+            return;
+        }
 
-            if (! empty($this->response['data']['appointment_offers']['valid_offers'] ?? [])) {
-                $this->countdownExpiresAt = now()->addMinutes(3)->toIso8601String(); // DO NOT USE ->format(), do not force UTC
+        try {
+            $payload = $this->payloads()->survey(CarbonImmutable::now($this->timeZone()));
+        } catch (RuntimeException $exception) {
+            $this->pageError = $exception->getMessage();
+
+            return;
+        }
+
+        $result = $this->sendAppointment('appointment', $payload);
+        if ($result['error'] !== null) {
+            $this->pageError = $result['error'];
+
+            return;
+        }
+
+        $states = array_fill_keys($days, 'none');
+        foreach ((array) data_get($result['data'], 'appointmentOffers.validOffers', []) as $offer) {
+            $day = $this->offerDay($offer);
+            if ($day !== null && array_key_exists($day, $states)) {
+                $states[$day] = 'slots';
             }
-
         }
-
+        $this->dayStates = $states;
     }
 
-    private function setSlaStart(Set $set)
+    /** Ask PSO for the chosen template's slots on one day and open the agenda. */
+    public function selectDay(string $day): void
     {
-        $set('sla_start', now()->format('Y-m-d\TH:i'));
+        if (! array_key_exists($day, $this->dayStates)) {
+            return;
+        }
 
+        if (! $this->slaTypes()->complete()) {
+            $this->pageError = $this->slaTypes()->missingMessage();
+
+            return;
+        }
+
+        $templateId = data_get($this->task_data, 'appointmentTemplateId');
+        if (blank($templateId)) {
+            $this->pageError = 'Choose an appointment template first.';
+
+            return;
+        }
+
+        $this->pageError = null;
+        $this->declineOpenRequest();
+
+        try {
+            $payload = $this->payloads()->day(
+                CarbonImmutable::parse($day, $this->timeZone()),
+                $templateId,
+                data_get($this->task_data, 'slotUsageRuleId'),
+                $this->blockingOverride,
+                $this->inputDatetimePayloadValue(data_get($this->task_data, 'input_datetime')),
+            );
+        } catch (RuntimeException $exception) {
+            $this->pageError = $exception->getMessage();
+
+            return;
+        }
+
+        $result = $this->sendAppointment('appointment', $payload);
+        if ($result['error'] !== null) {
+            $this->pageError = $result['error'];
+            $this->view = 'month';
+
+            return;
+        }
+
+        $offers = (array) data_get($result['data'], 'appointmentOffers', []);
+        $this->offers = $offers;
+        $this->appointmentRequestId = data_get($offers, 'appointmentRequestId');
+        $this->countdownExpiresAt = now()->addMinutes(self::OFFER_MINUTES)->toIso8601String(); // DO NOT USE ->format(), do not force UTC
+        $this->selectedDay = $day;
+        $this->view = 'agenda';
     }
 
-    private function setDataPayload(): array
+    public function backToMonth(): void
     {
+        $this->declineOpenRequest();
+        $this->selectedDay = null;
+        $this->view = 'month';
+    }
 
-        $data = [
-            'data' => [
-                'appointmentTemplateId' => data_get($this->task_data, 'appointmentTemplateId'),
-                'baseValue' => data_get($this->record, 'base_value'),
-                'priority' => data_get($this->record, 'taskType.attributes.priority'),
-                'slaStart' => Carbon::parse(data_get($this->task_data, 'sla_start'))->format('Y-m-d\TH:i:s'),
-                'slaEnd' => Carbon::parse(data_get($this->task_data, 'sla_start'))->addDays(21)->format('Y-m-d\TH:i:s'),
-                'duration' => data_get($this->record, 'duration'),
-                'activityId' => data_get($this->record, 'friendly_id'),
-                'activityTypeId' => data_get($this->record, 'taskType.pso_id'),
-                'lat' => data_get($this->record, 'customer.lat'),
-                'long' => data_get($this->record, 'customer.long'),
-                'slaTypeId' => data_get($this->task_data, 'slaTypeId'),
-                'appointmentTemplateDuration' => 21,
-                'appointmentBaseDate' => now()->startOfDay()->toIso8601String(),
-            ],
-        ];
-
-        if (data_get($this->task_data, 'slotUsageRuleId')) {
-            // Arr::add() returns a copy, so the old call here never sent the rule set.
-            $data['data']['slotUsageRuleId'] = data_get($this->task_data, 'slotUsageRuleId');
+    /** Release the open request's offers (DELETE) so they do not wait to time out. */
+    protected function declineOpenRequest(): void
+    {
+        $requestId = $this->appointmentRequestId;
+        if (blank($requestId)) {
+            return;
         }
 
-        if ($inputDatetime = $this->inputDatetimePayloadValue(data_get($this->task_data, 'input_datetime'))) {
-            $data['data']['inputDatetime'] = $inputDatetime;
+        $this->sendAppointment('appointment/'.rawurlencode($requestId), ['data' => ['appointmentRequestId' => $requestId]], HttpMethod::DELETE);
+
+        $this->appointmentRequestId = null;
+        $this->offers = null;
+        $this->countdownExpiresAt = null;
+    }
+
+    private function payloads(): BookingPayloads
+    {
+        return new BookingPayloads($this->record, $this->slaTypes());
+    }
+
+    /** The calendar day of an offer's window start in the dataset's zone; offsetless times are UTC. */
+    private function offerDay(mixed $offer): ?string
+    {
+        $start = data_get($offer, 'windowStartDatetime');
+        if (! is_string($start) || $start === '') {
+            return null;
         }
 
-        return $data;
+        try {
+            return CarbonImmutable::parse($start, 'UTC')->setTimezone($this->timeZone())->toDateString();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Send one appointment call through services and read the reply.
+     *
+     * @return array{data: ?array, error: ?string}
+     */
+    private function sendAppointment(string $segment, array $payload, ?HttpMethod $method = null): array
+    {
+        $payload = array_merge($payload, $this->environment_payload_data());
+
+        $tokenized = $this->prepareTokenizedPayload((bool) data_get($this->environment_data, 'send_to_pso'), $payload);
+        if ($tokenized === false) {
+            return ['data' => null, 'error' => 'Could not log on to PSO'.($this->session_error_message ? ': '.$this->session_error_message : '.')];
+        }
+
+        try {
+            $raw = $this->sendToPSONew($segment, $tokenized, method: $method, isNonStandardResponse: true);
+        } catch (JsonException) {
+            return ['data' => null, 'error' => 'The PSO services API answered with something that is not JSON.'];
+        }
+
+        $decoded = json_decode($raw, true);
+
+        // A non-2xx reply comes back as the raw body, JSON-encoded once more.
+        if (is_string($decoded)) {
+            return ['data' => null, 'error' => self::servicesErrorText(json_decode($decoded, true)) ?? 'The PSO services API returned an error.'];
+        }
+
+        if (! is_array($decoded) || ! array_key_exists('data', $decoded)) {
+            return ['data' => null, 'error' => self::servicesErrorText($decoded) ?? 'The PSO services API returned an error.'];
+        }
+
+        $data = $decoded['data'];
+        if ($method === null && ! is_array(data_get($data, 'appointmentOffers'))) {
+            return ['data' => null, 'error' => 'The PSO services API answered without appointment offers.'];
+        }
+
+        return ['data' => is_array($data) ? $data : [], 'error' => null];
+    }
+
+    private static function servicesErrorText(mixed $body): ?string
+    {
+        foreach (['error', 'message.error', 'message', 'details', 'details.Message'] as $key) {
+            $value = data_get($body, $key);
+            if (is_string($value) && $value !== '') {
+                return $value;
+            }
+        }
+
+        return null;
     }
 }
