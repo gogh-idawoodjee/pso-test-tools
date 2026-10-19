@@ -455,7 +455,7 @@
         @elseif ($this->screen === 'booked')
             @php
                 $summary = $this->booking ?? [];
-                $window = $this->formatAppointmentWindow($this->record->appt_window_start, $this->record->appt_window_finish);
+                $window = \App\Support\Booking\AgendaPresenter::readableWindow($this->record->appt_window_start, $this->record->appt_window_finish, $this->bookingTimeZone());
                 $previousWindow = data_get($this->previousBooking, 'window');
                 $rows = array_filter([
                     'Window' => $window ?? data_get($summary, 'selectedWindow'),
@@ -553,7 +553,7 @@
                         </thead>
                         <tbody>
                             @foreach ($this->history as $row)
-                                <tr wire:key="history-{{ $row['requestId'] }}" style="border-bottom: 1px solid var(--pso-border);">
+                                <tr wire:key="history-{{ $loop->index }}-{{ $row['requestId'] }}" style="border-bottom: 1px solid var(--pso-border);">
                                     <td class="py-2 pe-4 whitespace-nowrap tabular-nums">{{ $row['when'] }}</td>
                                     <td class="py-2 pe-4">{{ $row['what'] }}</td>
                                     <td class="py-2 pe-4">{{ $row['outcome'] }}</td>

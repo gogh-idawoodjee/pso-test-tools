@@ -568,7 +568,7 @@ class AppointmentBooking extends Page
     public function nextAgenda(): void
     {
         $from = self::utcMoment($this->cursor);
-        if ($from === null) {
+        if ($from === null || $this->screen !== 'agenda') {
             return;
         }
 
@@ -582,7 +582,7 @@ class AppointmentBooking extends Page
     public function previousAgenda(): void
     {
         $from = $this->previousAgendaFrom();
-        if ($from === null || ! $this->canGoPreviousAgenda()) {
+        if ($from === null || $this->screen !== 'agenda' || ! $this->canGoPreviousAgenda()) {
             return;
         }
 
@@ -718,6 +718,9 @@ class AppointmentBooking extends Page
     /** One day request: the template from the base day, or from an exact UTC instant (Next, Previous). */
     private function requestDay(string $day, ?string $templateDatetimeUtc = null): void
     {
+        // Every request adds a history row: forget the loaded list so the section reloads when opened.
+        $this->history = null;
+        $this->historyError = null;
 
         if (! $this->slaTypes()->complete()) {
             $this->pageError = $this->slaTypes()->missingMessage();
@@ -900,6 +903,7 @@ class AppointmentBooking extends Page
         $this->screen = 'booked';
         // The history gained a row: read it again the next time the section is opened.
         $this->history = null;
+        $this->historyError = null;
     }
 
     /** Whether an offer's window is the task's current booking (same start and end instants). */
@@ -981,6 +985,10 @@ class AppointmentBooking extends Page
         if (blank($requestId)) {
             return;
         }
+
+        // A release changes the request's outcome: the history list is stale once this runs.
+        $this->history = null;
+        $this->historyError = null;
 
         // An expired request is gone on the PSO side: services would answer 406, so only forget it here.
         if (! $this->expired) {
