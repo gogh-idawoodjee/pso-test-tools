@@ -533,7 +533,7 @@ it('puts an invalid offer from allOfferValues in its day column with its times i
         ->and($invalid['times'])->toBe('4:00 PM to 8:00 PM');
 
     // Detail mode shows the full window with its offset under the block, readable rather than ISO.
-    $component->assertSee('4:00 PM to 8:00 PM')->assertSee('(UTC-04:00)')->assertDontSee('2026-10-22T');
+    $component->assertSee('4:00 PM to 8:00 PM')->assertSee('America/Toronto EDT')->assertDontSee('2026-10-22T');
 });
 
 it('shows the dataset zone and its abbreviation on the selected day in the pill', function () {

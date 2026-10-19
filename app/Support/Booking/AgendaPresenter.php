@@ -224,9 +224,11 @@ final class AgendaPresenter
             return $from->format('g:i A').' to '.$to->format('g:i A');
         }
 
-        // The full window, readable: "Tue Oct 20, 8:00 AM to 12:00 PM (UTC-04:00)"; the end carries its day only when it differs.
+        // The full window, readable: "Tue Oct 20, 8:00 AM to 12:00 PM America/Toronto EDT"; the end carries its day only when it differs.
         $sameDay = $from->toDateString() === $to->toDateString();
+        $abbreviation = $from->format('T');
+        $zone = $abbreviation === $timeZone ? $timeZone : $timeZone.' '.$abbreviation;
 
-        return $from->format('D M j, g:i A').' to '.$to->format($sameDay ? 'g:i A' : 'D M j, g:i A').' (UTC'.$from->format('P').')';
+        return $from->format('D M j, g:i A').' to '.$to->format($sameDay ? 'g:i A' : 'D M j, g:i A').' '.$zone;
     }
 }
