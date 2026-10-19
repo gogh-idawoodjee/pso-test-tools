@@ -24,6 +24,9 @@ trait PSOInteractionsTrait
      */
     protected ?string $session_error_message = null;
 
+    /** The HTTP status of the last sendToPSONew() reply; null when services could not be reached. */
+    protected ?int $last_response_status = null;
+
     public ?array $json_form_data = [];
 
     public function authenticatePSO(
@@ -95,6 +98,7 @@ trait PSOInteractionsTrait
         ?int $timeout = null,
     ): string {
         $headers ??= [];
+        $this->last_response_status = null;
         $responseKey = 'data.payloadToPso';
         $returnKey = 'input_payload';
 
@@ -141,6 +145,7 @@ trait PSOInteractionsTrait
             );
         }
 
+        $this->last_response_status = $response->status();
         $pass = $response->successful();
 
         $body = 'sent to services API';

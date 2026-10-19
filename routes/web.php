@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Exports\ExportFileDownloadController;
+use App\Http\Controllers\ReleaseAppointmentOffersController;
 use App\Http\Controllers\ToolRunPageController;
 use Filament\Http\Middleware\Authenticate;
 use Illuminate\Support\Facades\Route;
@@ -22,3 +23,7 @@ Route::middleware(['web', Authenticate::class])
         Route::get('download/booking-csv', 'downloadBookingCsv')->name('tool-runs.download-booking-csv');
         Route::get('download/history-csv', 'downloadHistoryCsv')->name('tool-runs.download-history-csv');
     });
+
+Route::post('/tasks/{task}/release-offers', ReleaseAppointmentOffersController::class)
+    ->middleware(['web', Authenticate::class])
+    ->name('tasks.release-offers');

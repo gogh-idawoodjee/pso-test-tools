@@ -12,6 +12,7 @@ use App\Models\Environment;
 use App\Support\Booking\AgendaPresenter;
 use App\Support\Booking\BookingPayloads;
 use App\Support\Booking\BookingSlaTypes;
+use App\Support\Booking\OfferRelease;
 use App\Traits\FormTrait;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
@@ -597,8 +598,11 @@ class AppointmentBooking extends Page
         $accept = $this->sendAppointment($segment, $payloads->accept($offerId, $this->record->booking_sla_type_id), HttpMethod::PATCH);
         if ($accept['error'] !== null) {
             $this->pageError = $accept['error'];
-            // The request may be spent after a failed accept: make the person search again.
-            $this->expired = true;
+            // Only a spent request (406, or services saying it expired) needs a new search; otherwise it stays
+            // open, so Book can be tried again and leaving the page still releases it.
+            if ($accept['status'] === 406 || str_contains(strtolower($accept['error']), 'expired')) {
+                $this->expired = true;
+            }
 
             return;
         }
@@ -678,7 +682,7 @@ class AppointmentBooking extends Page
 
         // An expired request is gone on the PSO side: services would answer 406, so only forget it here.
         if (! $this->expired) {
-            $this->sendAppointment('appointment/'.rawurlencode($requestId), ['data' => ['appointmentRequestId' => $requestId]], HttpMethod::DELETE);
+            (new OfferRelease($this->record))->release($requestId);
         }
 
         $this->appointmentRequestId = null;
@@ -710,7 +714,7 @@ class AppointmentBooking extends Page
     /**
      * Send one appointment call through services and read the reply.
      *
-     * @return array{data: ?array, error: ?string}
+     * @return array{data: ?array, error: ?string, status: ?int}
      */
     private function sendAppointment(string $segment, array $payload, ?HttpMethod $method = null): array
     {
@@ -718,32 +722,33 @@ class AppointmentBooking extends Page
 
         $tokenized = $this->prepareTokenizedPayload((bool) data_get($this->environment_data, 'send_to_pso'), $payload);
         if ($tokenized === false) {
-            return ['data' => null, 'error' => 'Could not log on to PSO'.($this->session_error_message ? ': '.$this->session_error_message : '.')];
+            return ['data' => null, 'error' => 'Could not log on to PSO'.($this->session_error_message ? ': '.$this->session_error_message : '.'), 'status' => null];
         }
 
         try {
             $raw = $this->sendToPSONew($segment, $tokenized, method: $method, isNonStandardResponse: true, timeout: self::appointmentTimeout());
         } catch (JsonException) {
-            return ['data' => null, 'error' => 'The PSO services API answered with something that is not JSON.'];
+            return ['data' => null, 'error' => 'The PSO services API answered with something that is not JSON.', 'status' => null];
         }
 
+        $status = $this->last_response_status;
         $decoded = json_decode($raw, true);
 
         // A non-2xx reply comes back as the raw body, JSON-encoded once more.
         if (is_string($decoded)) {
-            return ['data' => null, 'error' => self::servicesErrorText(json_decode($decoded, true)) ?? 'The PSO services API returned an error.'];
+            return ['data' => null, 'error' => self::servicesErrorText(json_decode($decoded, true)) ?? 'The PSO services API returned an error.', 'status' => $status];
         }
 
         if (! is_array($decoded) || ! array_key_exists('data', $decoded)) {
-            return ['data' => null, 'error' => self::servicesErrorText($decoded) ?? 'The PSO services API returned an error.'];
+            return ['data' => null, 'error' => self::servicesErrorText($decoded) ?? 'The PSO services API returned an error.', 'status' => $status];
         }
 
         $data = $decoded['data'];
         if ($method === null && ! is_array(data_get($data, 'appointmentOffers'))) {
-            return ['data' => null, 'error' => 'The PSO services API answered without appointment offers.'];
+            return ['data' => null, 'error' => 'The PSO services API answered without appointment offers.', 'status' => $status];
         }
 
-        return ['data' => is_array($data) ? $data : [], 'error' => null];
+        return ['data' => is_array($data) ? $data : [], 'error' => null, 'status' => $status];
     }
 
     /** Seconds allowed for each appointment call (config psott.appointment.timeout, env APPOINTMENT_TIMEOUT). */

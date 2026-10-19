@@ -283,7 +283,7 @@ it('shows the Rebook action on a booked task', function () {
  * Fakes the appointment endpoints by method: a POST without an offer id is a request (offers), a POST with one is
  * the check, PATCH is the accept, DELETE the decline.
  */
-function appointmentEndpointFake(mixed $slotAvailable = true, bool $acceptFails = false): array
+function appointmentEndpointFake(mixed $slotAvailable = true, ?int $acceptStatus = null): array
 {
     $offers = bookingOffersResponse(
         [
@@ -305,9 +305,9 @@ function appointmentEndpointFake(mixed $slotAvailable = true, bool $acceptFails 
         $offers['data']['appointmentOffers']['allOfferValues'],
     );
 
-    return [...PsoServicesFake::session(), '*/api/v2/appointment*' => static function (Request $request) use ($offers, $slotAvailable, $acceptFails) {
+    return [...PsoServicesFake::session(), '*/api/v2/appointment*' => static function (Request $request) use ($offers, $slotAvailable, $acceptStatus) {
         return match ($request->method()) {
-            'PATCH' => $acceptFails ? Http::response(['message' => 'PSO could not accept the offer.'], 500) : Http::response(['data' => ['acceptedAppointmentSummary' => [
+            'PATCH' => $acceptStatus !== null ? Http::response(['message' => $acceptStatus === 406 ? 'The appointment request is no longer open.' : 'PSO could not accept the offer.'], $acceptStatus) : Http::response(['data' => ['acceptedAppointmentSummary' => [
                 'appointmentRequestId' => 'REQ-22',
                 'activityId' => 'ACT-1',
                 'resourceId' => 'RES-1',
@@ -531,19 +531,57 @@ it('sends no DELETE when releasing offers that already expired', function () {
         ->and($component->get('expired'))->toBeFalse();
 });
 
-it('marks the offers expired after a failed accept so Book is disabled', function () {
-    Http::fake(appointmentEndpointFake(acceptFails: true));
+it('marks the offers expired after an accept services refused with 406 so Book is disabled', function () {
+    Http::fake(appointmentEndpointFake(acceptStatus: 406));
 
     $component = openAgenda($this->task)->call('book', 7);
 
     expect(callsAfterDayRequest())->toBe(['PATCH /api/v2/appointment/REQ-22'])
-        ->and($component->get('pageError'))->toBe('PSO could not accept the offer.')
+        ->and($component->get('pageError'))->toBe('The appointment request is no longer open.')
         ->and($component->get('expired'))->toBeTrue()
         ->and($component->get('screen'))->toBe('agenda')
         ->and($component->html())->toMatch('/<button[^>]*\sdisabled="disabled"[^>]*wire:click="book\(8\)"/');
 
     $component->assertSee('Offers have expired, search again')->call('book', 8);
     expect(callsAfterDayRequest())->toBe(['PATCH /api/v2/appointment/REQ-22']);
+});
+
+it('keeps the request open after an accept that failed for another reason, so leaving releases it', function () {
+    Http::fake(appointmentEndpointFake(acceptStatus: 500));
+
+    $component = openAgenda($this->task)->call('book', 7);
+
+    expect($component->get('pageError'))->toBe('PSO could not accept the offer.')
+        ->and($component->get('appointmentRequestId'))->toBe('REQ-22')
+        ->and($component->get('expired'))->toBeFalse()
+        ->and($component->get('screen'))->toBe('agenda');
+
+    $component->call('backToMonth');
+
+    expect(callsAfterDayRequest())->toBe(['PATCH /api/v2/appointment/REQ-22', 'DELETE /api/v2/appointment/REQ-22'])
+        ->and($component->get('appointmentRequestId'))->toBeNull();
+});
+
+it('sends no DELETE on leaving after an accept services refused with 406', function () {
+    Http::fake(appointmentEndpointFake(acceptStatus: 406));
+
+    $component = openAgenda($this->task)->call('book', 7);
+    expect($component->get('expired'))->toBeTrue();
+
+    $component->call('backToMonth');
+
+    expect(callsAfterDayRequest())->toBe(['PATCH /api/v2/appointment/REQ-22'])
+        ->and($component->get('appointmentRequestId'))->toBeNull();
+});
+
+it('releases the offers when the page is left or the tab closed', function () {
+    Http::fake(appointmentEndpointFake());
+
+    openAgenda($this->task)
+        ->assertSeeHtml(str_replace('/', '\\/', route('tasks.release-offers', $this->task)))
+        ->assertSeeHtml('pagehide')
+        ->assertSeeHtml('livewire:navigating')
+        ->assertSeeHtml('sendBeacon');
 });
 
 it('uses the appointment timeout from config and still reaches services', function () {

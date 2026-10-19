@@ -20,7 +20,25 @@
         </div>
     @endif
 
-    <div class="relative" wire:init="loadSurvey">
+    {{-- Leaving the page (another page, tab closed, reload) releases the open request's offers so PSO does not hold them. --}}
+    <div
+        class="relative"
+        wire:init="loadSurvey"
+        x-data="{
+            released: null,
+            release() {
+                const id = $wire.appointmentRequestId;
+                if (! id || $wire.expired || this.released === id) return;
+                this.released = id;
+                const body = new FormData();
+                body.append('_token', @js(csrf_token()));
+                body.append('appointment_request_id', id);
+                navigator.sendBeacon(@js(route('tasks.release-offers', $this->record)), body);
+            },
+        }"
+        x-on:pagehide.window="release()"
+        x-on:livewire:navigating.document="release()"
+    >
         <div
             wire:loading.flex
             wire:target="loadSurvey,selectDay,backToMonth,releaseOffers,book"
