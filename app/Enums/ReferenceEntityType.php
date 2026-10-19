@@ -98,6 +98,7 @@ enum ReferenceEntityType: string implements HasLabel
     {
         return match ($this) {
             self::TaskType => ['booking_sla_type_id'],
+            self::AppointmentTemplate => ['blocking_override'],
             default => [],
         };
     }

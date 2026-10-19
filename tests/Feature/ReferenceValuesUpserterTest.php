@@ -170,23 +170,51 @@ it('keeps PSO fields fresh on a row with only local attributes edited', function
 
 it('still freezes a row whose PSO attribute was edited', function () {
     $taskType = DatasetReferenceValue::factory()->for($this->dataset)->taskType(1, 500, 30)->create(['pso_id' => 'INSTALL', 'label' => 'Install']);
-    $template = DatasetReferenceValue::factory()->for($this->dataset)->create([
-        'entity_type' => ReferenceEntityType::AppointmentTemplate, 'pso_id' => 'STANDARD', 'label' => 'Std', 'attributes' => ['blocking' => true],
-    ]);
 
     $taskType->update(['attributes' => array_merge($taskType->attributes ?? [], ['priority' => 9])]);
-    $template->update(['attributes' => ['blocking' => false]]);
-    expect($taskType->refresh()->is_locally_modified)->toBeTrue()
-        ->and($template->refresh()->is_locally_modified)->toBeTrue();
+    expect($taskType->refresh()->is_locally_modified)->toBeTrue();
 
     $summary = app(ReferenceValuesUpserter::class)->apply($this->dataset, emptyTables([
         'Activity_Type' => [['id' => 'INSTALL', 'description' => 'New', 'priority' => 7, 'base_value' => 500, 'base_duration' => 30]],
-        'Appointment_Template' => [['id' => 'STANDARD', 'description' => 'Standard', 'blocking' => true]],
     ]), $this->now);
 
     expect($taskType->refresh()->attribute('priority'))->toBe(9)
         ->and($taskType->label)->toBe('Install')
-        ->and($template->refresh()->attribute('blocking'))->toBeFalse()
-        ->and($summary['task_type']['kept'])->toBe(1)
-        ->and($summary['appointment_template']['kept'])->toBe(1);
+        ->and($summary['task_type']['kept'])->toBe(1);
+});
+
+it('keeps a manual blocking override while the label and PSO blocking keep syncing', function () {
+    $template = DatasetReferenceValue::factory()->for($this->dataset)->create([
+        'entity_type' => ReferenceEntityType::AppointmentTemplate, 'pso_id' => 'STANDARD', 'label' => 'Std', 'attributes' => ['blocking' => true],
+    ]);
+
+    $template->update(['attributes' => ['blocking' => true, 'blocking_override' => false]]);
+    expect($template->refresh()->is_locally_modified)->toBeFalse();
+
+    $summary = app(ReferenceValuesUpserter::class)->apply($this->dataset, emptyTables([
+        'Appointment_Template' => [['id' => 'STANDARD', 'description' => 'Standard', 'blocking' => null]],
+    ]), $this->now);
+
+    $template->refresh();
+    expect($template->label)->toBe('Standard')
+        ->and($template->attribute('blocking'))->toBeNull()
+        ->and($template->attribute('blocking_override'))->toBeFalse()
+        ->and($template->blockingDefault())->toBeFalse()
+        ->and($template->is_locally_modified)->toBeFalse()
+        ->and($summary['appointment_template']['updated'])->toBe(1);
+});
+
+it('keeps an explicit true override on a PSO-null template when PSO later says false', function () {
+    $template = DatasetReferenceValue::factory()->for($this->dataset)->create([
+        'entity_type' => ReferenceEntityType::AppointmentTemplate, 'pso_id' => 'STANDARD', 'label' => 'Std', 'attributes' => ['blocking' => null],
+    ]);
+    $template->update(['attributes' => ['blocking' => null, 'blocking_override' => true]]);
+
+    app(ReferenceValuesUpserter::class)->apply($this->dataset, emptyTables([
+        'Appointment_Template' => [['id' => 'STANDARD', 'description' => 'Std', 'blocking' => false]],
+    ]), $this->now);
+
+    $template->refresh();
+    expect($template->attribute('blocking'))->toBeFalse()
+        ->and($template->blockingDefault())->toBeTrue();
 });

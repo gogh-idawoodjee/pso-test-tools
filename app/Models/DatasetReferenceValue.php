@@ -125,10 +125,37 @@ class DatasetReferenceValue extends Model
         ]);
     }
 
-    /** Appointment templates: whether a booking blocks the slot; PSO's default when unset is true. */
+    /**
+     * Appointment templates: whether a booking blocks the slot. A manual
+     * override wins over PSO's value; PSO's default when both are unset is true.
+     */
     public function blockingDefault(): bool
     {
-        return (bool) ($this->attribute('blocking') ?? true);
+        return (bool) ($this->attribute('blocking_override') ?? $this->attribute('blocking') ?? true);
+    }
+
+    /**
+     * Appointment templates: store a manual blocking value. Kept only when it
+     * differs from PSO's own value, so saving an untouched form stores nothing;
+     * an explicit true on a template PSO left unset is kept. Never freezes the row.
+     */
+    public function setBlockingOverride(?bool $value): void
+    {
+        $attributes = $this->attributeValues();
+        unset($attributes['blocking_override']);
+        if ($value !== null && $value !== $this->attribute('blocking')) {
+            $attributes['blocking_override'] = $value;
+        }
+
+        if ($attributes !== $this->attributeValues()) {
+            $this->update(['attributes' => $attributes]);
+        }
+    }
+
+    /** Appointment templates: true when the blocking flag comes from a manual override. */
+    public function hasBlockingOverride(): bool
+    {
+        return $this->attribute('blocking_override') !== null;
     }
 
     /** True when an edit changed a PSO-sourced attribute key (local-only keys are ignored). */
@@ -142,7 +169,7 @@ class DatasetReferenceValue extends Model
         $after = $this->attributeValues();
 
         foreach ($this->entity_type?->attributeKeys() ?? [] as $key) {
-            if (! self::sameAttributeValue($key, $before[$key] ?? null, $after[$key] ?? null)) {
+            if (! self::sameAttributeValue($before[$key] ?? null, $after[$key] ?? null)) {
                 return true;
             }
         }
@@ -150,16 +177,9 @@ class DatasetReferenceValue extends Model
         return false;
     }
 
-    /**
-     * Form state can carry "5" where the row holds 5, and an unset blocking
-     * means true, so compare what the values mean rather than their types.
-     */
-    private static function sameAttributeValue(string $key, mixed $before, mixed $after): bool
+    /** Form state can carry "5" where the row holds 5, so compare numbers as numbers. */
+    private static function sameAttributeValue(mixed $before, mixed $after): bool
     {
-        if ($key === 'blocking') {
-            return (bool) ($before ?? true) === (bool) ($after ?? true);
-        }
-
         $before = $before === '' ? null : $before;
         $after = $after === '' ? null : $after;
 
@@ -170,7 +190,7 @@ class DatasetReferenceValue extends Model
         return $before === $after;
     }
 
-    /** Read one field of the attributes JSON (priority, base_value, base_duration, blocking, booking_sla_type_id). */
+    /** Read one field of the attributes JSON (priority, base_value, base_duration, blocking, blocking_override, booking_sla_type_id). */
     public function attribute(string $key): mixed
     {
         return data_get($this->attributeValues(), $key);

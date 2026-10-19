@@ -119,20 +119,50 @@ it('sets a task type booking SLA type without marking the row edited', function 
         ->and($row->is_locally_modified)->toBeFalse();
 });
 
-it('defaults a new template to blocking and marks a template edited when blocking is switched off', function () {
+it('saves a template blocking edit as an override without freezing the row, and Reset to PSO clears it', function () {
+    $row = DatasetReferenceValue::factory()->for($this->dataset)->create([
+        'entity_type' => ReferenceEntityType::AppointmentTemplate, 'pso_id' => 'STANDARD', 'label' => 'Std', 'attributes' => ['blocking' => true],
+    ]);
+
+    // An untouched form stores no override.
+    Livewire::test(ListAppointmentTemplates::class)
+        ->callAction(TestAction::make('edit')->table($row), data: [])
+        ->assertHasNoActionErrors();
+    expect($row->refresh()->attribute('blocking_override'))->toBeNull()
+        ->and($row->attribute('blocking'))->toBeTrue()
+        ->and($row->is_locally_modified)->toBeFalse();
+
+    Livewire::test(ListAppointmentTemplates::class)
+        ->callAction(TestAction::make('edit')->table($row), data: ['blocking_override' => false])
+        ->assertHasNoActionErrors();
+    expect($row->refresh()->attribute('blocking_override'))->toBeFalse()
+        ->and($row->attribute('blocking'))->toBeTrue()
+        ->and($row->blockingDefault())->toBeFalse()
+        ->and($row->is_locally_modified)->toBeFalse();
+
+    Livewire::test(ListAppointmentTemplates::class)
+        ->assertTableColumnStateSet('blocking', 'No (manual)', $row)
+        ->callAction(TestAction::make('resetToPso')->table($row));
+    expect($row->refresh()->attribute('blocking_override'))->toBeNull()
+        ->and($row->blockingDefault())->toBeTrue();
+});
+
+it('stores an explicit blocking true on a PSO-null template as an override', function () {
+    $row = DatasetReferenceValue::factory()->for($this->dataset)->create([
+        'entity_type' => ReferenceEntityType::AppointmentTemplate, 'pso_id' => 'STANDARD', 'label' => 'Std', 'attributes' => ['blocking' => null],
+    ]);
+
+    Livewire::test(ListAppointmentTemplates::class)
+        ->callAction(TestAction::make('edit')->table($row), data: ['blocking_override' => true])
+        ->assertHasNoActionErrors();
+
+    expect($row->refresh()->attribute('blocking_override'))->toBeTrue();
+});
+
+it('creates a manual template that blocks by default', function () {
     Livewire::test(ListAppointmentTemplates::class)
         ->callAction(TestAction::make('create'), data: ['dataset_id' => $this->dataset->id, 'pso_id' => 'STANDARD'])
         ->assertHasNoActionErrors();
 
-    $row = DatasetReferenceValue::first();
-    expect($row->attribute('blocking'))->toBeTrue();
-
-    $row->forceFill(['origin' => ReferenceValueOrigin::Pso, 'is_locally_modified' => false])->saveQuietly();
-
-    Livewire::test(ListAppointmentTemplates::class)
-        ->callAction(TestAction::make('edit')->table($row), data: ['attributes' => ['blocking' => false]])
-        ->assertHasNoActionErrors();
-
-    expect($row->refresh()->attribute('blocking'))->toBeFalse()
-        ->and($row->is_locally_modified)->toBeTrue();
+    expect(DatasetReferenceValue::first()->blockingDefault())->toBeTrue();
 });

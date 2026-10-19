@@ -128,11 +128,18 @@ abstract class DatasetReferenceValueResource extends Resource
         }
 
         if ($type === ReferenceEntityType::AppointmentTemplate) {
-            $fields[] = Forms\Components\Toggle::make('attributes.blocking')
+            // Edits attributes.blocking_override, shown with the effective value. Kept
+            // outside the attributes state path and out of the form data, because a
+            // partial attributes array would replace PSO's blocking on save; it is
+            // merged into the stored attributes after save instead.
+            $fields[] = Forms\Components\Toggle::make('blocking_override')
                 ->label('Blocking')
                 ->default(true)
-                ->formatStateUsing(static fn (?bool $state): bool => $state ?? true)
-                ->helperText('From PSO when synced; change it here if PSO is wrong.');
+                // Toggle turns a null state into false on hydration, so read the record instead.
+                ->afterStateHydrated(static fn (Forms\Components\Toggle $component, ?DatasetReferenceValue $record) => $component->state($record?->blockingDefault() ?? true))
+                ->dehydrated(false)
+                ->saveRelationshipsUsing(static fn (DatasetReferenceValue $record, ?bool $state) => $record->setBlockingOverride($state))
+                ->helperText('From PSO when synced; change it here if PSO is wrong. Your setting is kept when PSO syncs.');
         }
 
         return $fields;
@@ -191,13 +198,12 @@ abstract class DatasetReferenceValueResource extends Resource
             ]);
     }
 
-    /** Appointment templates: Blocking yes/no, unset reads as PSO's default (yes). Shared with the relation managers. */
-    public static function blockingColumn(): Tables\Columns\IconColumn
+    /** Appointment templates: the effective Blocking value, marked when it is a manual override. Shared with the relation managers. */
+    public static function blockingColumn(): Tables\Columns\TextColumn
     {
-        return Tables\Columns\IconColumn::make('blocking')
+        return Tables\Columns\TextColumn::make('blocking')
             ->label('Blocking')
-            ->boolean()
-            ->state(static fn (DatasetReferenceValue $record): bool => $record->blockingDefault());
+            ->state(static fn (DatasetReferenceValue $record): string => ($record->blockingDefault() ? 'Yes' : 'No').($record->hasBlockingOverride() ? ' (manual)' : ''));
     }
 
     /** "Missing from PSO" / "Edited" badge, shared with the relation managers. */
@@ -220,11 +226,16 @@ abstract class DatasetReferenceValueResource extends Resource
             ->label('Reset to PSO')
             ->icon(Heroicon::OutlinedArrowUturnLeft)
             ->color('gray')
-            ->visible(static fn (DatasetReferenceValue $record): bool => $record->origin === ReferenceValueOrigin::Pso && $record->is_locally_modified)
+            ->visible(static fn (DatasetReferenceValue $record): bool => $record->origin === ReferenceValueOrigin::Pso && ($record->is_locally_modified || $record->hasBlockingOverride()))
             ->requiresConfirmation()
-            ->modalDescription('The next sync will overwrite this row with the values from PSO.')
+            ->modalDescription('The next sync will overwrite this row with the values from PSO. A manual Blocking setting is cleared too.')
             ->action(static function (DatasetReferenceValue $record): void {
-                $record->forceFill(['is_locally_modified' => false])->saveQuietly();
+                $attributes = $record->getAttribute('attributes');
+                if (is_array($attributes) && array_key_exists('blocking_override', $attributes)) {
+                    unset($attributes['blocking_override']);
+                }
+
+                $record->forceFill(['is_locally_modified' => false, 'attributes' => $attributes])->saveQuietly();
             });
     }
 }

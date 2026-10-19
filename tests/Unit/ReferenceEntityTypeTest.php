@@ -28,10 +28,11 @@ it('lists the PSO-sourced attribute keys per type', function () {
 });
 
 it('lists the local-only attribute keys per type', function () {
-    expect(ReferenceEntityType::TaskType->localAttributeKeys())->toBe(['booking_sla_type_id']);
+    expect(ReferenceEntityType::TaskType->localAttributeKeys())->toBe(['booking_sla_type_id'])
+        ->and(ReferenceEntityType::AppointmentTemplate->localAttributeKeys())->toBe(['blocking_override']);
 
     foreach (ReferenceEntityType::cases() as $type) {
-        if ($type !== ReferenceEntityType::TaskType) {
+        if (! in_array($type, [ReferenceEntityType::TaskType, ReferenceEntityType::AppointmentTemplate], true)) {
             expect($type->localAttributeKeys())->toBe([]);
         }
     }
