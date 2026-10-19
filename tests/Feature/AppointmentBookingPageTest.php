@@ -794,6 +794,102 @@ it('moves the month view three weeks on from where the survey offers ended, and 
         ->and($component->instance()->windowDays()[0])->toBe('2026-10-19');
 });
 
+it('asks from now on Previous when a reply\'s span back reaches before now, then disables Previous', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::sequence()
+        ->push(bookingOffersResponse([bookingOffer(1, '2026-10-20T08:00:00-04:00')], [bookingOffer(2, '2026-10-23T12:00:00-04:00', false)], 'REQ-1'))
+        ->push(['data' => []], 200)
+        ->push(bookingOffersResponse([bookingOffer(3, '2026-10-19T13:00:00-04:00')], [], 'REQ-2'))]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('selectDay', '2026-10-20');
+
+    expect($component->get('cursorBack'))->toBe('2026-10-20T12:00:00+00:00')
+        ->and($component->get('requestedFromUtc'))->toBe('2026-10-20T04:00:00')
+        ->and($component->instance()->canGoPreviousAgenda())->toBeTrue();
+    $component->assertSee('Previous');
+
+    // Oct 20 8:00 AM to Oct 23 4:00 PM is 3 days 8 hours: back from Oct 20 8:00 AM is Oct 17 12:00 AM, floored to now.
+    $component->call('previousAgenda');
+
+    $calls = appointmentCalls();
+    expect($calls)->toHaveCount(3)
+        ->and($calls[1]->method())->toBe('DELETE')
+        ->and($calls[2]->data()['data']['appointmentTemplateDatetime'])->toBe('2026-10-19T16:00:00')
+        ->and($calls[2]->data()['data']['appointmentBaseDateTime'])->toBe('2026-10-19T04:00:00')
+        ->and($component->get('appointmentRequestId'))->toBe('REQ-2')
+        ->and($component->get('selectedDay'))->toBe('2026-10-19')
+        ->and($component->get('requestedFromUtc'))->toBe('2026-10-19T16:00:00')
+        ->and($component->instance()->canGoPreviousAgenda())->toBeFalse();
+
+    // Disabled means nothing is sent.
+    $component->call('previousAgenda');
+    expect(appointmentCalls())->toHaveCount(3);
+});
+
+it('goes back by the reply\'s span on Previous when that stays after now', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::sequence()
+        ->push(bookingOffersResponse([bookingOffer(1, '2026-10-26T08:00:00-04:00'), bookingOffer(2, '2026-10-27T08:00:00-04:00')], [], 'REQ-1'))
+        ->push(['data' => []], 200)
+        ->push(bookingOffersResponse([], [], 'REQ-2'))]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('selectDay', '2026-10-26')
+        ->call('previousAgenda');
+
+    // Oct 26 8:00 AM to Oct 27 12:00 PM is 28 hours: Previous asks from Oct 25 4:00 AM Toronto.
+    $calls = appointmentCalls();
+    expect($calls[2]->data()['data']['appointmentTemplateDatetime'])->toBe('2026-10-25T08:00:00')
+        ->and($component->get('selectedDay'))->toBe('2026-10-25');
+});
+
+it('disables Previous on the agenda when the reply had no offers', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(bookingOffersResponse([], [], 'REQ-1'))]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('selectDay', '2026-10-22');
+
+    expect($component->get('cursorBack'))->toBeNull()
+        ->and($component->instance()->canGoPreviousAgenda())->toBeFalse();
+});
+
+it('refuses to let the browser set where Previous starts', function (string $property) {
+    Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->set($property, '2026-10-01T00:00:00');
+})->with(['cursorBack', 'requestedFromUtc'])->throws(Exception::class, 'Cannot update locked property');
+
+it('moves the month view three weeks back on Previous, floored at today, and disables it there', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::sequence()
+        ->push(bookingOffersResponse([bookingOffer(1, '2026-11-06T12:00:00Z')], [], 'S-1', true))
+        ->push(bookingOffersResponse([], [], 'S-2', true))
+        ->push(bookingOffersResponse([], [], 'S-3', true))
+        ->push(bookingOffersResponse([], [], 'S-4', true))]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('loadSurvey');
+
+    expect($component->instance()->canGoPreviousMonth())->toBeFalse();
+    $component->assertSee('Previous');
+
+    $component->call('nextMonth');
+    expect($component->get('windowStart'))->toBe('2026-11-06')
+        ->and($component->instance()->canGoPreviousMonth())->toBeTrue();
+
+    // Nov 6 less three weeks is Oct 16, before today: the window starts today.
+    $component->call('previousMonth');
+    expect($component->get('windowStart'))->toBeNull()
+        ->and($component->instance()->windowDays()[0])->toBe('2026-10-19')
+        ->and(appointmentCalls()[2]->data()['data']['appointmentBaseDateTime'])->toBe('2026-10-19T04:00:00')
+        ->and($component->instance()->canGoPreviousMonth())->toBeFalse();
+
+    // Disabled means nothing is sent.
+    $component->call('previousMonth');
+    expect(appointmentCalls())->toHaveCount(3);
+
+    $component->set('windowStart', '2026-11-30')->call('previousMonth');
+    expect($component->get('windowStart'))->toBe('2026-11-09')
+        ->and(appointmentCalls()[3]->data()['data']['appointmentBaseDateTime'])->toBe('2026-11-09T05:00:00');
+});
+
 /** Services' booking history for the task: a booked request and the survey before it, newest first. */
 function bookingHistoryResponse(): array
 {

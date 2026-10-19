@@ -66,6 +66,14 @@ class AppointmentBooking extends Page
     #[Locked]
     public ?string $cursor = null;
 
+    /** The earliest window start of the open reply, any offer, as a UTC instant: where agenda Previous steps back from. */
+    #[Locked]
+    public ?string $cursorBack = null;
+
+    /** The appointmentTemplateDatetime sent for the open request (UTC, no offset). */
+    #[Locked]
+    public ?string $requestedFromUtc = null;
+
     /** The services appointmentOffers block of the open request. */
     #[Locked]
     public ?array $offers = null;
@@ -496,6 +504,26 @@ class AppointmentBooking extends Page
         $this->loadSurvey();
     }
 
+    /** Month view Previous: three weeks back from the window's first day, never before today (null means today). */
+    public function previousMonth(): void
+    {
+        if (! $this->canGoPreviousMonth()) {
+            return;
+        }
+
+        $today = CarbonImmutable::now($this->timeZone())->startOfDay();
+        $from = $this->windowFirstDay()->subDays(self::WINDOW_DAYS);
+        $this->windowStart = $from->gt($today) ? $from->toDateString() : null;
+        $this->loadSurvey();
+    }
+
+    /** Month Previous is off when the window already starts today (or earlier). */
+    public function canGoPreviousMonth(): bool
+    {
+        return filled($this->windowStart)
+            && $this->windowFirstDay()->gt(CarbonImmutable::now($this->timeZone())->startOfDay());
+    }
+
     /**
      * The task's current booking: its day (Y-m-d in the booking zone), the window as readable text, and the window
      * start and end as UTC instants. Null when the task is not booked or has no window.
@@ -545,6 +573,66 @@ class AppointmentBooking extends Page
         }
 
         $this->requestDay($from->setTimezone($this->timeZone())->toDateString(), $from->format('Y-m-d\\TH:i:s'));
+    }
+
+    /**
+     * Agenda Previous: ask again with the template starting the reply's span (latest end minus earliest start) before
+     * its earliest start, never before now.
+     */
+    public function previousAgenda(): void
+    {
+        $from = $this->previousAgendaFrom();
+        if ($from === null || ! $this->canGoPreviousAgenda()) {
+            return;
+        }
+
+        $this->requestDay($from->setTimezone($this->timeZone())->toDateString(), $from->format('Y-m-d\\TH:i:s'));
+    }
+
+    /**
+     * Agenda Previous is off when the reply had no offers, or when Previous would ask from now and the open request
+     * already began at now or earlier: there is nothing earlier to show.
+     */
+    public function canGoPreviousAgenda(): bool
+    {
+        $from = $this->previousAgendaFrom();
+        if ($from === null) {
+            return false;
+        }
+
+        $now = CarbonImmutable::now('UTC')->startOfSecond();
+        $requestedFrom = self::utcMoment($this->requestedFromUtc);
+
+        return ! ($from->eq($now) && $requestedFrom !== null && $requestedFrom->lte($now));
+    }
+
+    /** Where agenda Previous would start, as a UTC instant to the second; null without a reply to step back from. */
+    private function previousAgendaFrom(): ?CarbonImmutable
+    {
+        $earliest = self::utcMoment($this->cursorBack);
+        $latest = self::utcMoment($this->cursor);
+        if ($earliest === null || $latest === null) {
+            return null;
+        }
+
+        $from = $earliest->subSeconds((int) $earliest->diffInSeconds($latest, true))->utc()->startOfSecond();
+        $now = CarbonImmutable::now('UTC')->startOfSecond();
+
+        return $from->lt($now) ? $now : $from;
+    }
+
+    /** The earliest window start across every offer of a services reply, valid or not, as a UTC instant. */
+    private static function earliestWindowStart(array $offers): ?string
+    {
+        $earliest = null;
+        foreach ([...(array) data_get($offers, 'validOffers', []), ...(array) data_get($offers, 'allOfferValues', [])] as $offer) {
+            $start = self::utcMoment(data_get($offer, 'windowStartDatetime'));
+            if ($start !== null && ($earliest === null || $start->lt($earliest))) {
+                $earliest = $start;
+            }
+        }
+
+        return $earliest?->toIso8601String();
     }
 
     /** The latest window end across every offer of a services reply, valid or not, as a UTC instant. */
@@ -627,7 +715,7 @@ class AppointmentBooking extends Page
         $this->requestDay($day);
     }
 
-    /** One day request: the template from the base day, or from an exact UTC instant (Next). */
+    /** One day request: the template from the base day, or from an exact UTC instant (Next, Previous). */
     private function requestDay(string $day, ?string $templateDatetimeUtc = null): void
     {
 
@@ -677,6 +765,8 @@ class AppointmentBooking extends Page
         $offers = (array) data_get($result['data'], 'appointmentOffers', []);
         $this->offers = $offers;
         $this->cursor = self::latestWindowEnd($offers);
+        $this->cursorBack = self::earliestWindowStart($offers);
+        $this->requestedFromUtc = data_get($payload, 'data.appointmentTemplateDatetime');
         $this->appointmentRequestId = data_get($offers, 'appointmentRequestId');
         $this->countdownExpiresAt = now()->addMinutes(self::OFFER_MINUTES)->toIso8601String(); // DO NOT USE ->format(), do not force UTC
         $this->requestBlocking = $blocking;

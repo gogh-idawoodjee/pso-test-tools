@@ -41,7 +41,7 @@
     >
         <div
             wire:loading.flex
-            wire:target="loadSurvey,selectDay,backToMonth,releaseOffers,book,nextAgenda,nextMonth,backToToday,rebook"
+            wire:target="loadSurvey,selectDay,backToMonth,releaseOffers,book,nextAgenda,previousAgenda,nextMonth,previousMonth,backToToday,rebook"
             class="absolute inset-0 z-10 items-center justify-center rounded-xl text-sm font-medium"
             style="background: color-mix(in srgb, var(--pso-surface) 80%, transparent); color: var(--pso-text);"
         >
@@ -86,6 +86,9 @@
                             :disabled="! $canRequest"
                         >
                             Check again
+                        </x-filament::button>
+                        <x-filament::button size="sm" icon="heroicon-o-arrow-left" wire:click="previousMonth" wire:loading.attr="disabled" :disabled="! $canRequest || ! $this->canGoPreviousMonth()" title="Three weeks back, never before today">
+                            Previous
                         </x-filament::button>
                         <x-filament::button size="sm" icon="heroicon-o-arrow-right" iconPosition="after" wire:click="nextMonth" wire:loading.attr="disabled" :disabled="! $canRequest" title="Three more weeks, starting where the last offer ended">
                             Next
@@ -272,6 +275,9 @@
                             </x-filament::tabs.item>
                         </x-filament::tabs>
 
+                        <x-filament::button size="sm" icon="heroicon-o-arrow-left" wire:click="previousAgenda" wire:loading.attr="disabled" :disabled="! $this->canGoPreviousAgenda()" title="Ask again from earlier, by the span of these offers, never before now">
+                            Previous
+                        </x-filament::button>
                         <x-filament::button size="sm" icon="heroicon-o-arrow-right" iconPosition="after" wire:click="nextAgenda" wire:loading.attr="disabled" :disabled="blank($this->cursor)" title="Ask again from where the last offer ended, available or not">
                             Next
                         </x-filament::button>
