@@ -11,8 +11,11 @@ use App\Enums\Status;
  */
 class SampleCustomers
 {
-    /** Slugs of seeded customers start with this, which is how --fresh finds them. */
-    public const SLUG_PREFIX = 'sample-';
+    /** Slugs of seeded customers are "sample-<dataset id>-<n>"; --fresh finds them by this prefix. */
+    public static function slugPrefix(string $datasetId): string
+    {
+        return 'sample-'.$datasetId.'-';
+    }
 
     /** @var list<string> */
     private const NAMES = [
@@ -62,7 +65,7 @@ class SampleCustomers
 
         return [
             'name' => $name.$suffix,
-            'slug' => self::SLUG_PREFIX.substr($datasetId, 0, 8).'-'.($index + 1),
+            'slug' => self::slugPrefix($datasetId).($index + 1),
             'address' => $address,
             'city' => $city,
             'country' => 'Canada',

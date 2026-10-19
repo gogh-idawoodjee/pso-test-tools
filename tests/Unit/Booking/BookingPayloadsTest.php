@@ -155,3 +155,28 @@ it('refuses to build a request without a duration', function (?int $duration) {
     expect(fn () => $this->payloads->day($this->baseDay, 'STANDARD', null, null, null))
         ->toThrow(RuntimeException::class, 'The task has no duration.');
 })->with([null, 0]);
+
+it('falls back to the customer region when the task has no regions', function () {
+    $region = DatasetReferenceValue::factory()->for($this->dataset)->create(['entity_type' => ReferenceEntityType::Region, 'pso_id' => 'REGINA']);
+    $this->customer->forceFill(['region_id' => $region->id])->save();
+    $this->task->forceFill(['regions' => []])->save();
+    $task = $this->task->fresh();
+
+    $data = (new BookingPayloads($task, BookingSlaTypes::for($task)))->survey($this->baseDay)['data'];
+
+    expect($data['regions'])->toBe(['REGINA']);
+});
+
+it('sends no regions when neither the task nor the customer has one', function () {
+    $this->task->forceFill(['regions' => null])->save();
+    $task = $this->task->fresh();
+
+    $data = (new BookingPayloads($task, BookingSlaTypes::for($task)))->survey($this->baseDay)['data'];
+
+    expect($task->customer->region_id)->toBeNull()
+        ->and($data['regions'])->toBe([]);
+});
+
+it('gives appointment calls their own timeout, 60 seconds by default', function () {
+    expect(config('psott.appointment.timeout'))->toBe(60);
+});

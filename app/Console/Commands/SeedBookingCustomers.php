@@ -46,14 +46,18 @@ class SeedBookingCustomers extends Command
 
         $dataset = $datasets->first();
         $customers = Customer::query()->withoutGlobalScopes()->where('dataset_id', $dataset->id);
+        // Slugs are "sample-<dataset id>-<n>": match that exact prefix (a uuid holds no LIKE wildcards).
+        $samples = static fn () => (clone $customers)->where('slug', 'like', SampleCustomers::slugPrefix($dataset->id).'%');
 
         if ($this->option('fresh')) {
-            $removable = (clone $customers)->where('slug', 'like', SampleCustomers::SLUG_PREFIX.'%');
+            $removable = $samples();
             $kept = (clone $removable)->whereHas('tasks', fn ($tasks) => $tasks->withoutGlobalScopes())->count();
             $removed = (clone $removable)->whereDoesntHave('tasks', fn ($tasks) => $tasks->withoutGlobalScopes())->delete();
             $this->line("Removed {$removed} sample customers.".($kept > 0 ? " Kept {$kept} that have tasks." : ''));
         } elseif ((clone $customers)->exists()) {
-            $this->warn("Dataset {$dataset->name} already has customers, so nothing was created. Use --fresh to replace the sample ones.");
+            $this->warn("Dataset {$dataset->name} already has customers, so nothing was created. ".($samples()->exists()
+                ? 'Use --fresh to replace the sample ones.'
+                : 'Use --fresh to add sample customers alongside them.'));
 
             return self::SUCCESS;
         }
@@ -68,7 +72,7 @@ class SeedBookingCustomers extends Command
         }
 
         // Slugs are built from the dataset id and position, so start after the highest one a --fresh run kept.
-        $offset = (clone $customers)->where('slug', 'like', SampleCustomers::SLUG_PREFIX.'%')->pluck('slug')
+        $offset = $samples()->pluck('slug')
             ->map(static fn (string $slug): int => (int) substr((string) strrchr($slug, '-'), 1))->max() ?? 0;
 
         for ($i = 0; $i < $count; $i++) {

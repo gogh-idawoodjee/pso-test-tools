@@ -95,6 +95,18 @@ class AppointmentBooking extends Page
         return $start->format('l F jS').' '.$start->format('H:i').'-'.$end->format('H:i');
     }
 
+    /** The booked assignment in the dataset's zone, e.g. "Thursday October 22nd 08:00-09:30"; offsetless times are UTC. */
+    public function formatAssignment(mixed $start, mixed $finish): ?string
+    {
+        $from = self::utcMoment($start);
+        $to = self::utcMoment($finish);
+        if ($from === null || $to === null) {
+            return null;
+        }
+
+        return $this->formatAppointmentWindow(Carbon::instance($from), Carbon::instance($to));
+    }
+
     /**
      * Format a duration in minutes to a human-readable string
      */
@@ -479,7 +491,7 @@ class AppointmentBooking extends Page
                 $templateId,
                 data_get($this->task_data, 'slotUsageRuleId'),
                 $this->blockingOverride,
-                $this->inputDatetimePayloadValue(data_get($this->task_data, 'input_datetime')),
+                self::inputDatetimeUtc(data_get($this->task_data, 'input_datetime')),
             );
         } catch (RuntimeException $exception) {
             $this->pageError = $exception->getMessage();
@@ -508,6 +520,23 @@ class AppointmentBooking extends Page
         $this->booking = null;
         $this->selectedDay = $day;
         $this->screen = 'agenda';
+    }
+
+    /**
+     * The picker's wall time read in the app zone, sent as UTC without an offset: services validates
+     * inputDatetime as Y-m-d\TH:i:s and reads it as UTC.
+     */
+    public static function inputDatetimeUtc(mixed $value): ?string
+    {
+        if (! is_string($value) || blank($value)) {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($value, config('app.timezone'))->utc()->format('Y-m-d\TH:i:s');
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     public function backToMonth(): void
@@ -558,7 +587,9 @@ class AppointmentBooking extends Page
                 return;
             }
 
+            // Services may send the flag as a string; null still means it did not say.
             $available = data_get($check['data'], 'appointment_summary.isSlotAvailable');
+            $available = is_bool($available) ? $available : (is_scalar($available) ? filter_var($available, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) : null);
             if ($available === false) {
                 $this->slotMessage = 'That slot was taken, pick another';
 
@@ -574,6 +605,8 @@ class AppointmentBooking extends Page
         $accept = $this->sendAppointment($segment, $payloads->accept($offerId, $this->record->booking_sla_type_id), HttpMethod::PATCH);
         if ($accept['error'] !== null) {
             $this->pageError = $accept['error'];
+            // The request may be spent after a failed accept: make the person search again.
+            $this->expired = true;
 
             return;
         }
@@ -651,6 +684,9 @@ class AppointmentBooking extends Page
             $rows[$id] ??= [...$offer, 'valid' => true];
         }
 
+        // allOfferValues carries no English day or times: derive them so invalid offers group with the valid ones.
+        $rows = array_map(fn (array $row): array => $this->withEnglishWindow($row), $rows);
+
         $bestId = data_get($this->offers, 'bestOffer.id');
         $periods = array_fill_keys(['Morning', 'Midday', 'Afternoon', 'Evening'], []);
         $groups = [];
@@ -662,6 +698,24 @@ class AppointmentBooking extends Page
         }
 
         return array_map(static fn (array $byPeriod): array => array_filter($byPeriod), $groups);
+    }
+
+    /** Fill windowDayEnglish, windowStartTime and windowEndTime from the window datetimes when missing. */
+    private function withEnglishWindow(array $row): array
+    {
+        $timeZone = $this->timeZone();
+        $start = self::utcMoment(data_get($row, 'windowStartDatetime'))?->setTimezone($timeZone);
+        $end = self::utcMoment(data_get($row, 'windowEndDatetime'))?->setTimezone($timeZone);
+
+        if ($start !== null) {
+            $row['windowDayEnglish'] = filled(data_get($row, 'windowDayEnglish')) ? $row['windowDayEnglish'] : $start->format('D, M j, Y');
+            $row['windowStartTime'] = filled(data_get($row, 'windowStartTime')) ? $row['windowStartTime'] : $start->format('g:i A');
+        }
+        if ($end !== null) {
+            $row['windowEndTime'] = filled(data_get($row, 'windowEndTime')) ? $row['windowEndTime'] : $end->format('g:i A');
+        }
+
+        return $row;
     }
 
     /** Morning before 12, Midday 12 to 15, Afternoon 15 to 18, Evening after, from "8:00 AM" style times. */
@@ -696,7 +750,10 @@ class AppointmentBooking extends Page
             return;
         }
 
-        $this->sendAppointment('appointment/'.rawurlencode($requestId), ['data' => ['appointmentRequestId' => $requestId]], HttpMethod::DELETE);
+        // An expired request is gone on the PSO side: services would answer 406, so only forget it here.
+        if (! $this->expired) {
+            $this->sendAppointment('appointment/'.rawurlencode($requestId), ['data' => ['appointmentRequestId' => $requestId]], HttpMethod::DELETE);
+        }
 
         $this->appointmentRequestId = null;
         $this->offers = null;
@@ -739,7 +796,7 @@ class AppointmentBooking extends Page
         }
 
         try {
-            $raw = $this->sendToPSONew($segment, $tokenized, method: $method, isNonStandardResponse: true);
+            $raw = $this->sendToPSONew($segment, $tokenized, method: $method, isNonStandardResponse: true, timeout: self::appointmentTimeout());
         } catch (JsonException) {
             return ['data' => null, 'error' => 'The PSO services API answered with something that is not JSON.'];
         }
@@ -761,6 +818,12 @@ class AppointmentBooking extends Page
         }
 
         return ['data' => is_array($data) ? $data : [], 'error' => null];
+    }
+
+    /** Seconds allowed for each appointment call (config psott.appointment.timeout, env APPOINTMENT_TIMEOUT). */
+    public static function appointmentTimeout(): int
+    {
+        return (int) config('psott.appointment.timeout', 60);
     }
 
     private static function servicesErrorText(mixed $body): ?string

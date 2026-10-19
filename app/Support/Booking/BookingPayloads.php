@@ -2,6 +2,7 @@
 
 namespace App\Support\Booking;
 
+use App\Models\DatasetReferenceValue;
 use App\Models\Task;
 use Carbon\CarbonImmutable;
 use RuntimeException;
@@ -90,7 +91,7 @@ final class BookingPayloads
             'duration' => $duration,
             'lat' => (float) $customer->lat,
             'long' => (float) $customer->long,
-            'regions' => array_values($this->task->regions ?? []),
+            'regions' => $this->regions(),
             'skills' => array_values($this->task->skills ?? []),
             'slaTypeId' => $this->sla->appointmentSlaTypeId,
             'slaStart' => $start,
@@ -112,6 +113,20 @@ final class BookingPayloads
         }
 
         return $data;
+    }
+
+    /** The task's regions, else the customer's region (tasks made before regions were copied have none). */
+    private function regions(): array
+    {
+        $regions = array_values($this->task->regions ?? []);
+        if ($regions !== []) {
+            return $regions;
+        }
+
+        $regionId = $this->task->customer?->region_id;
+        $psoId = $regionId === null ? null : DatasetReferenceValue::query()->withoutGlobalScopes()->whereKey($regionId)->value('pso_id');
+
+        return filled($psoId) ? [$psoId] : [];
     }
 
     private static function utc(CarbonImmutable $moment): string

@@ -29,7 +29,8 @@ it('creates customers in the dataset with Saskatchewan coordinates and round-rob
         ->assertSuccessful();
 
     $customers = seeded($this->dataset);
-    expect($customers)->toHaveCount(5);
+    expect($customers)->toHaveCount(5)
+        ->and($customers->pluck('slug')->sort()->values()->all())->toBe(array_map(fn (int $n) => "sample-{$this->dataset->id}-{$n}", [1, 2, 3, 4, 5]));
     foreach ($customers as $customer) {
         expect((float) $customer->lat)->toBeBetween(49, 60)
             ->and((float) $customer->long)->toBeBetween(-110, -101)
@@ -78,13 +79,26 @@ it('skips when customers exist and replaces seeded ones with --fresh', function 
     expect($after)->toHaveCount(4)->and($after->pluck('id')->intersect($firstIds))->toBeEmpty();
 });
 
+it('says --fresh adds samples alongside a dataset of real customers', function () {
+    Customer::factory()->for($this->dataset)->create();
+
+    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 2])
+        ->expectsOutputToContain('Use --fresh to add sample customers alongside them.')
+        ->assertSuccessful();
+
+    expect(seeded($this->dataset))->toHaveCount(1);
+});
+
 it('does not delete real customers or seeded customers that have tasks', function () {
     $real = Customer::factory()->for($this->dataset)->create();
+    // A real slug that only starts like a sample one is not a sample of this dataset.
+    $lookalike = Customer::factory()->for($this->dataset)->create(['slug' => 'sample-'.substr($this->dataset->id, 0, 8).'-1']);
     $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 2, '--fresh' => true])->assertSuccessful();
-    expect(Customer::withoutGlobalScopes()->whereKey($real->id)->exists())->toBeTrue();
+    expect(Customer::withoutGlobalScopes()->whereKey($real->id)->exists())->toBeTrue()
+        ->and(Customer::withoutGlobalScopes()->whereKey($lookalike->id)->exists())->toBeTrue();
 
     $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 2, '--fresh' => true])->assertSuccessful();
-    $seeded = seeded($this->dataset)->where('id', '!=', $real->id)->values();
+    $seeded = seeded($this->dataset)->whereNotIn('id', [$real->id, $lookalike->id])->values();
     $taskType = DatasetReferenceValue::factory()->for($this->dataset)->taskType(5, 1500, 90)->create(['pso_id' => 'INSTALL']);
     $withTask = $seeded[0];
     Task::factory()->for($withTask)->create(['task_type_id' => $taskType->id]);

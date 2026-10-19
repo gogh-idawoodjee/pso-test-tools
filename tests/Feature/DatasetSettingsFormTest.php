@@ -56,3 +56,8 @@ it('falls back to UTC when the dataset has no time zone, and says whether it has
     expect($this->dataset->fresh()->timeZone())->toBe('America/Regina')
         ->and($this->dataset->fresh()->hasTimeZone())->toBeTrue();
 });
+
+it('explains the default booking SLA type as the fallback for task types without one', function () {
+    Livewire::test(EditDataset::class, ['record' => $this->dataset->getRouteKey()])
+        ->assertSee('Used when the task type has none.');
+});

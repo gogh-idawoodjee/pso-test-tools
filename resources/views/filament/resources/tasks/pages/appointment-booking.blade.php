@@ -300,7 +300,7 @@
                     'Window' => $window ?? data_get($summary, 'selectedWindow'),
                     'Activity' => data_get($summary, 'activityId'),
                     'Resource' => data_get($summary, 'resourceId'),
-                    'Assignment' => filled(data_get($summary, 'assignmentStart')) ? data_get($summary, 'assignmentStart').' to '.data_get($summary, 'assignmentFinish') : null,
+                    'Assignment' => $this->formatAssignment(data_get($summary, 'assignmentStart'), data_get($summary, 'assignmentFinish')),
                     'Booking SLA type' => data_get($summary, 'bookingSlaTypeId'),
                     'Previous SLA type' => data_get($summary, 'previousSlaTypeId'),
                     'Appointment request' => data_get($summary, 'appointmentRequestId'),

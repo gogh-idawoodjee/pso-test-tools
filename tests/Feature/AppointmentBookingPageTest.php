@@ -282,7 +282,7 @@ it('shows the Rebook action on a booked task', function () {
  * Fakes the appointment endpoints by method: a POST without an offer id is a request (offers), a POST with one is
  * the check, PATCH is the accept, DELETE the decline.
  */
-function appointmentEndpointFake(bool $slotAvailable = true): array
+function appointmentEndpointFake(mixed $slotAvailable = true, bool $acceptFails = false): array
 {
     $offers = bookingOffersResponse(
         [
@@ -292,15 +292,21 @@ function appointmentEndpointFake(bool $slotAvailable = true): array
         [bookingOffer(9, '2026-10-22T16:00:00-04:00', valid: false)],
         requestId: 'REQ-22',
     );
-    // allOfferValues carries no availability.
+    // allOfferValues carries only these five keys, its window times UTC without an offset (as services sends them).
     $offers['data']['appointmentOffers']['allOfferValues'] = array_map(
-        static fn (array $offer): array => array_diff_key($offer, ['available' => true]),
+        static fn (array $offer): array => [
+            'id' => $offer['id'],
+            'offerValue' => $offer['offerValue'],
+            'windowStartDatetime' => CarbonImmutable::parse($offer['windowStartDatetime'])->utc()->format('Y-m-d\TH:i:s'),
+            'windowEndDatetime' => CarbonImmutable::parse($offer['windowEndDatetime'])->utc()->format('Y-m-d\TH:i:s'),
+            'prospectiveResourceId' => $offer['prospectiveResourceId'],
+        ],
         $offers['data']['appointmentOffers']['allOfferValues'],
     );
 
-    return [...PsoServicesFake::session(), '*/api/v2/appointment*' => static function (Request $request) use ($offers, $slotAvailable) {
+    return [...PsoServicesFake::session(), '*/api/v2/appointment*' => static function (Request $request) use ($offers, $slotAvailable, $acceptFails) {
         return match ($request->method()) {
-            'PATCH' => Http::response(['data' => ['acceptedAppointmentSummary' => [
+            'PATCH' => $acceptFails ? Http::response(['message' => 'PSO could not accept the offer.'], 500) : Http::response(['data' => ['acceptedAppointmentSummary' => [
                 'appointmentRequestId' => 'REQ-22',
                 'activityId' => 'ACT-1',
                 'resourceId' => 'RES-1',
@@ -343,7 +349,12 @@ it('accepts straight away on a blocking request', function () {
         ->and($component->get('screen'))->toBe('booked')
         ->and($component->get('booking.activityId'))->toBe('ACT-1');
 
-    $component->assertSee('ACT-1')->assertDontSeeHtml('wire:click="book(');
+    // Assignment 12:00 to 13:30 UTC shows in the dataset zone, like the window.
+    $component->assertSee('ACT-1')
+        ->assertSee('Thursday October 22nd 08:00-12:00')
+        ->assertSee('Thursday October 22nd 08:00-09:30')
+        ->assertDontSee('2026-10-22T12:00:00')
+        ->assertDontSeeHtml('wire:click="book(');
 
     $task = $this->task->fresh();
     expect($task->appointment_request_id)->toBe('REQ-22')
@@ -445,4 +456,99 @@ it('renders unavailable offers greyed in detail mode', function () {
         ->assertSeeHtml('data-offer="9" data-valid="false"')
         ->assertSeeHtml('data-offer="7" data-valid="true"')
         ->assertDontSeeHtml('wire:click="book(9)"');
+});
+
+it('sends inputDatetime as UTC without an offset, read in the app zone', function () {
+    Http::fake(appointmentEndpointFake());
+
+    Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->set('task_data.appointmentTemplateId', 'STANDARD')
+        ->set('task_data.input_datetime', '2026-10-21 09:30')
+        ->call('selectDay', '2026-10-22');
+
+    Http::assertSent(fn (Request $request) => $request->method() === 'POST'
+        && data_get($request->data(), 'data.appointmentTemplateId') === 'STANDARD'
+        && data_get($request->data(), 'data.inputDatetime') === '2026-10-21T13:30:00');
+});
+
+it('leaves inputDatetime out when the field is blank', function () {
+    Http::fake(appointmentEndpointFake());
+
+    openAgenda($this->task);
+
+    Http::assertSent(fn (Request $request) => $request->method() === 'POST'
+        && data_get($request->data(), 'data.appointmentTemplateId') === 'STANDARD'
+        && ! array_key_exists('inputDatetime', (array) data_get($request->data(), 'data')));
+});
+
+it('groups an invalid offer from allOfferValues under its day with its times in the dataset zone', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)->set('mode', 'detail');
+    $groups = $component->instance()->agendaGroups();
+
+    expect(array_keys($groups))->toBe(['Thu, Oct 22, 2026'])
+        ->and(array_keys($groups['Thu, Oct 22, 2026']))->toBe(['Morning', 'Midday', 'Afternoon']);
+
+    $invalid = $groups['Thu, Oct 22, 2026']['Afternoon'][0];
+    expect($invalid['id'])->toBe(9)
+        ->and($invalid['valid'])->toBeFalse()
+        ->and($invalid['windowStartTime'])->toBe('4:00 PM')
+        ->and($invalid['windowEndTime'])->toBe('8:00 PM');
+
+    $component->assertSee('4:00 PM to 8:00 PM')->assertDontSee('Unknown day');
+});
+
+it('reads the string "false" from the check as slot taken', function () {
+    Http::fake(appointmentEndpointFake(slotAvailable: 'false'));
+
+    $component = openAgenda($this->task, blocking: false)->call('book', 8);
+
+    expect(callsAfterDayRequest())->toBe(['POST /api/v2/appointment/REQ-22'])
+        ->and($component->get('slotMessage'))->toBe('That slot was taken, pick another')
+        ->and($component->get('pageError'))->toBeNull();
+});
+
+it('reads the string "true" from the check as free and books', function () {
+    Http::fake(appointmentEndpointFake(slotAvailable: 'true'));
+
+    $component = openAgenda($this->task, blocking: false)->call('book', 8);
+
+    expect(callsAfterDayRequest())->toBe(['POST /api/v2/appointment/REQ-22', 'PATCH /api/v2/appointment/REQ-22'])
+        ->and($component->get('screen'))->toBe('booked');
+});
+
+it('sends no DELETE when releasing offers that already expired', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)->call('markExpired')->call('releaseOffers');
+
+    expect(callsAfterDayRequest())->toBe([])
+        ->and($component->get('screen'))->toBe('month')
+        ->and($component->get('appointmentRequestId'))->toBeNull()
+        ->and($component->get('expired'))->toBeFalse();
+});
+
+it('marks the offers expired after a failed accept so Book is disabled', function () {
+    Http::fake(appointmentEndpointFake(acceptFails: true));
+
+    $component = openAgenda($this->task)->call('book', 7);
+
+    expect(callsAfterDayRequest())->toBe(['PATCH /api/v2/appointment/REQ-22'])
+        ->and($component->get('pageError'))->toBe('PSO could not accept the offer.')
+        ->and($component->get('expired'))->toBeTrue()
+        ->and($component->get('screen'))->toBe('agenda')
+        ->and($component->html())->toMatch('/<button[^>]*\sdisabled="disabled"[^>]*wire:click="book\(8\)"/');
+
+    $component->assertSee('Offers have expired, search again')->call('book', 8);
+    expect(callsAfterDayRequest())->toBe(['PATCH /api/v2/appointment/REQ-22']);
+});
+
+it('uses the appointment timeout from config and still reaches services', function () {
+    config(['psott.appointment.timeout' => 90]);
+    Http::fake(appointmentEndpointFake());
+
+    expect(AppointmentBooking::appointmentTimeout())->toBe(90);
+
+    openAgenda($this->task)->call('book', 7)->assertSet('screen', 'booked');
 });

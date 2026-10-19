@@ -149,7 +149,7 @@ class Dataset extends Model
                         ->options(static fn (?self $record): array => DatasetReferenceValue::psoIdOptionsFor($record?->id, ReferenceEntityType::SlaType)),
                     Forms\Components\Select::make('settings.default_booking_sla_type_id')
                         ->label('Default SLA type for booking')
-                        ->helperText('Pre-selected on the booking page. Blank means the person picks one each time.')
+                        ->helperText('Used when the task type has none.')
                         ->searchable()
                         ->options(static fn (?self $record): array => DatasetReferenceValue::psoIdOptionsFor($record?->id, ReferenceEntityType::SlaType)),
                 ]),
