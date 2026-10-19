@@ -211,6 +211,12 @@ final class AgendaPresenter
         return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
     }
 
+    /** A window as "Thu Oct 22, 8:00 AM to 12:00 PM America/Toronto EDT"; null when either end is missing. */
+    public static function readableWindow(mixed $start, mixed $end, string $timeZone): ?string
+    {
+        return self::span($start, $end, $timeZone, iso: true);
+    }
+
     /** "8:00 AM to 12:00 PM" in the zone, or with iso the full datetimes with their offset; null when either end is missing. */
     private static function span(mixed $start, mixed $end, string $timeZone, bool $iso = false): ?string
     {

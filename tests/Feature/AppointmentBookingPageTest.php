@@ -793,3 +793,136 @@ it('moves the month view three weeks on from where the survey offers ended, and 
     expect($component->get('windowStart'))->toBeNull()
         ->and($component->instance()->windowDays()[0])->toBe('2026-10-19');
 });
+
+/** Services' booking history for the task: a booked request and the survey before it, newest first. */
+function bookingHistoryResponse(): array
+{
+    $row = [
+        'survey' => false,
+        'blocking' => true,
+        'appointmentTemplateId' => 'STANDARD',
+        'appointmentTemplateDatetime' => '2026-10-20T04:00:00+00:00',
+        'appointmentTemplateDuration' => 21,
+        'slotUsageRuleId' => null,
+        'acceptedOfferId' => null,
+        'acceptedWindowStart' => null,
+        'acceptedWindowEnd' => null,
+        'bookingSlaTypeId' => null,
+        'previousSlaTypeId' => null,
+        'appointedCheck' => null,
+        'acceptDeclineDatetime' => null,
+        'requiredManualCleanup' => false,
+    ];
+
+    return ['data' => ['history' => [
+        [...$row,
+            'appointmentRequestId' => 'a3054d10-1111-2222-3333-444455556666',
+            'createdAt' => '2026-10-19T20:41:00+00:00',
+            'status' => 'ACCEPTED',
+            'offersReturned' => 7,
+            'validOffers' => 7,
+            'acceptedOfferId' => 2,
+            'acceptedWindowStart' => '2026-10-22T12:00:00+00:00',
+            'acceptedWindowEnd' => '2026-10-22T16:00:00+00:00',
+            'bookingSlaTypeId' => 'INSTALL',
+            'previousSlaTypeId' => 'Appointment',
+            'offerExpiryDatetime' => '2026-10-19T20:46:00+00:00',
+        ],
+        [...$row,
+            'appointmentRequestId' => 'a3054c28-1111-2222-3333-444455556666',
+            'createdAt' => '2026-10-19T20:36:00+00:00',
+            'status' => 'DECLINED',
+            'survey' => true,
+            'blocking' => null,
+            'appointmentTemplateId' => null,
+            'appointmentTemplateDatetime' => '2026-10-19T04:00:00+00:00',
+            'offersReturned' => 9,
+            'validOffers' => 6,
+            'offerExpiryDatetime' => '2026-10-19T20:41:00+00:00',
+        ],
+    ]]];
+}
+
+/** The booking history GETs sent to services. */
+function historyCalls(): array
+{
+    return array_values(array_filter(appointmentCalls(), fn (Request $request) => $request->method() === 'GET'));
+}
+
+it('loads the booking history once when the section is first opened and shows each request in the booking zone', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(bookingHistoryResponse())]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->assertSet('historyOpen', false)
+        ->assertSee('Booking history')
+        ->assertDontSee('Survey (wide net)');
+
+    expect(historyCalls())->toBe([]);
+
+    $component->call('toggleHistory')
+        ->assertSet('historyOpen', true)
+        ->assertSee('Oct 19, 4:41 PM')
+        ->assertSee('Offers, template STANDARD, 21 days from Oct 20, blocking')
+        ->assertSee('Booked Thu Oct 22, 8:00 AM to 12:00 PM America/Toronto EDT, SLA INSTALL (previous Appointment)')
+        ->assertSee('Oct 19, 4:36 PM')
+        ->assertSee('Survey (wide net), 21 days from Oct 19')
+        ->assertSee('Released')
+        ->assertSee('9 returned, 6 valid')
+        ->assertSee('a3054c28')
+        ->assertSee('a3054c28-1111-2222-3333-444455556666')
+        ->assertDontSee('2026-10-19T20:41:00')
+        ->call('toggleHistory')
+        ->assertSet('historyOpen', false)
+        ->call('toggleHistory')
+        ->assertSet('historyOpen', true);
+
+    $calls = historyCalls();
+    expect($calls)->toHaveCount(1)
+        ->and(parse_url($calls[0]->url(), PHP_URL_PATH))->toBe('/api/v2/appointment')
+        ->and($calls[0]->data())->toBe(['activityId' => (string) $this->task->friendly_id, 'datasetId' => $this->dataset->name]);
+
+    // The history needs no PSO logon.
+    Http::assertNotSent(fn (Request $request) => $request->url() === PsoServicesFake::sessionUrl());
+});
+
+it('shows the services error when the booking history cannot be read', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(['error' => 'The history is not available right now.'], 500)]);
+
+    Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('toggleHistory')
+        ->assertSet('history', null)
+        ->assertSet('historyError', 'The history is not available right now.')
+        ->assertSee('The history is not available right now.');
+});
+
+it('says so when the task has no booking requests yet', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(['data' => ['history' => []]])]);
+
+    Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('toggleHistory')
+        ->assertSee('No booking requests for this task yet.');
+});
+
+it('opens the booking history on arrival with history=1 and loads it after the first render', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(bookingHistoryResponse())]);
+
+    Livewire::withQueryParams(['history' => '1'])
+        ->test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->assertSet('historyOpen', true)
+        ->assertSeeHtml('wire:init="loadHistory"')
+        ->call('loadHistory')
+        ->assertSee('Survey (wide net), 21 days from Oct 19');
+});
+
+it('refuses to let the browser set the booking history', function () {
+    Http::fake([...PsoServicesFake::session()]);
+
+    Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->set('history', []);
+})->throws(Exception::class, 'Cannot update locked property: [history]');
+
+it('links the task page to the booking history', function () {
+    Livewire::test(EditTask::class, ['record' => $this->task->getRouteKey()])
+        ->assertActionHasLabel('bookingHistory', 'History')
+        ->assertActionHasUrl('bookingHistory', TaskResource::getUrl('bookAppointment', ['record' => $this->task, 'history' => 1]));
+});

@@ -47,3 +47,15 @@ it('reports a request reply without appointment offers', function () {
 
     expect($result)->toBe(['data' => null, 'error' => 'The PSO services API answered without appointment offers.', 'status' => 200]);
 });
+
+it('reads with a GET carrying only the query parameters, without a PSO logon', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(['data' => ['history' => []]])]);
+
+    $result = (new BookingClient($this->task))->get('appointment', ['activityId' => 'A 1', 'datasetId' => 'NORTH']);
+
+    expect($result)->toBe(['data' => ['history' => []], 'error' => null, 'status' => 200]);
+    Http::assertSent(fn ($request) => $request->method() === 'GET'
+        && $request->url() === 'https://pso-services.test/api/v2/appointment?activityId=A%201&datasetId=NORTH'
+        && ! $request->hasHeader('token'));
+    Http::assertNotSent(fn ($request) => $request->url() === PsoServicesFake::sessionUrl());
+});

@@ -20,6 +20,11 @@ class EditTask extends EditRecord
                 ->label(fn (Task $record): string => $record->isBooked() ? 'Rebook' : 'Appointment booking')
                 ->icon(Heroicon::OutlinedCalendarDays)
                 ->url(fn (Task $record): string => TaskResource::getUrl('bookAppointment', ['record' => $record])),
+            Action::make('bookingHistory')
+                ->label('History')
+                ->icon(Heroicon::OutlinedClock)
+                ->color('gray')
+                ->url(fn (Task $record): string => TaskResource::getUrl('bookAppointment', ['record' => $record, 'history' => 1])),
             Actions\DeleteAction::make(),
         ];
     }

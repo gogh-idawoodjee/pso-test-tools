@@ -11,6 +11,7 @@ use App\Models\DatasetReferenceValue;
 use App\Models\Environment;
 use App\Support\Booking\AgendaPresenter;
 use App\Support\Booking\BookingClient;
+use App\Support\Booking\BookingHistory;
 use App\Support\Booking\BookingPayloads;
 use App\Support\Booking\BookingSlaTypes;
 use App\Support\Booking\OfferRelease;
@@ -101,6 +102,16 @@ class AppointmentBooking extends Page
     public ?bool $blockingOverride = null;
 
     public ?array $task_data = [];
+
+    /** Whether the booking history section is open. */
+    public bool $historyOpen = false;
+
+    /** The history rows (see BookingHistory::rows); null until loaded. */
+    #[Locked]
+    public ?array $history = null;
+
+    #[Locked]
+    public ?string $historyError = null;
 
     private ?BookingSlaTypes $slaTypesCache = null;
 
@@ -294,6 +305,30 @@ class AppointmentBooking extends Page
         // The survey runs after the first render (wire:init), so the grid shows its loading state.
         $this->dayStates = array_fill_keys($this->windowDays(), 'unknown');
         $this->pageError = $this->slaTypes()->missingMessage();
+
+        // ?history=1 (the task page's History link) opens the section; it loads after the first render (wire:init).
+        $this->historyOpen = request()->boolean('history');
+    }
+
+    /** Open or close the booking history; the first open loads it. */
+    public function toggleHistory(): void
+    {
+        $this->historyOpen = ! $this->historyOpen;
+        if ($this->historyOpen) {
+            $this->loadHistory();
+        }
+    }
+
+    /** Read the task's booking history from services, once (a failed read is tried again on the next open). */
+    public function loadHistory(): void
+    {
+        if ($this->history !== null) {
+            return;
+        }
+
+        $result = (new BookingHistory($this->record))->fetch();
+        $this->historyError = $result['error'];
+        $this->history = $result['error'] === null ? $result['rows'] : null;
     }
 
     /** The task's dataset decides the environment: shown, not selectable. */

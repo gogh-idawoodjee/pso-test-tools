@@ -454,4 +454,76 @@
             </x-filament::section>
         @endif
     </div>
+
+    {{-- Every services request for this task, newest first: loaded on first open, never on page load. --}}
+    <x-filament::section
+        icon="heroicon-o-clock"
+        heading="Booking history"
+        :description="'Every appointment request sent for this task in this dataset, newest first. Times in '.$this->bookingTimeZone().'.'"
+        data-booking-history
+    >
+        <x-slot name="afterHeader">
+            <x-filament::button
+                size="sm"
+                color="gray"
+                :icon="$this->historyOpen ? 'heroicon-o-chevron-up' : 'heroicon-o-chevron-down'"
+                wire:click="toggleHistory"
+                wire:loading.attr="disabled"
+                wire:target="toggleHistory,loadHistory"
+                :aria-expanded="$this->historyOpen ? 'true' : 'false'"
+            >
+                {{ $this->historyOpen ? 'Hide' : 'Show' }}
+            </x-filament::button>
+        </x-slot>
+
+        @if ($this->historyOpen)
+            <div wire:loading.flex wire:target="toggleHistory,loadHistory" class="items-center gap-2 text-sm" style="color: var(--pso-text-muted);">
+                <x-filament::loading-indicator class="h-4 w-4" />
+                Loading booking history...
+            </div>
+
+            @if ($this->history === null && $this->historyError === null)
+                <div wire:init="loadHistory" wire:loading.remove wire:target="toggleHistory,loadHistory" class="text-sm" style="color: var(--pso-text-muted);">
+                    Loading booking history...
+                </div>
+            @elseif (filled($this->historyError))
+                <div
+                    role="alert"
+                    wire:loading.remove
+                    wire:target="toggleHistory,loadHistory"
+                    class="rounded-md px-4 py-3 text-sm"
+                    style="background: var(--pso-danger-bg); color: var(--pso-danger); border: 1px solid var(--pso-danger);"
+                >
+                    {{ $this->historyError }}
+                </div>
+            @elseif (empty($this->history))
+                <p class="text-sm" style="color: var(--pso-text-muted);">No booking requests for this task yet.</p>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm" style="color: var(--pso-text);">
+                        <thead>
+                            <tr class="text-xs font-semibold uppercase" style="color: var(--pso-text-muted); border-bottom: 1px solid var(--pso-border-strong);">
+                                <th class="py-2 pe-4">When</th>
+                                <th class="py-2 pe-4">What</th>
+                                <th class="py-2 pe-4">Outcome</th>
+                                <th class="py-2 pe-4">Offers</th>
+                                <th class="py-2">Request</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($this->history as $row)
+                                <tr wire:key="history-{{ $row['requestId'] }}" style="border-bottom: 1px solid var(--pso-border);">
+                                    <td class="py-2 pe-4 whitespace-nowrap tabular-nums">{{ $row['when'] }}</td>
+                                    <td class="py-2 pe-4">{{ $row['what'] }}</td>
+                                    <td class="py-2 pe-4">{{ $row['outcome'] }}</td>
+                                    <td class="py-2 pe-4 whitespace-nowrap">{{ $row['offers'] }}</td>
+                                    <td class="py-2 font-mono text-xs" title="{{ $row['requestId'] }}">{{ $row['requestIdShort'] }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        @endif
+    </x-filament::section>
 </x-filament-panels::page>

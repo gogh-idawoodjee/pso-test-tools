@@ -60,6 +60,41 @@ final class BookingClient
             return ['data' => null, 'error' => 'The PSO services API answered with something that is not JSON.', 'status' => null];
         }
 
+        $result = $this->readReply($raw);
+        if ($result['error'] === null && $method === null && ! is_array(data_get($result['data'], 'appointmentOffers'))) {
+            return ['data' => null, 'error' => 'The PSO services API answered without appointment offers.', 'status' => $result['status']];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Read from services with query parameters only: no PSO logon and no environment block, for the endpoints
+     * that answer from services' own records (the booking history).
+     *
+     * @param  array<string, string>  $query
+     * @return array{data: ?array, error: ?string, status: ?int}
+     */
+    public function get(string $segment, array $query): array
+    {
+        $this->quietSuccess = true;
+
+        try {
+            $raw = $this->sendToPSONew($segment, method: HttpMethod::GET, isNonStandardResponse: true, query: $query, timeout: self::appointmentTimeout());
+        } catch (JsonException) {
+            return ['data' => null, 'error' => 'The PSO services API answered with something that is not JSON.', 'status' => null];
+        }
+
+        return $this->readReply($raw);
+    }
+
+    /**
+     * One services reply as data, error text and HTTP status.
+     *
+     * @return array{data: ?array, error: ?string, status: ?int}
+     */
+    private function readReply(string $raw): array
+    {
         $status = $this->last_response_status;
         $decoded = json_decode($raw, true);
 
@@ -73,9 +108,6 @@ final class BookingClient
         }
 
         $data = $decoded['data'];
-        if ($method === null && ! is_array(data_get($data, 'appointmentOffers'))) {
-            return ['data' => null, 'error' => 'The PSO services API answered without appointment offers.', 'status' => $status];
-        }
 
         return ['data' => is_array($data) ? $data : [], 'error' => null, 'status' => $status];
     }
