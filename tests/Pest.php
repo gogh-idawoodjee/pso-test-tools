@@ -49,6 +49,7 @@ expect()->extend('toBeOne', function () {
 require_once __DIR__.'/Support/ExportFixtures.php';
 require_once __DIR__.'/Support/TrimExportFixtures.php';
 require_once __DIR__.'/Support/TravelTuningFixtures.php';
+require_once __DIR__.'/Support/PsoPagePayloadHelpers.php';
 
 function callProtectedMethod(object $instance, string $method, array $args = []): mixed
 {
