@@ -145,7 +145,7 @@ form. Seed one from a pso-tools account file with
 `php artisan datasets:seed-settings <dataset id> accounts/SATE.json --time-zone=America/Regina`.
 
 To try the appointment booking page, `php artisan booking:seed-customers "<environment name>" <dataset name> --count=12` creates sample
-Saskatchewan customers in a dataset (`--fresh` replaces earlier sample ones, except any that have tasks).
+customers in New York, Toronto, London and Los Angeles for a dataset (`--fresh` replaces earlier sample ones, except any that have tasks).
 
 ### Load Health Audit
 

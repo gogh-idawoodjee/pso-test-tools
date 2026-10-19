@@ -17,7 +17,7 @@ class SeedBookingCustomers extends Command
         {--count=12 : how many sample customers to create}
         {--fresh : replace the sample customers this command made earlier}';
 
-    protected $description = 'Create sample Saskatchewan customers in a dataset so the appointment booking page can be tried';
+    protected $description = 'Create sample customers in New York, Toronto, London and Los Angeles for a dataset so the appointment booking page can be tried';
 
     public function handle(): int
     {
