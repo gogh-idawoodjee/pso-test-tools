@@ -25,6 +25,11 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
 
     public bool $isAuthenticationRequired = true;
 
+    protected function requiredForSubmit(): array
+    {
+        return ['unavailabilities.0.unavailability_id'];
+    }
+
     public function resource_form(Schema $form): Schema
     {
 
@@ -62,12 +67,14 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                                 TextInput::make('unavailability_id')
                                     ->label('Unavailability ID')
                                     ->prefixIcon('heroicon-o-no-symbol') // Unavailability/blocked
-                                    ->required(),
+                                    ->required()
+                                    ->live(onBlur: true),
 
                             )->addActionLabel('Add another unavailability')
                             ->reorderable(false),
 
                         Actions::make([Action::make('update_unavailability')
+                            ->disabled(fn (): bool => ! $this->canSubmit())
                             ->label('Update Unavailabilities')
                             ->icon('heroicon-o-arrow-path') // Update/refresh
                             ->action(function () {

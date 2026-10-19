@@ -32,6 +32,11 @@ class ARPRegion extends ModellingBasePage
         return ['env_form', 'region_form'];
     }
 
+    protected function requiredForSubmit(): array
+    {
+        return ['regions.0.region_id'];
+    }
+
     public function region_form(Schema $form): Schema
     {
         return $form
@@ -48,7 +53,8 @@ class ARPRegion extends ModellingBasePage
                                 TextInput::make('region_id')
                                     ->label('Region ID')
                                     ->prefixIcon(Heroicon::OutlinedTag)
-                                    ->required(),
+                                    ->required()
+                                    ->live(onBlur: true),
                                 TextInput::make('description')
                                     ->label('Description')
                                     ->prefixIcon(Heroicon::OutlinedDocumentText)
@@ -75,6 +81,7 @@ class ARPRegion extends ModellingBasePage
                     ]),
                 Actions::make([
                     Action::make('generate_regions')
+                        ->disabled(fn (): bool => ! $this->canSubmit())
                         ->label('Generate Regions')
                         ->icon(Heroicon::OutlinedGlobeAlt)
                         ->action(function () {

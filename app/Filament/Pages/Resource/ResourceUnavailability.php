@@ -23,6 +23,11 @@ class ResourceUnavailability extends PSOResourceBasePage
 
     protected string $view = 'filament.pages.resource-unavailability';
 
+    protected function requiredForSubmit(): array
+    {
+        return ['resource_id', 'category_id', 'base_time', 'duration'];
+    }
+
     public function resource_form(Schema $form): Schema
     {
 
@@ -46,7 +51,8 @@ class ResourceUnavailability extends PSOResourceBasePage
                             ->afterStateUpdated(fn ($livewire, $component) => $livewire->validateOnly($component->getStatePath())),
                         DateTimePicker::make('base_time')
                             ->label('Base Date/Time')
-                            ->required(),
+                            ->required()
+                            ->live(onBlur: true),
                         TextInput::make('duration')
                             ->label('Duration (minutes)')
                             ->prefixIcon('heroicon-s-arrows-up-down')
@@ -66,6 +72,7 @@ class ResourceUnavailability extends PSOResourceBasePage
                             ->prefixIcon('heroicon-s-document-text'),
 
                         Actions::make([Action::make('generate_unavailability')
+                            ->disabled(fn (): bool => ! $this->canSubmit())
                             ->label('Generate Unavailability')
                             ->action(function () {
                                 $this->generateUnavailability();

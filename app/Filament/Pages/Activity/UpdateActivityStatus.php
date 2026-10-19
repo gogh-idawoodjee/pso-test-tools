@@ -32,6 +32,18 @@ class UpdateActivityStatus extends PSOActivityBasePage
 
     protected static ?string $slug = 'activity-status';
 
+    protected function requiredForSubmit(): array
+    {
+        $status = data_get($this->activity_data, 'status');
+        $value = $status instanceof TaskStatus ? $status->value : $status;
+
+        return [
+            'activity_id',
+            'status',
+            ...(is_numeric($value) && (int) $value > 29 ? ['resource_id'] : []),
+        ];
+    }
+
     public function activity_form(Schema $form): Schema
     {
         return $form
@@ -82,6 +94,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
                             ->numeric()
                             ->minValue(0),
                         Actions::make([Action::make('update_status')
+                            ->disabled(fn (): bool => ! $this->canSubmit())
                             ->action(function () {
                                 $this->updateTaskStatus();
 

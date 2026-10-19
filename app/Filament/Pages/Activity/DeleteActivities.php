@@ -27,6 +27,11 @@ class DeleteActivities extends PSOActivityBasePage
     // View
     protected string $view = 'filament.pages.activity-delete-activities';
 
+    protected function requiredForSubmit(): array
+    {
+        return ['activities.0.activity_id'];
+    }
+
     public function activity_form(Schema $form): Schema
     {
         return $form
@@ -50,6 +55,7 @@ class DeleteActivities extends PSOActivityBasePage
                         $this->inputDatetimeField(),
 
                         Actions::make([Action::make('delete_activity')
+                            ->disabled(fn (): bool => ! $this->canSubmit())
                             ->action(function () {
                                 $this->deleteActivities();
                             }),

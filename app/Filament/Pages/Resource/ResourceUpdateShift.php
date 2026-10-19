@@ -27,6 +27,15 @@ class ResourceUpdateShift extends PSOResourceBasePage
 
     public bool $isAuthenticationRequired = true;
 
+    protected function requiredForSubmit(): array
+    {
+        return [
+            'resource_id',
+            'shift_id',
+            ...(data_get($this->resource_data, 'is_arp_object') ? ['rota_id'] : []),
+        ];
+    }
+
     public function resource_form(Schema $form): Schema
     {
 
@@ -75,6 +84,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
                             ->live(),
 
                         Actions::make([Action::make('update_shift')
+                            ->disabled(fn (): bool => ! $this->canSubmit())
                             ->label('Update Shift')
                             ->icon('heroicon-o-arrow-path') // Refresh/update icon
                             ->action(function () {

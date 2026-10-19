@@ -33,6 +33,18 @@ class ResourceEvent extends PSOResourceBasePage
 
     protected string $view = 'filament.pages.resource-event';
 
+    protected function requiredForSubmit(): array
+    {
+        $type = data_get($this->resource_data, 'event_type');
+        $isGpsFix = ($type instanceof EventType ? $type : EventType::tryFrom((string) $type)) === EventType::GPSFIX;
+
+        return [
+            'resource_id',
+            'event_type',
+            ...($isGpsFix ? ['latitude', 'longitude'] : []),
+        ];
+    }
+
     public function resource_form(Schema $form): Schema
     {
 
@@ -99,6 +111,7 @@ class ResourceEvent extends PSOResourceBasePage
                             ]),
                         Actions::make([
                             Action::make('generate_event')
+                                ->disabled(fn (): bool => ! $this->canSubmit())
                                 ->label('Generate Event')
                                 ->action(function () {
                                     $this->generateEvent();

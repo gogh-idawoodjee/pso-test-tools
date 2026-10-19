@@ -204,6 +204,41 @@ trait FormTrait
 
     }
 
+    /**
+     * Dotted paths, relative to the page's data form state, that must be filled before the
+     * submit is enabled. A path like `rows.0.id` means at least one repeater row has that field.
+     */
+    protected function requiredForSubmit(): array
+    {
+        return [];
+    }
+
+    /** True once the environment, dataset and every path in requiredForSubmit() are filled. */
+    public function canSubmit(): bool
+    {
+        if (blank(data_get($this->environment_data, 'environment_id')) || blank(data_get($this->environment_data, 'dataset_id'))) {
+            return false;
+        }
+
+        $formName = collect($this->getForms())->first(fn (string $form): bool => $form !== 'env_form');
+        $state = $formName ? data_get($this, $this->{$formName}->getStatePath()) : [];
+
+        foreach ($this->requiredForSubmit() as $path) {
+            if (str_contains($path, '.0.')) {
+                [$repeater, $field] = explode('.0.', $path, 2);
+                $filled = collect(data_get($state, $repeater) ?? [])->contains(fn ($row): bool => filled(data_get($row, $field)));
+            } else {
+                $filled = filled(data_get($state, $path));
+            }
+
+            if (! $filled) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     protected function inputDatetimeField(): DateTimePicker
     {
         return DateTimePicker::make('input_datetime')

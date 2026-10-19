@@ -35,6 +35,11 @@ class ARPResource extends ModellingBasePage
         return ['env_form', 'resource_form'];
     }
 
+    protected function requiredForSubmit(): array
+    {
+        return ['resource_type_id', 'resources.0.latitude', 'resources.0.longitude'];
+    }
+
     public function resource_form(Schema $form): Schema
     {
         return $form
@@ -45,7 +50,8 @@ class ARPResource extends ModellingBasePage
                         TextInput::make('resource_type_id')
                             ->label('Resource Type ID')
                             ->prefixIcon(Heroicon::OutlinedWrenchScrewdriver)
-                            ->required(),
+                            ->required()
+                            ->live(onBlur: true),
                         TagsInput::make('skills')
                             ->label('Skills')
                             ->prefixIcon(Heroicon::OutlinedBookmark)
@@ -79,12 +85,14 @@ class ARPResource extends ModellingBasePage
                                 TextInput::make('latitude')
                                     ->prefixIcon('heroicon-s-arrows-up-down')
                                     ->required()
+                                    ->live(onBlur: true)
                                     ->numeric()
                                     ->minValue(-90)
                                     ->maxValue(90),
                                 TextInput::make('longitude')
                                     ->prefixIcon('heroicon-s-arrows-right-left')
                                     ->required()
+                                    ->live(onBlur: true)
                                     ->numeric()
                                     ->minValue(-180)
                                     ->maxValue(180),
@@ -102,6 +110,7 @@ class ARPResource extends ModellingBasePage
                     ]),
                 Actions::make([
                     Action::make('generate_resources')
+                        ->disabled(fn (): bool => ! $this->canSubmit())
                         ->label('Generate Resources')
                         ->icon(Heroicon::OutlinedUserGroup)
                         ->action(function () {

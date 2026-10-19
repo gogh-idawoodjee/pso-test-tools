@@ -40,6 +40,11 @@ class GenerateActivities extends PSOActivityBasePage
 
     // Data
 
+    protected function requiredForSubmit(): array
+    {
+        return ['activity_type_id', 'sla_type_id', 'base_value', 'duration', 'priority', 'latitude', 'longitude'];
+    }
+
     public function activity_form(Schema $form): Schema
     {
         return $form
@@ -167,6 +172,7 @@ class GenerateActivities extends PSOActivityBasePage
                             ])->columns(3),
 
                         Actions::make([Action::make('create_activity')
+                            ->disabled(fn (): bool => ! $this->canSubmit())
                             ->action(function () {
                                 $this->createActivity();
 
