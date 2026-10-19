@@ -76,7 +76,7 @@ it('says so when no customer has coordinates', function () {
         ->assertSee('No customers have coordinates yet');
 });
 
-it('uses the configured tile source, CARTO by default, never OpenStreetMap's own servers', function () {
+it('uses the configured tile source, CARTO by default, never OpenStreetMap own servers', function () {
     expect(config('psott.map_tiles.url'))->toContain('basemaps.cartocdn.com')
         ->and((new \App\Filament\Widgets\CustomerMap)->tiles()['url'])->not->toContain('tile.openstreetmap.org');
 
