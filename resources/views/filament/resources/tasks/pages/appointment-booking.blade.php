@@ -160,7 +160,7 @@
                     data_get($this->offers, 'summary'),
                 ])->filter()->implode(' · ');
                 // Fixed height per hour of the axis; detail mode shows three more lines per block, so it gets more room.
-                $hourRem = $detail ? 4 : 3;
+                $hourRem = $detail ? 6 : 3;
                 $startHour = (int) data_get($grid, 'axis.startHour', 0);
                 $hours = max(1, (int) data_get($grid, 'axis.endHour', $startHour + 1) - $startHour);
                 $bodyHeight = $hours * $hourRem;
@@ -219,9 +219,10 @@
                         </span>
 
                         <label class="inline-flex cursor-pointer items-center gap-2 text-xs font-medium" style="color: var(--pso-text);">
-                            <input type="checkbox" role="switch" wire:model.live="showUtc" class="sr-only" @checked($this->showUtc)>
+                            <input type="checkbox" role="switch" wire:model.live="showUtc" class="peer sr-only" @checked($this->showUtc)>
                             <span
                                 aria-hidden="true"
+                                class="peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1"
                                 style="position: relative; display: inline-block; width: 2rem; height: 1.125rem; border-radius: 9999px; transition: background 0.15s; background: {{ $this->showUtc ? 'var(--pso-accent)' : 'var(--pso-border-strong)' }};"
                             >
                                 <span style="position: absolute; top: 0.125rem; left: {{ $this->showUtc ? '1rem' : '0.125rem' }}; width: 0.875rem; height: 0.875rem; border-radius: 9999px; background: var(--pso-surface); transition: left 0.15s;"></span>
