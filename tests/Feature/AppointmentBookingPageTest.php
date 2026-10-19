@@ -14,6 +14,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\Support\PsoServicesFake;
 
@@ -275,4 +276,173 @@ it('shows the Rebook action on a booked task', function () {
 
     Livewire::test(EditTask::class, ['record' => $this->task->getRouteKey()])
         ->assertActionHasLabel('bookAppointment', 'Rebook');
+});
+
+/**
+ * Fakes the appointment endpoints by method: a POST without an offer id is a request (offers), a POST with one is
+ * the check, PATCH is the accept, DELETE the decline.
+ */
+function appointmentEndpointFake(bool $slotAvailable = true): array
+{
+    $offers = bookingOffersResponse(
+        [
+            [...bookingOffer(7, '2026-10-22T08:00:00-04:00'), 'isBestOffer' => true],
+            bookingOffer(8, '2026-10-22T13:00:00-04:00'),
+        ],
+        [bookingOffer(9, '2026-10-22T16:00:00-04:00', valid: false)],
+        requestId: 'REQ-22',
+    );
+    // allOfferValues carries no availability.
+    $offers['data']['appointmentOffers']['allOfferValues'] = array_map(
+        static fn (array $offer): array => array_diff_key($offer, ['available' => true]),
+        $offers['data']['appointmentOffers']['allOfferValues'],
+    );
+
+    return [...PsoServicesFake::session(), '*/api/v2/appointment*' => static function (Request $request) use ($offers, $slotAvailable) {
+        return match ($request->method()) {
+            'PATCH' => Http::response(['data' => ['acceptedAppointmentSummary' => [
+                'appointmentRequestId' => 'REQ-22',
+                'activityId' => 'ACT-1',
+                'resourceId' => 'RES-1',
+                'assignmentStart' => '2026-10-22T12:00:00',
+                'assignmentFinish' => '2026-10-22T13:30:00',
+                'selectedDate' => '2026-10-22',
+                'selectedWindow' => '8:00 AM - 12:00 PM',
+                'bookingSlaTypeId' => 'Appointment',
+                'previousSlaTypeId' => data_get($request->data(), 'data.previousSlaTypeId'),
+                'temporaryActivityDeleted' => true,
+            ]]]),
+            'DELETE' => Http::response(['data' => ['message' => 'Declined.']]),
+            default => data_get($request->data(), 'data.appointmentOfferId') !== null
+                ? Http::response(['data' => ['appointment_summary' => ['isSlotAvailable' => $slotAvailable]]])
+                : Http::response($offers),
+        };
+    }];
+}
+
+function openAgenda(Task $task, ?bool $blocking = null): Testable
+{
+    return Livewire::test(AppointmentBooking::class, ['record' => $task->getRouteKey()])
+        ->set('task_data.appointmentTemplateId', 'STANDARD')
+        ->set('blockingOverride', $blocking)
+        ->call('selectDay', '2026-10-22');
+}
+
+/** Method and path of the appointment calls after the day request. */
+function callsAfterDayRequest(): array
+{
+    return array_slice(array_map(fn (Request $request) => $request->method().' '.parse_url($request->url(), PHP_URL_PATH), appointmentCalls()), 1);
+}
+
+it('accepts straight away on a blocking request', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)->call('book', 7);
+
+    expect(callsAfterDayRequest())->toBe(['PATCH /api/v2/appointment/REQ-22'])
+        ->and($component->get('screen'))->toBe('booked')
+        ->and($component->get('booking.activityId'))->toBe('ACT-1');
+
+    $component->assertSee('ACT-1')->assertDontSeeHtml('wire:click="book(');
+
+    $task = $this->task->fresh();
+    expect($task->appointment_request_id)->toBe('REQ-22')
+        ->and($task->booking_sla_type_id)->toBe('Appointment')
+        ->and($task->booked_at)->not->toBeNull()
+        ->and($task->appt_window_start->utc()->toDateTimeString())->toBe('2026-10-22 12:00:00')
+        ->and($task->appt_window_finish->utc()->toDateTimeString())->toBe('2026-10-22 16:00:00');
+});
+
+it('checks first on a non-blocking request and books when appointed', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task, blocking: false)->call('book', 8);
+
+    expect(callsAfterDayRequest())->toBe(['POST /api/v2/appointment/REQ-22', 'PATCH /api/v2/appointment/REQ-22'])
+        ->and($component->get('screen'))->toBe('booked');
+
+    Http::assertSent(fn (Request $request) => $request->method() === 'POST'
+        && str_ends_with(parse_url($request->url(), PHP_URL_PATH), '/REQ-22')
+        && data_get($request->data(), 'data.appointmentOfferId') === 8);
+    Http::assertSent(fn (Request $request) => $request->method() === 'PATCH'
+        && data_get($request->data(), 'data.appointmentOfferId') === 8
+        && data_get($request->data(), 'data.bookingSlaTypeId') === 'Appointment'
+        && ! array_key_exists('previousSlaTypeId', (array) data_get($request->data(), 'data')));
+});
+
+it('does not book when the check says the slot is taken', function () {
+    Http::fake(appointmentEndpointFake(slotAvailable: false));
+
+    $component = openAgenda($this->task, blocking: false)->call('book', 8);
+
+    expect(callsAfterDayRequest())->toBe(['POST /api/v2/appointment/REQ-22'])
+        ->and($component->get('slotMessage'))->toBe('That slot was taken, pick another')
+        ->and($component->get('screen'))->toBe('agenda')
+        ->and($this->task->fresh()->appointment_request_id)->toBeNull();
+
+    $component->assertSee('That slot was taken, pick another')->assertSeeHtml('wire:click="book(7)"');
+});
+
+it('sends previousSlaTypeId on a rebooking', function () {
+    Http::fake(appointmentEndpointFake());
+    $this->task->forceFill(['appointment_request_id' => 'REQ-OLD', 'booking_sla_type_id' => 'OLD'])->save();
+
+    openAgenda($this->task)->call('book', 7);
+
+    Http::assertSent(fn (Request $request) => $request->method() === 'PATCH'
+        && data_get($request->data(), 'data.previousSlaTypeId') === 'OLD'
+        && data_get($request->data(), 'data.bookingSlaTypeId') === 'Appointment');
+    expect($this->task->fresh()->booking_sla_type_id)->toBe('Appointment');
+});
+
+it('refuses to book after the offers expired', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)->call('markExpired')->call('book', 7);
+
+    expect(callsAfterDayRequest())->toBe([])
+        ->and($component->get('expired'))->toBeTrue()
+        ->and($component->get('screen'))->toBe('agenda');
+
+    $component->assertSee('Offers have expired, search again');
+});
+
+it('books at most once', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)->call('book', 7)->call('book', 7)->call('book', 8);
+
+    expect(callsAfterDayRequest())->toBe(['PATCH /api/v2/appointment/REQ-22'])
+        ->and($component->get('screen'))->toBe('booked');
+});
+
+it('releases the offers and returns to the month', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task)->assertSee('Release offers')->call('releaseOffers');
+
+    expect(callsAfterDayRequest())->toBe(['DELETE /api/v2/appointment/REQ-22'])
+        ->and($component->get('screen'))->toBe('month')
+        ->and($component->get('appointmentRequestId'))->toBeNull()
+        ->and($component->get('selectedDay'))->toBeNull();
+});
+
+it('renders unavailable offers greyed in detail mode', function () {
+    Http::fake(appointmentEndpointFake());
+
+    $component = openAgenda($this->task);
+
+    // Call centre: the valid offers only, grouped by period of day, best marked.
+    $component->assertSet('mode', 'callcentre')
+        ->assertSee(['Morning', 'Midday', 'Best offer'])
+        ->assertDontSee('Afternoon')
+        ->assertSeeHtml('wire:click="book(7)"')
+        ->assertSeeHtml('wire:click="book(8)"')
+        ->assertDontSeeHtml('wire:click="book(9)"');
+
+    $component->set('mode', 'detail')
+        ->assertSee(['Afternoon', 'RES-1', 'Not available'])
+        ->assertSeeHtml('data-offer="9" data-valid="false"')
+        ->assertSeeHtml('data-offer="7" data-valid="true"')
+        ->assertDontSeeHtml('wire:click="book(9)"');
 });

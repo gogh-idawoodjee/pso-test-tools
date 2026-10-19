@@ -23,7 +23,7 @@
     <div class="relative" wire:init="loadSurvey">
         <div
             wire:loading.flex
-            wire:target="loadSurvey,selectDay,backToMonth"
+            wire:target="loadSurvey,selectDay,backToMonth,releaseOffers,book"
             class="absolute inset-0 z-10 items-center justify-center rounded-xl text-sm font-medium"
             style="background: color-mix(in srgb, var(--pso-surface) 80%, transparent); color: var(--pso-text);"
         >
@@ -130,21 +130,199 @@
                 </div>
             </x-filament::section>
         @elseif ($this->screen === 'agenda')
-            {{-- Task 7 builds the agenda (call centre and detail views, book, release) from $this->offers. --}}
+            @php
+                $groups = $this->agendaGroups();
+                $detail = $this->mode === 'detail';
+                $slotLength = $this->slotLength();
+                $templateId = data_get($this->task_data, 'appointmentTemplateId');
+                $description = collect([
+                    'Template '.$templateId,
+                    $slotLength ? $slotLength.' windows' : null,
+                    ($this->requestBlocking ?? true) ? 'blocking' : 'not blocking',
+                    data_get($this->offers, 'summary'),
+                ])->filter()->implode(' · ');
+            @endphp
+
             <x-filament::section
                 icon="heroicon-o-clock"
                 :heading="\Carbon\CarbonImmutable::parse($this->selectedDay)->format('l F j')"
-                :description="data_get($this->offers, 'summary')"
+                :description="$description"
             >
+                <x-slot name="afterHeader">
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if (filled($this->countdownExpiresAt))
+                            <span
+                                wire:key="countdown-{{ $this->countdownExpiresAt }}"
+                                x-data="{
+                                    expiresAt: Date.parse(@js($this->countdownExpiresAt)),
+                                    left: '',
+                                    fired: @js($this->expired),
+                                    timer: null,
+                                    tick() {
+                                        const ms = Math.max(0, this.expiresAt - Date.now());
+                                        const s = Math.ceil(ms / 1000);
+                                        this.left = Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+                                        if (ms === 0) {
+                                            clearInterval(this.timer);
+                                            if (! this.fired) {
+                                                this.fired = true;
+                                                $wire.markExpired();
+                                            }
+                                        }
+                                    },
+                                    init() {
+                                        this.tick();
+                                        if (! this.fired) this.timer = setInterval(() => this.tick(), 1000);
+                                    },
+                                    destroy() { clearInterval(this.timer); },
+                                }"
+                                class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold tabular-nums"
+                                style="background: var(--pso-surface-2); color: var(--pso-text); border: 1px solid var(--pso-border);"
+                                title="Time left before PSO releases these offers"
+                            >
+                                <x-filament::icon icon="heroicon-o-clock" class="h-4 w-4" />
+                                <span>Offers held for</span>
+                                <span x-text="left"></span>
+                            </span>
+                        @endif
+
+                        <x-filament::tabs>
+                            <x-filament::tabs.item :active="! $detail" wire:click="$set('mode', 'callcentre')">
+                                Call centre
+                            </x-filament::tabs.item>
+                            <x-filament::tabs.item :active="$detail" wire:click="$set('mode', 'detail')">
+                                Detail
+                            </x-filament::tabs.item>
+                        </x-filament::tabs>
+
+                        <x-filament::button size="sm" color="gray" icon="heroicon-o-x-mark" wire:click="releaseOffers" wire:loading.attr="disabled">
+                            Release offers
+                        </x-filament::button>
+                        <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-left" wire:click="backToMonth" wire:loading.attr="disabled">
+                            Back to month
+                        </x-filament::button>
+                    </div>
+                </x-slot>
+
+                @if ($this->expired)
+                    <div
+                        role="alert"
+                        class="mb-3 rounded-md px-4 py-3 text-sm"
+                        style="background: var(--pso-warning-bg); color: var(--pso-warning); border: 1px solid var(--pso-warning);"
+                    >
+                        Offers have expired, search again
+                    </div>
+                @endif
+
+                @if (filled($this->slotMessage))
+                    <div
+                        role="alert"
+                        class="mb-3 rounded-md px-4 py-3 text-sm"
+                        style="background: var(--pso-warning-bg); color: var(--pso-warning); border: 1px solid var(--pso-warning);"
+                    >
+                        {{ $this->slotMessage }}
+                    </div>
+                @endif
+
+                @forelse ($groups as $dayLabel => $periods)
+                    <div wire:key="agenda-day-{{ md5($dayLabel) }}" class="mb-4 last:mb-0">
+                        <h3 class="mb-2 text-sm font-semibold" style="color: var(--pso-text);">{{ $dayLabel }}</h3>
+
+                        @foreach ($periods as $period => $rows)
+                            <div class="mb-3 last:mb-0">
+                                <div class="mb-1 text-xs font-semibold uppercase" style="color: var(--pso-text-muted);">{{ $period }}</div>
+
+                                <div class="flex flex-col gap-1">
+                                    @foreach ($rows as $row)
+                                        @php
+                                            $offerId = (int) data_get($row, 'id');
+                                            $rowStyle = $row['valid']
+                                                ? 'background: var(--pso-surface); color: var(--pso-text); border: 1px solid var(--pso-border-strong);'
+                                                : 'background: var(--pso-surface-2); color: var(--pso-text-muted); border: 1px solid var(--pso-border); opacity: 0.7;';
+                                            if ($row['best']) {
+                                                $rowStyle .= ' box-shadow: inset 3px 0 0 var(--pso-accent);';
+                                            }
+                                        @endphp
+
+                                        <div
+                                            wire:key="offer-{{ $offerId }}"
+                                            data-offer="{{ $offerId }}" data-valid="{{ $row['valid'] ? 'true' : 'false' }}"
+                                            class="flex flex-wrap items-center justify-between gap-2 rounded-md px-3 py-2 text-sm"
+                                            style="{{ $rowStyle }}"
+                                        >
+                                            <div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+                                                <span class="font-semibold">{{ data_get($row, 'windowStartTime') }} to {{ data_get($row, 'windowEndTime') }}</span>
+                                                @if ($row['best'])
+                                                    <x-filament::badge color="success" size="sm">Best offer</x-filament::badge>
+                                                @endif
+                                                @if ($detail)
+                                                    <span>Value {{ data_get($row, 'offerValue') }}</span>
+                                                    <span>Resource {{ data_get($row, 'prospectiveResourceId') ?? 'none' }}</span>
+                                                    <span>Allocation start {{ data_get($row, 'prospectiveAllocationStart') ?? 'none' }}</span>
+                                                    <span class="text-xs" style="color: var(--pso-text-muted);">
+                                                        Window {{ data_get($row, 'windowStartDatetime') }} to {{ data_get($row, 'windowEndDatetime') }}
+                                                    </span>
+                                                    @unless ($row['valid'])
+                                                        <x-filament::badge color="gray" size="sm">Not available</x-filament::badge>
+                                                    @endunless
+                                                @endif
+                                            </div>
+
+                                            @if ($row['valid'])
+                                                <x-filament::button
+                                                    size="sm"
+                                                    icon="heroicon-o-check"
+                                                    wire:click="book({{ $offerId }})"
+                                                    wire:loading.attr="disabled"
+                                                    wire:target="book,releaseOffers,backToMonth,markExpired"
+                                                    :disabled="$this->expired"
+                                                >
+                                                    Book
+                                                </x-filament::button>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @empty
+                    <p class="text-sm" style="color: var(--pso-text-muted);">
+                        PSO returned no valid offers for template {{ data_get($this->task_data, 'appointmentTemplateId') }} on this day.
+                    </p>
+                @endforelse
+            </x-filament::section>
+        @elseif ($this->screen === 'booked')
+            @php
+                $summary = $this->booking ?? [];
+                $window = $this->formatAppointmentWindow($this->record->appt_window_start, $this->record->appt_window_finish);
+                $rows = array_filter([
+                    'Window' => $window ?? data_get($summary, 'selectedWindow'),
+                    'Activity' => data_get($summary, 'activityId'),
+                    'Resource' => data_get($summary, 'resourceId'),
+                    'Assignment' => filled(data_get($summary, 'assignmentStart')) ? data_get($summary, 'assignmentStart').' to '.data_get($summary, 'assignmentFinish') : null,
+                    'Booking SLA type' => data_get($summary, 'bookingSlaTypeId'),
+                    'Previous SLA type' => data_get($summary, 'previousSlaTypeId'),
+                    'Appointment request' => data_get($summary, 'appointmentRequestId'),
+                    'Temporary activity removed' => array_key_exists('temporaryActivityDeleted', $summary) ? ($summary['temporaryActivityDeleted'] ? 'Yes' : 'No') : null,
+                ], static fn ($value) => filled($value));
+            @endphp
+
+            <x-filament::section icon="heroicon-o-check-circle" icon-color="success" heading="Booked">
                 <x-slot name="afterHeader">
                     <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-left" wire:click="backToMonth">
                         Back to month
                     </x-filament::button>
                 </x-slot>
 
-                <p class="text-sm" style="color: var(--pso-text-muted);">
-                    {{ count(data_get($this->offers, 'validOffers', [])) }} valid offers for template {{ data_get($this->task_data, 'appointmentTemplateId') }}.
-                </p>
+                <dl class="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                    @foreach ($rows as $label => $value)
+                        <div>
+                            <dt class="text-xs font-semibold uppercase" style="color: var(--pso-text-muted);">{{ $label }}</dt>
+                            <dd style="color: var(--pso-text);">{{ $value }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
             </x-filament::section>
         @endif
     </div>

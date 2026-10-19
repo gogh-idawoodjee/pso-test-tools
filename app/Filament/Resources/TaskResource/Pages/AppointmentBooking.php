@@ -58,7 +58,19 @@ class AppointmentBooking extends Page
 
     public ?string $countdownExpiresAt = null;
 
-    public bool $countdownExpired = false;
+    /** The countdown ran out: the open request's offers can no longer be booked. */
+    public bool $expired = false;
+
+    /** Agenda layout: 'callcentre' (valid offers, Book) or 'detail' (every offer, values and resources). */
+    public string $mode = 'callcentre';
+
+    /** The acceptedAppointmentSummary of the booking made on this page. */
+    public ?array $booking = null;
+
+    public ?string $slotMessage = null;
+
+    /** Whether the open request blocks its offers, fixed when it was sent. */
+    public ?bool $requestBlocking = null;
 
     public ?string $pageError = null;
 
@@ -459,6 +471,7 @@ class AppointmentBooking extends Page
 
         $this->pageError = null;
         $this->declineOpenRequest();
+        $blocking = $this->blockingForRequest();
 
         try {
             $payload = $this->payloads()->day(
@@ -489,6 +502,10 @@ class AppointmentBooking extends Page
         $this->offers = $offers;
         $this->appointmentRequestId = data_get($offers, 'appointmentRequestId');
         $this->countdownExpiresAt = now()->addMinutes(self::OFFER_MINUTES)->toIso8601String(); // DO NOT USE ->format(), do not force UTC
+        $this->requestBlocking = $blocking;
+        $this->expired = false;
+        $this->slotMessage = null;
+        $this->booking = null;
         $this->selectedDay = $day;
         $this->screen = 'agenda';
     }
@@ -497,7 +514,178 @@ class AppointmentBooking extends Page
     {
         $this->declineOpenRequest();
         $this->selectedDay = null;
+        $this->slotMessage = null;
         $this->screen = 'month';
+    }
+
+    /** The "Release offers" button: decline the open request and return to the month. */
+    public function releaseOffers(): void
+    {
+        $this->backToMonth();
+    }
+
+    /** Called once by the countdown when the offers run out. */
+    public function markExpired(): void
+    {
+        $this->expired = true;
+    }
+
+    /**
+     * Book one offer of the open request: on a non-blocking request check it first, then accept with the
+     * resolved booking SLA type (and the task's current one as the previous type on a rebooking).
+     */
+    public function book(int $offerId): void
+    {
+        if ($this->expired || $this->screen !== 'agenda' || blank($this->appointmentRequestId)) {
+            return;
+        }
+
+        $offer = $this->validOffer($offerId);
+        if ($offer === null) {
+            return;
+        }
+
+        $this->slotMessage = null;
+        $this->pageError = null;
+        $segment = 'appointment/'.rawurlencode($this->appointmentRequestId);
+        $payloads = $this->payloads();
+
+        if (! ($this->requestBlocking ?? $this->blockingForRequest())) {
+            $check = $this->sendAppointment($segment, $payloads->check($offerId), HttpMethod::POST);
+            if ($check['error'] !== null) {
+                $this->pageError = $check['error'];
+
+                return;
+            }
+
+            $available = data_get($check['data'], 'appointment_summary.isSlotAvailable');
+            if ($available === false) {
+                $this->slotMessage = 'That slot was taken, pick another';
+
+                return;
+            }
+            if ($available !== true) {
+                $this->pageError = 'The PSO services API did not say whether the slot is still free.';
+
+                return;
+            }
+        }
+
+        $accept = $this->sendAppointment($segment, $payloads->accept($offerId, $this->record->booking_sla_type_id), HttpMethod::PATCH);
+        if ($accept['error'] !== null) {
+            $this->pageError = $accept['error'];
+
+            return;
+        }
+
+        $summary = data_get($accept['data'], 'acceptedAppointmentSummary');
+        if (! is_array($summary)) {
+            $this->pageError = 'The PSO services API answered without the accepted appointment.';
+
+            return;
+        }
+
+        $this->record->forceFill([
+            'appointment_request_id' => data_get($summary, 'appointmentRequestId') ?: $this->appointmentRequestId,
+            'booking_sla_type_id' => data_get($summary, 'bookingSlaTypeId') ?: $this->slaTypes()->bookingSlaTypeId,
+            'booked_at' => now(),
+            // The datetime cast keeps the wall time and reads it in the app zone, so hand it the instant in that zone.
+            'appt_window_start' => self::utcMoment(data_get($offer, 'windowStartDatetime'))?->setTimezone(config('app.timezone')),
+            'appt_window_finish' => self::utcMoment(data_get($offer, 'windowEndDatetime'))?->setTimezone(config('app.timezone')),
+        ])->save();
+
+        // The request is accepted: nothing left to release.
+        $this->appointmentRequestId = null;
+        $this->countdownExpiresAt = null;
+        $this->booking = $summary;
+        $this->screen = 'booked';
+    }
+
+    /** The open request's valid offer with this id, if any. */
+    private function validOffer(int $offerId): ?array
+    {
+        foreach ((array) data_get($this->offers, 'validOffers', []) as $offer) {
+            if ((int) data_get($offer, 'id') === $offerId) {
+                return (array) $offer;
+            }
+        }
+
+        return null;
+    }
+
+    /** An offer time as UTC; times with an offset keep it, offsetless times are UTC. */
+    private static function utcMoment(mixed $value): ?CarbonImmutable
+    {
+        if (! is_string($value) || $value === '') {
+            return null;
+        }
+
+        try {
+            return CarbonImmutable::parse($value, 'UTC')->utc();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * The agenda rows for the current mode, grouped by windowDayEnglish then period of day. Call centre: the
+     * valid offers. Detail: allOfferValues merged with validOffers by id, 'valid' false for any id not valid.
+     *
+     * @return array<string, array<string, list<array>>>
+     */
+    public function agendaGroups(): array
+    {
+        $valid = [];
+        foreach ((array) data_get($this->offers, 'validOffers', []) as $offer) {
+            $valid[(string) data_get($offer, 'id')] = (array) $offer;
+        }
+
+        $rows = [];
+        if ($this->mode === 'detail') {
+            foreach ((array) data_get($this->offers, 'allOfferValues', []) as $offer) {
+                $id = (string) data_get($offer, 'id');
+                $rows[$id] = isset($valid[$id]) ? [...(array) $offer, ...$valid[$id], 'valid' => true] : [...(array) $offer, 'valid' => false];
+            }
+        }
+        foreach ($valid as $id => $offer) {
+            $rows[$id] ??= [...$offer, 'valid' => true];
+        }
+
+        $bestId = data_get($this->offers, 'bestOffer.id');
+        $periods = array_fill_keys(['Morning', 'Midday', 'Afternoon', 'Evening'], []);
+        $groups = [];
+        foreach ($rows as $row) {
+            $row['best'] = (bool) data_get($row, 'isBestOffer') || ($row['valid'] && $bestId !== null && (string) $bestId === (string) data_get($row, 'id'));
+            $day = (string) (data_get($row, 'windowDayEnglish') ?: 'Unknown day');
+            $groups[$day] ??= $periods;
+            $groups[$day][self::periodOfDay(data_get($row, 'windowStartTime'))][] = $row;
+        }
+
+        return array_map(static fn (array $byPeriod): array => array_filter($byPeriod), $groups);
+    }
+
+    /** Morning before 12, Midday 12 to 15, Afternoon 15 to 18, Evening after, from "8:00 AM" style times. */
+    public static function periodOfDay(mixed $startTime): string
+    {
+        $time = is_string($startTime) ? date_parse($startTime) : false;
+        $hour = is_array($time) && is_int($time['hour']) ? $time['hour'] : 0;
+
+        return match (true) {
+            $hour < 12 => 'Morning',
+            $hour < 15 => 'Midday',
+            $hour < 18 => 'Afternoon',
+            default => 'Evening',
+        };
+    }
+
+    /** The slot length of the open request, from its first offer's window, e.g. "4 hours". */
+    public function slotLength(): ?string
+    {
+        $offer = data_get($this->offers, 'allOfferValues.0') ?? data_get($this->offers, 'validOffers.0');
+        $start = self::utcMoment(data_get($offer, 'windowStartDatetime'));
+        $end = self::utcMoment(data_get($offer, 'windowEndDatetime'));
+
+        return $start === null || $end === null || $end->lte($start) ? null : $this->formatDuration((int) $start->diffInMinutes($end));
     }
 
     /** Release the open request's offers (DELETE) so they do not wait to time out. */
@@ -513,6 +701,7 @@ class AppointmentBooking extends Page
         $this->appointmentRequestId = null;
         $this->offers = null;
         $this->countdownExpiresAt = null;
+        $this->expired = false;
     }
 
     private function payloads(): BookingPayloads
