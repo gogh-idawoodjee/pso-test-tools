@@ -2,6 +2,7 @@
 
 use App\Enums\ReferenceEntityType;
 use App\Enums\ReferenceValueOrigin;
+use App\Filament\Resources\AppointmentTemplateResource\Pages\ListAppointmentTemplates;
 use App\Filament\Resources\RegionResource\Pages\ListRegions;
 use App\Filament\Resources\SlaTypeResource\Pages\ListSlaTypes;
 use App\Filament\Resources\TaskTypeResource\Pages\ListTaskTypes;
@@ -102,4 +103,66 @@ it('marks a manual row edited at creation when the label is not just the pso id'
 
     expect(DatasetReferenceValue::where('pso_id', 'R1')->first()->is_locally_modified)->toBeTrue()
         ->and(DatasetReferenceValue::where('pso_id', 'R2')->first()->is_locally_modified)->toBeFalse();
+});
+
+it('sets a task type booking SLA type without marking the row edited', function () {
+    DatasetReferenceValue::factory()->for($this->dataset)->create(['entity_type' => ReferenceEntityType::SlaType, 'pso_id' => 'Appointment', 'label' => 'Appointment SLA']);
+    $row = DatasetReferenceValue::factory()->for($this->dataset)->taskType(5, 1500, 90)->create(['pso_id' => 'INSTALL', 'label' => 'Install']);
+
+    Livewire::test(ListTaskTypes::class)
+        ->callAction(TestAction::make('edit')->table($row), data: ['attributes' => ['booking_sla_type_id' => 'Appointment']])
+        ->assertHasNoActionErrors();
+
+    $row->refresh();
+    expect($row->attribute('booking_sla_type_id'))->toBe('Appointment')
+        ->and($row->attribute('priority'))->toEqual(5)
+        ->and($row->is_locally_modified)->toBeFalse();
+});
+
+it('saves a template blocking edit as an override without freezing the row, and Reset to PSO clears it', function () {
+    $row = DatasetReferenceValue::factory()->for($this->dataset)->create([
+        'entity_type' => ReferenceEntityType::AppointmentTemplate, 'pso_id' => 'STANDARD', 'label' => 'Std', 'attributes' => ['blocking' => true],
+    ]);
+
+    // An untouched form stores no override.
+    Livewire::test(ListAppointmentTemplates::class)
+        ->callAction(TestAction::make('edit')->table($row), data: [])
+        ->assertHasNoActionErrors();
+    expect($row->refresh()->attribute('blocking_override'))->toBeNull()
+        ->and($row->attribute('blocking'))->toBeTrue()
+        ->and($row->is_locally_modified)->toBeFalse();
+
+    Livewire::test(ListAppointmentTemplates::class)
+        ->callAction(TestAction::make('edit')->table($row), data: ['blocking_override' => false])
+        ->assertHasNoActionErrors();
+    expect($row->refresh()->attribute('blocking_override'))->toBeFalse()
+        ->and($row->attribute('blocking'))->toBeTrue()
+        ->and($row->blockingDefault())->toBeFalse()
+        ->and($row->is_locally_modified)->toBeFalse();
+
+    Livewire::test(ListAppointmentTemplates::class)
+        ->assertTableColumnStateSet('blocking', 'No (manual)', $row)
+        ->callAction(TestAction::make('resetToPso')->table($row));
+    expect($row->refresh()->attribute('blocking_override'))->toBeNull()
+        ->and($row->blockingDefault())->toBeTrue();
+});
+
+it('stores an explicit blocking true on a PSO-null template as an override', function () {
+    $row = DatasetReferenceValue::factory()->for($this->dataset)->create([
+        'entity_type' => ReferenceEntityType::AppointmentTemplate, 'pso_id' => 'STANDARD', 'label' => 'Std', 'attributes' => ['blocking' => null],
+    ]);
+
+    Livewire::test(ListAppointmentTemplates::class)
+        ->callAction(TestAction::make('edit')->table($row), data: ['blocking_override' => true])
+        ->assertHasNoActionErrors();
+
+    expect($row->refresh()->attribute('blocking_override'))->toBeTrue();
+});
+
+it('creates a manual template that blocks by default', function () {
+    Livewire::test(ListAppointmentTemplates::class)
+        ->callAction(TestAction::make('create'), data: ['dataset_id' => $this->dataset->id, 'pso_id' => 'STANDARD'])
+        ->assertHasNoActionErrors();
+
+    expect(DatasetReferenceValue::first()->blockingDefault())->toBeTrue();
 });

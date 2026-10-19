@@ -18,8 +18,10 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * One identifier PSO will accept in a request (a region, skill, task type,
  * slot usage rule, appointment template or SLA type), scoped to a dataset.
  * Rows come from a PSO sync (origin pso) or are typed in (origin manual);
- * either kind is editable. A user edit on a pso row sets is_locally_modified
- * so the next sync leaves its fields alone.
+ * either kind is editable. A user edit of the PSO ID, the label or a
+ * PSO-sourced attribute sets is_locally_modified so the next sync leaves the
+ * row alone; local-only attributes (ReferenceEntityType::localAttributeKeys)
+ * can be edited without that, and a sync keeps them.
  *
  * @mixin Builder
  */
@@ -51,7 +53,7 @@ class DatasetReferenceValue extends Model
         // has: a manual row that PSO later also returns keeps the typed label.
         // The sync itself writes with saveQuietly(), so this never fires for it.
         static::updating(static function (self $row): void {
-            if ($row->isDirty(['pso_id', 'label', 'attributes'])) {
+            if ($row->isDirty(['pso_id', 'label']) || $row->psoAttributesChanged()) {
                 $row->is_locally_modified = true;
             }
         });
@@ -123,7 +125,72 @@ class DatasetReferenceValue extends Model
         ]);
     }
 
-    /** Read one field of the attributes JSON (priority, base_value, base_duration). */
+    /**
+     * Appointment templates: whether a booking blocks the slot. A manual
+     * override wins over PSO's value; PSO's default when both are unset is true.
+     */
+    public function blockingDefault(): bool
+    {
+        return (bool) ($this->attribute('blocking_override') ?? $this->attribute('blocking') ?? true);
+    }
+
+    /**
+     * Appointment templates: store a manual blocking value. Kept only when it
+     * differs from PSO's own value, so saving an untouched form stores nothing;
+     * an explicit true on a template PSO left unset is kept. Never freezes the row.
+     */
+    public function setBlockingOverride(?bool $value): void
+    {
+        $attributes = $this->attributeValues();
+        unset($attributes['blocking_override']);
+        if ($value !== null && $value !== $this->attribute('blocking')) {
+            $attributes['blocking_override'] = $value;
+        }
+
+        if ($attributes !== $this->attributeValues()) {
+            $this->update(['attributes' => $attributes]);
+        }
+    }
+
+    /** Appointment templates: true when the blocking flag comes from a manual override. */
+    public function hasBlockingOverride(): bool
+    {
+        return $this->attribute('blocking_override') !== null;
+    }
+
+    /** True when an edit changed a PSO-sourced attribute key (local-only keys are ignored). */
+    private function psoAttributesChanged(): bool
+    {
+        if (! $this->isDirty('attributes')) {
+            return false;
+        }
+
+        $before = (array) ($this->getOriginal('attributes') ?? []);
+        $after = $this->attributeValues();
+
+        foreach ($this->entity_type?->attributeKeys() ?? [] as $key) {
+            if (! self::sameAttributeValue($before[$key] ?? null, $after[$key] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Form state can carry "5" where the row holds 5, so compare numbers as numbers. */
+    private static function sameAttributeValue(mixed $before, mixed $after): bool
+    {
+        $before = $before === '' ? null : $before;
+        $after = $after === '' ? null : $after;
+
+        if (is_numeric($before) && is_numeric($after)) {
+            return (float) $before === (float) $after;
+        }
+
+        return $before === $after;
+    }
+
+    /** Read one field of the attributes JSON (priority, base_value, base_duration, blocking, blocking_override, booking_sla_type_id). */
     public function attribute(string $key): mixed
     {
         return data_get($this->attributeValues(), $key);

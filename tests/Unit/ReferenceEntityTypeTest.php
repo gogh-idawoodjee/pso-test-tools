@@ -16,12 +16,24 @@ it('maps every entity type onto its PSO wire table', function () {
         ]);
 });
 
-it('only task type carries attributes', function () {
-    expect(ReferenceEntityType::TaskType->attributeKeys())->toBe(['priority', 'base_value', 'base_duration']);
+it('lists the PSO-sourced attribute keys per type', function () {
+    expect(ReferenceEntityType::TaskType->attributeKeys())->toBe(['priority', 'base_value', 'base_duration'])
+        ->and(ReferenceEntityType::AppointmentTemplate->attributeKeys())->toBe(['blocking']);
 
     foreach (ReferenceEntityType::cases() as $type) {
-        if ($type !== ReferenceEntityType::TaskType) {
+        if (! in_array($type, [ReferenceEntityType::TaskType, ReferenceEntityType::AppointmentTemplate], true)) {
             expect($type->attributeKeys())->toBe([]);
+        }
+    }
+});
+
+it('lists the local-only attribute keys per type', function () {
+    expect(ReferenceEntityType::TaskType->localAttributeKeys())->toBe(['booking_sla_type_id'])
+        ->and(ReferenceEntityType::AppointmentTemplate->localAttributeKeys())->toBe(['blocking_override']);
+
+    foreach (ReferenceEntityType::cases() as $type) {
+        if (! in_array($type, [ReferenceEntityType::TaskType, ReferenceEntityType::AppointmentTemplate], true)) {
+            expect($type->localAttributeKeys())->toBe([]);
         }
     }
 });

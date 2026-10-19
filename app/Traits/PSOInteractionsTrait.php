@@ -92,6 +92,7 @@ trait PSOInteractionsTrait
         ?HttpMethod $method = null,
         bool $isNonStandardResponse = false,
         ?array $query = null,
+        ?int $timeout = null,
     ): string {
         $headers ??= [];
         $responseKey = 'data.payloadToPso';
@@ -108,7 +109,7 @@ trait PSOInteractionsTrait
 
         $version = config('psott.pso-services-api-version');
         $url = 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').$api_segment;
-        $timeout = config('psott.defaults.timeout', 10);
+        $timeout ??= config('psott.defaults.timeout', 10);
 
         $request = Http::contentType('application/json')
             ->accept('application/json')

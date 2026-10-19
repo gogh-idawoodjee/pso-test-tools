@@ -4,10 +4,10 @@ namespace App\Models;
 
 use App\Enums\ReferenceEntityType;
 use App\Enums\TaskStatus;
-use App\Rules\ReferenceValueInDataset;
-use Filament\Schemas\Components\Utilities\Get;
 use App\Models\Scopes\DatasetOwnedModel;
+use App\Rules\ReferenceValueInDataset;
 use Filament\Forms;
+use Filament\Schemas\Components\Utilities\Get;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -32,6 +32,9 @@ class Task extends Model
         return [
             'appt_window_finish' => 'datetime',
             'appt_window_start' => 'datetime',
+            'regions' => 'array',
+            'skills' => 'array',
+            'booked_at' => 'datetime',
             'status' => TaskStatus::class,
         ];
     }
@@ -59,6 +62,15 @@ class Task extends Model
                 $task->base_value ??= $taskType->attribute('base_value');
             }
 
+            if (empty($task->regions) && $task->customer_id) {
+                $regionId = Customer::withoutGlobalScopes()->whereKey($task->customer_id)->value('region_id');
+                $regionPsoId = $regionId ? DatasetReferenceValue::withoutGlobalScopes()->whereKey($regionId)->value('pso_id') : null;
+
+                if ($regionPsoId) {
+                    $task->regions = [$regionPsoId];
+                }
+            }
+
             if (empty($task->friendly_id)) {
                 $prefix = strtoupper(substr($taskType?->label ?: 'X', 0, 1));
                 do {
@@ -72,6 +84,11 @@ class Task extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function isBooked(): bool
+    {
+        return filled($this->appointment_request_id);
     }
 
     public function dataset(): BelongsTo
@@ -103,6 +120,17 @@ class Task extends Model
             Forms\Components\Select::make('status')->required()
                 ->enum(TaskStatus::class)
                 ->options(TaskStatus::class),
+            Forms\Components\Select::make('regions')
+                ->label('Regions')
+                ->multiple()
+                ->searchable()
+                ->options(static fn (Get $get, ?Task $record): array => DatasetReferenceValue::psoIdOptionsFor($resolveDataset($get, $record), ReferenceEntityType::Region))
+                ->helperText('Blank uses the customer region.'),
+            Forms\Components\Select::make('skills')
+                ->label('Skills')
+                ->multiple()
+                ->searchable()
+                ->options(static fn (Get $get, ?Task $record): array => DatasetReferenceValue::psoIdOptionsFor($resolveDataset($get, $record), ReferenceEntityType::Skill)),
             Forms\Components\TextInput::make('duration')->label('Duration (minutes)')->numeric()->helperText('Blank uses the task type base duration.'),
         ];
     }

@@ -14,14 +14,15 @@ use Illuminate\Support\Str;
  * Applies one sync result to a dataset's reference values.
  *
  * Rules (spec 5.2): unknown id -> create as pso; known and not locally
- * modified -> overwrite label/attributes; known and locally modified ->
- * bump last_seen_at only; absent from the response -> untouched, counted
- * as missing. Nothing is ever deleted.
+ * modified -> overwrite label and the PSO attribute keys, keeping the
+ * type's local-only keys; known and locally modified -> bump last_seen_at
+ * only; absent from the response -> untouched, counted as missing.
+ * Nothing is ever deleted.
  */
 class ReferenceValuesUpserter
 {
     /**
-     * @param  array<string, array<int, array<string, mixed>>>  $tables keyed by wire entity name
+     * @param  array<string, array<int, array<string, mixed>>>  $tables  keyed by wire entity name
      * @return array<string, array{created: int, updated: int, kept: int, missing: int}> keyed by ReferenceEntityType value
      */
     public function apply(Dataset $dataset, array $tables, CarbonImmutable $now): array
@@ -88,7 +89,7 @@ class ReferenceValuesUpserter
             $current->forceFill([
                 'origin' => ReferenceValueOrigin::Pso,
                 'label' => $label,
-                'attributes' => $attributes,
+                'attributes' => $this->withLocalAttributes($type, $attributes, $current),
                 'last_seen_at' => $now,
             ])->saveQuietly();
             $counts['updated']++;
@@ -101,6 +102,14 @@ class ReferenceValuesUpserter
             ->count();
 
         return $counts;
+    }
+
+    /** PSO keys from the sync, local-only keys from the current row. */
+    private function withLocalAttributes(ReferenceEntityType $type, ?array $attributes, DatasetReferenceValue $current): ?array
+    {
+        $local = array_intersect_key((array) ($current->getAttribute('attributes') ?? []), array_flip($type->localAttributeKeys()));
+
+        return $local === [] ? $attributes : array_merge($attributes ?? [], $local);
     }
 
     private function attributesFor(ReferenceEntityType $type, array $row): ?array
@@ -116,6 +125,7 @@ class ReferenceValuesUpserter
             $attributes[$key] = match ($key) {
                 'priority', 'base_duration' => is_numeric($value) ? (int) $value : null,
                 'base_value' => is_numeric($value) ? (float) $value : null,
+                'blocking' => is_bool($value) ? $value : null,
                 default => $value,
             };
         }
