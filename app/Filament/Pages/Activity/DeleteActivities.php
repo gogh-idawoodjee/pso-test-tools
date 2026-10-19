@@ -53,7 +53,7 @@ class DeleteActivities extends PSOActivityBasePage
                             ->action(function () {
                                 $this->deleteActivities();
                             }),
-                        ]),
+                        ])->columnSpanFull(),
                     ]),
 
             ])->statePath('activity_data');

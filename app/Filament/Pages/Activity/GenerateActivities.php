@@ -116,7 +116,7 @@ class GenerateActivities extends PSOActivityBasePage
                                     ->numeric()
                                     ->live(),
 
-                                Forms\Components\Select::make('window_size')
+                                Select::make('window_size')
                                     ->label('Appointment Window Size')
                                     ->prefixIcon('heroicon-o-window') // Window/time slot
                                     ->options([0 => 'All Day', 3 => '3 Hour', 4 => '4 Hour'])
@@ -171,7 +171,7 @@ class GenerateActivities extends PSOActivityBasePage
                                 $this->createActivity();
 
                             }),
-                        ]),
+                        ])->columnSpanFull(),
 
                     ])->columns(1),
 

@@ -86,7 +86,7 @@ class UpdateActivityStatus extends PSOActivityBasePage
                                 $this->updateTaskStatus();
 
                             }),
-                        ])->columnSpan(2),
+                        ])->columnSpanFull(),
 
                     ])
                     ->columns(),

@@ -85,7 +85,7 @@ class GenericDelete extends Page
                             ->action(function () {
                                 $this->delete_object();
                             })->visible(fn () => filled($this->selectedPSOObject)),
-                        ]),
+                        ])->columnSpanFull(),
                     ]),
 
             ])

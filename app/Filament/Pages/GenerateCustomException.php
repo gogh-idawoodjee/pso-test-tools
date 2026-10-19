@@ -92,7 +92,7 @@ class GenerateCustomException extends Page
                             ->action(function () {
                                 $this->generate_exception();
                             })->disabled(static fn (Get $get) => ! $get('object_type_id')),
-                        ])->columnSpan(2),
+                        ])->columnSpanFull(),
                     ])
                     ->columns(),
             ])

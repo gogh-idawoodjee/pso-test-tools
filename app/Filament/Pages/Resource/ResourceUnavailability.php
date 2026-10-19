@@ -71,7 +71,7 @@ class ResourceUnavailability extends PSOResourceBasePage
                                 $this->generateUnavailability();
 
                             })->slideOver(),
-                        ]),
+                        ])->columnSpanFull(),
                     ])
                     ->columns(),
             ])

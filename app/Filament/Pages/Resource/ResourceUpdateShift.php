@@ -81,7 +81,7 @@ class ResourceUpdateShift extends PSOResourceBasePage
                                 $this->updateShift();
 
                             }),
-                        ]),
+                        ])->columnSpanFull(),
                     ])
                     ->columns(3),
             ])

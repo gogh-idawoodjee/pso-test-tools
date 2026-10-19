@@ -73,7 +73,7 @@ class ResourceUpdateUnavailability extends PSOResourceBasePage
                             ->action(function () {
                                 $this->updateUnavailability();
                             }),
-                        ])->columnSpan(2),
+                        ])->columnSpanFull(),
                     ])
                     ->columns(),
             ])
