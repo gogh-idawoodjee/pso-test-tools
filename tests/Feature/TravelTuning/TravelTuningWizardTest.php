@@ -47,7 +47,7 @@ it('lists the dataset\'s finished plan travels runs and says which need Google',
     planTravelsRun($this->dataset, ['summary' => ['leg_count' => 9, 'review_count' => 1, 'first_date' => '2026-09-01', 'last_date' => '2026-09-02', 'google' => null]]);
     planTravelsRun(Dataset::factory()->for($this->environment)->create(), ['summary' => ['leg_count' => 1, 'review_count' => 0, 'first_date' => '2026-08-01', 'last_date' => '2026-08-01', 'google' => []]]);
 
-    Livewire::test(TravelTuningEntry::class)
+    Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'dataset'])
         ->assertSee('5 Oct 2026')
         ->assertSee('12 Oct 2026 22:35')
         ->assertSee('1 Sep 2026 to 2 Sep 2026')
@@ -57,7 +57,7 @@ it('lists the dataset\'s finished plan travels runs and says which need Google',
 });
 
 it('prefills the options from the dataset settings and the script defaults', function () {
-    Livewire::test(TravelTuningEntry::class)->assertFormSet([
+    Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'dataset'])->assertFormSet([
         'options.title' => 'Travel Tuning Report', 'options.client' => 'SaskTel', 'options.dataset' => 'North', 'options.region_label' => 'Territory',
         'options.tiles' => 'esri-gray', 'options.review_minutes' => 20, 'options.small_minutes' => 5, 'options.long_leg_km' => 300,
         'options.model_tol_min' => 1, 'options.model_tol_pct' => 5,
@@ -74,7 +74,7 @@ it('prefills the region label with Region when the dataset sets none and for Unf
 it('starts a run with the runs in order, the default labels and the chosen SYS', function () {
     Queue::fake();
 
-    Livewire::test(TravelTuningEntry::class)
+    Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'dataset'])
         ->set('data.runs', tuningRuns([['run_id' => $this->base->id], ['run_id' => $this->final->id, 'label' => 'Grid v6', 'sys_file_id' => $this->sys->id]]))
         ->call('start')
         ->assertHasNoFormErrors();
@@ -94,7 +94,7 @@ it('starts a run with the runs in order, the default labels and the chosen SYS',
 it('clears a SYS export with no Polygon table as soon as it is picked', function () {
     $empty = ExportFile::factory()->for($this->environment, 'scope')->sys()->create(['summary' => ['polygon_count' => 0]]);
 
-    Livewire::test(TravelTuningEntry::class)
+    Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'dataset'])
         ->set('data.runs', tuningRuns([['run_id' => $this->base->id], ['run_id' => $this->final->id]]))
         ->set('data.runs.row1.sys_file_id', $empty->id)
         ->assertNotified('This SYS export has no Polygon table')
@@ -104,7 +104,7 @@ it('clears a SYS export with no Polygon table as soon as it is picked', function
 it('refuses the same run twice and sends the user back to Inputs', function () {
     Queue::fake();
 
-    Livewire::test(TravelTuningEntry::class)
+    Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'dataset'])
         ->set('data.runs', tuningRuns([['run_id' => $this->base->id], ['run_id' => $this->base->id]]))
         ->call('start')
         ->assertSet('runId', null)
@@ -114,7 +114,7 @@ it('refuses the same run twice and sends the user back to Inputs', function () {
 });
 
 it('asks for at least two runs', function () {
-    Livewire::test(TravelTuningEntry::class)
+    Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'dataset'])
         ->set('data.runs', tuningRuns([['run_id' => $this->base->id]]))
         ->call('start')
         ->assertHasFormErrors(['runs']);

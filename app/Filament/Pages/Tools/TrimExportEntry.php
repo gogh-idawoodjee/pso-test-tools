@@ -53,7 +53,23 @@ class TrimExportEntry extends ToolWizardPage
     {
         parent::mount();
 
-        // Open on the first kind the user has a file of.
+        $this->pickInputKind();
+        // The form was built by fill() before the scope and kind were set, so its Inputs fields are stale: build it again.
+        $this->cacheSchema('form');
+    }
+
+    /** Switching between Unfiled and A dataset changes which files exist, so the kind follows the new scope. */
+    #[Override]
+    public function resetInputs(): void
+    {
+        parent::resetInputs();
+
+        $this->pickInputKind();
+    }
+
+    /** Open on the first kind the scope has a file of, LOAD when it has none. */
+    private function pickInputKind(): void
+    {
         $files = $this->data['files'] ?? [];
         $this->data['input_kind'] = ExportKind::Load->value;
         foreach (self::KINDS as $kind) {
@@ -63,8 +79,6 @@ class TrimExportEntry extends ToolWizardPage
                 break;
             }
         }
-        // The form was built by fill() before the scope and kind were set, so its Inputs fields are stale: build it again.
-        $this->cacheSchema('form');
     }
 
     #[Override]

@@ -393,6 +393,19 @@ pre {
         var(--pso-shadow-card);
 }
 
+/* Wizard header: the steps share the width instead of scrolling sideways, so the last step's text is never clipped. */
+@media (min-width: 768px) {
+    .fi-sc-wizard-header {
+        overflow-x: visible;
+        grid-auto-columns: minmax(0, 1fr);
+    }
+
+    .fi-sc-wizard-header-step-text {
+        width: auto;
+        max-width: none;
+    }
+}
+
 /* A card inside a card is a nested panel. */
 .fi-section .fi-section:not(.fi-section-not-contained):not(.fi-aside),
 .fi-sc-tabs.fi-contained .fi-section:not(.fi-section-not-contained):not(.fi-aside),

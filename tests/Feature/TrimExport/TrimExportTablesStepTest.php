@@ -56,7 +56,7 @@ it('opens on the kind of export the user has', function () {
     $dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->create())->create();
     ExportFile::factory()->for($dataset, 'scope')->create(['kind' => ExportKind::Plan]);
 
-    Livewire::test(TrimExportEntry::class)->assertFormSet(['where' => 'dataset', 'input_kind' => 'plan']);
+    Livewire::test(TrimExportEntry::class)->fillForm(['where' => 'dataset'])->assertFormSet(['where' => 'dataset', 'input_kind' => 'plan']);
 });
 
 it('sends only the chosen kind even when a LOAD, plan and End of day are all preselected', function () {

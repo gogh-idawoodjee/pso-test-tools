@@ -27,16 +27,19 @@ afterEach(function () {
     FakeTool::$optionFields = [];
 });
 
-it('offers A dataset first, then Unfiled, and opens on A dataset with the environment and dataset showing', function () {
+it('offers Unfiled first, then A dataset, and opens on Unfiled with the remembered environment and dataset one click away', function () {
     Livewire::test(LoadAuditEntry::class)
         ->assertFormFieldExists('where')
-        ->assertFormSet(['where' => 'dataset', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id])
+        ->assertFormSet(['where' => 'unfiled', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id])
         ->assertSee('Where the exports live.')
         ->assertSee('Just the file. Nothing is sent to PSO and the run is listed under My files.')
         ->assertSee('The exports belong to an environment and dataset you have set up.')
+        ->assertFormFieldHidden('environment_id')
+        ->assertFormFieldHidden('dataset_id')
+        ->assertSeeInOrder(['Just the file. Nothing is sent to PSO', 'The exports belong to an environment and dataset you have set up.'])
+        ->fillForm(['where' => 'dataset'])
         ->assertFormFieldVisible('environment_id')
-        ->assertFormFieldVisible('dataset_id')
-        ->assertSeeInOrder(['The exports belong to an environment and dataset you have set up.', 'Just the file. Nothing is sent to PSO']);
+        ->assertFormFieldVisible('dataset_id');
 });
 
 it('hides the environment and dataset once Unfiled is chosen', function () {
@@ -46,30 +49,29 @@ it('hides the environment and dataset once Unfiled is chosen', function () {
         ->assertFormFieldHidden('dataset_id');
 });
 
-it('shows the environment and dataset on A dataset, and swaps the files when Unfiled is chosen', function () {
+it('opens on the unfiled files, and swaps to the dataset files when A dataset is chosen', function () {
     $unfiledLoad = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load]);
     $datasetLoad = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
     Livewire::test(LoadAuditEntry::class)
+        ->assertFormSet(['files.load' => $unfiledLoad->id])
+        ->assertFormFieldHidden('environment_id')
+        ->fillForm(['where' => 'dataset'])
         ->assertFormSet(['files.load' => $datasetLoad->id])
         ->assertFormFieldVisible('environment_id')
         ->assertFormFieldVisible('dataset_id')
         ->fillForm(['where' => 'unfiled'])
-        ->assertFormSet(['files.load' => $unfiledLoad->id])
-        ->fillForm(['where' => 'dataset'])
-        ->assertFormSet(['files.load' => $datasetLoad->id]);
+        ->assertFormSet(['files.load' => $unfiledLoad->id]);
 });
 
-it('opens on A dataset whatever the last run chose, keeping the remembered environment and dataset', function () {
+it('opens on Unfiled whatever the last run chose, keeping the remembered environment and dataset', function () {
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
     Livewire::test(LoadAuditEntry::class)
-        ->assertFormSet(['where' => 'dataset', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id])
-        ->assertFormFieldVisible('dataset_id');
+        ->assertFormSet(['where' => 'unfiled', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
 
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id, unfiled: true);
     Livewire::test(LoadAuditEntry::class)
-        ->assertFormSet(['where' => 'dataset', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id])
-        ->assertFormFieldVisible('dataset_id');
+        ->assertFormSet(['where' => 'unfiled', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
 });
 
 it('lists only the user own unfiled files on Inputs, SYS included, and uploads there as unfiled', function () {
@@ -79,8 +81,7 @@ it('lists only the user own unfiled files on Inputs, SYS included, and uploads t
     ExportFile::factory()->for(User::factory()->create(), 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'their-load.xml']);
 
     $html = Livewire::test(LoadAuditEntry::class)
-        ->fillForm(['where' => 'unfiled'])
-        ->assertFormSet(['files.load' => $mine->id, 'files.sys' => $sys->id])
+        ->assertFormSet(['where' => 'unfiled', 'files.load' => $mine->id, 'files.sys' => $sys->id])
         ->assertSee('prod-load.xml')
         ->assertDontSee('north-load.xml')
         ->assertDontSee('their-load.xml')
@@ -153,7 +154,7 @@ it('shows the time zone field on its own Options step when the tool has no optio
         ->assertFormFieldVisible('options.time_zone');
 
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
-    Livewire::test(LoadAuditEntry::class)->assertFormFieldHidden('options.time_zone');
+    Livewire::test(LoadAuditEntry::class)->fillForm(['where' => 'dataset'])->assertFormFieldHidden('options.time_zone');
 
     Livewire::test(RegionAvailabilityEntry::class)
         ->assertFormFieldDoesNotExist('options.time_zone')
@@ -198,6 +199,7 @@ it('keeps the time zone out of a dataset run', function () {
     ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
     Livewire::test(LoadAuditEntry::class)
+        ->fillForm(['where' => 'dataset'])
         ->set('data.options.time_zone', 'America/Regina')
         ->call('start')
         ->assertHasNoFormErrors();

@@ -23,8 +23,15 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
+use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Tests\Support\FakeTool;
+
+/** The wizard opens on Unfiled; these tests exercise the dataset path, so they pick A dataset first. */
+function openOnDataset(): Testable
+{
+    return Livewire::test(LoadAuditEntry::class)->fillForm(['where' => 'dataset']);
+}
 
 beforeEach(function () {
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
@@ -47,7 +54,7 @@ it('shows the tool question and only the user own environments and datasets', fu
     $otherEnvironment = Environment::factory()->create(['name' => 'Someone else PROD']);
     Dataset::factory()->for($otherEnvironment)->create(['name' => 'THEIRS']);
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertOk()
         ->assertSee(ToolId::LoadAudit->question())
         ->assertFormFieldExists('environment_id')
@@ -60,7 +67,7 @@ it('shows the tool question and only the user own environments and datasets', fu
 it('pre-fills the only environment and dataset when nothing was remembered, on A dataset', function () {
     $this->user->forceFill(['last_tool_context' => null])->save();
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertFormSet(['where' => 'dataset', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
 });
 
@@ -68,7 +75,7 @@ it('pre-fills the remembered environment and dataset', function () {
     $second = Dataset::factory()->for($this->environment)->create(['name' => 'SOUTH']);
     $this->user->rememberToolContext($this->environment->id, $second->id);
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertFormSet(['environment_id' => $this->environment->id, 'dataset_id' => $second->id]);
 });
 
@@ -77,7 +84,7 @@ it('clears the dataset when the environment changes', function () {
     // With two environments nothing is pre-filled unless remembered.
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertFormSet(['dataset_id' => $this->dataset->id])
         ->fillForm(['environment_id' => $otherEnvironment->id])
         ->assertFormSet(['dataset_id' => null]);
@@ -95,7 +102,7 @@ it('has no dataset select for an environment-scoped tool', function () {
 });
 
 it('creates an environment inline and selects it', function () {
-    $page = Livewire::test(LoadAuditEntry::class)
+    $page = openOnDataset()
         ->callFormComponentAction('environment_id', 'createOption', data: [
             'name' => 'New env', 'base_url' => 'https://example.test', 'account_id' => 'ACME', 'username' => 'u', 'password' => 'p', 'description' => 'x',
         ])
@@ -108,7 +115,7 @@ it('creates an environment inline and selects it', function () {
 });
 
 it('creates a dataset inline in the chosen environment and selects it', function () {
-    $page = Livewire::test(LoadAuditEntry::class)
+    $page = openOnDataset()
         ->callFormComponentAction('dataset_id', 'createOption', data: ['name' => 'SOUTH', 'rota' => 'R1'])
         ->assertHasNoFormComponentActionErrors();
 
@@ -123,7 +130,7 @@ it('offers the newest usable file per kind, preselected, and names the time left
     $new = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'new-load.zip', 'expires_at' => now()->addHours(11)]);
     ExportFile::factory()->for($this->dataset, 'scope')->purged()->create(['kind' => ExportKind::Load, 'original_filename' => 'gone.zip']);
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertFormSet(['files.load' => $new->id])
         ->assertSee('new-load.zip')
         ->assertSee('old-load.zip')
@@ -132,7 +139,7 @@ it('offers the newest usable file per kind, preselected, and names the time left
 });
 
 it('blocks the run while a required export is missing and names it', function () {
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->call('start')
         ->assertHasFormErrors(['files.load' => 'required'])
         ->assertSee('A LOAD export is required.');
@@ -140,7 +147,7 @@ it('blocks the run while a required export is missing and names it', function ()
 });
 
 it('marks the required kind and shows where a sys export comes from', function () {
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertSee('LOAD export')
         ->assertSee('Required')
         ->assertSee('Optional')
@@ -148,7 +155,7 @@ it('marks the required kind and shows where a sys export comes from', function (
 });
 
 it('picks up a file that finished uploading after the step opened', function () {
-    $component = Livewire::test(LoadAuditEntry::class)->assertFormSet(['files.load' => null]);
+    $component = openOnDataset()->assertFormSet(['files.load' => null]);
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
     $component->dispatch('export-uploaded')->assertFormSet(['files.load' => $load->id]);
@@ -160,7 +167,7 @@ it('swaps the chosen files when the dataset changes', function () {
     $southLoad = ExportFile::factory()->for($south, 'scope')->create(['kind' => ExportKind::Load]);
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertFormSet(['files.load' => $northLoad->id])
         ->fillForm(['dataset_id' => $south->id])
         ->assertFormSet(['files.load' => $southLoad->id]);
@@ -169,7 +176,7 @@ it('swaps the chosen files when the dataset changes', function () {
 it('leaves an optional export the user cleared empty', function () {
     $sys = ExportFile::factory()->for($this->environment, 'scope')->create(['kind' => ExportKind::Sys]);
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertFormSet(['files.sys' => $sys->id])
         ->set('data.files.sys', null)
         ->dispatch('export-uploaded')
@@ -182,7 +189,7 @@ it('switches to a newer file the user just uploaded', function () {
     $this->travelTo(now()->startOfMinute());
     $old = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'created_at' => now()->subHour()]);
 
-    $component = Livewire::test(LoadAuditEntry::class)->assertFormSet(['files.load' => $old->id]);
+    $component = openOnDataset()->assertFormSet(['files.load' => $old->id]);
     $new = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
     $component->dispatch('export-uploaded')->assertFormSet(['files.load' => $new->id]);
@@ -194,7 +201,7 @@ it('has no Options step when a dataset tool has no option fields, and one when i
     Livewire::test(RegionAvailabilityEntry::class)->assertDontSee('Settings for this run');
 
     FakeTool::$optionFields = [TextInput::make('options.ifs_release')->label('IFS Cloud release')];
-    Livewire::test(LoadAuditEntry::class)->assertSee('Settings for this run')->assertFormFieldExists('options.ifs_release');
+    openOnDataset()->assertSee('Settings for this run')->assertFormFieldExists('options.ifs_release');
     FakeTool::$optionFields = [];
 });
 
@@ -203,7 +210,7 @@ it('starts a run with the chosen file and options, remembers the context and sho
     FakeTool::$optionFields = [TextInput::make('options.ifs_release')];
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
-    $component = Livewire::test(LoadAuditEntry::class)
+    $component = openOnDataset()
         ->fillForm(['options' => ['ifs_release' => '25.2.7']])
         ->call('start')
         ->assertHasNoFormErrors();
@@ -222,7 +229,7 @@ it('refuses a scope the user does not own even if the id is forced into the form
     ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
     // Livewire 4.4 renders the ModelNotFoundException as a 404 instead of letting it escape.
-    $component = Livewire::test(LoadAuditEntry::class)->set('data.dataset_id', $theirs->id);
+    $component = openOnDataset()->set('data.dataset_id', $theirs->id);
     $component->assertNotFound();
     expect(ToolRun::count())->toBe(0);
 });
@@ -231,7 +238,7 @@ it('shows the run panel after starting, with open, run again and home links', fu
     Queue::fake();
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'morning-load.zip']);
 
-    $component = Livewire::test(LoadAuditEntry::class)->call('start')->assertHasNoFormErrors();
+    $component = openOnDataset()->call('start')->assertHasNoFormErrors();
     $run = ToolRun::sole();
 
     $component->assertSee('Queued')
@@ -248,7 +255,7 @@ it('run again returns to the form with the same choices', function () {
     Queue::fake();
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
-    Livewire::test(LoadAuditEntry::class)->call('start')
+    openOnDataset()->call('start')
         ->call('runAgain')
         ->assertSet('runId', null)
         ->assertFormSet(['dataset_id' => $this->dataset->id, 'files.load' => $load->id]);
@@ -259,7 +266,7 @@ it('refuses a file that is no longer usable and sends the user back to choose an
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
     // The event below names the same wizard and step keys the page renders.
-    $component = Livewire::test(LoadAuditEntry::class)->assertFormSet(['files.load' => $load->id])
+    $component = openOnDataset()->assertFormSet(['files.load' => $load->id])
         ->assertSeeHtml('x-ref="step-form.inputs::data::wizard-step"')
         ->assertSeeHtml('form.tool-wizard');
     $load->update(['status' => ExportFileStatus::Purged]);
@@ -284,7 +291,7 @@ it('refuses an unregistered tool URL instead of crashing, and opens a registered
 it('shows an option field default instead of a blank', function () {
     FakeTool::$optionFields = [TextInput::make('options.finished_hours')->default('24')];
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertFormSet(['options.finished_hours' => '24', 'environment_id' => $this->environment->id, 'dataset_id' => $this->dataset->id]);
     FakeTool::$optionFields = [];
 });
@@ -293,7 +300,7 @@ it('ignores a file key the tool does not take', function () {
     Queue::fake();
     $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->set('data.files.not-a-kind', 'x')
         ->call('start')
         ->assertHasNoFormErrors();
@@ -304,7 +311,7 @@ it('locks the run id and shows the result view of the run own tool', function ()
     Queue::fake();
     ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
 
-    $component = Livewire::test(LoadAuditEntry::class)->call('start');
+    $component = openOnDataset()->call('start');
     ToolRun::sole()->update(['tool' => ToolId::RegionAvailability]);
 
     expect($component->instance()->resultView())->toBe('filament.tool-runs.region_availability')
@@ -315,11 +322,11 @@ it('locks the run id and shows the result view of the run own tool', function ()
 it('names the configured export lifetime by the upload box', function () {
     config(['exports.ttl_hours' => 6]);
 
-    Livewire::test(LoadAuditEntry::class)->assertSee('Files are kept for 6 hours');
+    openOnDataset()->assertSee('Files are kept for 6 hours');
 });
 
 it('offers one drop target per kind the tool takes, each to its own scope', function () {
-    $html = Livewire::test(LoadAuditEntry::class)
+    $html = openOnDataset()
         ->assertSee('Drop a new LOAD')
         ->assertSee('Drop a new SYS')
         ->assertDontSee('Drop a new Plan')
@@ -334,7 +341,7 @@ it('offers one drop target per kind the tool takes, each to its own scope', func
 });
 
 it('polls every two seconds while an upload to either scope is still being read, and disables that select', function () {
-    $component = Livewire::test(LoadAuditEntry::class)->assertDontSeeHtml('wire:poll.2s="refreshInputs"');
+    $component = openOnDataset()->assertDontSeeHtml('wire:poll.2s="refreshInputs"');
     $file = ExportFile::factory()->for($this->environment, 'scope')->sys()->create(['status' => ExportFileStatus::Summarising]);
 
     $component->call('refreshInputs')
@@ -357,7 +364,7 @@ it('waits for an upload that is still being read instead of starting without it'
     Queue::fake();
     ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
     $sys = ExportFile::factory()->for($this->environment, 'scope')->sys()->create();
-    $component = Livewire::test(LoadAuditEntry::class);
+    $component = openOnDataset();
     ExportFile::factory()->for($this->environment, 'scope')->sys()->create(['status' => ExportFileStatus::Summarising]);
 
     $component->call('start')
@@ -368,13 +375,13 @@ it('waits for an upload that is still being read instead of starting without it'
 });
 
 it('warns under the dataset when it has no time zone, with a link to set it', function () {
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->assertSee('This dataset has no time zone set, so times will show in UTC. Set it under Setup, Datasets.')
         ->assertSeeHtml(e(DatasetResource::getUrl('view', ['record' => $this->dataset, 'action' => 'edit'])));
 
     $this->dataset->update(['settings' => ['time_zone' => 'America/Regina']]);
 
-    Livewire::test(LoadAuditEntry::class)->assertDontSee('This dataset has no time zone set');
+    openOnDataset()->assertDontSee('This dataset has no time zone set');
 });
 
 it('notes on the run panel when the run used UTC because the dataset has no zone', function () {
@@ -396,7 +403,7 @@ it('does not wait for an upload that never finished', function () {
     $stale = ExportFile::factory()->for($this->environment, 'scope')->sys()->uploading()->create();
     ExportFile::query()->whereKey($stale->id)->update(['created_at' => now()->subMinutes(26)]);
 
-    Livewire::test(LoadAuditEntry::class)
+    openOnDataset()
         ->call('refreshInputs')
         ->assertDontSeeHtml('wire:poll.2s="refreshInputs"')
         ->assertFormFieldEnabled('files.sys')

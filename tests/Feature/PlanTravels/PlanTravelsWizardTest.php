@@ -18,7 +18,7 @@ beforeEach(function () {
 it('fills the first date from the chosen plan export and starts with one day and Google off', function () {
     $plan = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'summary' => ['export_date' => '2026-10-05']]);
 
-    Livewire::test(PlanTravelsEntry::class)
+    Livewire::test(PlanTravelsEntry::class)->fillForm(['where' => 'dataset'])
         ->assertFormSet(['files.plan' => $plan->id, 'options.first_date' => '2026-10-05', 'options.days' => 1, 'options.google' => false]);
 });
 
@@ -26,7 +26,7 @@ it('follows a different plan export, but never replaces a date the user typed', 
     $older = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'summary' => ['export_date' => '2026-10-04'], 'created_at' => now()->subHour()]);
     ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'summary' => ['export_date' => '2026-10-05']]);
 
-    $page = Livewire::test(PlanTravelsEntry::class)->assertFormSet(['options.first_date' => '2026-10-05']);
+    $page = Livewire::test(PlanTravelsEntry::class)->fillForm(['where' => 'dataset'])->assertFormSet(['options.first_date' => '2026-10-05']);
     $page->set('data.files.plan', $older->id)->call('rememberChoice', 'plan', $older->id)
         ->assertFormSet(['options.first_date' => '2026-10-04']);
 
@@ -37,13 +37,13 @@ it('follows a different plan export, but never replaces a date the user typed', 
 it('leaves the date blank when the export does not say its day', function () {
     ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'summary' => []]);
 
-    Livewire::test(PlanTravelsEntry::class)->assertFormSet(['options.first_date' => null]);
+    Livewire::test(PlanTravelsEntry::class)->fillForm(['where' => 'dataset'])->assertFormSet(['options.first_date' => null]);
 });
 
 it('shows the Google fields only when the toggle is on, with their defaults', function () {
     ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'summary' => ['export_date' => '2026-10-05']]);
 
-    Livewire::test(PlanTravelsEntry::class)
+    Livewire::test(PlanTravelsEntry::class)->fillForm(['where' => 'dataset'])
         ->assertFormFieldHidden('options.travel_mode')
         ->assertFormFieldHidden('options.review_pct')
         ->fillForm(['options.google' => true])

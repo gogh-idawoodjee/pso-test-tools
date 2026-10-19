@@ -106,8 +106,8 @@ abstract class ToolWizardPage extends Page implements HasForms
         $this->form->fill();
         $this->data = [...$this->data ?? [], 'environment_id' => $environmentId, 'dataset_id' => $datasetId, 'files' => $this->emptyFiles()];
         if (static::tool()->acceptsUnfiled()) {
-            // Always opens on A dataset (Ish, 2026-10-18); Unfiled is one click away.
-            $this->data['where'] = self::WHERE_DATASET;
+            // Opens on Unfiled (Ish, 2026-10-19, reversing 2026-10-18); the remembered environment and dataset are one click away.
+            $this->data['where'] = self::WHERE_UNFILED;
             $this->data['options'] = [...($this->data['options'] ?? []), 'time_zone' => self::rememberedTimeZone($remembered)];
         }
         $this->refreshInputs();
@@ -188,7 +188,7 @@ abstract class ToolWizardPage extends Page implements HasForms
     protected function whereStep(): Step
     {
         $acceptsUnfiled = static::tool()->acceptsUnfiled();
-        // Only shown for "A dataset" when the tool accepts Unfiled; always shown otherwise (where is then unset).
+        // Only shown for "A dataset" when the tool accepts Unfiled (the default is Unfiled); always shown otherwise (where is then unset).
         $showsSelects = static fn (Get $get): bool => $get('where') !== self::WHERE_UNFILED;
 
         return Step::make('Where')
@@ -200,7 +200,7 @@ abstract class ToolWizardPage extends Page implements HasForms
             ->schema(array_values(array_filter([
                 $acceptsUnfiled ? Radio::make('where')
                     ->hiddenLabel()
-                    ->options([self::WHERE_DATASET => 'A dataset', self::WHERE_UNFILED => 'Unfiled'])
+                    ->options([self::WHERE_UNFILED => 'Unfiled', self::WHERE_DATASET => 'A dataset'])
                     ->descriptions([
                         self::WHERE_DATASET => 'The exports belong to an environment and dataset you have set up.',
                         self::WHERE_UNFILED => 'Just the file. Nothing is sent to PSO and the run is listed under My files.',
