@@ -26,6 +26,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use JsonException;
+use Livewire\Attributes\Locked;
 use RuntimeException;
 use Throwable;
 
@@ -54,24 +55,30 @@ class AppointmentBooking extends Page
     public ?string $selectedDay = null;
 
     /** The services appointmentOffers block of the open request. */
+    #[Locked]
     public ?array $offers = null;
 
+    #[Locked]
     public ?string $appointmentRequestId = null;
 
+    #[Locked]
     public ?string $countdownExpiresAt = null;
 
     /** The countdown ran out: the open request's offers can no longer be booked. */
+    #[Locked]
     public bool $expired = false;
 
     /** Agenda layout: 'callcentre' (valid offers, Book) or 'detail' (every offer, values and resources). */
     public string $mode = 'callcentre';
 
     /** The acceptedAppointmentSummary of the booking made on this page. */
+    #[Locked]
     public ?array $booking = null;
 
     public ?string $slotMessage = null;
 
     /** Whether the open request blocks its offers, fixed when it was sent. */
+    #[Locked]
     public ?bool $requestBlocking = null;
 
     public ?string $pageError = null;
@@ -366,7 +373,11 @@ class AppointmentBooking extends Page
                                 return $template === null ? null : 'Template blocking: '.($template->blockingDefault() ? 'yes' : 'no').'.';
                             })
                             ->createOptionForm(fn (): array => DatasetReferenceValueResource::formSchema(ReferenceEntityType::AppointmentTemplate, lockDataset: true, datasetId: fn (): string => $this->record->dataset_id))
-                            ->createOptionUsing(fn (array $data): string => $this->createManualReferenceValue(ReferenceEntityType::AppointmentTemplate, $data))
+                            // The Blocking toggle is not dehydrated (it saves through a hook this form never runs), so read it from the raw state.
+                            ->createOptionUsing(fn (array $data, Schema $schema): string => $this->createManualReferenceValue(
+                                ReferenceEntityType::AppointmentTemplate,
+                                $data + ['blocking_override' => data_get($schema->getRawState(), 'blocking_override')],
+                            ))
                             ->createOptionModalHeading('Create template')
                             ->required(),
                         Select::make('blocking_choice')
@@ -724,6 +735,9 @@ class AppointmentBooking extends Page
         if ($tokenized === false) {
             return ['data' => null, 'error' => 'Could not log on to PSO'.($this->session_error_message ? ': '.$this->session_error_message : '.'), 'status' => null];
         }
+
+        // The page shows its own progress, so a toast per request is noise; errors still notify.
+        $this->quietSuccess = true;
 
         try {
             $raw = $this->sendToPSONew($segment, $tokenized, method: $method, isNonStandardResponse: true, timeout: self::appointmentTimeout());

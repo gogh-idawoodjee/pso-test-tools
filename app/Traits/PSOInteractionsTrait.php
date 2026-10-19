@@ -27,6 +27,9 @@ trait PSOInteractionsTrait
     /** The HTTP status of the last sendToPSONew() reply; null when services could not be reached. */
     protected ?int $last_response_status = null;
 
+    /** When true, a successful sendToPSONew() reply does not raise a toast; errors always do. */
+    protected bool $quietSuccess = false;
+
     public ?array $json_form_data = [];
 
     public function authenticatePSO(
@@ -171,7 +174,9 @@ trait PSOInteractionsTrait
             ]);
         }
 
-        $this->notifyPayloadSent($pass ? 'Success' : 'Error', $body, $pass);
+        if (! $pass || ! $this->quietSuccess) {
+            $this->notifyPayloadSent($pass ? 'Success' : 'Error', $body, $pass);
+        }
 
         if ($pass) {
             try {

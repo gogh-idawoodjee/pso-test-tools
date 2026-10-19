@@ -117,3 +117,28 @@ it('does not delete real customers or seeded customers that have tasks', functio
     expect(Customer::withoutGlobalScopes()->whereKey($withTask->id)->exists())->toBeTrue()
         ->and(Customer::withoutGlobalScopes()->whereKey($seeded[1]->id)->exists())->toBeFalse();
 });
+
+it('creates nothing when one of the inserts fails', function () {
+    $calls = 0;
+    Customer::creating(function () use (&$calls) {
+        if (++$calls === 2) {
+            throw new RuntimeException('second insert failed');
+        }
+    });
+
+    expect(fn () => $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 3]))
+        ->toThrow(RuntimeException::class);
+
+    expect(seeded($this->dataset))->toHaveCount(0);
+});
+
+it('numbers new samples after the highest one a --fresh run kept', function () {
+    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 3])->assertSuccessful();
+    $kept = seeded($this->dataset)->firstWhere('slug', 'sample-'.$this->dataset->id.'-3');
+    $taskType = DatasetReferenceValue::factory()->for($this->dataset)->taskType(5, 1500, 90)->create(['pso_id' => 'INSTALL']);
+    Task::factory()->for($kept)->create(['task_type_id' => $taskType->id]);
+
+    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 1, '--fresh' => true])->assertSuccessful();
+
+    expect(seeded($this->dataset)->pluck('slug')->all())->toContain('sample-'.$this->dataset->id.'-3', 'sample-'.$this->dataset->id.'-4');
+});

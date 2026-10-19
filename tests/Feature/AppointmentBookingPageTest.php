@@ -12,6 +12,7 @@ use App\Models\Environment;
 use App\Models\Task;
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Filament\Notifications\Notification;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
@@ -592,3 +593,42 @@ it('uses the appointment timeout from config and still reaches services', functi
 
     openAgenda($this->task)->call('book', 7)->assertSet('screen', 'booked');
 });
+
+it('keeps the Blocking choice made in the create template form', function () {
+    $page = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])->instance();
+    $create = new ReflectionMethod($page, 'createManualReferenceValue');
+
+    $psoId = $create->invoke($page, ReferenceEntityType::AppointmentTemplate, ['pso_id' => 'NO-BLOCK', 'label' => '', 'blocking_override' => false]);
+
+    $row = DatasetReferenceValue::query()->where('dataset_id', $this->dataset->id)->where('pso_id', $psoId)->firstOrFail();
+    expect($row->blockingDefault())->toBeFalse()
+        ->and($row->hasBlockingOverride())->toBeTrue();
+});
+
+it('does not raise a success toast for a day request', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::sequence()
+        ->push(bookingOffersResponse([bookingOffer(1, '2026-10-22T08:00:00-04:00')], requestId: 'SURVEY-1', survey: true))
+        ->push(bookingOffersResponse([bookingOffer(7, '2026-10-22T08:00:00-04:00')], requestId: 'REQ-22')),
+    ]);
+
+    Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('loadSurvey')
+        ->set('task_data.appointmentTemplateId', 'STANDARD')
+        ->call('selectDay', '2026-10-22')
+        ->assertSet('screen', 'agenda');
+
+    Notification::assertNotNotified();
+});
+
+it('still raises a toast when a request fails', function () {
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(['message' => 'boom'], 500)]);
+
+    Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])->call('loadSurvey');
+
+    Notification::assertNotified('Error');
+});
+
+it('refuses to let the browser set the open request state', function () {
+    Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->set('appointmentRequestId', 'FORGED');
+})->throws(Exception::class, 'Cannot update locked property: [appointmentRequestId]');

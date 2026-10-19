@@ -8,6 +8,7 @@ use App\Models\Dataset;
 use App\Models\DatasetReferenceValue;
 use App\Support\Booking\SampleCustomers;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 class SeedBookingCustomers extends Command
 {
@@ -81,14 +82,22 @@ class SeedBookingCustomers extends Command
         $offset = $samples()->pluck('slug')
             ->map(static fn (string $slug): int => (int) substr((string) strrchr($slug, '-'), 1))->max() ?? 0;
 
-        for ($i = 0; $i < $count; $i++) {
-            $attributes = SampleCustomers::at($i + $offset, $dataset->id);
-            $region = $regions->isEmpty() ? null : $regions[$i % $regions->count()];
-            $customer = Customer::query()->withoutGlobalScopes()->create($attributes + [
-                'dataset_id' => $dataset->id,
-                'region_id' => $region?->id,
-            ]);
-            $this->line("Created {$customer->name}, {$customer->address}, {$customer->city}".($region ? " ({$region->pso_id})" : ''));
+        $created = DB::transaction(function () use ($count, $offset, $dataset, $regions): array {
+            $made = [];
+            for ($i = 0; $i < $count; $i++) {
+                $attributes = SampleCustomers::at($i + $offset, $dataset->id);
+                $region = $regions->isEmpty() ? null : $regions[$i % $regions->count()];
+                $customer = Customer::query()->withoutGlobalScopes()->create($attributes + [
+                    'dataset_id' => $dataset->id,
+                    'region_id' => $region?->id,
+                ]);
+                $made[] = "Created {$customer->name}, {$customer->address}, {$customer->city}".($region ? " ({$region->pso_id})" : '');
+            }
+
+            return $made;
+        });
+        foreach ($created as $line) {
+            $this->line($line);
         }
 
         $this->info("Created {$count} customers in {$dataset->name}.");

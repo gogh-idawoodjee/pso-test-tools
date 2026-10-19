@@ -116,13 +116,20 @@ class DatasetReferenceValue extends Model
         // The dataset id comes from form state, so confirm it is one of the user's.
         $dataset = Dataset::ownedByCurrentUser()->findOrFail($datasetId);
 
-        return static::create([
+        $row = static::create([
             'dataset_id' => $dataset->id,
             'entity_type' => $type,
             'pso_id' => $data['pso_id'],
             'label' => filled($data['label'] ?? null) ? $data['label'] : $data['pso_id'],
             'origin' => ReferenceValueOrigin::Manual,
         ]);
+
+        // The form's Blocking toggle saves through a relationship hook that a create-option form never runs.
+        if ($type === ReferenceEntityType::AppointmentTemplate && array_key_exists('blocking_override', $data)) {
+            $row->setBlockingOverride($data['blocking_override'] === null ? null : (bool) $data['blocking_override']);
+        }
+
+        return $row;
     }
 
     /**
