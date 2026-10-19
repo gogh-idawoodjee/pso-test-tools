@@ -25,8 +25,8 @@ class EnvironmentResource extends Resource
 
     protected static string|BackedEnum|null $activeNavigationIcon = Heroicon::CircleStack;
 
-    // Top level, above Customers (which has no group and the default sort of 0).
-    protected static ?int $navigationSort = -10;
+    // Top level, between Home (Filament's dashboard sorts at -2) and Customers (default sort 0).
+    protected static ?int $navigationSort = -1;
 
     protected static string|Htmlable|null $navigationBadgeTooltip = 'The number of configured environments';
 

@@ -38,7 +38,8 @@ it('puts every page in one of the four intent groups', function (string $class, 
 it('keeps environments at the top level, above customers', function () {
     expect(Resources\EnvironmentResource::getNavigationGroup())->toBeNull()
         ->and(Resources\CustomerResource::getNavigationGroup())->toBeNull()
-        ->and(Resources\EnvironmentResource::getNavigationSort())->toBeLessThan(Resources\CustomerResource::getNavigationSort() ?? 0);
+        ->and(Resources\EnvironmentResource::getNavigationSort())->toBeLessThan(Resources\CustomerResource::getNavigationSort() ?? 0)
+        ->and(Resources\EnvironmentResource::getNavigationSort())->toBeGreaterThan(Pages\Dashboard::getNavigationSort());
 });
 
 it('orders the groups analyse, live, setup, admin', function () {
