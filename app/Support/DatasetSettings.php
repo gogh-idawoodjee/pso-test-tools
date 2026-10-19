@@ -18,6 +18,7 @@ class DatasetSettings implements Arrayable, JsonSerializable
         'display_name', 'dataset_display_name', 'coverage_km', 'eod_cutoff_hour', 'exclude_resource_types',
         'resource_type_names', 'attribute_labels', 'region_pivot', 'region_labels', 'supervisor_label', 'region_label',
         'supervisor_label_plural', 'notes', 'windows_time_zone', 'time_zone', 'ifs_time_zone',
+        'appointment_sla_type_id', 'default_booking_sla_type_id',
     ];
 
     /** Keys as they appear in a pso-tools account file that differ from ours. */
@@ -44,6 +45,8 @@ class DatasetSettings implements Arrayable, JsonSerializable
         public ?string $windowsTimeZone = null,
         public ?string $timeZone = null,
         public ?string $ifsTimeZone = null,
+        public ?string $appointmentSlaTypeId = null,
+        public ?string $defaultBookingSlaTypeId = null,
     ) {}
 
     public static function fromArray(array $values): self
@@ -105,6 +108,8 @@ class DatasetSettings implements Arrayable, JsonSerializable
             windowsTimeZone: self::stringOrNull($values['windows_time_zone'] ?? null),
             timeZone: self::stringOrNull($timeZone),
             ifsTimeZone: self::stringOrNull($ifsTimeZone),
+            appointmentSlaTypeId: self::stringOrNull($values['appointment_sla_type_id'] ?? null),
+            defaultBookingSlaTypeId: self::stringOrNull($values['default_booking_sla_type_id'] ?? null),
         );
     }
 
@@ -160,6 +165,8 @@ class DatasetSettings implements Arrayable, JsonSerializable
             'windows_time_zone' => $this->windowsTimeZone,
             'time_zone' => $this->timeZone,
             'ifs_time_zone' => $this->ifsTimeZone,
+            'appointment_sla_type_id' => $this->appointmentSlaTypeId,
+            'default_booking_sla_type_id' => $this->defaultBookingSlaTypeId,
         ];
     }
 

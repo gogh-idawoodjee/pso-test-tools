@@ -81,3 +81,10 @@ it('keeps the region label, blank means none, and writes it to the account file 
         ->and(DatasetSettings::fromAccountFile($settings->toAccountFile())->toArray())->toBe($settings->toArray())
         ->and(DatasetSettings::fromArray([])->toAccountFile())->not->toHaveKey('region_label');
 });
+
+it('round trips the two booking SLA settings', function () {
+    $s = DatasetSettings::fromArray(['appointment_sla_type_id' => 'Appointment', 'default_booking_sla_type_id' => 'BOOKED']);
+    expect($s->appointmentSlaTypeId)->toBe('Appointment')
+        ->and($s->defaultBookingSlaTypeId)->toBe('BOOKED')
+        ->and($s->toArray())->toMatchArray(['appointment_sla_type_id' => 'Appointment', 'default_booking_sla_type_id' => 'BOOKED']);
+});

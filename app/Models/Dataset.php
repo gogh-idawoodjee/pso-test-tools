@@ -135,6 +135,24 @@ class Dataset extends Model
                     Forms\Components\TextInput::make('settings.region_label')->label('Region label')->helperText('What reports call a region, such as GB or Territory. Blank means Region.')->maxLength(20),
                     Forms\Components\KeyValue::make('settings.notes')->label('Notes')->columnSpanFull(),
                 ]),
+            Section::make('Appointment booking')
+                ->description('Which service level agreement (SLA) types the booking page uses for this dataset. Sync the dataset first so the list is filled.')
+                ->collapsible()
+                ->collapsed(static fn (?self $record): bool => $record === null)
+                ->columns(2)
+                ->columnSpanFull()
+                ->schema([
+                    Forms\Components\Select::make('settings.appointment_sla_type_id')
+                        ->label('SLA type for appointment offers')
+                        ->helperText('The SLA type used when asking PSO for appointment slots.')
+                        ->searchable()
+                        ->options(static fn (?self $record): array => DatasetReferenceValue::psoIdOptionsFor($record?->id, ReferenceEntityType::SlaType)),
+                    Forms\Components\Select::make('settings.default_booking_sla_type_id')
+                        ->label('Default SLA type for booking')
+                        ->helperText('Pre-selected on the booking page. Blank means the person picks one each time.')
+                        ->searchable()
+                        ->options(static fn (?self $record): array => DatasetReferenceValue::psoIdOptionsFor($record?->id, ReferenceEntityType::SlaType)),
+                ]),
         ];
     }
 
