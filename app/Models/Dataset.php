@@ -6,6 +6,7 @@ use App\Casts\DatasetSettingsCast;
 use App\Enums\ReferenceEntityType;
 use DateTimeZone;
 use Filament\Forms;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -98,13 +99,15 @@ class Dataset extends Model
     public static function identitySchema(): array
     {
         return [
-            Forms\Components\TextInput::make('name')
-                ->required(),
-            Forms\Components\TextInput::make('rota')
-                ->required(),
-            Forms\Components\Select::make('environment_id')
-                ->relationship('environment', 'name')
-                ->required(),
+            Grid::make(3)->columnSpanFull()->schema([
+                Forms\Components\TextInput::make('name')
+                    ->required(),
+                Forms\Components\TextInput::make('rota')
+                    ->required(),
+                Forms\Components\Select::make('environment_id')
+                    ->relationship('environment', 'name')
+                    ->required(),
+            ]),
         ];
     }
 
