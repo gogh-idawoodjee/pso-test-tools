@@ -50,6 +50,13 @@ it('leaves the region empty and says so when none are synced', function () {
     expect(seeded($this->dataset)->pluck('region_id')->filter())->toBeEmpty();
 });
 
+it('finds the environment by its slug or name in any case', function () {
+    $this->artisan('booking:seed-customers', ['environment' => $this->environment->slug, 'dataset' => strtolower($this->dataset->name), '--count' => 2])
+        ->assertSuccessful();
+
+    expect(Customer::withoutGlobalScopes()->where('dataset_id', $this->dataset->id)->count())->toBe(2);
+});
+
 it('refuses an unknown dataset or environment', function () {
     $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NOPE'])->assertFailed();
     $this->artisan('booking:seed-customers', ['environment' => 'Nope', 'dataset' => 'NORTH'])->assertFailed();

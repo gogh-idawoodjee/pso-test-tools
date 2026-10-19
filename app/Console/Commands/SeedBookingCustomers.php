@@ -29,8 +29,14 @@ class SeedBookingCustomers extends Command
         }
 
         $datasets = Dataset::query()->withoutGlobalScopes()
-            ->where('name', (string) $this->argument('dataset'))
-            ->whereHas('environment', fn ($environment) => $environment->withoutGlobalScopes()->where('name', (string) $this->argument('environment')))
+            ->whereRaw('lower(name) = ?', [mb_strtolower((string) $this->argument('dataset'))])
+            ->whereHas('environment', function ($environment) {
+                $wanted = (string) $this->argument('environment');
+                // The environment's name or its slug (what the URL shows), either case.
+                $environment->withoutGlobalScopes()->where(fn ($q) => $q
+                    ->whereRaw('lower(name) = ?', [mb_strtolower($wanted)])
+                    ->orWhereRaw('lower(slug) = ?', [mb_strtolower($wanted)]));
+            })
             ->get();
 
         if ($datasets->isEmpty()) {
