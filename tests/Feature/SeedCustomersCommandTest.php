@@ -19,7 +19,7 @@ function seeded(Dataset $dataset)
     return Customer::withoutGlobalScopes()->where('dataset_id', $dataset->id)->get();
 }
 
-it('creates customers in the dataset with Saskatchewan coordinates and round-robin regions', function () {
+it('creates customers in the dataset with real city coordinates and round-robin regions', function () {
     foreach (['REGINA', 'SASKATOON'] as $pso) {
         DatasetReferenceValue::factory()->for($this->dataset)->create(['entity_type' => ReferenceEntityType::Region, 'pso_id' => $pso]);
     }
@@ -32,9 +32,9 @@ it('creates customers in the dataset with Saskatchewan coordinates and round-rob
     expect($customers)->toHaveCount(5)
         ->and($customers->pluck('slug')->sort()->values()->all())->toBe(array_map(fn (int $n) => "sample-{$this->dataset->id}-{$n}", [1, 2, 3, 4, 5]));
     foreach ($customers as $customer) {
-        expect((float) $customer->lat)->toBeBetween(49, 60)
-            ->and((float) $customer->long)->toBeBetween(-110, -101)
-            ->and($customer->country)->toBe('Canada');
+        expect((float) $customer->lat)->toBeBetween(33, 52)
+            ->and((float) $customer->long)->toBeBetween(-119, 1)
+            ->and($customer->country)->toBeIn(['United States', 'Canada', 'United Kingdom']);
     }
 
     $psoIds = DatasetReferenceValue::withoutGlobalScopes()->where('dataset_id', $this->dataset->id)->pluck('pso_id', 'id');

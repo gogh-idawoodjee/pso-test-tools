@@ -5,8 +5,8 @@ namespace App\Support\Booking;
 use App\Enums\Status;
 
 /**
- * Made-up customers with real street locations in Saskatchewan cities, for
- * trying the appointment booking page. Names are invented, coordinates are
+ * Made-up customers with real street locations in New York, Toronto, London
+ * and Los Angeles, for trying the appointment booking page. Names are invented, coordinates are
  * approximate points on the named street.
  */
 class SampleCustomers
@@ -25,32 +25,32 @@ class SampleCustomers
         'Omar Haddad', 'Brenda Yaremko', 'Kyle Anderson', 'Fatima Sheikh', 'Gabriel Roy', 'Ingrid Johansson',
     ];
 
-    /** @var list<array{string, string, string, float, float}> street address, city, postcode, lat, long */
+    /** @var list<array{string, string, string, string, float, float}> street address, city, country, postcode, lat, long */
     private const LOCATIONS = [
-        ['2155 Albert Street', 'Regina', 'S4P 2V1', 50.4452, -104.6089],
-        ['3500 Dewdney Avenue', 'Regina', 'S4T 0A6', 50.4538, -104.6501],
-        ['1801 Broad Street', 'Regina', 'S4P 1Y2', 50.4521, -104.6063],
-        ['4100 Rochdale Boulevard', 'Regina', 'S4X 4J2', 50.5017, -104.6684],
-        ['201 1st Avenue South', 'Saskatoon', 'S7K 1J5', 52.1294, -106.6697],
-        ['2215 8th Street East', 'Saskatoon', 'S7H 0V4', 52.1177, -106.6195],
-        ['3510 8th Street East', 'Saskatoon', 'S7H 0W6', 52.1167, -106.5912],
-        ['310 Primrose Drive', 'Saskatoon', 'S7K 3N5', 52.1520, -106.6310],
-        ['55 Main Street North', 'Moose Jaw', 'S6H 3J6', 50.3932, -105.5349],
-        ['1000 Thatcher Drive West', 'Moose Jaw', 'S6J 1L8', 50.3963, -105.5707],
-        ['1005 Main Street North', 'Moose Jaw', 'S6H 3K6', 50.4011, -105.5337],
-        ['1501 Central Avenue', 'Prince Albert', 'S6V 4W7', 53.2034, -105.7531],
-        ['2800 2nd Avenue West', 'Prince Albert', 'S6V 5E7', 53.1959, -105.7752],
-        ['101 15th Street East', 'Prince Albert', 'S6V 1G1', 53.2008, -105.7392],
-        ['1100 Central Avenue North', 'Swift Current', 'S9H 0L3', 50.2886, -107.7936],
-        ['1 Chaplin Street East', 'Swift Current', 'S9H 1E6', 50.2872, -107.7885],
-        ['400 Herbert Street East', 'Swift Current', 'S9H 3R8', 50.2915, -107.7850],
-        ['140 Broadway Street East', 'Yorkton', 'S3N 0L1', 51.2140, -102.4610],
-        ['345 Broadway Street West', 'Yorkton', 'S3N 0N8', 51.2142, -102.4770],
-        ['1150 Circlebrooke Drive', 'Yorkton', 'S3N 2J6', 51.2275, -102.4540],
-        ['1291 100th Street', 'North Battleford', 'S9A 0V9', 52.7640, -108.2860],
-        ['1301 101st Street', 'North Battleford', 'S9A 0Z7', 52.7618, -108.2830],
-        ['1202 4th Street', 'Estevan', 'S4A 0W2', 49.1390, -102.9890],
-        ['1175 Kensington Avenue', 'Estevan', 'S4A 2A9', 49.1350, -102.9780],
+        ['350 5th Avenue', 'New York', 'United States', '10118', 40.7484, -73.9857],
+        ['89 East 42nd Street', 'New York', 'United States', '10017', 40.7527, -73.9772],
+        ['30 Rockefeller Plaza', 'New York', 'United States', '10112', 40.7587, -73.9787],
+        ['200 Eastern Parkway', 'Brooklyn', 'United States', '11238', 40.6712, -73.9636],
+        ['4 Pennsylvania Plaza', 'New York', 'United States', '10001', 40.7505, -73.9934],
+        ['1000 Richmond Terrace', 'Staten Island', 'United States', '10301', 40.6436, -74.1012],
+        ['290 Bremner Boulevard', 'Toronto', 'Canada', 'M5V 3L9', 43.6426, -79.3871],
+        ['100 Queen Street West', 'Toronto', 'Canada', 'M5H 2N2', 43.6534, -79.3839],
+        ['1 Yonge Street', 'Toronto', 'Canada', 'M5E 1E5', 43.6426, -79.3729],
+        ['2300 Yonge Street', 'Toronto', 'Canada', 'M4P 1E4', 43.7068, -79.3984],
+        ['25 Carlton Street', 'Toronto', 'Canada', 'M5B 1L2', 43.6615, -79.3806],
+        ['3401 Dufferin Street', 'Toronto', 'Canada', 'M6A 2T9', 43.7250, -79.4525],
+        ['10 Downing Street', 'London', 'United Kingdom', 'SW1A 2AA', 51.5034, -0.1276],
+        ['221B Baker Street', 'London', 'United Kingdom', 'NW1 6XE', 51.5238, -0.1586],
+        ['1 Canada Square', 'London', 'United Kingdom', 'E14 5AB', 51.5050, -0.0195],
+        ['Kings Road 150', 'London', 'United Kingdom', 'SW3 4UT', 51.4875, -0.1687],
+        ['Brick Lane 91', 'London', 'United Kingdom', 'E1 6QL', 51.5203, -0.0718],
+        ['Portobello Road 200', 'London', 'United Kingdom', 'W11 1LA', 51.5176, -0.2054],
+        ['6925 Hollywood Boulevard', 'Los Angeles', 'United States', '90028', 34.1022, -118.3406],
+        ['1 World Way', 'Los Angeles', 'United States', '90045', 33.9425, -118.4081],
+        ['111 South Grand Avenue', 'Los Angeles', 'United States', '90012', 34.0553, -118.2498],
+        ['4800 Oak Grove Drive', 'Pasadena', 'United States', '91109', 34.2013, -118.1713],
+        ['3911 South Figueroa Street', 'Los Angeles', 'United States', '90037', 34.0141, -118.2879],
+        ['1750 Ocean Avenue', 'Santa Monica', 'United States', '90401', 34.0094, -118.4963],
     ];
 
     /**
@@ -58,7 +58,7 @@ class SampleCustomers
      */
     public static function at(int $index, string $datasetId): array
     {
-        [$address, $city, $postcode, $lat, $long] = self::LOCATIONS[$index % count(self::LOCATIONS)];
+        [$address, $city, $country, $postcode, $lat, $long] = self::LOCATIONS[$index % count(self::LOCATIONS)];
         $name = self::NAMES[$index % count(self::NAMES)];
         $round = intdiv($index, count(self::LOCATIONS));
         $suffix = $round > 0 ? ' '.($round + 1) : '';
@@ -68,7 +68,7 @@ class SampleCustomers
             'slug' => self::slugPrefix($datasetId).($index + 1),
             'address' => $address,
             'city' => $city,
-            'country' => 'Canada',
+            'country' => $country,
             'postcode' => $postcode,
             'lat' => $lat,
             'long' => $long,
