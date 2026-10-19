@@ -74,16 +74,20 @@ final class BookingPayloads
             throw new RuntimeException('The customer has no coordinates.');
         }
 
+        $duration = (int) $this->task->duration;
+        if ($duration <= 0) {
+            throw new RuntimeException('The task has no duration.');
+        }
+
+        // The base day is a calendar date in the dataset zone, whatever zone the caller's instance is in.
         $timeZone = $this->task->dataset->timeZone();
-        $day = $baseDay->setTimezone($timeZone);
+        $day = CarbonImmutable::parse($baseDay->toDateString(), $timeZone);
         $start = self::utc($day->startOfDay());
 
-        return [
+        $data = [
             'activityId' => $this->task->friendly_id,
             'activityTypeId' => $this->task->taskType?->pso_id,
-            'duration' => (int) $this->task->duration,
-            'baseValue' => (int) round((float) $this->task->base_value),
-            'priority' => (int) $this->task->taskType?->attribute('priority'),
+            'duration' => $duration,
             'lat' => (float) $customer->lat,
             'long' => (float) $customer->long,
             'regions' => array_values($this->task->regions ?? []),
@@ -96,6 +100,18 @@ final class BookingPayloads
             'appointmentTemplateDatetime' => $start,
             'timezone' => $timeZone,
         ];
+
+        // Left out when unset: services rejects a base value of 0 and defaults the priority to 1.
+        $baseValue = (int) round((float) $this->task->base_value);
+        if ($baseValue > 0) {
+            $data['baseValue'] = $baseValue;
+        }
+        $priority = $this->task->taskType?->attribute('priority');
+        if (is_numeric($priority)) {
+            $data['priority'] = (int) $priority;
+        }
+
+        return $data;
     }
 
     private static function utc(CarbonImmutable $moment): string

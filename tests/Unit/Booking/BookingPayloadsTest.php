@@ -122,3 +122,36 @@ it('builds accept and check payloads', function () {
         ->and($this->payloads->accept(42, 'OLD'))->toBe(['data' => ['appointmentOfferId' => 42, 'bookingSlaTypeId' => 'Standard', 'previousSlaTypeId' => 'OLD']])
         ->and($this->payloads->check(42))->toBe(['data' => ['appointmentOfferId' => 42]]);
 });
+
+it('leaves out priority when the task type has none', function () {
+    $taskType = DatasetReferenceValue::factory()->for($this->dataset)->create([
+        'entity_type' => ReferenceEntityType::TaskType, 'pso_id' => 'REPAIR', 'attributes' => ['base_value' => 500, 'base_duration' => 30],
+    ]);
+    $task = Task::factory()->for($this->customer)->create(['task_type_id' => $taskType->id]);
+    $data = (new BookingPayloads($task, BookingSlaTypes::for($task)))->survey($this->baseDay)['data'];
+
+    expect($data)->not->toHaveKey('priority')
+        ->and($data['activityTypeId'])->toBe('REPAIR');
+});
+
+it('leaves out baseValue when the task has none', function () {
+    $this->task->base_value = null;
+    $data = $this->payloads->survey($this->baseDay)['data'];
+
+    expect($data)->not->toHaveKey('baseValue')
+        ->and($data['priority'])->toBe(5);
+});
+
+it('reads the base day as a calendar date in the dataset zone', function () {
+    $data = $this->payloads->survey(CarbonImmutable::parse('2026-10-22', 'UTC'))['data'];
+
+    expect($data['appointmentBaseDateTime'])->toBe('2026-10-22T04:00:00')
+        ->and($data['slaEnd'])->toBe('2026-11-12T05:00:00');
+});
+
+it('refuses to build a request without a duration', function (?int $duration) {
+    $this->task->duration = $duration;
+
+    expect(fn () => $this->payloads->day($this->baseDay, 'STANDARD', null, null, null))
+        ->toThrow(RuntimeException::class, 'The task has no duration.');
+})->with([null, 0]);
