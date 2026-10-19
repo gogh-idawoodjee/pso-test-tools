@@ -220,8 +220,13 @@ final class AgendaPresenter
             return null;
         }
 
-        return $iso
-            ? $from->toIso8601String().' to '.$to->toIso8601String()
-            : $from->format('g:i A').' to '.$to->format('g:i A');
+        if (! $iso) {
+            return $from->format('g:i A').' to '.$to->format('g:i A');
+        }
+
+        // The full window, readable: "Tue Oct 20, 8:00 AM to 12:00 PM (UTC-04:00)"; the end carries its day only when it differs.
+        $sameDay = $from->toDateString() === $to->toDateString();
+
+        return $from->format('D M j, g:i A').' to '.$to->format($sameDay ? 'g:i A' : 'D M j, g:i A').' (UTC'.$from->format('P').')';
     }
 }

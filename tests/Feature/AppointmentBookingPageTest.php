@@ -488,7 +488,7 @@ it('renders unavailable offers greyed in detail mode', function () {
         ->assertDontSeeHtml('wire:click="book(9)"');
 
     $component->set('mode', 'detail')
-        ->assertSee(['4:00 PM to 8:00 PM', 'Value 100', 'Resource RES-1', 'Allocated 8:00 AM', 'Not available'])
+        ->assertSee(['4:00 PM to 8:00 PM', 'Value', '100', 'Resource', 'RES-1', 'Allocated', '8:00 AM', 'Not available'])
         ->assertSeeHtml('data-offer="9" data-valid="false"')
         ->assertSeeHtml('data-offer="7" data-valid="true"')
         ->assertDontSeeHtml('wire:click="book(9)"');
@@ -532,8 +532,8 @@ it('puts an invalid offer from allOfferValues in its day column with its times i
     expect($invalid['valid'])->toBeFalse()
         ->and($invalid['times'])->toBe('4:00 PM to 8:00 PM');
 
-    // Detail mode shows the window with its offset under the block, on request.
-    $component->assertSee('4:00 PM to 8:00 PM')->assertSee('2026-10-22T');
+    // Detail mode shows the full window with its offset under the block, readable rather than ISO.
+    $component->assertSee('4:00 PM to 8:00 PM')->assertSee('(UTC-04:00)')->assertDontSee('2026-10-22T');
 });
 
 it('shows the dataset zone and its abbreviation on the selected day in the pill', function () {

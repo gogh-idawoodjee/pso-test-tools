@@ -49,7 +49,7 @@ it('lays out valid and invalid offers in a day column in the display zone', func
         'value' => '950', 'resource' => 'R-17',
         'allocated' => '8:42 AM',
         'planId' => null, 'reason' => null, 'offerSpan' => null,
-        'window' => '2026-10-22T08:00:00-06:00 to 2026-10-22T12:00:00-06:00',
+        'window' => 'Thu Oct 22, 8:00 AM to 12:00 PM (UTC-06:00)',
     ])
         ->and($invalid)->toBe([
             'id' => '13', 'valid' => false, 'best' => false,
@@ -59,7 +59,7 @@ it('lays out valid and invalid offers in a day column in the display zone', func
             'value' => '120', 'resource' => 'no resource',
             'allocated' => null,
             'planId' => null, 'reason' => null, 'offerSpan' => null,
-            'window' => '2026-10-22T12:00:00-06:00 to 2026-10-22T16:00:00-06:00',
+            'window' => 'Thu Oct 22, 12:00 PM to 4:00 PM (UTC-06:00)',
         ]);
 });
 
@@ -188,5 +188,5 @@ it('carries the plan, reason, offer span and window with offset on a block', fun
     expect($block['planId'])->toBe('32035')
         ->and($block['reason'])->toBe('2')
         ->and($block['offerSpan'])->toBe('8:00 AM to 10:30 AM')
-        ->and($block['window'])->toBe('2026-10-22T08:00:00-06:00 to 2026-10-22T12:00:00-06:00');
+        ->and($block['window'])->toBe('Thu Oct 22, 8:00 AM to 12:00 PM (UTC-06:00)');
 });

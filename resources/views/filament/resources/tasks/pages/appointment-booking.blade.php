@@ -174,15 +174,21 @@
                 $startHour = (int) data_get($grid, 'axis.startHour', 0);
                 $hours = max(1, (int) data_get($grid, 'axis.endHour', $startHour + 1) - $startHour);
                 $bodyHeight = $hours * $hourRem;
+                $columnLabels = array_column($grid['columns'] ?? [], 'label');
+                $heading = match (count($columnLabels)) {
+                    0 => \Carbon\CarbonImmutable::parse($this->selectedDay)->format('l F j'),
+                    1 => $columnLabels[0],
+                    default => $columnLabels[0].' to '.end($columnLabels),
+                };
             @endphp
 
             <x-filament::section
                 icon="heroicon-o-clock"
-                :heading="\Carbon\CarbonImmutable::parse($this->selectedDay)->format('l F j')"
+                :heading="$heading"
                 :description="$description"
             >
-                <x-slot name="afterHeader">
-                    <div class="flex flex-wrap items-center gap-2">
+                {{-- Toolbar on its own row: the header slot squeezed the title into a narrow column. --}}
+                <div class="mb-4 flex flex-wrap items-center gap-2 border-b pb-3" style="border-color: var(--pso-border);">
                         @if (filled($this->countdownExpiresAt))
                             <span
                                 wire:key="countdown-{{ $this->countdownExpiresAt }}"
@@ -258,8 +264,7 @@
                         <x-filament::button size="sm" color="gray" icon="heroicon-o-arrow-left" wire:click="backToMonth" wire:loading.attr="disabled">
                             Back to month
                         </x-filament::button>
-                    </div>
-                </x-slot>
+                </div>
 
                 @if ($this->expired)
                     <div
@@ -380,23 +385,29 @@
                                                 </div>
 
                                                 @if ($detail)
-                                                    <div class="mt-1 flex flex-col">
-                                                        @if ($block['value'] !== null)
-                                                            <span>Value {{ $block['value'] }}</span>
+                                                    @php
+                                                        $rows = array_filter([
+                                                            'Value' => $block['value'],
+                                                            'Resource' => $block['resource'] === 'no resource' ? null : $block['resource'],
+                                                            'Allocated' => $block['allocated'],
+                                                            'Offer span' => filled($block['offerSpan']) && $block['offerSpan'] !== $block['times'] ? $block['offerSpan'] : null,
+                                                            'Window' => $block['window'],
+                                                            'Reason' => $block['valid'] ? null : ($block['reason'] ?? 'not given'),
+                                                        ], static fn ($value): bool => filled($value));
+                                                    @endphp
+                                                    <dl class="pso-agenda-detail mt-2">
+                                                        @foreach ($rows as $label => $value)
+                                                            <dt>{{ $label }}</dt>
+                                                            <dd>{{ $value }}</dd>
+                                                        @endforeach
+                                                    </dl>
+                                                    <div class="pso-agenda-meta mt-2">
+                                                        <span>Offer {{ $offerId }}</span>
+                                                        @if ($block['planId'])
+                                                            <span>Plan {{ $block['planId'] }}</span>
                                                         @endif
-                                                        <span>{{ $block['resource'] === 'no resource' ? 'no resource' : 'Resource '.$block['resource'] }}</span>
-                                                        @if (filled($block['allocated']))
-                                                            <span>Allocated {{ $block['allocated'] }}</span>
-                                                        @endif
-                                                        @unless ($block['valid'])
-                                                            <span>Reason {{ $block['reason'] ?? 'not given' }}</span>
-                                                        @endunless
-                                                        <span style="color: var(--pso-text-muted);">Offer {{ $offerId }}{{ $block['planId'] ? ', plan '.$block['planId'] : '' }}</span>
-                                                        @if (filled($block['offerSpan']) && $block['offerSpan'] !== $block['times'])
-                                                            <span style="color: var(--pso-text-muted);">Offer span {{ $block['offerSpan'] }}</span>
-                                                        @endif
-                                                        @if (filled($block['window']))
-                                                            <span class="tabular-nums" style="color: var(--pso-text-muted);">{{ $block['window'] }}</span>
+                                                        @if ($block['resource'] === 'no resource')
+                                                            <span>No resource</span>
                                                         @endif
                                                     </div>
                                                 @endif
