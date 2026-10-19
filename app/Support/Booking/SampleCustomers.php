@@ -72,7 +72,19 @@ class SampleCustomers
             'postcode' => $postcode,
             'lat' => $lat,
             'long' => $long,
+            'time_zone' => self::zoneFor($country, $city),
             'status' => Status::ACTIVE,
         ];
+    }
+
+    /** The IANA zone of a sample location. */
+    public static function zoneFor(string $country, string $city): string
+    {
+        return match (true) {
+            $country === 'Canada' => 'America/Toronto',
+            $country === 'United Kingdom' => 'Europe/London',
+            in_array($city, ['Los Angeles', 'Pasadena', 'Santa Monica'], true) => 'America/Los_Angeles',
+            default => 'America/New_York',
+        };
     }
 }

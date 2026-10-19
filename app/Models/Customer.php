@@ -5,9 +5,10 @@ namespace App\Models;
 use App\Enums\ReferenceEntityType;
 use App\Enums\Status;
 use App\Filament\Resources\DatasetReferenceValueResource;
-use App\Rules\ReferenceValueInDataset;
 use App\Models\Scopes\DatasetOwnedModel;
+use App\Rules\ReferenceValueInDataset;
 use App\Support\GeocodeHelper;
+use DateTimeZone;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Schemas\Components\Group;
@@ -51,6 +52,7 @@ class Customer extends Model
         'postcode',
         'lat',
         'long',
+        'time_zone',
         'region_id',
         'status',
     ];
@@ -66,6 +68,17 @@ class Customer extends Model
         return [
             'status' => Status::class,
         ];
+    }
+
+    /** The zone appointments for this customer are shown and based in: the customer's own, else the dataset's. */
+    public function timeZone(): string
+    {
+        return filled($this->time_zone) ? (string) $this->time_zone : ($this->dataset?->timeZone() ?? 'UTC');
+    }
+
+    public function hasOwnTimeZone(): bool
+    {
+        return filled($this->time_zone);
     }
 
     public function region(): BelongsTo
@@ -133,6 +146,11 @@ class Customer extends Model
                         ->rules([static fn (Get $get) => new ReferenceValueInDataset($get('dataset_id'), ReferenceEntityType::Region)])
                         ->createOptionForm(static fn (Get $get): array => DatasetReferenceValueResource::formSchema(ReferenceEntityType::Region, lockDataset: true, datasetId: static fn (): ?string => $get('dataset_id')))
                         ->createOptionUsing(static fn (Get $get, array $data): string => DatasetReferenceValue::createManual($get('dataset_id'), ReferenceEntityType::Region, $data)->id),
+                    Forms\Components\Select::make('time_zone')
+                        ->label('Time zone')
+                        ->helperText('Where the appointment happens. Blank means the dataset time zone.')
+                        ->searchable()
+                        ->options(array_combine(DateTimeZone::listIdentifiers(), DateTimeZone::listIdentifiers())),
                     Group::make()
                         ->schema([
                             Forms\Components\TextInput::make('lat')

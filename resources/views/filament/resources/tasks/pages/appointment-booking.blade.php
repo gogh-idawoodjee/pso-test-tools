@@ -327,7 +327,17 @@
                                                 @endif
                                                 class="pso-agenda-block {{ $block['valid'] ? 'pso-agenda-block--valid' : 'pso-agenda-block--invalid' }} {{ $block['best'] ? 'pso-agenda-block--best' : '' }} rounded-md px-2 py-1 text-xs"
                                                 style="{{ $blockStyle }}"
-                                                title="{{ $block['times'] }}{{ $block['best'] ? ', best offer' : '' }}{{ $block['valid'] ? '' : ', not available' }}{{ $block['value'] !== null ? ', value '.$block['value'] : '' }}{{ $block['allocated'] ? ', allocated '.$block['allocated'] : '' }}"
+                                                title="{{ collect([
+                                                    'Offer '.$offerId.': '.$block['times'],
+                                                    $block['best'] ? 'best offer' : null,
+                                                    $block['valid'] ? null : 'not available'.($block['reason'] ? ' (reason '.$block['reason'].')' : ''),
+                                                    $block['value'] !== null ? 'value '.$block['value'] : null,
+                                                    $block['resource'] === 'no resource' ? 'no resource' : 'resource '.$block['resource'],
+                                                    $block['allocated'] ? 'allocated '.$block['allocated'] : null,
+                                                    $block['planId'] ? 'plan '.$block['planId'] : null,
+                                                    $block['offerSpan'] ? 'offer span '.$block['offerSpan'] : null,
+                                                    $block['window'] ? 'window '.$block['window'] : null,
+                                                ])->filter()->implode("\n") }}"
                                             >
                                                 <div class="flex flex-wrap items-start justify-between gap-1">
                                                     <span class="font-semibold">{{ $block['times'] }}</span>
@@ -364,6 +374,16 @@
                                                         <span>{{ $block['resource'] === 'no resource' ? 'no resource' : 'Resource '.$block['resource'] }}</span>
                                                         @if (filled($block['allocated']))
                                                             <span>Allocated {{ $block['allocated'] }}</span>
+                                                        @endif
+                                                        @unless ($block['valid'])
+                                                            <span>Reason {{ $block['reason'] ?? 'not given' }}</span>
+                                                        @endunless
+                                                        <span style="color: var(--pso-text-muted);">Offer {{ $offerId }}{{ $block['planId'] ? ', plan '.$block['planId'] : '' }}</span>
+                                                        @if (filled($block['offerSpan']) && $block['offerSpan'] !== $block['times'])
+                                                            <span style="color: var(--pso-text-muted);">Offer span {{ $block['offerSpan'] }}</span>
+                                                        @endif
+                                                        @if (filled($block['window']))
+                                                            <span class="tabular-nums" style="color: var(--pso-text-muted);">{{ $block['window'] }}</span>
                                                         @endif
                                                     </div>
                                                 @endif

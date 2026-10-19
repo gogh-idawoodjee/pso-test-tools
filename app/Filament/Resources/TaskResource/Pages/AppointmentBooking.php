@@ -100,7 +100,7 @@ class AppointmentBooking extends Page
             return null;
         }
 
-        $timeZone = $this->record->dataset->timeZone();
+        $timeZone = $this->timeZone();
         $start = Carbon::parse($startDate)->setTimezone($timeZone);
         $end = Carbon::parse($endDate)->setTimezone($timeZone);
 
@@ -425,9 +425,20 @@ class AppointmentBooking extends Page
         return array_map(static fn (int $i): string => $today->addDays($i)->toDateString(), range(0, self::WINDOW_DAYS - 1));
     }
 
+    /** The customer's zone, else the dataset's, else UTC. */
     private function timeZone(): string
     {
-        return $this->record->dataset->timeZone();
+        return $this->record->timeZone();
+    }
+
+    /** Where the display zone comes from, for the pill: 'customer', 'dataset' or 'none'. */
+    public function timeZoneSource(): string
+    {
+        return match (true) {
+            (bool) $this->record->customer?->hasOwnTimeZone() => 'customer',
+            $this->record->dataset->hasTimeZone() => 'dataset',
+            default => 'none',
+        };
     }
 
     /** Ask PSO which of the next 21 days have slots (survey request, no template). */
@@ -684,13 +695,14 @@ class AppointmentBooking extends Page
     {
         $zone = $this->displayTimeZone();
         if ($zone === 'UTC') {
-            return 'UTC';
+            return $this->showUtc || $this->timeZoneSource() !== 'none' ? 'UTC' : 'UTC (no time zone on the customer or the dataset)';
         }
 
         $day = filled($this->selectedDay) ? CarbonImmutable::parse($this->selectedDay, $zone)->setTime(12, 0) : CarbonImmutable::now($zone);
         $abbreviation = $day->format('T');
+        $label = $abbreviation === $zone ? $zone : $zone.' ('.$abbreviation.')';
 
-        return $abbreviation === $zone ? $zone : $zone.' ('.$abbreviation.')';
+        return $label.', '.$this->timeZoneSource();
     }
 
     /** The slot length of the open request, from its first offer's window, e.g. "4 hours". */

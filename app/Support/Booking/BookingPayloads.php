@@ -80,8 +80,8 @@ final class BookingPayloads
             throw new RuntimeException('The task has no duration.');
         }
 
-        // The base day is a calendar date in the dataset zone, whatever zone the caller's instance is in.
-        $timeZone = $this->task->dataset->timeZone();
+        // The base day is a calendar date in the customer's zone (else the dataset's), whatever zone the caller's instance is in.
+        $timeZone = $this->task->timeZone();
         $day = CarbonImmutable::parse($baseDay->toDateString(), $timeZone);
         $start = self::utc($day->startOfDay());
 

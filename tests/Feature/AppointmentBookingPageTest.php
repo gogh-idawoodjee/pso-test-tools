@@ -532,7 +532,8 @@ it('puts an invalid offer from allOfferValues in its day column with its times i
     expect($invalid['valid'])->toBeFalse()
         ->and($invalid['times'])->toBe('4:00 PM to 8:00 PM');
 
-    $component->assertSee('4:00 PM to 8:00 PM')->assertDontSee('2026-10-22T');
+    // Detail mode shows the window with its offset under the block, on request.
+    $component->assertSee('4:00 PM to 8:00 PM')->assertSee('2026-10-22T');
 });
 
 it('shows the dataset zone and its abbreviation on the selected day in the pill', function () {
@@ -542,7 +543,7 @@ it('shows the dataset zone and its abbreviation on the selected day in the pill'
         ->assertSee('America/Toronto (EDT)')
         ->assertSee('Show in UTC');
 
-    expect($component->instance()->timeZoneLabel())->toBe('America/Toronto (EDT)')
+    expect($component->instance()->timeZoneLabel())->toBe('America/Toronto (EDT), dataset')
         ->and($component->instance()->displayTimeZone())->toBe('America/Toronto');
 });
 
@@ -731,3 +732,23 @@ it('refuses to let the browser set the open request state', function () {
     Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
         ->set('appointmentRequestId', 'FORGED');
 })->throws(Exception::class, 'Cannot update locked property: [appointmentRequestId]');
+
+it('shows and bases the agenda in the customer time zone before the dataset one', function () {
+    $this->task->customer->update(['time_zone' => 'America/Regina']);
+    Http::fake([...PsoServicesFake::session(), '*/api/v2/appointment*' => Http::response(bookingOffersResponse([bookingOffer(1, '2026-10-22T14:00:00Z')]))]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()])
+        ->call('selectDay', '2026-10-22');
+
+    expect($component->instance()->displayTimeZone())->toBe('America/Regina')
+        ->and($component->instance()->timeZoneLabel())->toBe('America/Regina (CST), customer');
+    $component->assertSee('8:00 AM to 12:00 PM');
+});
+
+it('says when the display zone is UTC only because nothing is set', function () {
+    $this->dataset->update(['settings' => ['appointment_sla_type_id' => 'Appointment', 'default_booking_sla_type_id' => 'Appointment']]);
+
+    $component = Livewire::test(AppointmentBooking::class, ['record' => $this->task->getRouteKey()]);
+
+    expect($component->instance()->timeZoneLabel())->toBe('UTC (no time zone on the customer or the dataset)');
+});

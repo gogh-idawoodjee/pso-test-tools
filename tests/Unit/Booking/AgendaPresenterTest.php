@@ -48,6 +48,8 @@ it('lays out valid and invalid offers in a day column in the display zone', func
         'lane' => 0, 'lanes' => 1,
         'value' => '950', 'resource' => 'R-17',
         'allocated' => '8:42 AM',
+        'planId' => null, 'reason' => null, 'offerSpan' => null,
+        'window' => '2026-10-22T08:00:00-06:00 to 2026-10-22T12:00:00-06:00',
     ])
         ->and($invalid)->toBe([
             'id' => '13', 'valid' => false, 'best' => false,
@@ -56,6 +58,8 @@ it('lays out valid and invalid offers in a day column in the display zone', func
             'lane' => 0, 'lanes' => 1,
             'value' => '120', 'resource' => 'no resource',
             'allocated' => null,
+            'planId' => null, 'reason' => null, 'offerSpan' => null,
+            'window' => '2026-10-22T12:00:00-06:00 to 2026-10-22T16:00:00-06:00',
         ]);
 });
 
@@ -172,4 +176,17 @@ it('describes the slot length from the first offer', function () {
         ->and($presenter->slotLength(['validOffers' => [offerRow('a', '2026-10-22T14:00:00', '2026-10-22T15:30:00')]]))->toBe('1 hour 30 minutes')
         ->and($presenter->slotLength(['validOffers' => [offerRow('a', '2026-10-22T14:00:00', '2026-10-22T14:00:00')]]))->toBeNull()
         ->and($presenter->slotLength([]))->toBeNull();
+});
+
+it('carries the plan, reason, offer span and window with offset on a block', function () {
+    $offers = ['validOffers' => [], 'allOfferValues' => [offerRow('7', '2026-10-22T14:00:00', '2026-10-22T18:00:00', [
+        'planId' => 32035, 'reasonTypeId' => 2, 'offerStartDatetime' => '2026-10-22T14:00:00', 'offerEndDatetime' => '2026-10-22T16:30:00',
+    ])]];
+
+    $block = (new AgendaPresenter('UTC'))->grid($offers, 'detail', 'America/Regina')['columns']['2026-10-22']['blocks'][0];
+
+    expect($block['planId'])->toBe('32035')
+        ->and($block['reason'])->toBe('2')
+        ->and($block['offerSpan'])->toBe('8:00 AM to 10:30 AM')
+        ->and($block['window'])->toBe('2026-10-22T08:00:00-06:00 to 2026-10-22T12:00:00-06:00');
 });

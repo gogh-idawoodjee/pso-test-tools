@@ -107,6 +107,10 @@ final class AgendaPresenter
             'value' => is_numeric($value) ? (string) (int) round((float) $value) : null,
             'resource' => filled($resource) ? (string) $resource : 'no resource',
             'allocated' => $allocated === null ? null : $allocated->format($allocated->format('Y-m-d') === $placed['day'] ? 'g:i A' : 'M j g:i A'),
+            'planId' => self::text(data_get($row, 'planId')),
+            'reason' => self::text(data_get($row, 'reasonTypeId')),
+            'offerSpan' => self::span(data_get($row, 'offerStartDatetime'), data_get($row, 'offerEndDatetime'), $timeZone),
+            'window' => self::span(data_get($row, 'windowStartDatetime'), data_get($row, 'windowEndDatetime'), $timeZone, iso: true),
         ];
     }
 
@@ -200,5 +204,24 @@ final class AgendaPresenter
         } catch (Throwable) {
             return null;
         }
+    }
+
+    private static function text(mixed $value): ?string
+    {
+        return is_scalar($value) && (string) $value !== '' ? (string) $value : null;
+    }
+
+    /** "8:00 AM to 12:00 PM" in the zone, or with iso the full datetimes with their offset; null when either end is missing. */
+    private static function span(mixed $start, mixed $end, string $timeZone, bool $iso = false): ?string
+    {
+        $from = self::utcMoment($start)?->setTimezone($timeZone);
+        $to = self::utcMoment($end)?->setTimezone($timeZone);
+        if ($from === null || $to === null) {
+            return null;
+        }
+
+        return $iso
+            ? $from->toIso8601String().' to '.$to->toIso8601String()
+            : $from->format('g:i A').' to '.$to->format('g:i A');
     }
 }

@@ -86,6 +86,12 @@ class Task extends Model
         return $this->belongsTo(Customer::class);
     }
 
+    /** The zone this task's appointment is shown and based in: the customer's, else the dataset's. */
+    public function timeZone(): string
+    {
+        return $this->customer?->timeZone() ?? $this->dataset->timeZone();
+    }
+
     public function isBooked(): bool
     {
         return filled($this->appointment_request_id);

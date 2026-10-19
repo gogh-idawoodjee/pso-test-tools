@@ -7,6 +7,7 @@ use App\Models\DatasetReferenceValue;
 use App\Models\Environment;
 use App\Models\Task;
 use App\Models\User;
+use App\Support\Booking\SampleCustomers;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -34,7 +35,8 @@ it('creates customers in the dataset with real city coordinates and round-robin 
     foreach ($customers as $customer) {
         expect((float) $customer->lat)->toBeBetween(33, 52)
             ->and((float) $customer->long)->toBeBetween(-119, 1)
-            ->and($customer->country)->toBeIn(['United States', 'Canada', 'United Kingdom']);
+            ->and($customer->country)->toBeIn(['United States', 'Canada', 'United Kingdom'])
+            ->and($customer->time_zone)->toBe(SampleCustomers::zoneFor($customer->country, $customer->city));
     }
 
     $psoIds = DatasetReferenceValue::withoutGlobalScopes()->where('dataset_id', $this->dataset->id)->pluck('pso_id', 'id');
