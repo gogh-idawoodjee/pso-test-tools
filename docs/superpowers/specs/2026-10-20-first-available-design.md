@@ -333,7 +333,59 @@ Leave these in place so the derived view can be dropped in without touching the 
 - Chart widget wiring for the trend (Filament's `ChartWidget` is in the stack; `saade/filament-fullcalendar` is
   not needed here).
 
-## 13. Decisions taken, with the reason
+## 13. The Rearview port (read before building `ProbeRunner`)
+
+pso-test-tools is the proving ground and the consultant's one-off tool. The product version lives in
+Rearview (`outofjam/schedule-review`), which already runs unattended on a client box with encrypted gateway
+credentials, a per-dataset scheduler, tenant pages and the daily plan/eod exports the "why" layer needs. Rearview's
+`GatewayClient` talks to the PSO RESTful Gateway directly — there is no pso-services in between — so the port
+re-implements the three gateway operations below and reuses everything else. Build this version so that port is
+mechanical:
+
+**Frozen across both apps.** The `availability_probe_runs` row shape (§4.5: `day_states`, `first_possible_date`,
+`first_bookable_date`, the window columns, `bookable_resolution` and its four values, the two lead-day columns)
+and the step order of §5. The Rearview spec will reference §4.5 and §5 by number.
+
+**Keep services-specific knowledge out of `ProbeRunner`.** The runner must only know: "survey from this base day
+→ day states", "day request for this template and rule set from this base day → offers", "release this
+request". Put the three behind one small interface (`App\Support\Probes\AppointmentRequests`, a port with those
+three methods) and implement it once over `BookingClient` / `BookingPayloads` / `OfferRelease`. The Rearview
+implementation of the same interface is the only new code the port needs for the loop.
+
+**What the gateway sees, per operation** (so the Rearview implementation has a contract, not a guess; taken from
+`2026-10-19-appointment-booking-design.md` §2 and §3.6, which document what pso-services sends):
+
+1. **Request** — one CHANGE to `/scheduling/data`: the temporary activity in full (Activity, Activity_Status,
+   Location, Location_Region, Activity_Skill, Activity_SLA of the dataset's *appointment* SLA type), the
+   `Appointment_Request` pointing at it, and for a survey the survey template itself (`Appointment_Template`
+   `PSOSVC_SURVEY_12H`, `day_pattern` YYYYYYY, one `Appointment_Template_Item` 08:00–20:00,
+   `appointment_window_length` PT12H, `granularity` PT15M, `minimum_delay` P0D, `start_based` true,
+   `offer_expiry_window` PT5M, `blocking` false, `default_template` false; `appointment_template_duration` P21D,
+   `appointment_template_datetime` midnight of the base day). A day request names the real template and
+   `slot_usage_rule_set_id` instead and carries `blocking` false. Offers come back as one `Appointment_Offer` per
+   slot; valid means `available` true and `offer_value` not 0.
+2. **Decline** — one CHANGE: `Appointment_Offer_Response` with `appointment_offer_id = -1` on the wire (sent, not
+   omitted) and `input_updated` false.
+3. **Delete** — a second CHANGE, sent only after the decline got a 2xx: `Object_Deletion` of the temporary
+   activity with cascade on. Never in the same message as the decline — PSO may apply the deletion first and
+   cascade away the request the response refers to.
+
+**The no-accept rule.** The client's PSO account may hold gateway input permission on the condition that the box
+never books. Make that structural, not procedural: the Rearview gateway client gets `appointmentRequest()`,
+`declineOffers()` and `deleteTemporaryActivity()` and has **no accept method**. The only `Appointment_Offer_Response`
+it can build carries offer id -1, and a test asserts exactly that (every outgoing payload containing
+`Appointment_Offer_Response` has `appointment_offer_id` -1). The same sentence goes in Rearview's operator-setup
+doc: the box sends appointment requests and always declines them; it never books.
+
+**Where the port lands in Rearview** (outline; the Rearview spec will carry the detail): probes as a panel resource
+under the dataset; the loop as a per-dataset job on the existing scheduler (`pullDueAt`-style due check,
+`withoutOverlapping` per dataset, as `PullSchedule`); runs stored beside `pulls` and `builds`; the board at
+`/t/<tenant>/<dataset>/first-available` behind the panel sign-in; and the "why" from that morning's plan file as a
+new engine view (`views/first_available.py`: allocated per region/type/day, template day pattern, eligible
+resources), so a *none* day reads *full / no template day / no eligible techs / engine declined* from the first
+release of the product.
+
+## 14. Decisions taken, with the reason
 
 - **Probes reuse Task and Customer** rather than their own request model: `BookingPayloads`, `BookingClient`,
   `OfferRelease` and `BookingSlaTypes` all take a `Task`, and services records history by activity id, so the

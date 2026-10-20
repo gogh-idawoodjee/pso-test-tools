@@ -18,6 +18,7 @@
 - The queue has no logged-in user: load `Environment` without global scopes, as `SyncDatasetReferenceValuesJob` does.
 - Probe customers and probe tasks are hidden from the customer list, task list and dashboard map by default; a probe task cannot be booked.
 - Words: **possible** (survey) and **bookable** (template + rule). Never "available" in UI text.
+- `ProbeRunner` depends only on the `AppointmentRequests` interface (spec §13); the Rearview product port re-implements that interface over the gateway and must not need to touch the runner.
 - Follow `CLAUDE.md` conventions (no abbreviations, `app()` over `new`, explicit return types, Filament v5 namespaces).
 - `php artisan test` green after every task; `vendor/bin/pint --dirty` before each commit.
 
@@ -82,8 +83,10 @@
 ### Task 4: ProbeRunner
 
 **Files:**
-- Create: `app/Support/Probes/ProbeRunner.php`
-- Create: `app/Support/Probes/HorizonSurvey.php` (loops surveys over the horizon → `day_states`, `survey_request_ids`, last `latestWindowEnd`)
+- Create: `app/Support/Probes/AppointmentRequests.php` — the port (interface) the runner talks to: `survey(Task, BookingSlaTypes, CarbonImmutable $baseDay): array{offers: array, request_id: ?string}`, `dayRequest(Task, BookingSlaTypes, CarbonImmutable $baseDay, string $templateId, ?string $slotUsageRuleId): array{offers: array, request_id: ?string}` (always non-blocking), `release(Task, string $requestId): bool`. Spec §13: this is the seam the Rearview port re-implements over the gateway, so nothing services-specific leaks past it.
+- Create: `app/Support/Probes/ServicesAppointmentRequests.php` — the implementation over `BookingClient`, `BookingPayloads`, `OfferRelease`; bound in a service provider
+- Create: `app/Support/Probes/ProbeRunner.php` (depends on `AppointmentRequests`, never on `BookingClient` directly)
+- Create: `app/Support/Probes/HorizonSurvey.php` (loops `survey()` over the horizon → `day_states`, `survey_request_ids`, last `latestWindowEnd`)
 - Create: `app/Support/Probes/ProbeRunPresenter.php` (resolution sentence, lead formatting, window text — used by the board later)
 - Test: `tests/Feature/ProbeRunnerTest.php` (use `PsoServicesFake::session()` and `bookingOffersResponse()` from the booking tests; add a `survey:` reply builder that places offers on chosen days)
 
@@ -92,7 +95,7 @@
 - `HorizonSurvey::survey(Task $task, BookingSlaTypes $sla, CarbonImmutable $baseDay, int $horizonDays): array{day_states: array<string,string>, request_ids: list<string>}` — uses `BookingPayloads::survey()` and `BookingClient::send('appointment', …)`; next base from `BookingWindow::latestWindowEnd()` as the month Next does; days not covered are `unknown`.
 
 - [ ] **Step 1: Failing tests** — (a) survey only (no template): `no_template`, `first_possible_date` set, no day request sent; (b) survey + day request found: window/value stored, `released` true, `blocking` false asserted on the sent payload even when the template's `blockingDefault()` is true; (c) day request with no valid offers → `none_in_span`, still released; (d) 42-day horizon issues exactly two surveys and the second starts at the first's latest window end; (e) survey with no slots → `not_attempted`, no day request; (f) SLA types incomplete → failed before any HTTP call; (g) day request throws → run failed, release still attempted; (h) lead days: base day Oct 31 and possible day Nov 2 = 2; a probe in `America/Regina` on a Toronto DST-change weekend gives whole-day leads.
-- [ ] **Step 2: Implement** `HorizonSurvey`, `ProbeRunner`, `ProbeRunPresenter`. Use `BookingClient` with `notify: false`. Record `template_id_used` / `slot_usage_rule_id_used`. Store `raw` as `['surveys' => [...replies], 'confirm' => reply]`.
+- [ ] **Step 2: Implement** `AppointmentRequests`, `ServicesAppointmentRequests` (uses `BookingClient` with `notify: false`), `HorizonSurvey`, `ProbeRunner`, `ProbeRunPresenter`. Tests of the runner's logic may bind a fake `AppointmentRequests`; the HTTP-faked tests cover `ServicesAppointmentRequests`. Record `template_id_used` / `slot_usage_rule_id_used`. Store `raw` as `['surveys' => [...replies], 'confirm' => reply]`.
 - [ ] **Step 3: Run tests, pint, commit** — "ProbeRunner: survey, confirm under rule, release".
 
 ### Task 5: Job, dispatch and purge
