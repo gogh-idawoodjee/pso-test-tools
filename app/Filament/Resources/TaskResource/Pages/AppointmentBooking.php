@@ -7,6 +7,7 @@ use App\Enums\ReferenceEntityType;
 use App\Enums\TaskStatus;
 use App\Filament\Resources\DatasetReferenceValueResource;
 use App\Filament\Resources\TaskResource;
+use App\Filament\Resources\TaskResource\Schemas\TaskBookingSummary;
 use App\Models\DatasetReferenceValue;
 use App\Models\Environment;
 use App\Support\Booking\AgendaPresenter;
@@ -17,14 +18,13 @@ use App\Support\Booking\BookingSlaTypes;
 use App\Support\Booking\BookingWindow;
 use App\Support\Booking\OfferRelease;
 use App\Traits\FormTrait;
-use Carbon\Carbon;
 use Carbon\CarbonImmutable;
+use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -125,20 +125,6 @@ class AppointmentBooking extends Page
 
     private ?BookingSlaTypes $slaTypesCache = null;
 
-    /** The booked window in the dataset's zone, e.g. "Thursday October 22nd 08:00-12:00". */
-    protected function formatAppointmentWindow(Carbon|string|null $startDate, Carbon|string|null $endDate): ?string
-    {
-        if (blank($startDate) || blank($endDate)) {
-            return null;
-        }
-
-        $timeZone = $this->timeZone();
-        $start = Carbon::parse($startDate)->setTimezone($timeZone);
-        $end = Carbon::parse($endDate)->setTimezone($timeZone);
-
-        return $start->format('l F jS').' '.$start->format('H:i').'-'.$end->format('H:i');
-    }
-
     /** The booked assignment in the dataset's zone, e.g. "Thursday October 22nd 08:00-09:30"; offsetless times are UTC. */
     public function formatAssignment(mixed $start, mixed $finish): ?string
     {
@@ -148,148 +134,24 @@ class AppointmentBooking extends Page
             return null;
         }
 
-        return $this->formatAppointmentWindow(Carbon::instance($from), Carbon::instance($to));
+        return TaskBookingSummary::window($from, $to, $this->timeZone());
     }
 
-    /**
-     * Format a duration in minutes to a human-readable string
-     */
-    protected function formatDuration(int $durationInMinutes): string
+    /** A direct link back to the task (the task has no view page, so edit is the task page). */
+    protected function getHeaderActions(): array
     {
-        return AgendaPresenter::formatDuration($durationInMinutes);
+        return [
+            Action::make('backToTask')
+                ->label('Back to task')
+                ->icon(Heroicon::OutlinedArrowUturnLeft)
+                ->color('gray')
+                ->url(TaskResource::getUrl('edit', ['record' => $this->record])),
+        ];
     }
 
-    /**
-     * Check if an appointment is urgent (less than 2 hours away)
-     */
-    protected function isAppointmentUrgent(Carbon|string|null $appointmentStart): bool
-    {
-        if (blank($appointmentStart)) {
-            return false;
-        }
-
-        $start = $appointmentStart instanceof Carbon ? $appointmentStart : Carbon::parse($appointmentStart);
-        $now = Carbon::now();
-        $timeUntilStart = $now->diffInMinutes($start);
-
-        return $timeUntilStart > 0 && $timeUntilStart < 120; // Less than 2 hours
-    }
-
-    /**
-     * Build the infolist for task details
-     */
     public function infolist(Schema $infolist): Schema
     {
-        // Get appointment window data
-        $appointmentTime = $this->formatAppointmentWindow(
-            $this->record->appt_window_start,
-            $this->record->appt_window_finish
-        );
-
-        // Get duration data
-        $formattedDuration = $this->formatDuration((int) $this->record->duration);
-
-        // Check urgency
-        $isUrgent = $this->isAppointmentUrgent($this->record->appt_window_start);
-
-        return $infolist
-            ->record($this->record)
-            ->columns(1) // Single column for the main container
-            ->schema([
-                Section::make('Task '.data_get($this->record, 'friendly_id').' - '.data_get($this->record, 'taskType.label'))
-                    ->icon(Heroicon::OutlinedClipboardDocumentList)
-                    ->schema([
-                        // Activity ID and Status row
-                        Grid::make()
-                            ->schema([
-                                Group::make()
-                                    ->schema([
-                                        TextEntry::make('duration_label')
-                                            ->state('Duration')
-                                            ->hiddenLabel()
-                                            ->weight('bold'),
-                                        TextEntry::make('duration')
-                                            ->label(false)
-                                            ->state($formattedDuration)
-                                            ->icon(Heroicon::OutlinedClock)
-                                            ->size('md'),
-                                    ]),
-                                Group::make()
-                                    ->schema([
-                                        TextEntry::make('base_value_label')
-                                            ->state('Base Value')
-                                            ->hiddenLabel()
-                                            ->weight('bold'),
-                                        TextEntry::make('base_value')
-                                            ->label(false)
-                                            ->weight('bold')
-                                            ->color('primary')
-                                            ->formatStateUsing(static function ($state) {
-                                                return number_format((float) $state);
-                                            }),
-                                    ]),
-
-                                // Right column - Status
-                                Group::make()
-                                    ->schema([
-                                        TextEntry::make('status_label')
-                                            ->state('Status')
-                                            ->hiddenLabel()
-                                            ->weight('bold'),
-                                        TextEntry::make('status')
-                                            ->label(false)
-                                            ->formatStateUsing(static fn (TaskStatus|int|null $state) => ($state instanceof TaskStatus ? $state : TaskStatus::tryFrom((int) $state))?->getLabel())
-                                            ->badge()
-                                            ->color(static fn (TaskStatus|int|null $state) => match ($state instanceof TaskStatus ? $state : TaskStatus::tryFrom((int) $state)) {
-                                                TaskStatus::IGNORE => 'gray',
-                                                TaskStatus::UNALLOCATED, TaskStatus::ALLOCATED => 'warning',
-                                                TaskStatus::FOLLOW_ON, TaskStatus::COMMITTED, TaskStatus::SENT, TaskStatus::DOWNLOADED => 'info',
-                                                TaskStatus::ACCEPTED, TaskStatus::TRAVELLING, TaskStatus::WAITING, TaskStatus::ON_SITE => 'primary',
-                                                TaskStatus::PENDING_COMPLETION, TaskStatus::VISIT_COMPLETE => 'secondary',
-                                                TaskStatus::COMPLETED => 'success',
-                                                TaskStatus::INCOMPLETE => 'danger',
-                                                default => null,
-                                            })
-                                            ->size('md'),
-                                    ]),
-
-                            ])
-                            ->columns(3),
-
-                        Section::make()
-                            ->schema([
-                                TextEntry::make('appointment')
-                                    ->label($this->record->isBooked() ? 'Booked window' : 'Booking')
-                                    ->state($appointmentTime ?? 'Not booked')
-                                    ->color($appointmentTime === null ? 'gray' : ($isUrgent ? 'danger' : 'primary'))
-                                    ->icon(Heroicon::OutlinedCalendar)
-                                    ->iconColor($isUrgent ? 'danger' : 'primary')
-                                    ->size('lg'),
-                                TextEntry::make('booking_sla_type_id')
-                                    ->label('Booking SLA type')
-                                    ->visible($this->record->isBooked())
-                                    ->placeholder('Not recorded'),
-                                TextEntry::make('appointment_request_id')
-                                    ->label('Appointment request')
-                                    ->visible($this->record->isBooked()),
-                            ]),
-
-                        //                        // Base Value, Task Type, and Location
-                        //                        Grid::make()
-                        //                            ->schema([
-                        //
-                        //
-                        //                                TextEntry::make('location')
-                        //                                    ->label('Location')
-                        //                                    ->state(function () {
-                        //                                        return $this->record->address ?? 'No address provided';
-                        //                                    })
-                        //                                    ->icon('heroicon-o-map-pin')
-                        //                                    ->columnSpanFull(),
-                        //                            ])
-                        //                            ->columns(),
-                    ]),
-            ]);
+        return TaskBookingSummary::schema($infolist, $this->record, $this->timeZone());
     }
 
     public function mount(int|string $record): void
@@ -629,9 +491,10 @@ class AppointmentBooking extends Page
 
         $this->surveyEnd = BookingWindow::latestWindowEnd((array) data_get($result['data'], 'appointmentOffers', []));
 
+        $window = $this->window();
         $states = array_fill_keys($days, 'none');
         foreach ((array) data_get($result['data'], 'appointmentOffers.validOffers', []) as $offer) {
-            $day = $this->window()->offerDay($offer);
+            $day = $window->offerDay($offer);
             if ($day !== null && array_key_exists($day, $states)) {
                 $states[$day] = 'slots';
             }
@@ -798,7 +661,7 @@ class AppointmentBooking extends Page
 
         // A rebooking: keep the window being replaced for the panel (the history section is the lasting record).
         $this->previousBooking = $this->record->isBooked() ? [
-            'window' => $this->formatAppointmentWindow($this->record->appt_window_start, $this->record->appt_window_finish),
+            'window' => TaskBookingSummary::window($this->record->appt_window_start, $this->record->appt_window_finish, $this->timeZone()),
             'slaTypeId' => $this->record->booking_sla_type_id,
         ] : null;
 
