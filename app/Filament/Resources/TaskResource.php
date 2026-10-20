@@ -8,8 +8,8 @@ use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
-use Filament\Resources\Resource;
 use Filament\Forms;
+use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -42,8 +42,9 @@ class TaskResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('id')
-                    ->label('ID')
+                Tables\Columns\TextColumn::make('friendly_id')
+                    ->label('Activity ID')
+                    ->placeholder('—')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('customer.name')
                     ->searchable(),
