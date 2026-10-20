@@ -83,8 +83,9 @@ class ActivityTraceTool implements Tool
         }
 
         $counts = ['red' => 0, 'amber' => 0, 'green' => 0];
+        // The script writes each finding's severity as sev: RED, AMBER, GREEN or INFO.
         foreach ($data['findings'] ?? [] as $finding) {
-            $key = strtolower((string) ($finding['severity'] ?? ''));
+            $key = strtolower((string) ($finding['sev'] ?? $finding['severity'] ?? ''));
             if (isset($counts[$key])) {
                 $counts[$key]++;
             }

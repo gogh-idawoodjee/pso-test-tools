@@ -44,7 +44,7 @@ if mode == 'silent':
 with open(os.path.join(out, 'trace.html'), 'w') as fh:
     fh.write('<!doctype html><html><body>Trace page</body></html>')
 with open(os.path.join(out, 'trace.json'), 'w') as fh:
-    json.dump({'meta': {'activity_id': arg('--activity') or os.environ.get('FAKE_TRACE_RESOLVED_ACTIVITY'), 'work_task_id': arg('--work-task')}, 'findings': [{'severity': 'red', 'text': 'a'}, {'severity': 'amber', 'text': 'b'}, {'severity': 'amber', 'text': 'c'}, {'severity': 'green', 'text': 'd'}]}, fh)
+    json.dump({'meta': {'activity_id': arg('--activity') or os.environ.get('FAKE_TRACE_RESOLVED_ACTIVITY'), 'work_task_id': arg('--work-task')}, 'findings': [{'sev': 'RED', 'text': 'a'}, {'sev': 'AMBER', 'text': 'b'}, {'sev': 'AMBER', 'text': 'c'}, {'sev': 'GREEN', 'text': 'd'}, {'sev': 'INFO', 'text': 'e'}]}, fh)
 with open(os.path.join(out, 'booking.csv'), 'w') as fh:
     fh.write('time,event\n2026-10-03,offer\n')
 with open(os.path.join(out, 'history.csv'), 'w') as fh:
