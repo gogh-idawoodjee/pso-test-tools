@@ -44,6 +44,9 @@ class CustomerResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('dataset.environment.name')
+                    ->label('Environment')
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('dataset.name')
                     ->label('Dataset')
                     ->sortable(),
@@ -77,6 +80,9 @@ class CustomerResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Tables\Filters\SelectFilter::make('environment')
+                    ->label('Environment')
+                    ->relationship('dataset.environment', 'name'),
                 Tables\Filters\SelectFilter::make('dataset_id')
                     ->label('Dataset')
                     ->options(static fn (): array => Dataset::ownedByCurrentUser()->pluck('name', 'id')->all()),
