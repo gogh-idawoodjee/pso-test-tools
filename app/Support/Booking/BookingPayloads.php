@@ -14,8 +14,6 @@ use RuntimeException;
  */
 final class BookingPayloads
 {
-    private const int WINDOW_DAYS = 21;
-
     public function __construct(
         private readonly Task $task,
         private readonly BookingSlaTypes $sla,
@@ -99,8 +97,8 @@ final class BookingPayloads
             'skills' => array_values($this->task->skills ?? []),
             'slaTypeId' => $this->sla->appointmentSlaTypeId,
             'slaStart' => $start,
-            'slaEnd' => self::utc($day->addDays(self::WINDOW_DAYS)->startOfDay()),
-            'appointmentTemplateDuration' => self::WINDOW_DAYS,
+            'slaEnd' => self::utc($day->addDays(BookingWindow::DAYS)->startOfDay()),
+            'appointmentTemplateDuration' => BookingWindow::DAYS,
             'appointmentBaseDateTime' => $start,
             'appointmentTemplateDatetime' => $start,
             'timezone' => $timeZone,
