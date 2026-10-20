@@ -76,7 +76,7 @@ it('runs the script and stores the page, data, both CSVs, counts, summary and wa
     expect($args['argv'])->toContain('--activity', 'abc', '--tz', 'America/Regina', '--ifs-tz', 'America/Toronto', '--dataset-name=NORTH')
         ->and($args['progress_env'])->toBe('lines')
         ->and($result->result['html'])->toContain('Trace page')
-        ->and($result->result['data']['findings'])->toHaveCount(4)
+        ->and($result->result['data']['findings'])->toHaveCount(5)
         ->and($result->result['booking_csv'])->toStartWith('time,event')
         ->and($result->result['history_csv'])->toStartWith('time,step')
         ->and($result->summary)->toBe(['line' => 'Activity abc: Booked 2026-10-03 after 2 offers; 14 scheduling events, 1 check failed', 'counts' => ['red' => 1, 'amber' => 2, 'green' => 1], 'activity_id' => 'abc', 'work_task_id' => null])
