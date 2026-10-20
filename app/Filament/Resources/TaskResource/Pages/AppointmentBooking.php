@@ -14,6 +14,7 @@ use App\Support\Booking\BookingClient;
 use App\Support\Booking\BookingHistory;
 use App\Support\Booking\BookingPayloads;
 use App\Support\Booking\BookingSlaTypes;
+use App\Support\Booking\BookingWindow;
 use App\Support\Booking\OfferRelease;
 use App\Traits\FormTrait;
 use Carbon\Carbon;
@@ -29,7 +30,6 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Livewire\Attributes\Locked;
 use RuntimeException;
-use Throwable;
 
 /**
  * Appointment booking for one task: a survey request fills a three week month view, a day opens
@@ -38,8 +38,6 @@ use Throwable;
 class AppointmentBooking extends Page
 {
     use FormTrait, InteractsWithRecord;
-
-    private const int WINDOW_DAYS = 21;
 
     private const int OFFER_MINUTES = 5;
 
@@ -478,16 +476,7 @@ class AppointmentBooking extends Page
     /** The 21 calendar days of the month view in the booking zone, from today or from windowStart, as Y-m-d. */
     public function windowDays(): array
     {
-        $first = $this->windowFirstDay();
-
-        return array_map(static fn (int $i): string => $first->addDays($i)->toDateString(), range(0, self::WINDOW_DAYS - 1));
-    }
-
-    private function windowFirstDay(): CarbonImmutable
-    {
-        return filled($this->windowStart)
-            ? CarbonImmutable::parse($this->windowStart, $this->timeZone())->startOfDay()
-            : CarbonImmutable::now($this->timeZone())->startOfDay();
+        return $this->window()->days();
     }
 
     /** The zone the month and agenda are based in: the customer's, else the dataset's, else UTC. */
@@ -499,8 +488,7 @@ class AppointmentBooking extends Page
     /** Month view Next: three more weeks, starting where the last offer ended (or the day after the window). */
     public function nextMonth(): void
     {
-        $from = self::utcMoment($this->surveyEnd)?->setTimezone($this->timeZone());
-        $this->windowStart = ($from ?? $this->windowFirstDay()->addDays(self::WINDOW_DAYS))->toDateString();
+        $this->windowStart = $this->window()->nextMonthStart();
         $this->loadSurvey();
     }
 
@@ -511,17 +499,14 @@ class AppointmentBooking extends Page
             return;
         }
 
-        $today = CarbonImmutable::now($this->timeZone())->startOfDay();
-        $from = $this->windowFirstDay()->subDays(self::WINDOW_DAYS);
-        $this->windowStart = $from->gt($today) ? $from->toDateString() : null;
+        $this->windowStart = $this->window()->previousMonthStart();
         $this->loadSurvey();
     }
 
     /** Month Previous is off when the window already starts today (or earlier). */
     public function canGoPreviousMonth(): bool
     {
-        return filled($this->windowStart)
-            && $this->windowFirstDay()->gt(CarbonImmutable::now($this->timeZone())->startOfDay());
+        return $this->window()->canGoPreviousMonth();
     }
 
     /**
@@ -567,12 +552,12 @@ class AppointmentBooking extends Page
     /** Agenda Next: ask for the template's offers again, starting where the last offer (available or not) ended. */
     public function nextAgenda(): void
     {
-        $from = self::utcMoment($this->cursor);
+        $from = $this->window()->nextAgendaFrom();
         if ($from === null || $this->screen !== 'agenda') {
             return;
         }
 
-        $this->requestDay($from->setTimezone($this->timeZone())->toDateString(), $from->format('Y-m-d\\TH:i:s'));
+        $this->requestDay($from->setTimezone($this->timeZone())->toDateString(), BookingWindow::templateDatetime($from));
     }
 
     /**
@@ -581,12 +566,12 @@ class AppointmentBooking extends Page
      */
     public function previousAgenda(): void
     {
-        $from = $this->previousAgendaFrom();
+        $from = $this->window()->previousAgendaFrom();
         if ($from === null || $this->screen !== 'agenda' || ! $this->canGoPreviousAgenda()) {
             return;
         }
 
-        $this->requestDay($from->setTimezone($this->timeZone())->toDateString(), $from->format('Y-m-d\\TH:i:s'));
+        $this->requestDay($from->setTimezone($this->timeZone())->toDateString(), BookingWindow::templateDatetime($from));
     }
 
     /**
@@ -595,58 +580,7 @@ class AppointmentBooking extends Page
      */
     public function canGoPreviousAgenda(): bool
     {
-        $from = $this->previousAgendaFrom();
-        if ($from === null) {
-            return false;
-        }
-
-        $now = CarbonImmutable::now('UTC')->startOfSecond();
-        $requestedFrom = self::utcMoment($this->requestedFromUtc);
-
-        return ! ($from->eq($now) && $requestedFrom !== null && $requestedFrom->lte($now));
-    }
-
-    /** Where agenda Previous would start, as a UTC instant to the second; null without a reply to step back from. */
-    private function previousAgendaFrom(): ?CarbonImmutable
-    {
-        $earliest = self::utcMoment($this->cursorBack);
-        $latest = self::utcMoment($this->cursor);
-        if ($earliest === null || $latest === null) {
-            return null;
-        }
-
-        $from = $earliest->subSeconds((int) $earliest->diffInSeconds($latest, true))->utc()->startOfSecond();
-        $now = CarbonImmutable::now('UTC')->startOfSecond();
-
-        return $from->lt($now) ? $now : $from;
-    }
-
-    /** The earliest window start across every offer of a services reply, valid or not, as a UTC instant. */
-    private static function earliestWindowStart(array $offers): ?string
-    {
-        $earliest = null;
-        foreach ([...(array) data_get($offers, 'validOffers', []), ...(array) data_get($offers, 'allOfferValues', [])] as $offer) {
-            $start = self::utcMoment(data_get($offer, 'windowStartDatetime'));
-            if ($start !== null && ($earliest === null || $start->lt($earliest))) {
-                $earliest = $start;
-            }
-        }
-
-        return $earliest?->toIso8601String();
-    }
-
-    /** The latest window end across every offer of a services reply, valid or not, as a UTC instant. */
-    private static function latestWindowEnd(array $offers): ?string
-    {
-        $latest = null;
-        foreach ([...(array) data_get($offers, 'validOffers', []), ...(array) data_get($offers, 'allOfferValues', [])] as $offer) {
-            $end = self::utcMoment(data_get($offer, 'windowEndDatetime'));
-            if ($end !== null && ($latest === null || $end->gt($latest))) {
-                $latest = $end;
-            }
-        }
-
-        return $latest?->toIso8601String();
+        return $this->window()->canGoPreviousAgenda();
     }
 
     /** The customer's zone, else the dataset's, else UTC. */
@@ -679,7 +613,7 @@ class AppointmentBooking extends Page
         }
 
         try {
-            $payload = $this->payloads()->survey($this->windowFirstDay());
+            $payload = $this->payloads()->survey($this->window()->firstDay());
         } catch (RuntimeException $exception) {
             $this->pageError = $exception->getMessage();
 
@@ -693,11 +627,11 @@ class AppointmentBooking extends Page
             return;
         }
 
-        $this->surveyEnd = self::latestWindowEnd((array) data_get($result['data'], 'appointmentOffers', []));
+        $this->surveyEnd = BookingWindow::latestWindowEnd((array) data_get($result['data'], 'appointmentOffers', []));
 
         $states = array_fill_keys($days, 'none');
         foreach ((array) data_get($result['data'], 'appointmentOffers.validOffers', []) as $offer) {
-            $day = $this->offerDay($offer);
+            $day = $this->window()->offerDay($offer);
             if ($day !== null && array_key_exists($day, $states)) {
                 $states[$day] = 'slots';
             }
@@ -745,7 +679,7 @@ class AppointmentBooking extends Page
                 $templateId,
                 data_get($this->task_data, 'slotUsageRuleId'),
                 $this->blockingOverride,
-                self::inputDatetimeUtc(data_get($this->task_data, 'input_datetime')),
+                BookingWindow::inputDatetimeUtc(data_get($this->task_data, 'input_datetime')),
                 $templateDatetimeUtc,
             );
         } catch (RuntimeException $exception) {
@@ -767,8 +701,8 @@ class AppointmentBooking extends Page
 
         $offers = (array) data_get($result['data'], 'appointmentOffers', []);
         $this->offers = $offers;
-        $this->cursor = self::latestWindowEnd($offers);
-        $this->cursorBack = self::earliestWindowStart($offers);
+        $this->cursor = BookingWindow::latestWindowEnd($offers);
+        $this->cursorBack = BookingWindow::earliestWindowStart($offers);
         $this->requestedFromUtc = data_get($payload, 'data.appointmentTemplateDatetime');
         $this->appointmentRequestId = data_get($offers, 'appointmentRequestId');
         $this->countdownExpiresAt = now()->addMinutes(self::OFFER_MINUTES)->toIso8601String(); // DO NOT USE ->format(), do not force UTC
@@ -778,23 +712,6 @@ class AppointmentBooking extends Page
         $this->booking = null;
         $this->selectedDay = $day;
         $this->screen = 'agenda';
-    }
-
-    /**
-     * The picker's wall time read in the app zone, sent as UTC without an offset: services validates
-     * inputDatetime as Y-m-d\TH:i:s and reads it as UTC.
-     */
-    public static function inputDatetimeUtc(mixed $value): ?string
-    {
-        if (! is_string($value) || blank($value)) {
-            return null;
-        }
-
-        try {
-            return CarbonImmutable::parse($value, config('app.timezone'))->utc()->format('Y-m-d\TH:i:s');
-        } catch (Throwable) {
-            return null;
-        }
     }
 
     public function backToMonth(): void
@@ -1005,24 +922,14 @@ class AppointmentBooking extends Page
         $this->expired = false;
     }
 
+    private function window(): BookingWindow
+    {
+        return new BookingWindow($this->timeZone(), $this->windowStart, $this->surveyEnd, $this->cursor, $this->cursorBack, $this->requestedFromUtc);
+    }
+
     private function payloads(): BookingPayloads
     {
         return new BookingPayloads($this->record, $this->slaTypes());
-    }
-
-    /** The calendar day of an offer's window start in the dataset's zone; offsetless times are UTC. */
-    private function offerDay(mixed $offer): ?string
-    {
-        $start = data_get($offer, 'windowStartDatetime');
-        if (! is_string($start) || $start === '') {
-            return null;
-        }
-
-        try {
-            return CarbonImmutable::parse($start, 'UTC')->setTimezone($this->timeZone())->toDateString();
-        } catch (Throwable) {
-            return null;
-        }
     }
 
     /**
