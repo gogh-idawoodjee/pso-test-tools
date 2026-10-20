@@ -264,3 +264,25 @@ it('stores table counts for a zipped LOAD', function () {
 
     expect($summary['table_counts'])->toBe(['Input_Reference' => 1, 'Activity' => 4, 'Resources' => 1]);
 });
+
+it('reports how many audit messages it has read as it goes', function () {
+    $dir = sys_get_temp_dir().'/audits-'.uniqid();
+    mkdir($dir);
+    file_put_contents("$dir/m1.xml", '<Audit><Plan><output_datetime>2026-10-10T08:00:00</output_datetime></Plan></Audit>');
+    file_put_contents("$dir/m2.xml", '<Audit><Input_Reference><datetime>2026-10-10T09:00:00</datetime></Input_Reference></Audit>');
+    file_put_contents("$dir/notes.txt", 'not a message');
+    $zipPath = tempnam(sys_get_temp_dir(), 'exp_').'.zip';
+    $zip = new ZipArchive;
+    $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
+    $zip->addFile("$dir/m1.xml", 'm1.xml');
+    $zip->addFile("$dir/m2.xml", 'm2.xml');
+    $zip->addFile("$dir/notes.txt", 'notes.txt');
+    $zip->close();
+
+    $seen = [];
+    app(ExportSummariser::class)->summarise(fileOfKind(ExportKind::Audits, 'zip'), $zipPath, 'UTC', function (int $read, int $of) use (&$seen): void {
+        $seen[] = [$read, $of];
+    });
+
+    expect($seen)->toBe([[1, 2], [2, 2]]);
+});

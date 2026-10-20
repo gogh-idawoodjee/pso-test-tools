@@ -9,6 +9,7 @@ use App\Models\ExportFile;
 use App\Support\Exports\ExportStorage;
 use App\Support\Exports\ExportSummariser;
 use App\Support\Exports\InvalidExportException;
+use Closure;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -23,9 +24,12 @@ class SummariseExportFileJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout = 300;
+    /** A day of audits is 25,000 messages and a few minutes of reading; under the queue's 960s retry window. */
+    public int $timeout = 900;
 
     public int $tries = 1;
+
+    private const PROGRESS_EVERY = 250;
 
     public function __construct(public string $exportFileId) {}
 
@@ -40,7 +44,7 @@ class SummariseExportFileJob implements ShouldQueue
 
         try {
             $path = $storage->readToScratch($file, $scratch);
-            $summary = $summariser->summarise($file, $path, $this->timeZoneFor($file));
+            $summary = $summariser->summarise($file, $path, $this->timeZoneFor($file), $this->progressWriter($file));
 
             $file->forceFill([
                 'summary' => $summary->toArray(),
@@ -63,6 +67,22 @@ class SummariseExportFileJob implements ShouldQueue
         if ($file !== null && $file->status === ExportFileStatus::Summarising) {
             $this->markFailed($file, 'The export could not be read: '.$exception->getMessage());
         }
+    }
+
+    /**
+     * Keeps "Read N of M messages" on the row for the drop zone to show: the first message
+     * (the read has begun), then every few hundred, so a long read is visibly alive.
+     *
+     * @return Closure(int, int): void
+     */
+    private function progressWriter(ExportFile $file): Closure
+    {
+        return static function (int $read, int $of) use ($file): void {
+            if ($read !== 1 && $read % self::PROGRESS_EVERY !== 0 && $read !== $of) {
+                return;
+            }
+            $file->forceFill(['summary' => ['progress' => 'Read '.number_format($read).' of '.number_format($of).' messages']])->save();
+        };
     }
 
     private function markFailed(ExportFile $file, string $message): void

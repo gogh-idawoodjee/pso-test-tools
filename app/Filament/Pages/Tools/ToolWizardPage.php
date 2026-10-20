@@ -38,6 +38,7 @@ use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\Wizard;
 use Filament\Schemas\Components\Wizard\Step;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -270,7 +271,19 @@ abstract class ToolWizardPage extends Page implements HasForms
     {
         return Step::make('Inputs')
             ->description('The exports to run against. Reuse a file already uploaded or drop a new one.')
-            ->schema(fn (): array => $this->inputFields());
+            ->schema(fn (): array => $this->inputFields())
+            // A select is disabled while its upload is being read, and a disabled field is not validated: hold the step instead.
+            ->afterValidation(function (): void {
+                $reading = $this->pendingKinds();
+                if ($reading === []) {
+                    return;
+                }
+                Notification::make()->title('Still reading your upload')
+                    ->body('Wait until the '.$this->labelsOf($reading).' export you uploaded has been read, then continue.')
+                    ->warning()->send();
+
+                throw new Halt;
+            });
     }
 
     /**
@@ -461,6 +474,12 @@ abstract class ToolWizardPage extends Page implements HasForms
         $this->afterInputsChanged();
     }
 
+    /** @param  list<ExportKind>  $kinds  "LOAD", or "LOAD and SYS" */
+    private function labelsOf(array $kinds): string
+    {
+        return implode(' and ', array_map(static fn (ExportKind $kind): string => $kind->getLabel(), $kinds));
+    }
+
     public function hasPendingUploads(): bool
     {
         return $this->pendingKinds() !== [];
@@ -509,9 +528,8 @@ abstract class ToolWizardPage extends Page implements HasForms
         // A select is disabled while its upload is being read, and a disabled field leaves the form state: wait instead.
         $reading = $this->pendingKinds();
         if ($reading !== []) {
-            $labels = array_map(static fn (ExportKind $kind): string => $kind->getLabel(), $reading);
             Notification::make()->title('The run did not start')
-                ->body('Wait until the '.implode(' and ', $labels).' export you uploaded has been read, then run again.')
+                ->body('Wait until the '.$this->labelsOf($reading).' export you uploaded has been read, then run again.')
                 ->warning()->send();
 
             return;

@@ -5,6 +5,8 @@
     $hasPage = filled($run->result['html'] ?? null);
     $activityId = $run->summary['activity_id'] ?? null;
     $workTaskId = $run->summary['work_task_id'] ?? null;
+    // Audits hold changes only, so an activity created before them carries no Custom URL row; the LOAD does.
+    $workTaskHint = filled($activityId) && blank($workTaskId) && blank($run->inputs['files']['load'] ?? null);
 @endphp
 
 <x-filament::section>
@@ -17,6 +19,8 @@
                     @endif
                     @if (filled($workTaskId))
                         <span class="text-sm text-gray-600 dark:text-gray-400">Work task {{ $workTaskId }}</span>
+                    @elseif ($workTaskHint)
+                        <span class="text-sm text-gray-500 dark:text-gray-400">No work task id in these audits. Add the LOAD export, which holds the activity Custom URL, or enter the work task id.</span>
                     @endif
                 </div>
             @endif

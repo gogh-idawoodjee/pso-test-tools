@@ -8,6 +8,7 @@ use App\Support\ScheduleData\JsonTokenReader;
 use App\Support\ScheduleDataSummaryExtractor;
 use App\Support\SysCompare\VersionAnalyzer;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 use XMLReader;
@@ -20,7 +21,8 @@ use ZipArchive;
  */
 class ExportSummariser
 {
-    public function summarise(ExportFile $file, string $localPath, string $timeZone): ExportSummary
+    /** @param  (Closure(int $read, int $of): void)|null  $onProgress  told after each audit message, the only kind slow enough to watch */
+    public function summarise(ExportFile $file, string $localPath, string $timeZone, ?Closure $onProgress = null): ExportSummary
     {
         $kind = $file->kind;
         // An event log is a spreadsheet (csv or xlsx), read by its own extension, never sniffed as an export.
@@ -32,7 +34,7 @@ class ExportSummariser
         $contentType = ExportFormat::sniff($localPath) ?? $file->content_type;
 
         if ($kind === ExportKind::Audits) {
-            return $this->summariseAudits($contentType, $localPath);
+            return $this->summariseAudits($contentType, $localPath, $onProgress);
         }
 
         [$path, $format] = $contentType === 'zip'
@@ -532,7 +534,14 @@ class ExportSummariser
         return $index - 1;
     }
 
-    private function summariseAudits(string $contentType, string $zipPath): ExportSummary
+    /**
+     * Counts the messages and finds the span of their times. Each message is walked table by
+     * table: only Plan and Input_Reference are opened (for the time), every other table is
+     * skipped whole, so a day of audits is read in a fraction of the time a full walk takes.
+     *
+     * @param  (Closure(int $read, int $of): void)|null  $onProgress
+     */
+    private function summariseAudits(string $contentType, string $zipPath, ?Closure $onProgress = null): ExportSummary
     {
         if ($contentType !== 'zip') {
             throw new InvalidExportException('Audit messages must be uploaded as a zip of xml files.');
@@ -549,36 +558,43 @@ class ExportSummariser
         $last = null;
 
         try {
+            $members = [];
             for ($index = 0; $index < $zip->numFiles; $index++) {
                 $name = (string) $zip->getNameIndex($index);
-                if (! ExportFormat::isReadableMember($name, 'xml') || str_contains($name, '#')) {
-                    continue;
+                if (ExportFormat::isReadableMember($name, 'xml') && ! str_contains($name, '#')) {
+                    $members[] = $name;
                 }
+            }
+            $total = count($members);
 
+            foreach ($members as $name) {
                 $messages++;
                 $reader = $this->openReader('zip://'.$zipPath.'#'.$name);
-                $names = [];
                 $time = null;
 
                 try {
-                    while (@$reader->read()) {
-                        if ($reader->nodeType !== XMLReader::ELEMENT) {
+                    $moved = @$reader->read();
+                    while ($moved) {
+                        if ($reader->nodeType !== XMLReader::ELEMENT || $reader->depth !== 1) {
+                            $moved = @$reader->read();
+
                             continue;
                         }
 
-                        $names[$reader->depth] = $reader->localName;
-                        $parent = $names[$reader->depth - 1] ?? null;
-
-                        if ($reader->localName === 'Appointment_Request') {
+                        $table = $reader->localName;
+                        if ($table === 'Appointment_Request') {
                             $appointmentRequests++;
                         }
 
-                        if ($time === null && (
-                            ($parent === 'Plan' && $reader->localName === 'output_datetime')
-                            || ($parent === 'Input_Reference' && $reader->localName === 'datetime')
-                        )) {
-                            $time = $this->parseTime($reader->readString());
+                        if ($time === null && ($table === 'Plan' || $table === 'Input_Reference')) {
+                            $time = $this->timeInside($reader, $table === 'Plan' ? 'output_datetime' : 'datetime');
+                            $moved = @$reader->read();
+
+                            continue;
                         }
+
+                        // Past this table and on to the next, without visiting its rows.
+                        $moved = @$reader->next();
                     }
                 } finally {
                     $reader->close();
@@ -588,6 +604,8 @@ class ExportSummariser
                     $first = $first === null || $time->lt($first) ? $time : $first;
                     $last = $last === null || $time->gt($last) ? $time : $last;
                 }
+
+                $onProgress?->__invoke($messages, $total);
             }
         } finally {
             $zip->close();
@@ -603,6 +621,26 @@ class ExportSummariser
             'last_message_at' => $last?->toIso8601String(),
             'appointment_request_count' => $appointmentRequests,
         ]);
+    }
+
+    /** The time in the named child of the table the reader is on, or null once the table ends without one. */
+    private function timeInside(XMLReader $reader, string $childName): ?CarbonImmutable
+    {
+        $tableDepth = $reader->depth;
+        if ($reader->isEmptyElement) {
+            return null;
+        }
+
+        while (@$reader->read()) {
+            if ($reader->nodeType === XMLReader::END_ELEMENT && $reader->depth === $tableDepth) {
+                return null;
+            }
+            if ($reader->nodeType === XMLReader::ELEMENT && $reader->depth === $tableDepth + 1 && $reader->localName === $childName) {
+                return $this->parseTime($reader->readString());
+            }
+        }
+
+        return null;
     }
 
     /** The root element (xml) or first key (json), normalised to the names we compare against. */

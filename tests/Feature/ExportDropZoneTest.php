@@ -145,3 +145,11 @@ it('shows an unfiled upload the server is still reading', function () {
         ->assertSee('Reading prod_load.zip')
         ->assertSet('serverStates', ['load' => 'reading']);
 });
+
+it('shows how far the server has read the file', function () {
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Audits, 'original_filename' => 'audit.zip', 'status' => ExportFileStatus::Summarising, 'summary' => ['progress' => 'Read 1,200 of 25,365 messages']]);
+
+    Livewire::test(ExportDropZone::class, ['scope' => $this->dataset, 'kinds' => [ExportKind::Audits]])
+        ->assertSee('Reading audit.zip')
+        ->assertSee('Read 1,200 of 25,365 messages');
+});

@@ -202,7 +202,7 @@
                     @if ($serverState === 'reading')
                         <span x-show="! single()" class="block" role="status">
                             <span class="block truncate text-gray-950 dark:text-white">Reading {{ $serverFile->original_filename }}</span>
-                            <span class="block text-xs text-gray-500 dark:text-gray-400">This can take a minute for large files</span>
+                            <span class="block text-xs text-gray-500 dark:text-gray-400">{{ $serverFile->progressNote() ?? 'This can take a minute for large files' }}</span>
                         </span>
                     @elseif ($serverState === 'error')
                         <span x-show="! single()" class="flex items-start justify-between gap-x-3">

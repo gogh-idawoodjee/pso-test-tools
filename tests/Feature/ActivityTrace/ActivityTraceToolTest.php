@@ -247,3 +247,20 @@ it('keeps the tool label as the page title when a run names nothing', function (
     $run->update(['summary' => ['line' => 'x', 'counts' => [], 'work_task_id' => '446613']]);
     expect(ToolRunPage::subjectOf($run->fresh()))->toBe('Work task 446613');
 });
+
+it('says where the work task would come from when the trace found none and no LOAD was given', function () {
+    $run = storedTrace();
+    $run->update(['summary' => [...$run->summary, 'work_task_id' => null]]);
+
+    Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $run->id])
+        ->assertSee('No work task id in these audits. Add the LOAD export, which holds the activity Custom URL, or enter the work task id.')
+        ->assertDontSee('Work task 438745');
+});
+
+it('keeps quiet about the missing work task when a LOAD was read', function () {
+    $run = storedTrace();
+    $run->update(['summary' => [...$run->summary, 'work_task_id' => null], 'inputs' => ['files' => ['audits' => 'a', 'load' => 'b'], 'options' => ['activity_id' => '813775']]]);
+
+    Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $run->id])
+        ->assertDontSee('No work task id in these audits');
+});

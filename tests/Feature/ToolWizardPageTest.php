@@ -411,3 +411,16 @@ it('does not wait for an upload that never finished', function () {
 
     expect(ToolRun::count())->toBe(1);
 });
+
+it('does not step past Inputs while an upload is still being read', function () {
+    FakeTool::$optionFields = [TextInput::make('options.ifs_release')];
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+    $component = openOnDataset();
+    ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'status' => ExportFileStatus::Summarising]);
+
+    $component->call('callSchemaComponentMethod', 'form.tool-wizard', 'nextStep', [1])
+        ->assertNotDispatched('next-wizard-step')
+        ->assertNotified(Notification::make()->title('Still reading your upload')->body('Wait until the LOAD export you uploaded has been read, then continue.')->warning());
+
+    FakeTool::$optionFields = [];
+});

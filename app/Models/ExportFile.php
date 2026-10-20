@@ -87,6 +87,17 @@ class ExportFile extends Model
         return (int) config('exports.slot_minutes', 15) + self::UPLOAD_GRACE_MINUTES;
     }
 
+    /** "Read N of M messages" while the file is being read, written by the summarise job; nothing once it is done. */
+    public function progressNote(): ?string
+    {
+        if ($this->status !== ExportFileStatus::Summarising) {
+            return null;
+        }
+        $note = $this->summary['progress'] ?? null;
+
+        return is_string($note) ? $note : null;
+    }
+
     /** Still arriving or being read: Summarising, or Uploading within the slot and its grace. */
     public function scopePending(Builder $query): Builder
     {

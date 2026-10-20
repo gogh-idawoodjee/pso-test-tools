@@ -88,7 +88,7 @@ class ExportDropZone extends Component
                 ->where('scope_type', $this->scope->getMorphClass())->where('scope_id', (string) $this->scope->getKey())
                 ->where('kind', $kind);
 
-            $pending = (clone $files)->pending()->latest()->first(['id', 'original_filename', 'status']);
+            $pending = (clone $files)->pending()->latest()->first(['id', 'original_filename', 'status', 'summary']);
             if ($pending !== null) {
                 $found[$kind] = ['state' => 'reading', 'file' => $pending];
 
