@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>First available date — mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --violet:#2A1B4F;--lime:#C7F53A;--iris:#8567DA;--bone:#F6F3EC;
+  --bg:#F6F3EC;--surface:#fff;--surface-2:#FBF9F5;--border:#E7E1D6;--border-strong:#D3CBBB;
+  --text:#1B1830;--text-muted:#6B6578;--link:#5B3FBF;
+  --chrome-bg:#2A1B4F;--chrome-text:#F6F3EC;--chrome-muted:#A99FC4;--nav-active-bg:#C7F53A;--nav-active-text:#2A1B4F;
+  --primary-bg:#2A1B4F;--primary-text:#C7F53A;--accent:#8567DA;
+  --success:#1C7C45;--success-bg:#E3F4E8;--warning:#A15C07;--warning-bg:#FCEFD9;--danger:#B42318;--danger-bg:#FDE7E4;--info:#5B3FBF;--info-bg:#EFEAFB;
+  --radius-sm:4px;--radius:6px;--radius-lg:10px;--shadow-card:0 1px 2px rgba(42,27,79,.06);
+  --font-display:'Anton',sans-serif;--font-sans:'IBM Plex Sans',system-ui,sans-serif;--font-mono:'IBM Plex Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 var(--font-sans)}
+h1{font:400 28px/1 var(--font-display);text-transform:uppercase;letter-spacing:.02em;margin:0}
+h2{font:600 15px/1.3 var(--font-sans);margin:0 0 10px}
+.mono{font-family:var(--font-mono)}
+.muted{color:var(--text-muted)}
+.screen{max-width:1180px;margin:32px auto;border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--surface);box-shadow:var(--shadow-card);display:grid;grid-template-columns:220px 1fr;min-height:620px}
+.screen-label{max-width:1180px;margin:40px auto -24px;font-family:var(--font-mono);color:var(--text-muted);font-size:12px}
+.side{background:var(--chrome-bg);color:var(--chrome-text);padding:16px 12px}
+.brand{font:400 20px var(--font-display);text-transform:uppercase;color:var(--lime);padding:6px 8px 18px}
+.group{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--chrome-muted);padding:12px 8px 4px}
+.nav{padding:7px 10px;border-radius:var(--radius);margin:2px 0;color:var(--chrome-text);font-weight:500}
+.nav.active{background:var(--nav-active-bg);color:var(--nav-active-text)}
+.main{padding:22px 26px;background:var(--bg)}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px}
+.btn{display:inline-block;border-radius:var(--radius);padding:7px 12px;font-weight:500;border:1px solid var(--border-strong);background:var(--surface);color:var(--text)}
+.btn.primary{background:var(--primary-bg);color:var(--primary-text);border-color:var(--primary-bg)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:14px 16px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.badge{display:inline-block;border-radius:var(--radius-sm);padding:1px 6px;font-size:11px;font-weight:500;line-height:18px}
+.b-ok{background:var(--success-bg);color:var(--success)}.b-warn{background:var(--warning-bg);color:var(--warning)}.b-bad{background:var(--danger-bg);color:var(--danger)}.b-info{background:var(--info-bg);color:var(--info)}.b-grey{background:var(--surface-2);color:var(--text-muted);border:1px solid var(--border)}
+.banner{background:var(--warning-bg);color:var(--warning);border:1px solid #F0D8A8;border-radius:var(--radius);padding:8px 12px;font-size:13px;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+th{background:var(--surface-2);text-align:left;font-weight:500;font-size:12px;color:var(--text-muted);padding:9px 10px;border-bottom:1px solid var(--border)}
+td{padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+.select{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border-strong);background:var(--surface);border-radius:var(--radius);padding:6px 10px;min-width:220px}
+.select::after{content:"▾";color:var(--text-muted);margin-left:auto}
+.toggle{display:inline-flex;border:1px solid var(--border-strong);border-radius:var(--radius);overflow:hidden}
+.toggle span{padding:5px 12px;font-weight:500}
+.toggle .on{background:var(--info-bg);color:var(--info)}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
+.stat .n{font:400 30px/1 var(--font-display);margin-top:4px}
+.stat .l{font-size:12px;color:var(--text-muted)}
+/* matrix */
+.matrix{display:grid;gap:6px;align-items:stretch}
+.matrix .hd{font-size:12px;font-weight:500;color:var(--text-muted);padding:4px 6px;text-align:center}
+.matrix .rh{font-size:13px;font-weight:500;padding:0 8px;display:flex;align-items:center}
+.cell{position:relative;height:60px;border-radius:var(--radius);display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--border);background:var(--surface)}
+.cell .n{font:400 26px/1 var(--font-display)}
+.cell .s{font-size:10px;color:var(--text-muted);margin-top:2px}
+.c-g{background:var(--success-bg);color:var(--success);border-color:#BFE5CB}
+.c-a{background:var(--warning-bg);color:var(--warning);border-color:#F0D8A8}
+.c-r{background:var(--danger-bg);color:var(--danger);border-color:#F3C2BC}
+.c-none{background:var(--surface-2);color:var(--text-muted)}
+.c-rule{background:repeating-linear-gradient(45deg,var(--surface-2),var(--surface-2) 6px,#F0EBE2 6px,#F0EBE2 12px);color:var(--text-muted)}
+.c-survey{background:var(--surface);border:1px dashed var(--border-strong);color:var(--text-muted)}
+.c-fail{outline:2px solid var(--danger);outline-offset:-2px}
+.c-fail::after{content:"!";position:absolute;top:3px;right:6px;color:var(--danger);font-weight:600;font-size:12px}
+.c-stale{opacity:.45}
+.cell .cnt{position:absolute;top:3px;left:6px;font-size:10px;font-family:var(--font-mono);color:var(--text-muted)}
+.cell.sel{box-shadow:0 0 0 3px rgba(133,103,218,.35)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-muted);margin-top:12px}
+.legend i{display:inline-block;width:14px;height:14px;border-radius:3px;vertical-align:-2px;margin-right:5px;border:1px solid var(--border)}
+/* drill-in */
+.drawer{background:var(--surface);border-left:1px solid var(--border);padding:20px;min-height:100%}
+.kv{display:grid;grid-template-columns:120px 1fr;gap:4px 10px;font-size:13px}
+.kv dt{color:var(--text-muted)}.kv dd{margin:0}
+.strip{display:grid;grid-template-columns:repeat(14,1fr);gap:4px;margin:8px 0 4px}
+.day{height:40px;border-radius:4px;border:1px solid var(--border);background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;color:var(--text-muted)}
+.day b{font-size:11px;font-weight:500}
+.day.p{background:var(--success-bg);border-color:#BFE5CB;color:var(--success)}
+.day.bk{box-shadow:inset 0 0 0 2px var(--iris);color:var(--info);font-weight:600}
+.day.u{background:repeating-linear-gradient(45deg,var(--surface-2),var(--surface-2) 4px,#EEE8DD 4px,#EEE8DD 8px)}
+.day.today{border-color:var(--violet);border-width:2px}
+.chart{height:120px;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface-2);position:relative;overflow:hidden}
+.chart svg{width:100%;height:100%}
+.note{font-size:12px;color:var(--text-muted)}
+code{font-family:var(--font-mono);font-size:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:3px;padding:0 4px}
+.intro{max-width:1180px;margin:24px auto 0;padding:0 4px}
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>First available date — mockups</h1>
+  <p class="muted">Three screens for the spec <code>2026-10-20-first-available-design.md</code>. Static HTML in the app theme; numbers are illustrative. Region names are the dataset's <code>region_labels</code>.</p>
+</div>
+
+<!-- ============ SCREEN 1: PROBES ============ -->
+<div class="screen-label">Screen 1 · Live PSO actions › First-available probes (resource list)</div>
+<div class="screen">
+  <aside class="side">
+    <div class="brand">PSO Test Tools</div>
+    <div class="group">Analysis tools</div>
+    <div class="nav">First available date</div>
+    <div class="nav">Daily schedule review</div>
+    <div class="nav">Trace an activity</div>
+    <div class="group">Live PSO actions</div>
+    <div class="nav active">First-available probes</div>
+    <div class="nav">Activities</div>
+    <div class="nav">Resources</div>
+    <div class="group">Setup</div>
+    <div class="nav">Datasets</div>
+    <div class="nav">Customers</div>
+    <div class="nav">Tasks</div>
+  </aside>
+  <main class="main">
+    <div class="banner">Live PSO actions — Run now sends appointment requests to <span class="mono">technodrome / SASK_NORTH</span>. Probes never hold a slot.</div>
+    <div class="topbar">
+      <h1>First-available probes</h1>
+      <div class="row">
+        <span class="btn">Probe locations</span>
+        <span class="btn">Generate matrix</span>
+        <span class="btn primary">New probe</span>
+      </div>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <span class="select">Dataset: SASK_NORTH</span>
+      <span class="select" style="min-width:160px">Region: all</span>
+      <span class="select" style="min-width:160px">Task type: all</span>
+      <label class="muted"><input type="checkbox" checked> Enabled only</label>
+    </div>
+    <table>
+      <tr><th>Probe</th><th>Region</th><th>Task type</th><th>Template</th><th>Rule set</th><th>Location</th><th>Cadence</th><th>On</th><th>Last run</th><th>Bookable</th><th>Next due</th><th></th></tr>
+      <tr><td>Regina North · Install</td><td>Regina N</td><td>INSTALL</td><td>HALF_DAY <span class="badge b-grey">type</span></td><td>STD_AM</td><td>Probe · Regina N</td><td>2 h</td><td>●</td><td class="muted">41 min ago</td><td><span class="badge b-ok">2 d</span></td><td class="muted">in 1 h 19 m</td><td class="mono muted">Run · Edit · ⋯</td></tr>
+      <tr><td>Regina North · Repair</td><td>Regina N</td><td>REPAIR</td><td>HALF_DAY <span class="badge b-grey">type</span></td><td>STD_AM</td><td>Probe · Regina N</td><td>2 h</td><td>●</td><td class="muted">41 min ago</td><td><span class="badge b-ok">0 d</span></td><td class="muted">in 1 h 19 m</td><td class="mono muted">Run · Edit · ⋯</td></tr>
+      <tr><td>Yorkton · Install</td><td>Yorkton</td><td>INSTALL</td><td>FULL_DAY <span class="badge b-info">probe</span></td><td>— none</td><td>Probe · Yorkton</td><td>4 h</td><td>●</td><td class="muted">2 h ago</td><td><span class="badge b-bad">12 d</span></td><td class="muted">in 2 h</td><td class="mono muted">Run · Edit · ⋯</td></tr>
+      <tr><td>Yorkton · Repair</td><td>Yorkton</td><td>REPAIR</td><td>HALF_DAY <span class="badge b-grey">type</span></td><td>STD_AM</td><td>Probe · Yorkton</td><td>4 h</td><td>●</td><td class="muted">2 h ago</td><td><span class="badge b-warn">5 d</span></td><td class="muted">in 2 h</td><td class="mono muted">Run · Edit · ⋯</td></tr>
+      <tr><td>Prince Albert · Install</td><td>Prince Albert</td><td>INSTALL</td><td>HALF_DAY <span class="badge b-grey">type</span></td><td>STD_AM</td><td>Probe · PA West</td><td>2 h</td><td>●</td><td class="muted">41 min ago</td><td><span class="badge b-bad">Failed</span></td><td class="muted">in 1 h 19 m</td><td class="mono muted">Run · Edit · ⋯</td></tr>
+      <tr><td>Prince Albert · Install (east)</td><td>Prince Albert</td><td>INSTALL</td><td>HALF_DAY <span class="badge b-grey">type</span></td><td>STD_AM</td><td>Probe · PA East</td><td>2 h</td><td>●</td><td class="muted">41 min ago</td><td><span class="badge b-warn">4 d</span></td><td class="muted">in 1 h 19 m</td><td class="mono muted">Run · Edit · ⋯</td></tr>
+      <tr><td>Estevan · Disconnect</td><td>Estevan</td><td>DISCONNECT</td><td class="muted">— survey only</td><td class="muted">—</td><td>Probe · Estevan</td><td>daily</td><td>●</td><td class="muted">yesterday</td><td><span class="badge b-grey">possible 1 d</span></td><td class="muted">tomorrow 06:00</td><td class="mono muted">Run · Edit · ⋯</td></tr>
+    </table>
+    <p class="note" style="margin-top:14px">Template column shows where the value came from: <span class="badge b-grey">type</span> = task type default, <span class="badge b-info">probe</span> = override on this probe. "Generate matrix" result notice: <em>Created 14 probes. No probe location for: Swift Current, Melfort. Survey-only (no default template): DISCONNECT.</em></p>
+  </main>
+</div>
+
+<!-- ============ SCREEN 2: BOARD ============ -->
+<div class="screen-label">Screen 2 · Analysis tools › First available date (the board)</div>
+<div class="screen">
+  <aside class="side">
+    <div class="brand">PSO Test Tools</div>
+    <div class="group">Analysis tools</div>
+    <div class="nav active">First available date</div>
+    <div class="nav">Daily schedule review</div>
+    <div class="nav">Trace an activity</div>
+    <div class="group">Live PSO actions</div>
+    <div class="nav">First-available probes</div>
+    <div class="group">Setup</div>
+    <div class="nav">Datasets</div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <h1>First available date</h1>
+      <div class="row">
+        <span class="select">Dataset: SASK_NORTH</span>
+        <span class="toggle"><span class="on">Bookable</span><span>Possible</span></span>
+        <span class="btn">Export CSV</span>
+        <span class="btn">Refresh</span>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="card stat"><div class="l">Probes enabled</div><div class="n">31 <span class="muted" style="font:13px var(--font-sans)">/ 34</span></div></div>
+      <div class="card stat"><div class="l">Last cycle finished</div><div class="n" style="font-size:22px">41 min ago</div></div>
+      <div class="card stat"><div class="l">Median bookable lead</div><div class="n">3 d</div></div>
+      <div class="card stat"><div class="l">Worst cell</div><div class="n" style="font-size:22px">Yorkton · Install</div><div class="l">12 days</div></div>
+      <div class="card stat"><div class="l">Failing</div><div class="n" style="color:var(--danger)">1</div></div>
+    </div>
+
+    <div class="card">
+      <div class="matrix" style="grid-template-columns:150px repeat(5,1fr)">
+        <div></div>
+        <div class="hd">INSTALL</div><div class="hd">REPAIR</div><div class="hd">UPGRADE</div><div class="hd">DISCONNECT</div><div class="hd">SITE SURVEY</div>
+
+        <div class="rh">Regina North</div>
+        <div class="cell c-g"><span class="n">2</span><span class="s">possible 1</span></div>
+        <div class="cell c-g"><span class="n">0</span></div>
+        <div class="cell c-a"><span class="n">4</span></div>
+        <div class="cell c-g"><span class="n">1</span></div>
+        <div class="cell c-g"><span class="n">1</span></div>
+
+        <div class="rh">Regina South</div>
+        <div class="cell c-g"><span class="n">1</span></div>
+        <div class="cell c-g"><span class="n">0</span></div>
+        <div class="cell c-a"><span class="n">6</span><span class="s">possible 2</span></div>
+        <div class="cell c-g"><span class="n">0</span></div>
+        <div class="cell c-survey"><span class="n">1</span><span class="s">survey only</span></div>
+
+        <div class="rh">Yorkton</div>
+        <div class="cell c-r sel"><span class="n">12</span><span class="s">possible 3</span></div>
+        <div class="cell c-a"><span class="n">5</span></div>
+        <div class="cell c-rule"><span class="n" style="font-size:16px">rule</span><span class="s">none in 21 d from Oct 23</span></div>
+        <div class="cell c-g"><span class="n">1</span></div>
+        <div></div>
+
+        <div class="rh">Prince Albert</div>
+        <div class="cell c-a c-fail"><span class="cnt">2</span><span class="n">4</span><span class="s">possible 2</span></div>
+        <div class="cell c-g"><span class="n">2</span></div>
+        <div class="cell c-a"><span class="n">3</span></div>
+        <div class="cell c-g"><span class="n">0</span></div>
+        <div></div>
+
+        <div class="rh">Estevan</div>
+        <div class="cell c-none"><span class="n">–</span><span class="s">nothing in 42 d</span></div>
+        <div class="cell c-a c-stale"><span class="n">3</span></div>
+        <div class="cell c-a c-stale"><span class="n">7</span></div>
+        <div class="cell c-survey"><span class="n">1</span><span class="s">survey only</span></div>
+        <div></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--success-bg)"></i>≤ 2 d</span>
+        <span><i style="background:var(--warning-bg)"></i>≤ 7 d</span>
+        <span><i style="background:var(--danger-bg)"></i>&gt; 7 d</span>
+        <span><i style="background:var(--surface-2)"></i>– nothing possible in the horizon</span>
+        <span><i class="c-rule"></i>rule: possible, but no valid offer under the rule set</span>
+        <span><i style="border:1px dashed var(--border-strong)"></i>survey only (no template on the type)</span>
+        <span><i style="outline:2px solid var(--danger);outline-offset:-2px"></i>! latest run failed (previous result shown)</span>
+        <span><i style="opacity:.45;background:var(--warning-bg)"></i>stale (older than 2× cadence)</span>
+        <span><span class="mono">2</span> two probe locations, best shown</span>
+      </div>
+      <p class="note">Small text under a number is the <em>possible</em> lead, shown only when it differs from bookable — the slot usage rule's cost in days. Hover any cell for the date and offered window. Click opens the drill-in (screen 3).</p>
+    </div>
+  </main>
+</div>
+
+<!-- ============ SCREEN 3: DRILL-IN ============ -->
+<div class="screen-label">Screen 3 · Drill-in slide-over for Yorkton · Install</div>
+<div class="screen" style="grid-template-columns:1fr 520px">
+  <main class="main" style="opacity:.5">
+    <div class="topbar"><h1>First available date</h1></div>
+    <div class="card" style="height:440px;display:flex;align-items:center;justify-content:center" class="muted">(board behind the slide-over)</div>
+  </main>
+  <aside class="drawer">
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <h2 style="margin:0">Yorkton · Install</h2>
+      <span class="btn primary">Run now</span>
+    </div>
+    <dl class="kv">
+      <dt>Location</dt><dd>Probe · Yorkton <span class="mono muted">50.59, -102.46</span></dd>
+      <dt>Template</dt><dd>FULL_DAY <span class="badge b-info">probe</span></dd>
+      <dt>Rule set</dt><dd>— none <span class="badge b-info">probe</span></dd>
+      <dt>Skills · duration</dt><dd>INST_FTTH · 120 min <span class="badge b-grey">type</span></dd>
+      <dt>Horizon · cadence</dt><dd>42 days · every 4 h</dd>
+      <dt>Last run</dt><dd>Oct 20, 2:17 PM <span class="badge b-ok">succeeded</span> <span class="muted">· 2 surveys, 1 day request, released</span></dd>
+    </dl>
+
+    <h2 style="margin-top:18px">Next 42 days <span class="muted" style="font-weight:400">· America/Regina</span></h2>
+    <div class="strip">
+      <div class="day today"><b>Tu</b>20</div><div class="day"><b>We</b>21</div><div class="day"><b>Th</b>22</div><div class="day p"><b>Fr</b>23</div><div class="day"><b>Sa</b>24</div><div class="day"><b>Su</b>25</div><div class="day p"><b>Mo</b>26</div>
+      <div class="day p"><b>Tu</b>27</div><div class="day"><b>We</b>28</div><div class="day p"><b>Th</b>29</div><div class="day p"><b>Fr</b>30</div><div class="day"><b>Sa</b>31</div><div class="day"><b>Su</b>1</div><div class="day p"><b>Mo</b>2</div>
+      <div class="day p"><b>Tu</b>3</div><div class="day p"><b>We</b>4</div><div class="day p"><b>Th</b>5</div><div class="day p"><b>Fr</b>6</div><div class="day"><b>Sa</b>7</div><div class="day"><b>Su</b>8</div><div class="day p"><b>Mo</b>9</div>
+      <div class="day p"><b>Tu</b>10</div><div class="day p"><b>We</b>11</div><div class="day p bk"><b>Th</b>12</div><div class="day p"><b>Fr</b>13</div><div class="day"><b>Sa</b>14</div><div class="day"><b>Su</b>15</div><div class="day p"><b>Mo</b>16</div>
+      <div class="day p"><b>Tu</b>17</div><div class="day p"><b>We</b>18</div><div class="day p"><b>Th</b>19</div><div class="day p"><b>Fr</b>20</div><div class="day"><b>Sa</b>21</div><div class="day"><b>Su</b>22</div><div class="day p"><b>Mo</b>23</div>
+      <div class="day p"><b>Tu</b>24</div><div class="day p"><b>We</b>25</div><div class="day p"><b>Th</b>26</div><div class="day p"><b>Fr</b>27</div><div class="day"><b>Sa</b>28</div><div class="day"><b>Su</b>29</div><div class="day u"><b>Mo</b>30</div>
+    </div>
+    <div class="legend" style="margin-top:4px">
+      <span><i style="background:var(--success-bg)"></i>possible (survey)</span>
+      <span><i style="box-shadow:inset 0 0 0 2px var(--iris)"></i>first bookable</span>
+      <span><i style="background:var(--surface-2)"></i>none</span>
+      <span><i class="u" style="background:repeating-linear-gradient(45deg,#FBF9F5,#FBF9F5 4px,#EEE8DD 4px,#EEE8DD 8px)"></i>not covered</span>
+    </div>
+
+    <div class="card" style="margin-top:14px;background:var(--surface-2)">
+      <div><b>First possible:</b> Fri Oct 23 (3 days) · <b>First bookable:</b> Thu Nov 12 (12 days)</div>
+      <div style="margin-top:4px"><b>Offered window:</b> Thu Nov 12, 8:00 AM – 5:00 PM America/Regina · value <span class="mono">0.82</span></div>
+      <p class="note" style="margin:8px 0 0">The template FULL_DAY returned no valid offer for the 20 days between the first possible day and Nov 12. Possible days exist on nearly every weekday, so the engine has room; the template or its slot allowance is what is closing them. <em>(v2: the capacity view will say which — template day pattern, slot full, or no eligible resources.)</em></p>
+    </div>
+
+    <h2 style="margin-top:18px">Lead time, last 30 days</h2>
+    <div class="chart">
+      <svg viewBox="0 0 500 120" preserveAspectRatio="none">
+        <g stroke="#E7E1D6" stroke-width="1"><line x1="0" y1="30" x2="500" y2="30"/><line x1="0" y1="60" x2="500" y2="60"/><line x1="0" y1="90" x2="500" y2="90"/></g>
+        <polyline fill="none" stroke="#8567DA" stroke-width="2" points="0,95 40,92 80,90 120,85 160,80 200,70 240,66 280,60 320,52 360,40 400,32 440,22 500,16"/>
+        <polyline fill="none" stroke="#1C7C45" stroke-width="2" stroke-dasharray="4 3" points="0,104 40,104 80,102 120,100 160,101 200,98 240,99 280,96 320,97 360,94 400,96 440,92 500,92"/>
+        <text x="6" y="14" font-size="10" fill="#8567DA" font-family="IBM Plex Mono">bookable</text>
+        <text x="66" y="14" font-size="10" fill="#1C7C45" font-family="IBM Plex Mono">possible</text>
+        <text x="470" y="112" font-size="9" fill="#6B6578" font-family="IBM Plex Mono">Oct 20</text>
+        <text x="4" y="112" font-size="9" fill="#6B6578" font-family="IBM Plex Mono">Sep 20</text>
+      </svg>
+    </div>
+    <p class="note">Bookable lead has climbed from 2 to 12 days in a month while possible lead stayed flat — capacity exists, the rule is the constraint.</p>
+
+    <h2 style="margin-top:18px">Requests</h2>
+    <div class="mono" style="font-size:12px">
+      survey <span class="muted">a3f91c2e…</span> · survey <span class="muted">0b77d4a1…</span> · day <span class="muted">e52c8f90…</span> <span class="badge b-ok">released</span>
+    </div>
+    <p class="note">Open the probe task's <a href="#" style="color:var(--link)">booking page history</a> to see services' own record of these requests.</p>
+  </aside>
+</div>
+
+<p class="intro muted" style="margin-bottom:40px">End of mockups.</p>
+</body>
+</html>
