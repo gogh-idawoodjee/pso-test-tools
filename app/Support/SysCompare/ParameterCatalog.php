@@ -14,8 +14,12 @@ class ParameterCatalog
 {
     public const string BUILT_IN_FILE = __DIR__.'/Data/pso_parameters_reference.csv';
 
-    /** The PSO release the shipped catalog's defaults were taken from. */
-    public const string BUILT_IN_PSO_VERSION = '6.14';
+    /**
+     * The PSO release the shipped catalog's defaults were taken from: the Parameters page of the IFS PSO
+     * documentation (docs.ifs.com/pso, Operations, Administration Guide, System Data), which carries the
+     * latest release only, read on 2026-10-20 when that was 6.18. Rebuild it from a saved copy of the page.
+     */
+    public const string BUILT_IN_PSO_VERSION = '6.18';
 
     private static ?self $builtIn = null;
 

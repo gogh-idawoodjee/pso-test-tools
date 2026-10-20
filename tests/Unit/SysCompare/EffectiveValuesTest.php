@@ -325,14 +325,17 @@ it('ships the built-in definitions and name patterns', function (): void {
     $definitions = ParamDefinitions::builtIn();
     $catalog = ParameterCatalog::builtIn();
 
-    // 28 parameters the catalog does not cover get a full Definition ...
-    $definitionOnly = $definitions->find('CascadeSchedulingObjectDeletions', '', $catalog);
-    // ... and 32 catalog parameters get a Note appended to the official description
+    // 18 parameters the 6.18 catalog does not cover get a full Definition from the KB (the one inferred
+    // definition, CascadeSchedulingObjectDeletions, left when the catalog gained the official text) ...
+    $definitionOnly = $definitions->find('CommitBreaks', '', $catalog);
+    // ... and 41 catalog parameters get a Note appended to the official description
     $withNote = $definitions->find('AllowAllocateBeforeCommitted', '', $catalog);
 
-    expect($catalog->entry('CascadeSchedulingObjectDeletions'))->toBeNull()
+    expect($catalog->entry('CommitBreaks'))->toBeNull()
         ->and($definitionOnly->text)->not->toBe('')
-        ->and($definitionOnly->displayText())->toStartWith('[Inferred] ')
+        ->and($definitionOnly->basis)->toStartWith('KB: ')
+        ->and($definitionOnly->displayText())->not->toStartWith('[Inferred] ')
+        ->and($catalog->entry('CascadeSchedulingObjectDeletions')?->description)->toContain('cascade column')
         ->and($withNote->text)->toContain(' Note: ')
         ->and($withNote->basis)->toStartWith('Schema reference + KB')
         ->and($definitions->find('PSWGanttBarColour', '', $catalog)->basis)->toBe('Inference (name pattern)');
@@ -372,7 +375,7 @@ function withVersion(SysFileBuilder $builder, string $latest): SysFileBuilder
 }
 
 it('records the PSO release the shipped catalog is for', function (): void {
-    expect(ParameterCatalog::builtIn()->psoVersion)->toBe('6.14');
+    expect(ParameterCatalog::builtIn()->psoVersion)->toBe('6.18');
 });
 
 it('warns when an environment is on a different PSO release than the catalog, naming it', function (): void {

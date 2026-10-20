@@ -4,7 +4,6 @@ AllowAuthenticationGateway,,Adding ?authGateway=true (case-sensitive) to the Wor
 AllowPartiallyCommittedBucketRoutes,,True raises a Partially Committed Bucket Route exception.,"KB: 20-resource-capacity-management, 08-pso-advanced"
 AppointmentFallbackProfileId,,"Set on the dataset active profile to point at a fallback profile, typically StraightLine travel, to speed up very high frequency booking.",KB: 10-appointment-booking
 BackgroundProcessReactiveTasks,,Must be false for DSE scale-to-zero when REACTIVE datasets exist; the installer sets it when auto-scaling is enabled.,KB: 18-pso-workbench-administration
-CascadeSchedulingObjectDeletions,"By name, whether deleting a scheduling object also deletes the objects that depend on it. Not documented in the KB.",,Inference (not in KB)
 CommitBreaks,Suggested Dispatch: whether breaks are committed (default true).,,KB: 08-pso-advanced
 CommittedActivitiesConstraintsOption,,"Applies only to status 30 (Committed) to 40 (Accepted); no effect once the resource is Travelling (50). Field-tested: only Activity_Availabilities are enforced, SLA windows are NOT.","KB: 06-tasks, 14-extended-patterns"
 CommittedActivitiesProfileId,,Step 2 of the real-time travel setup: the committed-activities profile (RealTimeTravel + TOMTOM + key) is only used when this points at it.,KB: 17-travel
