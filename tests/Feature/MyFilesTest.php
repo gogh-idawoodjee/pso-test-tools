@@ -82,3 +82,23 @@ it('keeps the My files widgets off the dashboard', function () {
         ->assertDontSeeLivewire(MyExportFiles::class)
         ->assertDontSeeLivewire(MyToolRuns::class);
 });
+
+it('renames an unfiled export from My files, showing the name over the filename', function () {
+    $file = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'prod-load.xml']);
+
+    Livewire::test(MyExportFiles::class)
+        ->callTableAction('rename', $file, ['name' => 'Monday morning LOAD'])
+        ->assertHasNoTableActionErrors()
+        ->assertSee('Monday morning LOAD')
+        ->assertSee('prod-load.xml');
+
+    expect($file->refresh()->name)->toBe('Monday morning LOAD');
+});
+
+it('clears the name when renamed to blank', function () {
+    $file = ExportFile::factory()->for($this->user, 'scope')->create(['name' => 'Old name']);
+
+    Livewire::test(MyExportFiles::class)->callTableAction('rename', $file, ['name' => '  ']);
+
+    expect($file->refresh()->name)->toBeNull();
+});

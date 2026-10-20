@@ -149,6 +149,6 @@ class RunInputPicker
             default => null,
         };
 
-        return trim($file->created_at->setTimezone($timeZone)->format('j M H:i').'  '.$file->original_filename.($detail ? "  ({$detail})" : ''));
+        return trim($file->created_at->setTimezone($timeZone)->format('j M H:i').'  '.$file->displayName().($detail ? "  ({$detail})" : ''));
     }
 }

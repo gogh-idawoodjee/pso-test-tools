@@ -27,7 +27,7 @@ class ExportFile extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'scope_type', 'scope_id', 'kind', 'uploaded_by_user_id', 'original_filename', 'stored_path',
+        'scope_type', 'scope_id', 'kind', 'uploaded_by_user_id', 'original_filename', 'name', 'stored_path',
         'file_size_bytes', 'content_type', 'summary', 'status', 'error_message', 'expires_at',
     ];
 
@@ -85,6 +85,12 @@ class ExportFile extends Model
     public static function uploadAbandonedAfterMinutes(): int
     {
         return (int) config('exports.slot_minutes', 15) + self::UPLOAD_GRACE_MINUTES;
+    }
+
+    /** The name the user gave the file, else its filename. */
+    public function displayName(): string
+    {
+        return filled($this->name) ? $this->name : $this->original_filename;
     }
 
     /** "Read N of M messages" while the file is being read, written by the summarise job; nothing once it is done. */

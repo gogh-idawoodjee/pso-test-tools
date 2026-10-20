@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\ExportKind;
+use App\Enums\Tool;
 use App\Enums\Tool as ToolId;
 use App\Filament\Pages\Tools\LoadAuditEntry;
 use App\Filament\Pages\Tools\RegionAvailabilityEntry;
@@ -9,6 +10,7 @@ use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
+use App\Support\Exports\RunInputPicker;
 use App\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -205,4 +207,15 @@ it('keeps the time zone out of a dataset run', function () {
         ->assertHasNoFormErrors();
 
     expect(ToolRun::sole()->inputs['options'])->toBe([]);
+});
+
+it('labels a named file by its name in the Inputs dropdown, and an unnamed one by its filename', function () {
+    $this->travelTo(now()->startOfMinute());
+    $named = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'prod-load.xml', 'name' => 'Monday morning LOAD']);
+    $plain = ExportFile::factory()->for($this->user, 'scope')->create(['kind' => ExportKind::Load, 'original_filename' => 'tuesday-load.xml', 'created_at' => now()->subHour()]);
+
+    $options = app(RunInputPicker::class)->optionsFor($this->user, Tool::LoadAudit)['load'];
+
+    expect($options[$named->id])->toContain('Monday morning LOAD')->not->toContain('prod-load.xml')
+        ->and($options[$plain->id])->toContain('tuesday-load.xml');
 });

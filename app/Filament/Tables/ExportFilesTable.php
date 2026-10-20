@@ -24,8 +24,9 @@ class ExportFilesTable
                 Tables\Columns\TextColumn::make('kind')->badge(),
                 Tables\Columns\TextColumn::make('original_filename')
                     ->label('File')
-                    ->description(static fn (ExportFile $record): ?string => $record->error_message)
-                    ->searchable(),
+                    ->state(static fn (ExportFile $record): string => $record->displayName())
+                    ->description(static fn (ExportFile $record): ?string => $record->error_message ?? (filled($record->name) ? $record->original_filename : null))
+                    ->searchable(['original_filename', 'name']),
                 Tables\Columns\TextColumn::make('summary.export_date')->label('Export date')->placeholder('-'),
                 Tables\Columns\TextColumn::make('summary.input_reference_datetime')->label('Input reference time')->dateTime()->placeholder('-'),
                 Tables\Columns\TextColumn::make('contents')
