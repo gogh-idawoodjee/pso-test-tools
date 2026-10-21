@@ -204,6 +204,8 @@ renderer, not built inline. That makes a combined view cheap later:
   one row per dataset in each lane (the day page of 2026-10-20 had exactly that: the inbound-per-minute,
   inputs and 2879 lanes split by dataset). Rows with no dataset (gateway, Workbench) appear once. No
   engine change is needed; the merge is a JSON concatenation with the dataset tag already on every row.
+  "Same day" is the LOAD's `Input_Reference` date in the dataset's time zone; the overnight LOADs of a
+  system's datasets are staggered by 10 to 20 minutes, so that key never splits them.
 - An audit run that is given more than one audit zip is not supported in this design; the wizard takes
   one `audits` file per run as it does for Trace an activity.
 
