@@ -4,6 +4,7 @@ use App\Filament\Navigation\Groups;
 use App\Filament\Pages\Settings;
 use App\Filament\Widgets\GoogleRoutesCache;
 use App\Jobs\ImportMessageTextsJob;
+use App\Models\AppSetting;
 use App\Models\PsoMessageText;
 use App\Models\User;
 use App\Support\Settings\AppSettings;
@@ -72,6 +73,17 @@ it('starts the audit defaults form from the shipped values and saves new ones', 
 
     expect(app(AppSettings::class)->noiseEventIds())->toBe('1,2')
         ->and(app(AppSettings::class)->flagActivities())->toBe(8);
+});
+
+it('saves a blank noise ids value as no noise ids, not the shipped list', function () {
+    Livewire::test(Settings::class)
+        ->set('auditDefaults.noise_event_ids', '')
+        ->call('saveAuditDefaults')
+        ->assertHasNoErrors()
+        ->assertSet('auditDefaults.noise_event_ids', '');
+
+    expect(AppSetting::query()->find(AppSettings::NOISE_EVENT_IDS)->value)->toBe('')
+        ->and(app(AppSettings::class)->noiseEventIds())->toBe('');
 });
 
 it('validates the audit defaults like the audit form does', function () {

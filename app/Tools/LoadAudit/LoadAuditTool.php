@@ -56,7 +56,9 @@ class LoadAuditTool implements Tool
                 ->label('Noise event ids')
                 ->helperText('Event ids kept in the counts but left out of the lanes and findings')
                 ->regex('/^\s*(\d+\s*(,\s*\d+\s*)*)?$/')
-                ->default(static fn (): string|int => app(AppSettings::class)->noiseEventIds()),
+                ->default(static fn (): string|int => app(AppSettings::class)->noiseEventIds())
+                // Filament turns '' into null on dehydrate; a cleared field must stay '' so it means "no noise ids", not "use the setting".
+                ->dehydrateStateUsing(static fn (?string $state): string => (string) $state),
             TextInput::make('options.flag_activities')
                 ->label('Flag an appointment with this many activities')
                 ->integer()

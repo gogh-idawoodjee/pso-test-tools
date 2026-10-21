@@ -4,6 +4,7 @@ use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Enums\ToolRunStatus;
 use App\Filament\Pages\ToolRunPage;
+use App\Filament\Pages\Tools\LoadAuditEntry;
 use App\Filament\Resources\DatasetResource\Pages\ViewDataset;
 use App\Filament\Resources\DatasetResource\RelationManagers\ToolRunsRelationManager as DatasetRuns;
 use App\Models\Dataset;
@@ -11,6 +12,11 @@ use App\Models\Environment;
 use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
+use App\Support\Settings\AppSettings;
+use App\Tools\LoadAudit\LoadAuditCommand;
+use App\Tools\LoadAudit\LoadAuditTool;
+use App\Tools\LoadAudit\PsoToolsCheckout;
+use App\Tools\ToolRegistry;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
@@ -159,3 +165,28 @@ it('validates the real load audit options on the Run form', function (array $opt
     'grace 0' => [['ifs_release' => '', 'complete_grace_hours' => 0], null],
     'grace 24' => [['ifs_release' => '', 'complete_grace_hours' => 24], null],
 ]);
+
+it('keeps a cleared noise ids field blank through the real wizard, so the run gets no --noise-ids', function () {
+    Queue::fake();
+    app(ToolRegistry::class)->register(ToolId::LoadAudit, LoadAuditTool::class);
+    app(AppSettings::class)->put(AppSettings::NOISE_EVENT_IDS, '3041,24578');
+    $this->user->rememberToolContext($this->dataset->environment_id, $this->dataset->id);
+    $load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load]);
+
+    Livewire::test(LoadAuditEntry::class)
+        ->fillForm(['where' => 'dataset'])
+        ->assertFormSet(['options.noise_event_ids' => '3041,24578'])
+        ->fillForm(['options' => ['noise_event_ids' => '']])
+        ->call('start')
+        ->assertHasNoFormErrors();
+
+    $run = ToolRun::query()->latest('id')->first();
+    expect($run->inputs['options'])->toHaveKey('noise_event_ids')
+        ->and($run->inputs['options']['noise_event_ids'])->toBe('');
+
+    $argv = LoadAuditCommand::build(
+        new PsoToolsCheckout(base_path('tests/Fixtures/pso-tools'), 'python3'), '/s',
+        ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], $run->inputs['options'], 'UTC', null,
+    );
+    expect($argv)->not->toContain('--noise-ids');
+});
