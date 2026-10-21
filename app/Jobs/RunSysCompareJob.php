@@ -2,6 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Support\Exports\ExportStorage;
+use App\Support\Settings\AppSettings;
+use App\Support\Settings\SettingsFileStore;
 use App\Support\SysCompare\Comparer;
 use App\Support\SysCompare\DefinitionsCsv;
 use App\Support\SysCompare\Exceptions\InvalidComparison;
@@ -24,10 +27,13 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Compares the uploaded sys files and writes the HTML, CSV and Excel outputs.
+ * Compares the uploaded sys files and writes the HTML, CSV and Excel outputs,
+ * describing parameters with the built-in definitions plus the ParamDefinitions.csv
+ * stored on the Settings page, when there is one.
  *
  * Privacy: uploads are always deleted when the job ends, whether it succeeds or
  * fails. Nothing from the files is logged, and failure messages name the file
@@ -49,7 +55,6 @@ class RunSysCompareJob implements ShouldQueue
 
     /**
      * @param  list<array{id: string, name: string, fileName: string}>  $files  uploaded sys files in display order
-     * @param  array{id: string, fileName: string}|null  $definitions  an optional ParamDefinitions.csv upload
      */
     public function __construct(
         public string $jobId,
@@ -57,7 +62,6 @@ class RunSysCompareJob implements ShouldQueue
         public string $runId,
         public array $files,
         public string $baseline,
-        public ?array $definitions = null,
     ) {}
 
     public function handle(SysCompareStorage $storage, SysFileReader $reader, Comparer $comparer): void
@@ -70,7 +74,7 @@ class RunSysCompareJob implements ShouldQueue
             $environments = $this->readEnvironments($storage, $reader);
             $this->report('processing', 50);
 
-            $result = $comparer->compare($environments, $this->baseline, $this->loadDefinitions($storage));
+            $result = $comparer->compare($environments, $this->baseline, $this->loadDefinitions());
             $this->report('processing', 60);
 
             $storage->putRunFile($this->userId, $this->runId, SysCompareArtifact::Report->fileName(), app(HtmlReport::class)->render($result));
@@ -134,21 +138,26 @@ class RunSysCompareJob implements ShouldQueue
         return $environments;
     }
 
-    private function loadDefinitions(SysCompareStorage $storage): ParamDefinitions
+    private function loadDefinitions(): ParamDefinitions
     {
         $definitions = ParamDefinitions::builtIn();
+        $fileStore = app(SettingsFileStore::class);
 
-        if ($this->definitions === null) {
+        if (! $fileStore->exists(SettingsFileStore::PARAM_DEFINITIONS)) {
             return $definitions;
         }
 
-        $path = $storage->uploadPath($this->userId, $this->definitions['id']);
+        $fileName = (string) (app(AppSettings::class)->paramDefinitions()['file_name'] ?? 'ParamDefinitions.csv');
+        $exportStorage = app(ExportStorage::class);
+        $scratchDirectory = $exportStorage->scratchDirectoryFor((string) Str::uuid());
 
-        if ($path === null) {
-            throw new InvalidDefinitionsFile("{$this->definitions['fileName']}: the upload is no longer available. Please add the file again.");
+        try {
+            $path = $fileStore->readToScratch(SettingsFileStore::PARAM_DEFINITIONS, $scratchDirectory);
+
+            return $definitions->withUserDefinitions(DefinitionsCsv::parse($path, $fileName));
+        } finally {
+            $exportStorage->removeScratch($scratchDirectory);
         }
-
-        return $definitions->withUserDefinitions(DefinitionsCsv::parse($path, $this->definitions['fileName']));
     }
 
     /**
@@ -184,10 +193,6 @@ class RunSysCompareJob implements ShouldQueue
     {
         foreach ($this->files as $file) {
             $storage->deleteUpload($this->userId, $file['id']);
-        }
-
-        if ($this->definitions !== null) {
-            $storage->deleteUpload($this->userId, $this->definitions['id']);
         }
     }
 

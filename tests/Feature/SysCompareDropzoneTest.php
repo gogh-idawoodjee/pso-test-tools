@@ -32,12 +32,12 @@ it('lets all eight files in and clears finished uploads from the list, as Alpine
         ->and($result->successful())->toBeTrue($result->output().$result->errorOutput());
 });
 
-it('renders the drop zone with real buttons for Dismiss and Remove', function (string $kind): void {
+it('renders the drop zone with a real button for Dismiss', function (string $kind): void {
     $html = view('filament.pages.sys-file-compare.dropzone', ['kind' => $kind])->render();
 
     expect($html)->toContain('fi-btn')
-        ->and($html)->toContain($kind === 'sys' ? 'Dismiss' : 'Remove')
+        ->and($html)->toContain('Dismiss')
         // finished uploads are removed by id: comparing objects fails once Alpine proxies them
         ->and($html)->toContain('item.id !== id')
         ->and($html)->not->toContain('item !== upload');
-})->with(['sys', 'definitions']);
+})->with(['sys']);

@@ -11,16 +11,15 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 
 /**
- * Receives one sys file (or a ParamDefinitions.csv) at a time and stores it on
- * the private local disk. This deliberately does not use Livewire's file upload,
- * whose temporary disk is the shared R2 bucket: sys files hold customer data.
+ * Receives one sys file at a time and stores it on the private local disk. This
+ * deliberately does not use Livewire's file upload, whose temporary disk is the
+ * shared R2 bucket: sys files hold customer data.
  */
 class SysCompareUploadController extends Controller
 {
     public function __invoke(Request $request, SysCompareStorage $storage, SysFileReader $reader): JsonResponse
     {
         $userId = (int) $request->user()->getAuthIdentifier();
-        $kind = $request->input('kind') === 'definitions' ? 'definitions' : 'sys';
         $file = $request->file('file');
         $maxMegabytes = round((int) config('sys-compare.max_file_kilobytes') / 1024);
 
@@ -36,26 +35,22 @@ class SysCompareUploadController extends Controller
             return $this->rejected("{$file->getClientOriginalName()}: the file is larger than {$maxMegabytes} MB.");
         }
 
-        $extension = $kind === 'definitions' ? 'csv' : 'xml';
-
-        if (strtolower($file->getClientOriginalExtension()) !== $extension) {
-            return $this->rejected("{$file->getClientOriginalName()}: please choose a .{$extension} file.");
+        if (strtolower($file->getClientOriginalExtension()) !== 'xml') {
+            return $this->rejected("{$file->getClientOriginalName()}: please choose a .xml file.");
         }
 
         if ($storage->pendingUploadCount($userId) >= (int) config('sys-compare.max_pending_uploads')) {
             return $this->rejected('Too many files are waiting to be compared. Remove some, or wait a few minutes, and try again.', 429);
         }
 
-        $stored = $storage->storeUpload($userId, $file, $extension);
+        $stored = $storage->storeUpload($userId, $file, 'xml');
 
-        if ($kind === 'sys') {
-            try {
-                $reader->assertSysFile((string) $storage->uploadPath($userId, $stored->id), $stored->originalName);
-            } catch (InvalidSysFile $exception) {
-                $storage->deleteUpload($userId, $stored->id);
+        try {
+            $reader->assertSysFile((string) $storage->uploadPath($userId, $stored->id), $stored->originalName);
+        } catch (InvalidSysFile $exception) {
+            $storage->deleteUpload($userId, $stored->id);
 
-                return $this->rejected($exception->getMessage());
-            }
+            return $this->rejected($exception->getMessage());
         }
 
         return response()->json([

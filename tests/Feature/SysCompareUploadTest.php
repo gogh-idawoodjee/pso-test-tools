@@ -87,7 +87,7 @@ it('stops accepting uploads when too many are pending', function (): void {
     uploadXml('b.xml', SysFileBuilder::make()->toXml())->assertStatus(429);
 });
 
-it('accepts a definitions csv without treating it as a sys file', function (): void {
+it('no longer accepts a definitions csv: only sys files are uploaded here', function (): void {
     $this->actingAs(sysCompareUser());
 
     $response = test()->post(sysCompareUploadUrl(), [
@@ -95,6 +95,6 @@ it('accepts a definitions csv without treating it as a sys file', function (): v
         'file' => UploadedFile::fake()->createWithContent('ParamDefinitions.csv', "Parameter,Definition,Basis\nFoo,Does foo,\n"),
     ], ['Accept' => 'application/json']);
 
-    $response->assertCreated();
-    expect(app(SysCompareStorage::class)->uploadPath(101, $response->json('id')))->not->toBeNull();
+    $response->assertUnprocessable()->assertJsonPath('message', 'ParamDefinitions.csv: please choose a .xml file.');
+    expect(app(SysCompareStorage::class)->pendingUploadCount(101))->toBe(0);
 });

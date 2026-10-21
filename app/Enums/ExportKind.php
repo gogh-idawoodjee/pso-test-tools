@@ -17,7 +17,6 @@ enum ExportKind: string implements HasLabel
     case EventLog = 'event_log';
     case PsoEvents = 'pso_events';
     case AppointmentHistory = 'appointment_history';
-    case MessageTexts = 'message_texts';
 
     /** Whether an export of this kind may be stored on $scopeClass: SYS on an environment, the rest on a dataset, any kind Unfiled (on a user). */
     public function allows(string $scopeClass): bool
@@ -25,7 +24,7 @@ enum ExportKind: string implements HasLabel
         return match ($scopeClass) {
             User::class => true,
             Environment::class => $this === self::Sys,
-            Dataset::class => ! in_array($this, [self::Sys, self::MessageTexts], true),
+            Dataset::class => $this !== self::Sys,
             default => false,
         };
     }
@@ -38,7 +37,6 @@ enum ExportKind: string implements HasLabel
             self::EventLog => ['xlsx', 'csv'],
             self::PsoEvents => ['json', 'zip'],
             self::AppointmentHistory => ['csv', 'zip'],
-            self::MessageTexts => ['xml', 'zip'],
             default => ['xml', 'json', 'zip'],
         };
     }
@@ -47,7 +45,7 @@ enum ExportKind: string implements HasLabel
     public function expectedRoot(): ?string
     {
         return match ($this) {
-            self::Sys, self::MessageTexts => 'DsSystemData',
+            self::Sys => 'DsSystemData',
             self::Audits, self::EventLog, self::PsoEvents, self::AppointmentHistory => null,
             default => 'dsScheduleData',
         };
@@ -64,7 +62,6 @@ enum ExportKind: string implements HasLabel
             self::EventLog => 'IFS event log',
             self::PsoEvents => 'PSO system events',
             self::AppointmentHistory => 'Appointment history',
-            self::MessageTexts => 'Message texts',
         };
     }
 

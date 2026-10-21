@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Pages\Settings;
 use App\Filament\Resources\EnvironmentResource\Pages\ListEnvironments;
 use App\Filament\Widgets\GoogleRoutesCache;
 use App\Models\User;
@@ -28,10 +29,12 @@ beforeEach(function () {
     $this->actingAs(User::factory()->create(['email' => 'tester@mac.com']));
 });
 
-it('shows the card on the Environments page with the numbers from pso-services', function () {
+it('shows the card on the Settings page with the numbers from pso-services', function () {
     Http::fake(['https://pso-services.test/api/v2/routes/stats' => Http::response(routesStatsBody())]);
 
-    $this->get(ListEnvironments::getUrl())
+    $this->get(ListEnvironments::getUrl())->assertOk()->assertDontSee('Google Routes cache');
+
+    $this->get(Settings::getUrl())
         ->assertOk()
         ->assertSee('Google Routes cache')
         ->assertSee('5,558')
@@ -77,6 +80,14 @@ it('reads pso-services once per five minutes', function () {
     Livewire::test(GoogleRoutesCache::class);
 
     Http::assertSentCount(1);
+});
+
+it('reads pso-services again after Refresh', function () {
+    Http::fake(['*' => Http::response(routesStatsBody())]);
+
+    Livewire::test(GoogleRoutesCache::class)->call('refresh');
+
+    Http::assertSentCount(2);
 });
 
 it('sends the routes token when configured', function () {

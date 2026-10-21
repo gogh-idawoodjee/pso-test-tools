@@ -2,8 +2,11 @@
 
 namespace App\Tools\LoadAudit;
 
+use App\Support\Settings\AppSettings;
+
 /**
- * The argument list for audit_load.py. Pure: no process, no filesystem, so every shape is unit tested.
+ * The argument list for audit_load.py. No process and no filesystem, so every shape is unit tested; the
+ * noise ids and flag thresholds fall back to AppSettings, read through app() so tests can bind a stub.
  * An empty --accounts-dir keeps the script from reading the account files in the checkout; everything
  * per customer comes from the dataset settings instead.
  */
@@ -16,12 +19,6 @@ class LoadAuditCommand
     public const OUT_MD = 'load_audit.md';
 
     public const ACCOUNTS_DIR = 'accounts';
-
-    public const DEFAULT_GRACE_HOURS = 24;
-
-    public const DEFAULT_FLAG_ACTIVITIES = 5;
-
-    public const DEFAULT_FLAG_DELETIONS = 30;
 
     public const MESSAGES_FILE = 'messages.json';
 
@@ -61,15 +58,16 @@ class LoadAuditCommand
         // The engine only knows these flags once its System day leg ships, so they ride along with System day inputs only.
         $hasSystemDayInputs = array_intersect_key($inputPaths, array_flip(['audits', 'pso_events', 'appointment_history'])) !== [];
         if ($hasSystemDayInputs) {
-            $noiseIds = self::normalisedIds((string) (filled($options['noise_event_ids'] ?? null) ? $options['noise_event_ids'] : config('tools.load_audit.noise_event_ids', '')));
+            $settings = app(AppSettings::class);
+            $noiseIds = self::normalisedIds((string) (self::hasOption($options, 'noise_event_ids') ? $options['noise_event_ids'] : $settings->noiseEventIds()));
             if ($noiseIds !== '') {
                 $argv[] = '--noise-ids';
                 $argv[] = $noiseIds;
             }
 
-            foreach (['flag_activities' => self::DEFAULT_FLAG_ACTIVITIES, 'flag_deletions' => self::DEFAULT_FLAG_DELETIONS] as $option => $default) {
+            foreach (['flag_activities' => $settings->flagActivities(...), 'flag_deletions' => $settings->flagDeletions(...)] as $option => $settingsDefault) {
                 $argv[] = '--'.str_replace('_', '-', $option);
-                $argv[] = (string) (is_numeric($options[$option] ?? null) ? (int) $options[$option] : $default);
+                $argv[] = (string) (is_numeric($options[$option] ?? null) ? (int) $options[$option] : $settingsDefault());
             }
         }
 
@@ -91,7 +89,7 @@ class LoadAuditCommand
         }
 
         $grace = $options['complete_grace_hours'] ?? null;
-        array_push($argv, '--complete-grace-hours', (string) (is_numeric($grace) ? (int) $grace : self::DEFAULT_GRACE_HOURS));
+        array_push($argv, '--complete-grace-hours', (string) (is_numeric($grace) ? (int) $grace : app(AppSettings::class)->completeGraceHours()));
 
         // No schedule review on the web (it is a separate product), so the dashboard hides its button.
         array_push($argv, '--review', 'none',
@@ -102,8 +100,14 @@ class LoadAuditCommand
         return $argv;
     }
 
+    /** @param array<string, mixed> $options */
+    private static function hasOption(array $options, string $option): bool
+    {
+        return array_key_exists($option, $options) && $options[$option] !== null;
+    }
+
     /** "3041, 1767 ,24578" becomes "3041,1767,24578". */
-    private static function normalisedIds(string $list): string
+    public static function normalisedIds(string $list): string
     {
         return implode(',', array_filter(array_map('trim', explode(',', $list)), static fn (string $id): bool => $id !== ''));
     }

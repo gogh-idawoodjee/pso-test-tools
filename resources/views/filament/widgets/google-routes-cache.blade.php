@@ -1,5 +1,9 @@
 <x-filament-widgets::widget>
     <x-filament::section heading="Google Routes cache">
+        <x-slot name="afterHeader">
+            <x-filament::button wire:click="refresh" size="sm" color="gray">Refresh</x-filament::button>
+        </x-slot>
+
         @php($summary = $this->summary())
         @if ($summary === null)
             <p class="text-sm text-gray-500 dark:text-gray-400">pso-services could not be reached. The cache is still used by Plan travels and the Travel Analyzer.</p>

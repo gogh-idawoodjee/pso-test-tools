@@ -107,6 +107,5 @@ it('words the Contents column for the system day kinds', function (ExportKind $k
 })->with([
     'events' => [ExportKind::PsoEvents, ['row_count' => 1234, 'first_at' => '2026-10-20T18:24:01+00:00', 'last_at' => '2026-10-20T23:59:00+00:00'], '1,234 events, 20 Oct 18:24 to 20 Oct 23:59'],
     'history' => [ExportKind::AppointmentHistory, ['row_count' => 412, 'failed_count' => 3], '412 requests, 3 failed'],
-    'texts' => [ExportKind::MessageTexts, ['message_text_count' => 2500], '2,500 message texts'],
     'empty history' => [ExportKind::AppointmentHistory, [], null],
 ]);

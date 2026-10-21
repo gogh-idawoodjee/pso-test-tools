@@ -33,6 +33,7 @@ it('puts every page in one of the four intent groups', function (string $class, 
     [Pages\Backups::class, Groups::ADMIN],
     [Pages\HealthCheckResults::class, Groups::ADMIN],
     [Pages\IssueToken::class, Groups::ADMIN],
+    [Pages\Settings::class, Groups::ADMIN],
 ]);
 
 it('keeps environments at the top level, above customers', function () {
