@@ -103,7 +103,7 @@ class LoadAuditCommand
     }
 
     /** "3041, 1767 ,24578" becomes "3041,1767,24578". */
-    private static function normalisedIds(string $list): string
+    public static function normalisedIds(string $list): string
     {
         return implode(',', array_filter(array_map('trim', explode(',', $list)), static fn (string $id): bool => $id !== ''));
     }
