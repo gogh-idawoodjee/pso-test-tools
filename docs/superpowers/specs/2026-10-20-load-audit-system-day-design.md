@@ -1,7 +1,7 @@
 # Design: "System day" leg of the load audit
 
 **Date:** 2026-10-20
-**Status:** Draft for review
+**Status:** Draft for review; open questions 1, 2 and 4 settled 2026-10-20 (section 8)
 **Repos:** pso-tools (the engine: a new module beside `load-audit/audit_load.py`, and the audit page gains a
 tab) and pso-test-tools (three export kinds, one reference table, the tool's inputs and options).
 Builds on `2026-10-10-load-audit-port-design.md` (the audit runs the Python from a checkout and stores the
@@ -47,7 +47,7 @@ The split the two tools keep: the review surfaces that a day was bad; the audit 
 | Audit messages | `audits` (exists) | dataset | Dataset audit archive, one zip per dataset per day | zip of `file<id>-<CHANGE\|PLAN_CHANGE\|LOAD\|COMPLETE>-<yyyy_MM_dd_HH_mm_ss>.xml` |
 | PSO system events | `pso_events` (new) | dataset, Unfiled | Workbench, System, Events, export (one export covers every dataset and the system-wide rows) | JSON array; fields `id, loggedAt, severity, eAppType, messageId, organisationAccountId, externalTaskId, applicationInstanceId, message, exceptionDetail, parameters[], origin, userId`; `loggedAt` may carry a leading `\d` |
 | Appointment history | `appointment_history` (new) | dataset, Unfiled | Workbench, Performance, Appointment History table, export | CSV: `ID, Dataset, Request ID, Input Internal ID, Plan ID, Request Time, Response Time, Success, Input Time, Output Time, Requested Slots, Offered Slots, Time Taken (seconds), Output Time Taken (seconds), Input Time Taken (seconds)` |
-| Message texts | `message_texts` (new) | environment | Admin panel language export (`MessageTexts-en.xml`, `DsSystemData` with `Message_Text` rows) | XML or zip; parsed into a table on upload, re-uploaded only on a PSO upgrade |
+| Message texts | `message_texts` (new) | environment | Admin panel language export (`MessageTexts-en.xml`, `DsSystemData` with `Message_Text` rows); the SYS export does not carry these rows, so this is its own one-time upload | XML or zip; parsed into a table on upload, re-uploaded only on a PSO upgrade |
 
 Rules:
 
@@ -68,6 +68,8 @@ Rules:
   `externalTaskId` equal to the dataset, plus rows with no dataset (gateway, Workbench, broadcast
   manager rows carry the dataset; gateway rows do not), are kept; other datasets' rows are dropped. An
   Unfiled run keeps everything and labels lanes by `externalTaskId`.
+- Several datasets on one clock (the view that found the 2026-10-20 outage was both datasets side by
+  side) is a second step, not part of the run: see section 4.8.
 
 ## 4. The engine (pso-tools)
 
@@ -189,6 +191,22 @@ with texts, the windows as sequence lists (every event and every flagged input i
 from the window's first error), and the inputs CSV download. The reference block (every id, its text,
 its count) is collapsed at the bottom.
 
+### 4.8 Combining datasets
+
+A load audit run is one dataset, and stays so. The engine therefore writes its data file,
+`system_day.json` (the series of 4.4, the windows of 4.5, the findings of 4.6, every row tagged with
+its dataset), as a result file next to the page, and the tab is rendered *from that file* by the
+renderer, not built inline. That makes a combined view cheap later:
+
+- **Combine system days** is a later option that takes two or more finished load audit runs
+  (`TakesRunInputs`, the pattern Travel tuning uses to read Plan travels runs) from the same environment
+  whose LOADs are on the same day, merges their `system_day.json` files, and renders the same tab with
+  one row per dataset in each lane (the day page of 2026-10-20 had exactly that: the inbound-per-minute,
+  inputs and 2879 lanes split by dataset). Rows with no dataset (gateway, Workbench) appear once. No
+  engine change is needed; the merge is a JSON concatenation with the dataset tag already on every row.
+- An audit run that is given more than one audit zip is not supported in this design; the wizard takes
+  one `audits` file per run as it does for Trace an activity.
+
 ## 5. The web (pso-test-tools)
 
 - `ExportKind`: `PsoEvents = 'pso_events'`, `AppointmentHistory = 'appointment_history'`,
@@ -202,9 +220,10 @@ its count) is collapsed at the bottom.
   `--flag-activities`, `--flag-deletions` from the options.
 - `DatasetSettings`: `noiseEventIds` (list of ints). Option fields on the Run form: the noise list
   (prefilled from the dataset), the two flag thresholds.
-- Result: unchanged shape (`html`, `findings`, `counts`); `system_day_inputs.csv` is kept as a second
-  file in the result and served by a new owner-only download route next to `tool-runs.download-json`.
-  The inputs CSV can be 2 to 3 MB; it goes in the encrypted result like the HTML does today.
+- Result: `html`, `findings`, `counts` as today, plus `system_day` (the JSON of 4.8, needed by the
+  combine option) and `system_day_inputs_csv`, served by a new owner-only download route next to
+  `tool-runs.download-json`. The inputs CSV can be 2 to 3 MB; it goes in the encrypted result like the
+  HTML does today.
 - `tools.php`: `load_audit.timeout_seconds` stays 840; the indexer adds about 40 s for 13k files, so the
   default holds. Memory: the audit container has the 1 GB step from the port; the indexer streams.
 
@@ -234,15 +253,16 @@ its count) is collapsed at the bottom.
 
 ## 8. Open questions
 
-1. Is the Events screen export the JSON shape above on every client, or is that the API behind the
-   screen? If exports differ (CSV, XLSX), the summariser needs the variants.
-2. Does the SYS export already carry `Message_Text` rows? If it does, `message_texts` can be read from
-   the environment's SYS instead of a separate upload.
-3. The `eAppType` numbers: 1 and 9 both logged loader-style rows, 2 is the DSE, 4 the broadcast manager,
+Settled 2026-10-20 by the owner: the Events screen export is always the JSON shape in section 3; the
+SYS export does not carry `Message_Text` rows, so `message_texts` is its own one-time upload per
+environment; a system has one or more audit zips (one per dataset) and the audit stays one dataset per
+run, with the combined view as the later option in 4.8.
+
+Still open:
+
+1. The `eAppType` numbers: 1 and 9 both logged loader-style rows, 2 is the DSE, 4 the broadcast manager,
    6 and 31 mirror the DSE's activity events (ABE and DSP), 24 the Workbench server, 25 the gateway. A
    confirmed table from IFS would let the lanes say the application instead of the number.
-4. Should a two-dataset system get one run per dataset (this design) or one run that takes two audit
-   zips? One per dataset keeps the tool dataset-scoped like the rest of the audit.
 
 ## 9. Hand-off material
 
