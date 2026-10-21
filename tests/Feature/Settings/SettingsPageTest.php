@@ -1,0 +1,137 @@
+<?php
+
+use App\Filament\Navigation\Groups;
+use App\Filament\Pages\Settings;
+use App\Filament\Widgets\GoogleRoutesCache;
+use App\Jobs\ImportMessageTextsJob;
+use App\Models\PsoMessageText;
+use App\Models\User;
+use App\Support\Settings\AppSettings;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
+
+beforeEach(function () {
+    Storage::fake('r2');
+    config(['exports.disk' => 'r2']);
+    Http::fake(['*' => Http::response('boom', 500)]);
+    $this->user = User::factory()->create(['email' => 'tester@mac.com']);
+    $this->actingAs($this->user);
+});
+
+function messageTextRows(): array
+{
+    $now = now();
+
+    return [
+        ['language_id' => 'en', 'message_id' => 1, 'text' => 'One', 'created_at' => $now, 'updated_at' => $now],
+        ['language_id' => 'en', 'message_id' => 2, 'text' => 'Two', 'created_at' => $now, 'updated_at' => $now],
+        ['language_id' => 'fr', 'message_id' => 1, 'text' => 'Un', 'created_at' => $now, 'updated_at' => $now],
+    ];
+}
+
+function messageTextsRecord(array $override = []): array
+{
+    return array_replace([
+        'status' => 'ready',
+        'file_name' => 'MessageTexts-fr.xml',
+        'uploaded_by' => null,
+        'uploaded_at' => now()->toIso8601String(),
+        'languages' => ['fr'],
+        'rows' => 1,
+        'error' => null,
+    ], $override);
+}
+
+it('sits under Admin at /settings and renders every section', function () {
+    expect(Settings::getNavigationGroup())->toBe(Groups::ADMIN)
+        ->and(Settings::getUrl())->toEndWith('/settings');
+
+    $this->get(Settings::getUrl())
+        ->assertOk()
+        ->assertSee('Message texts')
+        ->assertSee('Load audit defaults')
+        ->assertSee('Parameter definitions')
+        ->assertSee('Google Routes cache')
+        ->assertSee('No message texts loaded.')
+        ->assertSeeLivewire(GoogleRoutesCache::class);
+});
+
+it('starts the audit defaults form from the shipped values and saves new ones', function () {
+    Livewire::test(Settings::class)
+        ->assertSet('auditDefaults.noise_event_ids', '3041,1767,2959,1964,1965,24578')
+        ->assertSet('auditDefaults.complete_grace_hours', 24)
+        ->set('auditDefaults.noise_event_ids', ' 1, 2 ')
+        ->set('auditDefaults.flag_activities', 8)
+        ->call('saveAuditDefaults')
+        ->assertHasNoErrors();
+
+    expect(app(AppSettings::class)->noiseEventIds())->toBe('1,2')
+        ->and(app(AppSettings::class)->flagActivities())->toBe(8);
+});
+
+it('validates the audit defaults like the audit form does', function () {
+    Livewire::test(Settings::class)
+        ->set('auditDefaults.noise_event_ids', 'a,b')
+        ->set('auditDefaults.complete_grace_hours', 169)
+        ->call('saveAuditDefaults')
+        ->assertHasErrors(['auditDefaults.noise_event_ids', 'auditDefaults.complete_grace_hours']);
+});
+
+it('lists every loaded language from the table and names only the last upload', function () {
+    PsoMessageText::insert(messageTextRows());
+    app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, messageTextsRecord(['uploaded_by' => $this->user->id]));
+
+    $this->get(Settings::getUrl())
+        ->assertSee('en')
+        ->assertSee('2 texts')
+        ->assertSee('fr')
+        ->assertSee('1 text')
+        ->assertSee('MessageTexts-fr.xml')
+        ->assertSee($this->user->name);
+});
+
+it('stores the upload, records importing and queues the import', function () {
+    Queue::fake();
+
+    Livewire::test(Settings::class)
+        ->callAction('uploadMessageTexts', ['file' => UploadedFile::fake()->createWithContent('MessageTexts-en.xml', '<DsSystemData/>')])
+        ->assertHasNoActionErrors();
+
+    $record = app(AppSettings::class)->messageTexts();
+    expect($record['status'])->toBe('importing')
+        ->and($record['file_name'])->toBe('MessageTexts-en.xml');
+    Queue::assertPushed(ImportMessageTextsJob::class, static fn (ImportMessageTextsJob $job): bool => $job->fileName === 'MessageTexts-en.xml'
+        && $job->uploadedAt === $record['uploaded_at']
+        && Storage::disk('r2')->exists($job->objectKey));
+});
+
+it('refuses a file that is not xml or zip', function () {
+    Queue::fake();
+
+    Livewire::test(Settings::class)
+        ->callAction('uploadMessageTexts', ['file' => UploadedFile::fake()->create('texts.csv', 10, 'text/csv')])
+        ->assertHasActionErrors(['file']);
+
+    Queue::assertNothingPushed();
+});
+
+it('shows the import error and polls while importing', function () {
+    app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, messageTextsRecord(['status' => 'importing', 'file_name' => 'x.xml', 'languages' => [], 'rows' => 0]));
+    $this->get(Settings::getUrl())->assertSee('Importing x.xml')->assertSee('wire:poll', false);
+
+    app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, messageTextsRecord(['status' => 'failed', 'file_name' => 'x.xml', 'languages' => [], 'rows' => 0, 'error' => 'No Message_Text rows in this file.']));
+    $this->get(Settings::getUrl())->assertSee('No Message_Text rows in this file.')->assertDontSee('wire:poll', false);
+});
+
+it('clears the loaded texts', function () {
+    PsoMessageText::insert(messageTextRows());
+    app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, messageTextsRecord());
+
+    Livewire::test(Settings::class)->callAction('clearMessageTexts');
+
+    expect(PsoMessageText::count())->toBe(0)
+        ->and(app(AppSettings::class)->messageTexts())->toBeNull();
+});

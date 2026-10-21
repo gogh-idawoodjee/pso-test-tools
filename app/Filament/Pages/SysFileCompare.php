@@ -441,7 +441,6 @@ class SysFileCompare extends Page
 
     /**
      * The line under the run button saying which parameter definitions a comparison will use.
-     * The Settings page class does not exist yet, so its relative URL is hard-coded.
      */
     private function definitionsInUse(): HtmlString
     {
@@ -452,7 +451,7 @@ class SysFileCompare extends Page
             ? 'Built-in parameter definitions.'
             : 'Parameter definitions: '.e((string) ($record['file_name'] ?? 'ParamDefinitions.csv')).' ('.Number::format($parameterCount).' '.Str::plural('parameter', $parameterCount).').';
 
-        return new HtmlString($description.' <a href="/settings" class="font-medium text-primary-600 hover:underline dark:text-primary-400">Change in Settings</a>');
+        return new HtmlString($description.' <a href="'.e(Settings::getUrl()).'" class="font-medium text-primary-600 hover:underline dark:text-primary-400">Change in Settings</a>');
     }
 
     private function cleanFileName(string $fileName): string

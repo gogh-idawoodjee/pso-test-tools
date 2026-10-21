@@ -20,6 +20,11 @@ class GoogleRoutesCache extends Widget
 
     protected string $view = 'filament.widgets.google-routes-cache';
 
+    public function refresh(): void
+    {
+        Cache::forget(self::CACHE_KEY);
+    }
+
     /** @return array{rows: string, sources: string, added: string, newest: string, modes: ?string}|null null when pso-services could not be reached */
     public function summary(): ?array
     {
