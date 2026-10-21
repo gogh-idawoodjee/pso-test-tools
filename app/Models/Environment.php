@@ -66,6 +66,11 @@ class Environment extends Model
     {
 
         static::addGlobalScope(new UserOwnedModel);
+        static::deleting(static function (self $env): void {
+            ToolRun::withoutGlobalScopes()
+                ->where('scope_type', $env->getMorphClass())->where('scope_id', (string) $env->getKey())
+                ->each(static fn (ToolRun $run): ?bool => $run->delete());
+        });
         static::creating(static function (self $env) {
             // TODO duplicated code
             if (empty($env->slug)) {

@@ -19,6 +19,7 @@ for _flag in ('--load', '--plan', '--sys', '--messages', '--noise-ids', '--flag-
               '--tz', '--org', '--accounts-dir', '--params', '--watchlist', '--ifs-release', '--complete-grace-hours',
               '--review', '--out', '--json', '--html'):
     _parser.add_argument(_flag)
+_parser.add_argument('--audits', action='append')
 _parser.add_argument('--events', action='append')
 _parser.add_argument('--appointments', action='append')
 _parser.parse_args()
@@ -81,7 +82,7 @@ with open(arg('--html'), 'w') as fh:
 with open(arg('--out'), 'w') as fh:
     fh.write('# report\n')
 print('wrote', arg('--out'), '(3 findings)')
-if (arg('--events') or arg('--appointments')) and mode != 'nosystemday':
+if (arg('--audits') or arg('--events') or arg('--appointments')) and mode != 'nosystemday':
     out_dir = os.path.dirname(arg('--html'))
     with open(os.path.join(out_dir, 'system_day.json'), 'w') as fh:
         json.dump({

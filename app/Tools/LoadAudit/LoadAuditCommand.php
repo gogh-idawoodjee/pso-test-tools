@@ -46,7 +46,7 @@ class LoadAuditCommand
             }
         }
 
-        foreach (['audits' => '--events', 'pso_events' => '--events', 'appointment_history' => '--appointments'] as $kind => $flag) {
+        foreach (['audits' => '--audits', 'pso_events' => '--events', 'appointment_history' => '--appointments'] as $kind => $flag) {
             if (filled($inputPaths[$kind] ?? null)) {
                 $argv[] = $flag;
                 $argv[] = $inputPaths[$kind];

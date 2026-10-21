@@ -68,7 +68,7 @@ it('adds the System day inputs, messages and option flags after --sys and before
     $start = array_search('--sys', $argv, true);
     expect(array_slice($argv, $start, 16))->toBe([
         '--sys', '/scratch/run1/c.xml',
-        '--events', '/scratch/run1/d.zip',
+        '--audits', '/scratch/run1/d.zip',
         '--events', '/scratch/run1/e.json',
         '--appointments', '/scratch/run1/f.csv',
         '--messages', '/scratch/run1/messages.json',

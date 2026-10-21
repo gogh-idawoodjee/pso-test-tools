@@ -2,6 +2,7 @@
 
 use App\Enums\Tool as ToolId;
 use App\Models\Dataset;
+use App\Models\Environment;
 use App\Models\PsoMessageText;
 use App\Models\ToolRun;
 use App\Models\User;
@@ -141,4 +142,15 @@ it('warns when event files were given but the script wrote no System day data', 
 
     expect($result->warnings)->toContain('The System day page could not be made from the event files.')
         ->and($result->result['system_day'])->toBeNull();
+});
+
+it('deletes the stored files of an environment\'s runs when the environment is deleted', function () {
+    $environment = Environment::factory()->create();
+    $run = ToolRun::factory()->for($environment, 'scope')->create(['tool' => ToolId::LoadAudit, 'result' => null]);
+    file_put_contents($this->scratch.'/one.csv', 'a,b');
+    ToolRunFiles::put($run, 'system_day_inputs.csv', $this->scratch.'/one.csv');
+
+    $environment->delete();
+
+    expect(Storage::disk('r2')->exists("tool-runs/{$run->id}/system_day_inputs.csv"))->toBeFalse();
 });
