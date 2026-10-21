@@ -22,6 +22,7 @@ Route::middleware(['web', Authenticate::class])
         Route::get('download/csv', 'downloadCsv')->name('tool-runs.download-csv');
         Route::get('download/booking-csv', 'downloadBookingCsv')->name('tool-runs.download-booking-csv');
         Route::get('download/history-csv', 'downloadHistoryCsv')->name('tool-runs.download-history-csv');
+        Route::get('download/system-day-csv', 'downloadSystemDayCsv')->name('tool-runs.download-system-day-csv');
     });
 
 Route::post('/tasks/{task}/release-offers', ReleaseAppointmentOffersController::class)
