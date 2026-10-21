@@ -79,15 +79,16 @@ A small form with four fields, saved together with a **Save** button:
 | Field | Validation | Shipped value |
 | --- | --- | --- |
 | Noise event ids | comma-separated whole numbers, may be empty (empty means no noise ids) | `3041,1767,2959,1964,1965,24578` |
-| Finished work kept for (hours) | whole number, 0 to 168 | `LoadAuditCommand::DEFAULT_GRACE_HOURS` |
-| Flag an appointment with this many activities | whole number, 1 to 100000 | `LoadAuditCommand::DEFAULT_FLAG_ACTIVITIES` |
-| Flag a resource with this many deletions | whole number, 1 to 100000 | `LoadAuditCommand::DEFAULT_FLAG_DELETIONS` |
+| Finished work kept for (hours) | whole number, 0 to 168 | `24` |
+| Flag an appointment with this many activities | whole number, 1 to 100000 | `5` |
+| Flag a resource with this many deletions | whole number, 1 to 100000 | `30` |
 
 Labels and helper texts are the ones the Load audit form already uses. Below the form: "These are the
 starting values on the Load audit page. Any of them can still be changed for one run."
 
 The Load audit's option fields (`LoadAuditTool::optionFields()`) read their defaults from these settings
-instead of config and class constants. The constants stay as the shipped values. The
+instead of config and class constants. The shipped values live in `AppSettings::DEFAULTS` (24, 5, 30 and
+the noise list above); the `LoadAuditCommand::DEFAULT_*` constants were removed. The
 `tools.load_audit.noise_event_ids` config entry and its env variable are removed.
 
 Empty means empty. Today `LoadAuditCommand` treats a blank per-run noise ids value as "use the config
@@ -95,7 +96,7 @@ default", which would make it impossible to run one audit with no noise ids whil
 set. From now on: an option that is absent from the run (`null`, as for a rerun or a caller that never
 set it) falls back to the setting; an option that is present and blank means no noise ids. The same rule
 applies to the other three: absent falls back to the setting, which itself falls back to the shipped
-constant.
+value in `AppSettings::DEFAULTS`.
 
 ### 3.3 Parameter definitions
 
@@ -195,3 +196,10 @@ Settled after the builder check, all my calls:
 - The language export goes through a plain Filament upload capped at 50 MB, not the direct-to-R2 path.
 - A blank noise ids value means no noise ids, both in Settings and for one run. Only an absent option
   falls back to the setting.
+
+## 9. Deploying
+
+Let the queue drain before deploying: queued Sys file compare jobs carry the old definitions property,
+and queued message-texts summarise jobs fail once the migration deletes their rows. Then run
+`php artisan migrate`. Old `TOOLS_LOAD_AUDIT_NOISE_EVENT_IDS` lines in `.env` are ignored and can be
+removed.
