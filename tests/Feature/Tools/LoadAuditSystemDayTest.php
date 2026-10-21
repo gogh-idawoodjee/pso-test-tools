@@ -66,7 +66,7 @@ it('runs the System day leg: stores its page data and inputs CSV and writes mess
     expect($result->result['system_day']['day']['tz'])->toBe('America/Regina')
         ->and($result->summary['system_day'])->toBeTrue()
         ->and(array_keys($messages))->toEqualCanonicalizing(['3041', '1767', '2959', '1964', '1965'])
-        ->and($args)->toContain('--messages', $this->scratch.'/messages.json', '--events', '--appointments')
+        ->and($args)->toContain('--messages', $this->scratch.'/messages.json', '--audits', '--events', '--appointments')
         ->and(ToolRunFiles::get($this->run, 'system_day_inputs.csv'))->toStartWith('file_id,');
 });
 
