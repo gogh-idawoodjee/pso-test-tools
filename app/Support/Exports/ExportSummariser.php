@@ -53,10 +53,6 @@ class ExportSummariser
             throw new InvalidExportException("This file is a <{$found}> export, not a {$kind->getLabel()} (<{$expected}>). Upload it under the right kind.");
         }
 
-        if ($kind === ExportKind::MessageTexts) {
-            return $this->summariseMessageTexts($path, $root);
-        }
-
         return $kind === ExportKind::Sys
             ? $this->summariseSys($path)
             : $this->summariseSchedule($path, $format, $root, $timeZone, $kind);
@@ -277,30 +273,6 @@ class ExportSummariser
         }
 
         return $plan === null ? null : [...$plan, 'allocation_count' => $allocations];
-    }
-
-    private function summariseMessageTexts(string $path, string $root): ExportSummary
-    {
-        $reader = $this->openReader($path);
-        $count = 0;
-        $languages = [];
-
-        try {
-            while (@$reader->read()) {
-                if ($reader->nodeType !== XMLReader::ELEMENT || $reader->depth !== 1 || $reader->localName !== 'Message_Text') {
-                    continue;
-                }
-                $count++;
-                $languages[$this->childText($reader, 'language_id') ?? 'en'] = true;
-            }
-        } finally {
-            $reader->close();
-        }
-
-        $languages = array_map('strval', array_keys($languages));
-        sort($languages);
-
-        return new ExportSummary(['root' => $root, 'message_text_count' => $count, 'languages' => $languages]);
     }
 
     /** Counts the tables we need and reads the version ids; users and credentials are skipped unread. */

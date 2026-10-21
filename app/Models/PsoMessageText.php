@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-/** One PSO message text in one language. A single global table, refilled from an Unfiled message texts upload. */
+/** One PSO message text in one language. A single global table, refilled from the Settings page. */
 class PsoMessageText extends Model
 {
     protected $fillable = ['language_id', 'message_id', 'text'];

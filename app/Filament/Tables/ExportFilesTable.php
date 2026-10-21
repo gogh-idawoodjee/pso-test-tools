@@ -76,9 +76,6 @@ class ExportFilesTable
             ExportKind::AppointmentHistory => isset($summary['row_count'])
                 ? number_format((int) $summary['row_count']).' requests, '.number_format((int) ($summary['failed_count'] ?? 0)).' failed'
                 : null,
-            ExportKind::MessageTexts => isset($summary['message_text_count'])
-                ? number_format((int) $summary['message_text_count']).' message texts'
-                : null,
             default => isset($summary['allocation_count'])
                 ? number_format((int) $summary['allocation_count']).' allocations'
                 : (isset($summary['activity_count'])
