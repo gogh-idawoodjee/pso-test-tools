@@ -25,6 +25,9 @@ class AppSettings
 
     public const CACHE_KEY = 'app_settings';
 
+    /** Bounded so a read that refills the cache just after a write's forget cannot keep an old snapshot for good. */
+    public const CACHE_SECONDS = 300;
+
     private const DEFAULTS = [
         self::NOISE_EVENT_IDS => '3041,1767,2959,1964,1965,24578',
         self::COMPLETE_GRACE_HOURS => 24,
@@ -128,7 +131,7 @@ class AppSettings
     /** @return array<string, mixed> */
     private function savedValues(): array
     {
-        return Cache::rememberForever(self::CACHE_KEY, static fn (): array => AppSetting::query()
+        return Cache::remember(self::CACHE_KEY, self::CACHE_SECONDS, static fn (): array => AppSetting::query()
             ->get()
             ->mapWithKeys(static fn (AppSetting $setting): array => [$setting->key => $setting->value])
             ->all());

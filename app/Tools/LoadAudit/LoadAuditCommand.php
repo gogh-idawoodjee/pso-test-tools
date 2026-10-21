@@ -5,7 +5,8 @@ namespace App\Tools\LoadAudit;
 use App\Support\Settings\AppSettings;
 
 /**
- * The argument list for audit_load.py. Pure: no process, no filesystem, so every shape is unit tested.
+ * The argument list for audit_load.py. No process and no filesystem, so every shape is unit tested; the
+ * noise ids and flag thresholds fall back to AppSettings, read through app() so tests can bind a stub.
  * An empty --accounts-dir keeps the script from reading the account files in the checkout; everything
  * per customer comes from the dataset settings instead.
  */
