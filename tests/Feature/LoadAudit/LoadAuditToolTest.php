@@ -68,7 +68,7 @@ it('runs the script in the scratch folder and stores html, findings, counts and 
         ->and($result->result['html'])->toContain('<h1>SaskTel</h1>')
         ->and($result->result['findings'])->toHaveCount(3)
         ->and($result->result['counts'])->toBe(['red' => 1, 'amber' => 1, 'green' => 1])
-        ->and($result->summary)->toBe(['counts' => ['red' => 1, 'amber' => 1, 'green' => 1], 'system_day' => false])
+        ->and($result->summary)->toBe(['counts' => ['red' => 1, 'amber' => 1, 'green' => 1], 'system_day' => false, 'system_day_csv' => false])
         ->and($result->warnings)->toBe(['no recommendation for red/amber check: Resources with no shifts']);
 });
 

@@ -169,7 +169,7 @@ class ExportFile extends Model
             return $date;
         }
 
-        $first = data_get($this->summary, 'first_message_at') ?? data_get($this->summary, 'first_event');
+        $first = data_get($this->summary, 'first_message_at') ?? data_get($this->summary, 'first_event') ?? data_get($this->summary, 'first_at');
         if (! is_string($first) || $first === '') {
             return null;
         }

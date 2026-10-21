@@ -58,15 +58,19 @@ class LoadAuditCommand
             $argv[] = $messagesPath;
         }
 
-        $noiseIds = self::normalisedIds((string) (filled($options['noise_event_ids'] ?? null) ? $options['noise_event_ids'] : config('tools.load_audit.noise_event_ids', '')));
-        if ($noiseIds !== '') {
-            $argv[] = '--noise-ids';
-            $argv[] = $noiseIds;
-        }
+        // The engine only knows these flags once its System day leg ships, so they ride along with System day inputs only.
+        $hasSystemDayInputs = array_intersect_key($inputPaths, array_flip(['audits', 'pso_events', 'appointment_history'])) !== [];
+        if ($hasSystemDayInputs) {
+            $noiseIds = self::normalisedIds((string) (filled($options['noise_event_ids'] ?? null) ? $options['noise_event_ids'] : config('tools.load_audit.noise_event_ids', '')));
+            if ($noiseIds !== '') {
+                $argv[] = '--noise-ids';
+                $argv[] = $noiseIds;
+            }
 
-        foreach (['flag_activities' => self::DEFAULT_FLAG_ACTIVITIES, 'flag_deletions' => self::DEFAULT_FLAG_DELETIONS] as $option => $default) {
-            $argv[] = '--'.str_replace('_', '-', $option);
-            $argv[] = (string) (is_numeric($options[$option] ?? null) ? (int) $options[$option] : $default);
+            foreach (['flag_activities' => self::DEFAULT_FLAG_ACTIVITIES, 'flag_deletions' => self::DEFAULT_FLAG_DELETIONS] as $option => $default) {
+                $argv[] = '--'.str_replace('_', '-', $option);
+                $argv[] = (string) (is_numeric($options[$option] ?? null) ? (int) $options[$option] : $default);
+            }
         }
 
         $argv[] = '--tz';

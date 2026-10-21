@@ -109,6 +109,7 @@ class LoadAuditTool implements Tool
         $systemDay = $systemDayJson === false ? null : json_decode($systemDayJson, true);
         $systemDay = is_array($systemDay) ? $systemDay : null;
         $systemDayWarnings = [];
+        $csvStored = false;
         $hasEventFiles = array_intersect_key($inputPaths, array_flip(['audits', 'pso_events', 'appointment_history'])) !== [];
         $inputsCsv = $workDir.'/'.LoadAuditCommand::OUT_SYSTEM_DAY_INPUTS;
         if ($systemDay === null && $hasEventFiles) {
@@ -119,6 +120,7 @@ class LoadAuditTool implements Tool
             } else {
                 try {
                     ToolRunFiles::put($context->run, LoadAuditCommand::OUT_SYSTEM_DAY_INPUTS, $inputsCsv);
+                    $csvStored = true;
                 } catch (RuntimeException $exception) {
                     $systemDayWarnings[] = $exception->getMessage();
                 }
@@ -145,7 +147,7 @@ class LoadAuditTool implements Tool
         return new ToolResult(
             result: ['html' => $html, 'findings' => $findings, 'counts' => $counts, 'system_day' => $systemDay],
             warnings: $warnings,
-            summary: ['counts' => $counts, 'system_day' => $systemDay !== null],
+            summary: ['counts' => $counts, 'system_day' => $systemDay !== null, 'system_day_csv' => $csvStored],
         );
     }
 }

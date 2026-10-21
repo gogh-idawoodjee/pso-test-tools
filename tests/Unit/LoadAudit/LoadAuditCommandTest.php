@@ -20,9 +20,6 @@ it('builds the full command for a LOAD, plan and SYS', function () {
         '--load', '/scratch/run1/a.zip',
         '--plan', '/scratch/run1/b.xml',
         '--sys', '/scratch/run1/c.xml',
-        '--noise-ids', '3041,1767,2959,1964,1965,24578',
-        '--flag-activities', '5',
-        '--flag-deletions', '30',
         '--tz', 'America/Regina',
         '--org=SaskTel',
         '--accounts-dir', '/scratch/run1/accounts',
@@ -79,20 +76,18 @@ it('adds the System day inputs, messages and option flags after --sys and before
     expect(array_search('--flag-deletions', $argv, true))->toBeLessThan(array_search('--accounts-dir', $argv, true));
 });
 
-it('adds only the three option flags, with defaults, when there are no System day inputs', function () {
+it('adds none of the System day flags when there are no System day inputs', function () {
     $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], [], 'UTC', null, null);
 
     expect($argv)->not->toContain('--events')->not->toContain('--appointments')->not->toContain('--messages')
-        ->and(array_slice($argv, array_search('--noise-ids', $argv, true), 6))->toBe([
-            '--noise-ids', '3041,1767,2959,1964,1965,24578', '--flag-activities', '5', '--flag-deletions', '30',
-        ]);
+        ->not->toContain('--noise-ids')->not->toContain('--flag-activities')->not->toContain('--flag-deletions');
 });
 
 it('omits --noise-ids when the configured default is also blank, and uses the config default when the option is blank', function () {
-    $blank = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], ['noise_event_ids' => '  '], 'UTC', null);
+    $blank = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], ['noise_event_ids' => '  '], 'UTC', null);
     expect($blank)->toContain('--noise-ids');
 
     config(['tools.load_audit.noise_event_ids' => '']);
-    $none = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], ['noise_event_ids' => ''], 'UTC', null);
+    $none = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], ['noise_event_ids' => ''], 'UTC', null);
     expect($none)->not->toContain('--noise-ids');
 });

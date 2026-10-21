@@ -1,14 +1,18 @@
 <?php
 
+use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Models\Dataset;
 use App\Models\Environment;
+use App\Models\ExportFile;
 use App\Models\PsoMessageText;
 use App\Models\ToolRun;
 use App\Models\User;
+use App\Support\Exports\RunInputPicker;
 use App\Support\Tools\ToolRunFiles;
 use App\Tools\LoadAudit\LoadAuditTool;
 use App\Tools\ToolContext;
+use App\Tools\ToolRegistry;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
@@ -67,6 +71,7 @@ it('runs the System day leg: stores its page data and inputs CSV and writes mess
         ->and($result->summary['system_day'])->toBeTrue()
         ->and(array_keys($messages))->toEqualCanonicalizing(['3041', '1767', '2959', '1964', '1965'])
         ->and($args)->toContain('--messages', $this->scratch.'/messages.json', '--audits', '--events', '--appointments')
+        ->and($result->summary['system_day_csv'])->toBeTrue()
         ->and(ToolRunFiles::get($this->run, 'system_day_inputs.csv'))->toStartWith('file_id,');
 });
 
@@ -132,6 +137,7 @@ it('warns instead of failing the audit when the inputs CSV cannot be stored', fu
     $result = (new LoadAuditTool)->run($this->context, ['load' => $this->scratch.'/load.xml', 'pso_events' => $this->scratch.'/events.json'], []);
 
     expect($result->warnings)->toContain('The inputs CSV could not be stored.')
+        ->and($result->summary['system_day_csv'])->toBeFalse()
         ->and($result->result['system_day'])->toBeArray();
 });
 
@@ -153,4 +159,32 @@ it('deletes the stored files of an environment\'s runs when the environment is d
     $environment->delete();
 
     expect(Storage::disk('r2')->exists("tool-runs/{$run->id}/system_day_inputs.csv"))->toBeFalse();
+});
+
+it('deletes the stored files of a dataset run when its environment is deleted', function () {
+    $environment = Environment::factory()->create();
+    $dataset = Dataset::factory()->for($environment)->create();
+    $run = ToolRun::factory()->for($dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'result' => null]);
+    file_put_contents($this->scratch.'/one.csv', 'a,b');
+    ToolRunFiles::put($run, 'system_day_inputs.csv', $this->scratch.'/one.csv');
+
+    $environment->delete();
+
+    expect(Storage::disk('r2')->exists("tool-runs/{$run->id}/system_day_inputs.csv"))->toBeFalse();
+});
+
+it('preselects the events and appointment history files of the LOAD day and labels them', function () {
+    app(ToolRegistry::class)->register(ToolId::LoadAudit, LoadAuditTool::class);
+    $this->actingAs($this->user);
+    $dataset = Dataset::factory()->for(Environment::factory()->for($this->user))->create();
+    $make = static fn (ExportKind $kind, array $summary) => ExportFile::factory()->for($dataset, 'scope')->create(['kind' => $kind, 'summary' => $summary]);
+    $load = $make(ExportKind::Load, ['export_date' => '2026-10-10']);
+    $events = $make(ExportKind::PsoEvents, ['first_at' => '2026-10-10T12:00:00Z', 'event_count' => 4]);
+    $history = $make(ExportKind::AppointmentHistory, ['first_at' => '2026-10-10T12:00:00Z', 'row_count' => 1234]);
+    $make(ExportKind::PsoEvents, ['first_at' => '2026-10-08T12:00:00Z']);
+
+    $picker = app(RunInputPicker::class);
+
+    expect($picker->defaultsFor($dataset, ToolId::LoadAudit))->toBe(['load' => $load->id, 'pso_events' => $events->id, 'appointment_history' => $history->id])
+        ->and($picker->optionsFor($dataset, ToolId::LoadAudit)['appointment_history'][$history->id])->toContain('1,234 rows');
 });

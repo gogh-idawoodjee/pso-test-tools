@@ -146,6 +146,7 @@ class RunInputPicker
             isset($summary['pso_version']) => 'version '.$summary['pso_version'],
             isset($summary['message_count']) => number_format((int) $summary['message_count']).' messages',
             isset($summary['event_count']) => number_format((int) $summary['event_count']).' events',
+            isset($summary['row_count']) => number_format((int) $summary['row_count']).' rows',
             default => null,
         };
 
