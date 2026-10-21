@@ -81,9 +81,12 @@ class LoadAuditTool implements Tool
         }
 
         $messagesPath = null;
-        if (PsoMessageText::count() > 0) {
+        $messageTexts = PsoMessageText::asMap();
+        if ($messageTexts !== []) {
             $messagesPath = $workDir.'/'.LoadAuditCommand::MESSAGES_FILE;
-            file_put_contents($messagesPath, json_encode(PsoMessageText::asMap(), JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+            if (file_put_contents($messagesPath, json_encode($messageTexts, JSON_UNESCAPED_UNICODE | JSON_FORCE_OBJECT | JSON_THROW_ON_ERROR)) === false) {
+                throw new RuntimeException('The message texts could not be written for the audit.');
+            }
         }
 
         $argv = LoadAuditCommand::build(
@@ -105,8 +108,21 @@ class LoadAuditTool implements Tool
         $systemDayJson = @file_get_contents($workDir.'/'.LoadAuditCommand::OUT_SYSTEM_DAY);
         $systemDay = $systemDayJson === false ? null : json_decode($systemDayJson, true);
         $systemDay = is_array($systemDay) ? $systemDay : null;
-        if ($systemDay !== null && is_file($workDir.'/'.LoadAuditCommand::OUT_SYSTEM_DAY_INPUTS)) {
-            ToolRunFiles::put($context->run, LoadAuditCommand::OUT_SYSTEM_DAY_INPUTS, $workDir.'/'.LoadAuditCommand::OUT_SYSTEM_DAY_INPUTS);
+        $systemDayWarnings = [];
+        $hasEventFiles = array_intersect_key($inputPaths, array_flip(['audits', 'pso_events', 'appointment_history'])) !== [];
+        $inputsCsv = $workDir.'/'.LoadAuditCommand::OUT_SYSTEM_DAY_INPUTS;
+        if ($systemDay === null && $hasEventFiles) {
+            $systemDayWarnings[] = 'The System day page could not be made from the event files.';
+        } elseif ($systemDay !== null) {
+            if (! is_file($inputsCsv)) {
+                $systemDayWarnings[] = 'The System day inputs CSV was not written.';
+            } else {
+                try {
+                    ToolRunFiles::put($context->run, LoadAuditCommand::OUT_SYSTEM_DAY_INPUTS, $inputsCsv);
+                } catch (RuntimeException $exception) {
+                    $systemDayWarnings[] = $exception->getMessage();
+                }
+            }
         }
 
         $counts = ['red' => 0, 'amber' => 0, 'green' => 0];
@@ -123,6 +139,8 @@ class LoadAuditTool implements Tool
                 $warnings[] = trim(substr($line, strlen('warning:')));
             }
         }
+
+        $warnings = [...$warnings, ...$systemDayWarnings];
 
         return new ToolResult(
             result: ['html' => $html, 'findings' => $findings, 'counts' => $counts, 'system_day' => $systemDay],

@@ -78,6 +78,18 @@ class User extends Authenticatable implements FilamentUser
         return $this->morphMany(ExportFile::class, 'scope');
     }
 
+    #[Override]
+    protected static function booted(): void
+    {
+        // The database cascade on started_by_user_id removes runs without Eloquent events, so delete them through the model first to clear their stored files.
+        static::deleting(static function (self $user): void {
+            ToolRun::withoutGlobalScopes()
+                ->where('started_by_user_id', $user->getKey())
+                ->orWhere(static fn ($unfiled) => $unfiled->where('scope_type', $user->getMorphClass())->where('scope_id', (string) $user->getKey()))
+                ->each(static fn (ToolRun $run): ?bool => $run->delete());
+        });
+    }
+
     /** Unfiled runs. */
     public function toolRuns(): MorphMany
     {

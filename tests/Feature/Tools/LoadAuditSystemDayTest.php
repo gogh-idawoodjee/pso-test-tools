@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\Tool as ToolId;
+use App\Models\Dataset;
 use App\Models\PsoMessageText;
 use App\Models\ToolRun;
 use App\Models\User;
 use App\Support\Tools\ToolRunFiles;
 use App\Tools\LoadAudit\LoadAuditTool;
 use App\Tools\ToolContext;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 
@@ -88,4 +90,55 @@ it('deletes a run\'s stored files when the run is deleted', function () {
     $this->run->delete();
 
     expect(Storage::disk('r2')->exists("tool-runs/{$this->run->id}/system_day_inputs.csv"))->toBeFalse();
+});
+
+it('deletes the stored files of a user\'s runs when the user is deleted', function () {
+    file_put_contents($this->scratch.'/one.csv', 'a,b');
+    ToolRunFiles::put($this->run, 'system_day_inputs.csv', $this->scratch.'/one.csv');
+
+    $this->user->delete();
+
+    expect(Storage::disk('r2')->exists("tool-runs/{$this->run->id}/system_day_inputs.csv"))->toBeFalse()
+        ->and(ToolRun::withoutGlobalScopes()->whereKey($this->run->id)->exists())->toBeFalse();
+});
+
+it('deletes the stored files of a dataset\'s runs when the dataset is deleted', function () {
+    $dataset = Dataset::factory()->create();
+    $run = ToolRun::factory()->for($dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'result' => null]);
+    file_put_contents($this->scratch.'/one.csv', 'a,b');
+    ToolRunFiles::put($run, 'system_day_inputs.csv', $this->scratch.'/one.csv');
+
+    $dataset->delete();
+
+    expect(Storage::disk('r2')->exists("tool-runs/{$run->id}/system_day_inputs.csv"))->toBeFalse();
+});
+
+it('throws a plain message when the disk refuses the write', function () {
+    $disk = Mockery::mock(Filesystem::class);
+    $disk->shouldReceive('put')->andReturn(false);
+    Storage::set('r2', $disk);
+    file_put_contents($this->scratch.'/one.csv', 'a,b');
+
+    expect(fn () => ToolRunFiles::put($this->run, 'system_day_inputs.csv', $this->scratch.'/one.csv'))
+        ->toThrow(RuntimeException::class, 'The inputs CSV could not be stored.');
+});
+
+it('warns instead of failing the audit when the inputs CSV cannot be stored', function () {
+    $disk = Mockery::mock(Filesystem::class);
+    $disk->shouldReceive('put')->andReturn(false);
+    Storage::set('r2', $disk);
+
+    $result = (new LoadAuditTool)->run($this->context, ['load' => $this->scratch.'/load.xml', 'pso_events' => $this->scratch.'/events.json'], []);
+
+    expect($result->warnings)->toContain('The inputs CSV could not be stored.')
+        ->and($result->result['system_day'])->toBeArray();
+});
+
+it('warns when event files were given but the script wrote no System day data', function () {
+    systemDayEnv('FAKE_AUDIT_MODE', 'nosystemday');
+
+    $result = (new LoadAuditTool)->run($this->context, ['load' => $this->scratch.'/load.xml', 'pso_events' => $this->scratch.'/events.json'], []);
+
+    expect($result->warnings)->toContain('The System day page could not be made from the event files.')
+        ->and($result->result['system_day'])->toBeNull();
 });

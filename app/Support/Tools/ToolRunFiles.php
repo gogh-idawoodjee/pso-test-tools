@@ -11,15 +11,19 @@ class ToolRunFiles
 {
     public static function put(ToolRun $run, string $name, string $localPath): void
     {
-        $stream = fopen($localPath, 'rb');
+        $stream = @fopen($localPath, 'rb');
         if ($stream === false) {
             throw new RuntimeException('A file from the run could not be read to keep it.');
         }
 
         try {
-            app(ExportStorage::class)->disk()->put(self::key($run, $name), $stream);
+            if (app(ExportStorage::class)->disk()->put(self::key($run, $name), $stream) === false) {
+                throw new RuntimeException('The inputs CSV could not be stored.');
+            }
         } finally {
-            fclose($stream);
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         }
     }
 
