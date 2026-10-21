@@ -28,6 +28,7 @@
                             @endforeach
                         </tbody>
                     </table>
+                    <p class="text-gray-600 dark:text-gray-400">The Load audit uses <span class="font-mono">{{ \App\Models\PsoMessageText::preferredLanguage() }}</span>.</p>
                 @endif
 
                 @if ($record !== null)

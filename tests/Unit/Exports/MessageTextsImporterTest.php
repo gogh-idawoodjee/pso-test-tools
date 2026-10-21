@@ -68,3 +68,27 @@ it('reads a zip holding one xml', function () {
 it('refuses a file with no Message_Text rows', function () {
     app(MessageTextsImporter::class)->import(messageTextsFile(''));
 })->throws(InvalidExportException::class, 'No Message_Text rows in this file.');
+
+it('uses an english variant when no row is exactly en', function () {
+    app(MessageTextsImporter::class)->import(messageTextsFile(
+        messageTextRow(1614, 'fr', 'Un').messageTextRow(1614, 'EN-GB', 'Activity not scheduled')
+    ));
+
+    expect(PsoMessageText::asMap())->toBe(['1614' => 'Activity not scheduled']);
+});
+
+it('uses the language with the most texts when none is english', function () {
+    app(MessageTextsImporter::class)->import(messageTextsFile(
+        messageTextRow(1, 'fr', 'Un').messageTextRow(2, 'fr', 'Deux').messageTextRow(1, 'de', 'Eins')
+    ));
+
+    expect(PsoMessageText::asMap())->toBe(['1' => 'Un', '2' => 'Deux']);
+});
+
+it('prefers exact en over an english variant', function () {
+    app(MessageTextsImporter::class)->import(messageTextsFile(
+        messageTextRow(1, 'en-US', 'Variant').messageTextRow(2, 'en-US', 'Variant two').messageTextRow(1, 'en', 'Exact')
+    ));
+
+    expect(PsoMessageText::asMap())->toBe(['1' => 'Exact']);
+});

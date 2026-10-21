@@ -104,7 +104,8 @@ it('lists every loaded language from the table and names only the last upload', 
         ->assertSee('fr')
         ->assertSee('1 text')
         ->assertSee('MessageTexts-fr.xml')
-        ->assertSee($this->user->name);
+        ->assertSee($this->user->name)
+        ->assertSeeHtml('The Load audit uses <span class="font-mono">en</span>.');
 });
 
 it('stores the upload, records importing and queues the import', function () {
