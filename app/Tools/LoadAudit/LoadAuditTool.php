@@ -5,6 +5,7 @@ namespace App\Tools\LoadAudit;
 use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Models\PsoMessageText;
+use App\Support\Settings\AppSettings;
 use App\Support\Tools\ToolRunFiles;
 use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolResult;
@@ -50,24 +51,24 @@ class LoadAuditTool implements Tool
                 ->integer()
                 ->minValue(0)
                 ->maxValue(168)
-                ->default(LoadAuditCommand::DEFAULT_GRACE_HOURS),
+                ->default(static fn (): string|int => app(AppSettings::class)->completeGraceHours()),
             TextInput::make('options.noise_event_ids')
                 ->label('Noise event ids')
                 ->helperText('Event ids kept in the counts but left out of the lanes and findings')
                 ->regex('/^\s*(\d+\s*(,\s*\d+\s*)*)?$/')
-                ->default((string) config('tools.load_audit.noise_event_ids', '')),
+                ->default(static fn (): string|int => app(AppSettings::class)->noiseEventIds()),
             TextInput::make('options.flag_activities')
                 ->label('Flag an appointment with this many activities')
                 ->integer()
                 ->minValue(1)
                 ->maxValue(100000)
-                ->default(LoadAuditCommand::DEFAULT_FLAG_ACTIVITIES),
+                ->default(static fn (): string|int => app(AppSettings::class)->flagActivities()),
             TextInput::make('options.flag_deletions')
                 ->label('Flag a resource with this many deletions')
                 ->integer()
                 ->minValue(1)
                 ->maxValue(100000)
-                ->default(LoadAuditCommand::DEFAULT_FLAG_DELETIONS),
+                ->default(static fn (): string|int => app(AppSettings::class)->flagDeletions()),
         ];
     }
 

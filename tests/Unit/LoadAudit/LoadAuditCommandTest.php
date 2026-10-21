@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\Settings\AppSettings;
 use App\Tools\LoadAudit\LoadAuditCommand;
 use App\Tools\LoadAudit\PsoToolsCheckout;
 
@@ -7,6 +8,20 @@ function checkoutForCommand(): PsoToolsCheckout
 {
     return new PsoToolsCheckout(dirname(__DIR__, 2).'/Fixtures/pso-tools', 'python3');
 }
+
+function stubSettings(string $noise = '3041,1767,2959,1964,1965,24578', int $flagActivities = 5, int $flagDeletions = 30, int $graceHours = 24): void
+{
+    $settings = Mockery::mock(AppSettings::class);
+    $settings->shouldReceive('noiseEventIds')->andReturn($noise);
+    $settings->shouldReceive('flagActivities')->andReturn($flagActivities);
+    $settings->shouldReceive('flagDeletions')->andReturn($flagDeletions);
+    $settings->shouldReceive('completeGraceHours')->andReturn($graceHours);
+    app()->instance(AppSettings::class, $settings);
+}
+
+beforeEach(function () {
+    stubSettings();
+});
 
 it('builds the full command for a LOAD, plan and SYS', function () {
     $argv = LoadAuditCommand::build(checkoutForCommand(), '/scratch/run1',
@@ -83,11 +98,21 @@ it('adds none of the System day flags when there are no System day inputs', func
         ->not->toContain('--noise-ids')->not->toContain('--flag-activities')->not->toContain('--flag-deletions');
 });
 
-it('omits --noise-ids when the configured default is also blank, and uses the config default when the option is blank', function () {
-    $blank = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], ['noise_event_ids' => '  '], 'UTC', null);
-    expect($blank)->toContain('--noise-ids');
+it('uses the settings default when the noise option is absent, none when it is blank', function () {
+    stubSettings(noise: '3041,24578');
+    $absent = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], [], 'UTC', null);
+    expect($absent)->toContain('--noise-ids')->toContain('3041,24578');
 
-    config(['tools.load_audit.noise_event_ids' => '']);
-    $none = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], ['noise_event_ids' => ''], 'UTC', null);
+    $blank = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], ['noise_event_ids' => '  '], 'UTC', null);
+    expect($blank)->not->toContain('--noise-ids');
+
+    stubSettings(noise: '');
+    $none = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], [], 'UTC', null);
     expect($none)->not->toContain('--noise-ids');
+});
+
+it('falls back to the settings flag thresholds when the options are absent', function () {
+    stubSettings(flagActivities: 9, flagDeletions: 99);
+    $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], [], 'UTC', null);
+    expect($argv)->toContain('--flag-activities')->toContain('9')->toContain('--flag-deletions')->toContain('99');
 });

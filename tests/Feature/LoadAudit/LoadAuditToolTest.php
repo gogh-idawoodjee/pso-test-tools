@@ -9,6 +9,7 @@ use App\Models\ExportFile;
 use App\Models\ToolRun;
 use App\Models\User;
 use App\Support\Exports\ExportStorage;
+use App\Support\Settings\AppSettings;
 use App\Tools\Contracts\ToolSetupException;
 use App\Tools\LoadAudit\LoadAuditTool;
 use App\Tools\ToolContext;
@@ -218,4 +219,13 @@ it('still passes no label for a dataset with no display name', function () {
     (new LoadAuditTool)->run(new ToolContext($run, $dataset, $dataset->settings, 'America/Regina'), ['load' => $this->scratch.'/load.xml'], []);
 
     expect(preg_grep('/^--org=/', json_decode(file_get_contents($argsFile), true)['argv']))->toBeEmpty();
+});
+
+it('prefills the option fields from the shared settings', function () {
+    app(AppSettings::class)->saveLoadAuditDefaults('1,2', 10, 6, 31, null);
+    $defaults = collect((new LoadAuditTool)->optionFields())->mapWithKeys(fn ($field) => [$field->getName() => $field->getDefaultState()]);
+    expect($defaults['options.noise_event_ids'])->toBe('1,2')
+        ->and($defaults['options.complete_grace_hours'])->toBe(10)
+        ->and($defaults['options.flag_activities'])->toBe(6)
+        ->and($defaults['options.flag_deletions'])->toBe(31);
 });
