@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Filament\Navigation\Groups;
 use App\Jobs\RunSysCompareJob;
+use App\Support\Settings\AppSettings;
 use App\Support\SysCompare\Storage\SysCompareStorage;
 use App\Support\SysCompare\SysCompareArtifact;
 use App\Traits\FilamentJobMonitoring;
@@ -26,6 +27,7 @@ use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Locked;
@@ -67,7 +69,7 @@ class SysFileCompare extends Page
 
     /**
      * Form state (not `$data`, which FilamentJobMonitoring already uses): environments (upload id, file name, display name per file, in column order),
-     * baseline (the key of one environment) and definitions (an optional ParamDefinitions.csv upload).
+     * and baseline (the key of one environment). Parameter definitions come from the Settings page, not from this form.
      *
      * @var array<string, mixed>|null
      */
@@ -141,15 +143,6 @@ class SysFileCompare extends Page
                             ->live()
                             ->visible(fn (): bool => $this->environmentItems() !== []),
                     ]),
-                Section::make('Parameter definitions (optional)')
-                    ->description('Parameters are described using the official PSO descriptions. Upload a ParamDefinitions.csv (columns Parameter, Definition, Note, Basis) to add to them: a Definition replaces the official text, and a Note is added after it. Your rows replace the built-in row for the same parameter. A template listing the parameters that still have no definition is offered with the results.')
-                    ->schema([
-                        View::make('filament.pages.sys-file-compare.dropzone')
-                            ->viewData(['kind' => 'definitions'])
-                            ->columnSpanFull(),
-                    ])
-                    ->collapsed()
-                    ->collapsible(),
                 Callout::make('Before you can run')
                     ->description(fn (): string => implode(' ', $this->blockingReasons()))
                     ->warning()
@@ -161,6 +154,7 @@ class SysFileCompare extends Page
                         ->disabled(fn (): bool => $this->blockingReasons() !== [])
                         ->action(fn () => $this->run()),
                 ]),
+                Text::make(fn (): HtmlString => $this->definitionsInUse()),
             ]);
     }
 
@@ -179,14 +173,13 @@ class SysFileCompare extends Page
             return;
         }
 
-        $fileName = $this->cleanFileName($fileName);
-
-        if ($kind === 'definitions') {
-            $this->discardUpload(Arr::get($this->formData, 'definitions.id'));
-            $this->formData['definitions'] = ['id' => $id, 'fileName' => $fileName];
+        if ($kind !== 'sys') {
+            $storage->deleteUpload($userId, $id);
 
             return;
         }
+
+        $fileName = $this->cleanFileName($fileName);
 
         if (count($this->environmentItems()) >= (int) config('sys-compare.max_files')) {
             $storage->deleteUpload($userId, $id);
@@ -205,12 +198,6 @@ class SysFileCompare extends Page
         ];
 
         $this->formData['baseline'] ??= $key;
-    }
-
-    public function removeDefinitions(): void
-    {
-        $this->discardUpload(Arr::get($this->formData, 'definitions.id'));
-        $this->formData['definitions'] = null;
     }
 
     public function run(): void
@@ -247,21 +234,12 @@ class SysFileCompare extends Page
             }
         }
 
-        $definitions = Arr::get($this->formData, 'definitions');
-
-        if ($definitions !== null && $storage->uploadPath($userId, (string) $definitions['id']) === null) {
-            $this->removeDefinitions();
-            $this->notifyDanger('File not found', 'The definitions file is no longer available. Please add it again.');
-
-            return;
-        }
-
         $this->startJob(RunSysCompareJob::CACHE_PREFIX);
         $this->runId = SysCompareStorage::newId();
         $this->summary = null;
         $this->failureMessage = null;
 
-        RunSysCompareJob::dispatch($this->jobId, $userId, $this->runId, $files, $baselineName, $definitions);
+        RunSysCompareJob::dispatch($this->jobId, $userId, $this->runId, $files, $baselineName);
     }
 
     /**
@@ -458,7 +436,23 @@ class SysFileCompare extends Page
 
     private function resetForm(): void
     {
-        $this->form->fill(['environments' => [], 'baseline' => null, 'definitions' => null]);
+        $this->form->fill(['environments' => [], 'baseline' => null]);
+    }
+
+    /**
+     * The line under the run button saying which parameter definitions a comparison will use.
+     * The Settings page class does not exist yet, so its relative URL is hard-coded.
+     */
+    private function definitionsInUse(): HtmlString
+    {
+        $record = app(AppSettings::class)->paramDefinitions();
+        $parameterCount = (int) ($record['parameter_count'] ?? 0);
+
+        $description = $record === null
+            ? 'Built-in parameter definitions.'
+            : 'Parameter definitions: '.e((string) ($record['file_name'] ?? 'ParamDefinitions.csv')).' ('.Number::format($parameterCount).' '.Str::plural('parameter', $parameterCount).').';
+
+        return new HtmlString($description.' <a href="/settings" class="font-medium text-primary-600 hover:underline dark:text-primary-400">Change in Settings</a>');
     }
 
     private function cleanFileName(string $fileName): string

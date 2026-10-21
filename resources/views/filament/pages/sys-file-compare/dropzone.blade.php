@@ -1,9 +1,8 @@
 @php
-    $isSys = $kind === 'sys';
     $maxFiles = (int) config('sys-compare.max_files');
     $maxKilobytes = (int) config('sys-compare.max_file_kilobytes');
     $maxMegabytes = (int) round($maxKilobytes / 1024);
-    $extension = $isSys ? 'xml' : 'csv';
+    $extension = 'xml';
 @endphp
 
 {{--
@@ -58,7 +57,7 @@
                 return file.name + ': the file is larger than ' + this.maxMegabytes + ' MB.'
             }
 
-            if (this.kind === 'sys' && this.fileCount() + this.inFlight() >= this.maxFiles) {
+            if (this.fileCount() + this.inFlight() >= this.maxFiles) {
                 return file.name + ': you can compare up to ' + this.maxFiles + ' files at a time.'
             }
 
@@ -152,19 +151,11 @@
 
         <span class="min-w-0 flex-1">
             <span class="block text-gray-950 dark:text-white">
-                @if ($isSys)
-                    Drop PSO system data exports here or <span class="pso-browse font-medium text-primary-600 dark:text-primary-400">browse</span>
-                @else
-                    Drop a ParamDefinitions.csv here or <span class="pso-browse font-medium text-primary-600 dark:text-primary-400">browse</span>
-                @endif
+                Drop PSO system data exports here or <span class="pso-browse font-medium text-primary-600 dark:text-primary-400">browse</span>
             </span>
 
             <span class="block text-xs text-gray-500 dark:text-gray-400">
-                @if ($isSys)
-                    .xml files, up to {{ $maxFiles }} files and {{ $maxMegabytes }} MB each. They are kept on a private disk and deleted as soon as the comparison finishes.
-                @else
-                    A .csv file with the columns Parameter, Definition, Note and Basis.
-                @endif
+                .xml files, up to {{ $maxFiles }} files and {{ $maxMegabytes }} MB each. They are kept on a private disk and deleted as soon as the comparison finishes.
             </span>
         </span>
 
@@ -173,21 +164,10 @@
             type="file"
             class="sr-only"
             accept=".{{ $extension }}"
-            @if ($isSys) multiple @endif
+            multiple
             x-on:change="pick($event.target.files)"
         />
     </label>
-
-    @unless ($isSys)
-        <template x-if="$wire.formData?.definitions">
-            <div class="flex items-center justify-between gap-3 px-3 py-1.5 text-sm rounded-lg bg-white ring-1 ring-gray-950/10 dark:bg-white/5 dark:ring-white/20">
-                <span class="truncate text-gray-950 dark:text-white" x-text="$wire.formData.definitions.fileName"></span>
-                <x-filament::button type="button" size="xs" color="danger" outlined class="shrink-0" x-on:click="$wire.removeDefinitions()">
-                    Remove
-                </x-filament::button>
-            </div>
-        </template>
-    @endunless
 
     <ul class="space-y-2" x-show="uploads.length > 0" x-cloak>
         <template x-for="upload in uploads" x-bind:key="upload.id">

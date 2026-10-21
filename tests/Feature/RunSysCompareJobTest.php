@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\RunSysCompareJob;
+use App\Support\Settings\SettingsFileStore;
 use App\Support\SysCompare\RunSummary;
 use App\Support\SysCompare\Storage\SysCompareStorage;
 use App\Support\SysCompare\SysCompareArtifact;
@@ -14,6 +15,8 @@ const JOB_FAKE_KEY = 'sk_live_FAKE_JOB_KEY_0123456789';
 
 beforeEach(function (): void {
     Storage::fake('sys-compare');
+    Storage::fake('r2');
+    config(['exports.disk' => 'r2', 'exports.scratch_path' => sys_get_temp_dir().'/sys-compare-job-test-'.uniqid()]);
 });
 
 /**
@@ -37,11 +40,11 @@ function jobBuilder(string $latestVersion): SysFileBuilder
         ->version($latestVersion, 'Update data', '2026-05-03T21:47:57+00:00', 'ifs');
 }
 
-function runJob(array $files, string $baseline, ?array $definitions = null): string
+function runJob(array $files, string $baseline): string
 {
     $runId = SysCompareStorage::newId();
 
-    RunSysCompareJob::dispatchSync('job-1', 7, $runId, $files, $baseline, $definitions);
+    RunSysCompareJob::dispatchSync('job-1', 7, $runId, $files, $baseline);
 
     return $runId;
 }
@@ -94,15 +97,16 @@ it('keeps the API key and user data out of every stored output', function (): vo
     }
 });
 
-it('applies a user-supplied definitions csv', function (): void {
-    $definitions = jobUpload('defs', "Parameter,Definition,Basis\nMode,What mode means,\n", 'ParamDefinitions.csv');
+it('applies the stored definitions csv on top of the built-in ones', function (): void {
+    Storage::disk('r2')->put(SettingsFileStore::PARAM_DEFINITIONS, "Parameter,Definition,Basis\nMode,What mode means,\n");
     $files = [jobUpload('PROD', jobBuilder('6.16.0.41'), 'prod.xml'), jobUpload('TST', jobBuilder('6.16.0.33'), 'tst.xml')];
 
-    $runId = runJob($files, 'PROD', ['id' => $definitions['id'], 'fileName' => 'ParamDefinitions.csv']);
+    $runId = runJob($files, 'PROD');
     $report = (string) app(SysCompareStorage::class)->readRunFile(7, $runId, SysCompareArtifact::Report->fileName());
 
     expect($report)->toContain('What mode means')
-        ->and(app(SysCompareStorage::class)->uploadPath(7, $definitions['id']))->toBeNull();
+        ->and(Storage::disk('r2')->exists(SettingsFileStore::PARAM_DEFINITIONS))->toBeTrue()
+        ->and(glob(config('exports.scratch_path').'/*'))->toBe([]);
 });
 
 it('writes the missing definitions template only when something is undefined', function (): void {
@@ -142,14 +146,15 @@ it('explains when an upload has expired', function (): void {
         ->and(Cache::get('sys-compare-job:job-1:message'))->toContain('tst.xml')->toContain('could not be found')->toContain('queue worker');
 });
 
-it('reports a bad definitions file by name', function (): void {
-    $definitions = jobUpload('defs', "Wrong,Columns\n1,2\n", 'ParamDefinitions.csv');
+it('reports a bad stored definitions file by name', function (): void {
+    Storage::disk('r2')->put(SettingsFileStore::PARAM_DEFINITIONS, "Wrong,Columns\n1,2\n");
     $files = [jobUpload('PROD', jobBuilder('6.16.0.41'), 'prod.xml'), jobUpload('TST', jobBuilder('6.16.0.41'), 'tst.xml')];
 
-    runJob($files, 'PROD', ['id' => $definitions['id'], 'fileName' => 'ParamDefinitions.csv']);
+    runJob($files, 'PROD');
 
     expect(Cache::get('sys-compare-job:job-1:status'))->toBe('failed')
-        ->and(Cache::get('sys-compare-job:job-1:message'))->toContain('ParamDefinitions.csv')->toContain('Parameter, Definition');
+        ->and(Cache::get('sys-compare-job:job-1:message'))->toContain('ParamDefinitions.csv')->toContain('Parameter, Definition')
+        ->and(glob(config('exports.scratch_path').'/*'))->toBe([]);
 });
 
 it('fails clearly when the comparison itself is invalid', function (): void {

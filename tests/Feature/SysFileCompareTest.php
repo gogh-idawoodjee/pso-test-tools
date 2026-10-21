@@ -3,6 +3,7 @@
 use App\Filament\Pages\SysFileCompare;
 use App\Jobs\RunSysCompareJob;
 use App\Models\User;
+use App\Support\Settings\AppSettings;
 use App\Support\SysCompare\Storage\SysCompareStorage;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Http\UploadedFile;
@@ -15,6 +16,8 @@ use Tests\Support\SysFileBuilder;
 
 beforeEach(function (): void {
     Storage::fake('sys-compare');
+    Storage::fake('r2');
+    config(['exports.disk' => 'r2', 'exports.scratch_path' => sys_get_temp_dir().'/sys-file-compare-test-'.uniqid()]);
     $this->actingAs(User::factory()->make(['id' => 303, 'email' => 'tester@mac.com']));
 });
 
@@ -140,8 +143,7 @@ it('dispatches the job with the files in order and the chosen baseline', functio
             && $job->baseline === 'TST'
             && array_column($job->files, 'name') === ['PROD', 'TST']
             && array_column($job->files, 'fileName') === ['prod.xml', 'tst.xml']
-            && $job->runId === $page->get('runId')
-            && $job->definitions === null;
+            && $job->runId === $page->get('runId');
     });
 
     expect($page->get('jobId'))->not->toBeNull();
@@ -205,31 +207,12 @@ it('deletes the stored upload when a file is removed from the list', function ()
         ->and($page->get('formData.environments'))->toHaveCount(1);
 });
 
-it('accepts an optional definitions file and replaces it when another is added', function (): void {
-    $first = pageUpload('ParamDefinitions.csv');
-    $second = pageUpload('Other.csv');
+it('says which definitions are in use', function (): void {
+    Livewire::test(SysFileCompare::class)->assertSee('Built-in parameter definitions')->assertSee('Change in Settings');
 
-    $page = Livewire::test(SysFileCompare::class)
-        ->call('addUploadedFile', 'definitions', $first, 'ParamDefinitions.csv')
-        ->assertSet('formData.definitions.fileName', 'ParamDefinitions.csv')
-        ->call('addUploadedFile', 'definitions', $second, 'Other.csv')
-        ->assertSet('formData.definitions.fileName', 'Other.csv');
+    app(AppSettings::class)->put(AppSettings::PARAM_DEFINITIONS, ['file_name' => 'Mine.csv', 'parameter_count' => 3, 'uploaded_by' => null, 'uploaded_at' => now()->toIso8601String()]);
 
-    expect(app(SysCompareStorage::class)->uploadPath(303, $first))->toBeNull();
-
-    $page->call('removeDefinitions')->assertSet('formData.definitions', null);
-
-    expect(app(SysCompareStorage::class)->uploadPath(303, $second))->toBeNull();
-});
-
-it('passes the definitions file to the job', function (): void {
-    Queue::fake();
-
-    $definitions = pageUpload('ParamDefinitions.csv');
-
-    pageWithFiles()->call('addUploadedFile', 'definitions', $definitions, 'ParamDefinitions.csv')->call('run');
-
-    Queue::assertPushed(RunSysCompareJob::class, fn (RunSysCompareJob $job): bool => $job->definitions === ['id' => $definitions, 'fileName' => 'ParamDefinitions.csv']);
+    Livewire::test(SysFileCompare::class)->assertSee('Mine.csv')->assertSee('3 parameters')->assertDontSee('Built-in parameter definitions');
 });
 
 it('refuses Livewire file uploads, which would stage customer data on the shared bucket', function (): void {
