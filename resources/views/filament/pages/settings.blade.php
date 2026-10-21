@@ -3,6 +3,7 @@
         $loaded = $this->messageTextsLoaded();
         $record = $this->messageTextsRecord();
         $busy = $this->messageTextsBusy();
+        $stale = $this->messageTextsStale();
     @endphp
 
     <div @if ($busy) wire:poll.5s @endif>
@@ -32,6 +33,8 @@
                 @if ($record !== null)
                     @if ($busy)
                         <p class="text-gray-600 dark:text-gray-400">Importing {{ $record['file_name'] ?? 'the file' }}...</p>
+                    @elseif ($stale)
+                        <p class="text-gray-600 dark:text-gray-400">This import seems to have stopped.</p>
                     @else
                         <p class="text-gray-600 dark:text-gray-400">
                             Last upload: {{ $record['file_name'] ?? 'unknown file' }}

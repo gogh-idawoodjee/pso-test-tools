@@ -180,6 +180,31 @@ it('keeps Clear disabled while an import is running', function () {
     Livewire::test(Settings::class)->assertActionDisabled('clearMessageTexts');
 });
 
+it('unlocks an import that has been importing for longer than the stale limit and stops polling', function () {
+    app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, messageTextsRecord(['status' => 'importing', 'file_name' => 'x.xml', 'languages' => [], 'rows' => 0, 'uploaded_at' => now()->subMinutes(31)->toIso8601String()]));
+
+    $this->get(Settings::getUrl())
+        ->assertSee('This import seems to have stopped.')
+        ->assertDontSee('Importing x.xml')
+        ->assertDontSee('wire:poll', false);
+    Livewire::test(Settings::class)
+        ->assertActionVisible('clearMessageTexts')
+        ->assertActionEnabled('clearMessageTexts')
+        ->assertActionEnabled('uploadMessageTexts');
+});
+
+it('still polls with Clear disabled for an import started five minutes ago', function () {
+    app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, messageTextsRecord(['status' => 'importing', 'file_name' => 'x.xml', 'languages' => [], 'rows' => 0, 'uploaded_at' => now()->subMinutes(5)->toIso8601String()]));
+
+    $this->get(Settings::getUrl())
+        ->assertSee('Importing x.xml')
+        ->assertSee('wire:poll', false)
+        ->assertDontSee('This import seems to have stopped.');
+    Livewire::test(Settings::class)
+        ->assertActionDisabled('clearMessageTexts')
+        ->assertActionDisabled('uploadMessageTexts');
+});
+
 function storeParamDefinitions(): void
 {
     Storage::disk('r2')->put(SettingsFileStore::PARAM_DEFINITIONS, "Parameter,Definition\nMode,x\n");

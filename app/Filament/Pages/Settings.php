@@ -11,6 +11,7 @@ use App\Support\Settings\SettingsFileStore;
 use App\Support\SysCompare\DefinitionsCsv;
 use App\Support\SysCompare\Exceptions\InvalidDefinitionsFile;
 use BackedEnum;
+use Carbon\CarbonImmutable;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -39,6 +40,9 @@ class Settings extends Page
     protected static ?string $slug = 'settings';
 
     protected static ?string $title = 'Settings';
+
+    /** An import still marked importing after this long is taken to have stopped (lost job or worker down). */
+    public const IMPORT_STALE_AFTER_MINUTES = 30;
 
     protected string $view = 'filament.pages.settings';
 
@@ -204,9 +208,30 @@ class Settings extends Page
         return app(AppSettings::class)->messageTexts();
     }
 
+    /** An import is running: the record says importing and it is not yet stale. */
     public function messageTextsBusy(): bool
     {
-        return ($this->messageTextsRecord()['status'] ?? null) === 'importing';
+        return ($this->messageTextsRecord()['status'] ?? null) === 'importing' && ! $this->messageTextsStale();
+    }
+
+    /** Still marked importing long after the upload, so the job is lost or the worker is down: Upload and Clear unlock. */
+    public function messageTextsStale(): bool
+    {
+        $record = $this->messageTextsRecord();
+        if (($record['status'] ?? null) !== 'importing') {
+            return false;
+        }
+
+        $uploadedAt = $record['uploaded_at'] ?? null;
+        if (! is_string($uploadedAt) || $uploadedAt === '') {
+            return true;
+        }
+
+        try {
+            return CarbonImmutable::parse($uploadedAt)->lte(now()->subMinutes(self::IMPORT_STALE_AFTER_MINUTES));
+        } catch (Throwable) {
+            return true;
+        }
     }
 
     public function messageTextsUploaderName(): ?string
