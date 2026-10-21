@@ -47,21 +47,22 @@ The split the two tools keep: the review surfaces that a day was bad; the audit 
 | Audit messages | `audits` (exists) | dataset | Dataset audit archive, one zip per dataset per day | zip of `file<id>-<CHANGE\|PLAN_CHANGE\|LOAD\|COMPLETE>-<yyyy_MM_dd_HH_mm_ss>.xml` |
 | PSO system events | `pso_events` (new) | dataset, Unfiled | Workbench, System, Events, export (one export covers every dataset and the system-wide rows) | JSON array; fields `id, loggedAt, severity, eAppType, messageId, organisationAccountId, externalTaskId, applicationInstanceId, message, exceptionDetail, parameters[], origin, userId`; `loggedAt` may carry a leading `\d` |
 | Appointment history | `appointment_history` (new) | dataset, Unfiled | Workbench, Performance, Appointment History table, export | CSV: `ID, Dataset, Request ID, Input Internal ID, Plan ID, Request Time, Response Time, Success, Input Time, Output Time, Requested Slots, Offered Slots, Time Taken (seconds), Output Time Taken (seconds), Input Time Taken (seconds)` |
-| Message texts | `message_texts` (new) | environment | Admin panel language export (`MessageTexts-en.xml`, `DsSystemData` with `Message_Text` rows); the SYS export does not carry these rows, so this is its own one-time upload | XML or zip; parsed into a table on upload, re-uploaded only on a PSO upgrade |
+| Message texts | `message_texts` (new) | global (uploaded Unfiled, held for everyone) | Admin panel language export (`MessageTexts-en.xml`, `DsSystemData` with `Message_Text` rows); the SYS export does not carry these rows, so this is its own one-time upload | XML or zip; parsed into one app-wide table on upload, re-uploaded only on a PSO upgrade |
 
 Rules:
 
 - `pso_events` and `appointment_history` are new `ExportKind` cases, dataset-scoped (and Unfiled), with
   extensions `json, zip` and `csv, zip`. `ExportSummariser` records the row count, the first and last
   timestamp and, for events, the count per `messageId`, so the files list shows what a file holds.
-- `message_texts` is environment-scoped like `sys`. `SummariseExportFileJob` parses it into
-  `pso_message_texts (environment_id, language_id, message_id, text)` and the file itself is kept only
-  as the source. One environment has one current set per language; a new upload replaces it.
-- The tool takes `audits`, `pso_events`, `appointment_history` and `message_texts` as optional kinds.
-  The run is Unfiled most of the time, so all four are files the user picks on the Inputs step like any
-  other. On a dataset run, when no `message_texts` file is picked, the tool writes the environment's
-  current table to `messages.json` in the scratch folder and passes that. With neither, ids show as
-  numbers and an INFO finding says so.
+- `message_texts` is global: it allows only the Unfiled scope, and `SummariseExportFileJob` parses it
+  into one app-wide table `pso_message_texts (language_id, message_id, text)`, replacing the rows of
+  that language. The file itself is kept only as the source. The texts do not change between
+  customers, only between PSO releases, so one upload serves every run until the next upgrade.
+- The tool takes `audits`, `pso_events` and `appointment_history` as optional kinds. The run is Unfiled
+  most of the time, so all three are files the user picks on the Inputs step like any other.
+  `message_texts` is never picked: the tool writes the global table to `messages.json` in the scratch
+  folder and passes it, or passes nothing when the table is empty (ids then show as numbers and an
+  INFO finding says to upload the language export once, under My files).
 - The leg renders with whatever subset is present, and the tab appears whenever at least one of the
   three dataset-scoped files is in the run. Each lane depends on one input only: no audit zip, no input
   bars and no inbound-per-minute lane; no appointment CSV, no appointment lane; no events, no event
@@ -225,14 +226,15 @@ renderer, not built inline. That makes a combined view cheap later:
 ## 5. The web (pso-test-tools)
 
 - `ExportKind`: `PsoEvents = 'pso_events'`, `AppointmentHistory = 'appointment_history'`,
-  `MessageTexts = 'message_texts'` (environment-scoped; `allows()` and `expectedRoot()` as for `sys`).
+  `MessageTexts = 'message_texts'` (Unfiled only; `expectedRoot()` `DsSystemData` as for `sys`).
 - `ExportSummariser`: counts and first / last timestamp for the two dataset kinds; `Message_Text` row
-  count for `message_texts`. `SummariseExportFileJob` writes `pso_message_texts` for `message_texts`
-  (migration: `environment_id, language_id, message_id, text`, unique on the first three).
-- `LoadAuditTool::optionalKinds()` gains the four kinds; the wizard already lets a run pick any
-  optional kind. `LoadAuditCommand::build()` adds `--audits`, `--events`, `--appointments` when present,
-  `--messages` (the picked file, else `<scratch>/messages.json` from the environment's table, else
-  nothing), and `--noise-ids`, `--flag-activities`, `--flag-deletions` from the options.
+  count and languages for `message_texts`. `SummariseExportFileJob` writes `pso_message_texts` for
+  `message_texts` (migration: `language_id, message_id, text`, unique on the first two), replacing
+  each language the file carries.
+- `LoadAuditTool::optionalKinds()` gains the three dataset kinds; the wizard already lets a run pick
+  any optional kind. `LoadAuditCommand::build()` adds `--audits`, `--events`, `--appointments` when
+  present, `--messages <scratch>/messages.json` when the global table has rows, and `--noise-ids`,
+  `--flag-activities`, `--flag-deletions` from the options.
 - Option fields on the Run form, shown for every run including Unfiled, with built-in defaults: the
   noise list, the two flag thresholds. No dataset setting.
 - Result: `html`, `findings`, `counts` as today, plus `system_day` (the JSON of 4.8, needed by the
@@ -252,8 +254,8 @@ renderer, not built inline. That makes a combined view cheap later:
   JSON byte-identical to a run without the flags).
 - pso-test-tools: `LoadAuditCommandTest` shapes with each subset of the three kinds; summariser tests
   for the three kinds including a zip and a `loggedAt` with the `\d` prefix; `pso_message_texts` replace
-  on re-upload; the CSV download route (owner only, 404 when the run has no CSV); a run with
-  `message_texts` on another environment does not leak into this one.
+  on re-upload; the CSV download route (owner only, 404 when the run has no CSV); a second
+  `message_texts` upload replaces the first language's rows and leaves another language alone.
 
 ## 7. Review focus
 
@@ -277,8 +279,8 @@ Settled 2026-10-20 evening: the account id is not needed and is ignored; the clo
 with a UTC toggle; the first draw waits for the tab to open; the tab renders with any one of the three
 files; the CSV lives on disk, the JSON in the result row; the zipped indexer is measured in the plan;
 the noise list and the flag thresholds are run options on the wizard (not dataset settings) so Unfiled
-runs see them; `message_texts` is a pickable optional file; combine is a later step with the changes in
-4.8.
+runs see them; message texts are one global table loaded from a one-time Unfiled upload and used by
+every run without being picked; combine is a later step with the changes in 4.8.
 
 Left as is: the `eAppType` numbers (1 and 9 loader-style rows, 2 the DSE, 4 the broadcast manager, 6
 and 31 ABE and DSP, 24 the Workbench server, 25 the gateway). Lanes show the number until IFS confirms
