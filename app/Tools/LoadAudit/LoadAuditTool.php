@@ -4,6 +4,8 @@ namespace App\Tools\LoadAudit;
 
 use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
+use App\Models\PsoMessageText;
+use App\Support\Tools\ToolRunFiles;
 use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolResult;
 use App\Tools\ScriptRun;
@@ -30,7 +32,7 @@ class LoadAuditTool implements Tool
 
     public function optionalKinds(): array
     {
-        return [ExportKind::Plan, ExportKind::Sys];
+        return [ExportKind::Plan, ExportKind::Sys, ExportKind::Audits, ExportKind::PsoEvents, ExportKind::AppointmentHistory];
     }
 
     public function optionFields(): array
@@ -49,6 +51,23 @@ class LoadAuditTool implements Tool
                 ->minValue(0)
                 ->maxValue(168)
                 ->default(LoadAuditCommand::DEFAULT_GRACE_HOURS),
+            TextInput::make('options.noise_event_ids')
+                ->label('Noise event ids')
+                ->helperText('Event ids kept in the counts but left out of the lanes and findings')
+                ->regex('/^\s*(\d+\s*(,\s*\d+\s*)*)?$/')
+                ->default((string) config('tools.load_audit.noise_event_ids', '')),
+            TextInput::make('options.flag_activities')
+                ->label('Flag an appointment with this many activities')
+                ->integer()
+                ->minValue(1)
+                ->maxValue(100000)
+                ->default(LoadAuditCommand::DEFAULT_FLAG_ACTIVITIES),
+            TextInput::make('options.flag_deletions')
+                ->label('Flag a resource with this many deletions')
+                ->integer()
+                ->minValue(1)
+                ->maxValue(100000)
+                ->default(LoadAuditCommand::DEFAULT_FLAG_DELETIONS),
         ];
     }
 
@@ -61,9 +80,19 @@ class LoadAuditTool implements Tool
             mkdir($accounts, 0770, true);
         }
 
+        $messagesPath = null;
+        $messageTexts = PsoMessageText::asMap();
+        if ($messageTexts !== []) {
+            $messagesPath = $workDir.'/'.LoadAuditCommand::MESSAGES_FILE;
+            if (file_put_contents($messagesPath, json_encode($messageTexts, JSON_UNESCAPED_UNICODE | JSON_FORCE_OBJECT | JSON_THROW_ON_ERROR)) === false) {
+                throw new RuntimeException('The message texts could not be written for the audit.');
+            }
+        }
+
         $argv = LoadAuditCommand::build(
             $checkout, $workDir, $inputPaths, $options, $context->timeZone,
             $context->settings?->displayName ?: UnfiledLabel::for($context, ExportKind::Load),
+            $messagesPath,
         );
         $timeout = (int) config('tools.load_audit.timeout_seconds', 840);
 
@@ -74,6 +103,28 @@ class LoadAuditTool implements Tool
         $findings = $json === false ? null : json_decode($json, true);
         if (! is_array($findings) || $html === false || $html === '') {
             throw new RuntimeException('The audit finished but wrote no results.');
+        }
+
+        $systemDayJson = @file_get_contents($workDir.'/'.LoadAuditCommand::OUT_SYSTEM_DAY);
+        $systemDay = $systemDayJson === false ? null : json_decode($systemDayJson, true);
+        $systemDay = is_array($systemDay) ? $systemDay : null;
+        $systemDayWarnings = [];
+        $csvStored = false;
+        $hasEventFiles = array_intersect_key($inputPaths, array_flip(['audits', 'pso_events', 'appointment_history'])) !== [];
+        $inputsCsv = $workDir.'/'.LoadAuditCommand::OUT_SYSTEM_DAY_INPUTS;
+        if ($systemDay === null && $hasEventFiles) {
+            $systemDayWarnings[] = 'The System day page could not be made from the event files.';
+        } elseif ($systemDay !== null) {
+            if (! is_file($inputsCsv)) {
+                $systemDayWarnings[] = 'The System day inputs CSV was not written.';
+            } else {
+                try {
+                    ToolRunFiles::put($context->run, LoadAuditCommand::OUT_SYSTEM_DAY_INPUTS, $inputsCsv);
+                    $csvStored = true;
+                } catch (RuntimeException $exception) {
+                    $systemDayWarnings[] = $exception->getMessage();
+                }
+            }
         }
 
         $counts = ['red' => 0, 'amber' => 0, 'green' => 0];
@@ -91,10 +142,12 @@ class LoadAuditTool implements Tool
             }
         }
 
+        $warnings = [...$warnings, ...$systemDayWarnings];
+
         return new ToolResult(
-            result: ['html' => $html, 'findings' => $findings, 'counts' => $counts],
+            result: ['html' => $html, 'findings' => $findings, 'counts' => $counts, 'system_day' => $systemDay],
             warnings: $warnings,
-            summary: ['counts' => $counts],
+            summary: ['counts' => $counts, 'system_day' => $systemDay !== null, 'system_day_csv' => $csvStored],
         );
     }
 }

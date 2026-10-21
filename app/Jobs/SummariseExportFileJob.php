@@ -9,6 +9,7 @@ use App\Models\ExportFile;
 use App\Support\Exports\ExportStorage;
 use App\Support\Exports\ExportSummariser;
 use App\Support\Exports\InvalidExportException;
+use App\Support\Exports\MessageTextsImporter;
 use Closure;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -45,6 +46,10 @@ class SummariseExportFileJob implements ShouldQueue
         try {
             $path = $storage->readToScratch($file, $scratch);
             $summary = $summariser->summarise($file, $path, $this->timeZoneFor($file), $this->progressWriter($file));
+
+            if ($file->kind === ExportKind::MessageTexts) {
+                app(MessageTextsImporter::class)->import($path);
+            }
 
             $file->forceFill([
                 'summary' => $summary->toArray(),

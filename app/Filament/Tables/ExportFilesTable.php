@@ -70,6 +70,15 @@ class ExportFilesTable
             ExportKind::EventLog => isset($summary['event_count'])
                 ? number_format((int) $summary['event_count']).' events'.self::eventSpan($record, $summary)
                 : null,
+            ExportKind::PsoEvents => isset($summary['row_count'])
+                ? number_format((int) $summary['row_count']).' events'.self::eventSpan($record, $summary, 'first_at', 'last_at')
+                : null,
+            ExportKind::AppointmentHistory => isset($summary['row_count'])
+                ? number_format((int) $summary['row_count']).' requests, '.number_format((int) ($summary['failed_count'] ?? 0)).' failed'
+                : null,
+            ExportKind::MessageTexts => isset($summary['message_text_count'])
+                ? number_format((int) $summary['message_text_count']).' message texts'
+                : null,
             default => isset($summary['allocation_count'])
                 ? number_format((int) $summary['allocation_count']).' allocations'
                 : (isset($summary['activity_count'])
@@ -79,16 +88,17 @@ class ExportFilesTable
     }
 
     /** @param array<string, mixed> $summary */
-    private static function eventSpan(ExportFile $record, array $summary): string
+    private static function eventSpan(ExportFile $record, array $summary, string $firstKey = 'first_event', string $lastKey = 'last_event'): string
     {
-        if (! isset($summary['first_event'], $summary['last_event'])) {
+        if (! isset($summary[$firstKey], $summary[$lastKey])) {
             return '';
         }
 
         $zone = $record->scope instanceof Dataset ? $record->scope->timeZone() : (string) config('app.timezone', 'UTC');
-        $format = static fn (string $time): string => CarbonImmutable::parse($time)->setTimezone($zone)->format('j M H:i');
+        $first = CarbonImmutable::parse($summary[$firstKey])->setTimezone($zone);
+        $last = CarbonImmutable::parse($summary[$lastKey])->setTimezone($zone);
 
-        return ', '.$format($summary['first_event']).' to '.$format($summary['last_event']);
+        return ', '.$first->format('j M H:i').' to '.$last->format('j M H:i');
     }
 
     private static function purgeCountdown(ExportFile $record): string

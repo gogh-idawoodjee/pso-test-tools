@@ -7,6 +7,7 @@ use App\Models\Dataset;
 use App\Models\ToolRun;
 use App\Models\User;
 use App\Support\Tools\EmbeddedPageData;
+use App\Support\Tools\ToolRunFiles;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Response;
 use InvalidArgumentException;
@@ -72,6 +73,20 @@ class ToolRunPageController extends Controller
     public function downloadCsv(string $scopeType, string $scopeId, string $run): SymfonyResponse
     {
         return $this->csv($scopeType, $scopeId, $run, 'csv', null);
+    }
+
+    /** The System day inputs CSV the run kept as a file (not in the result), 404 when there is none. */
+    public function downloadSystemDayCsv(string $scopeType, string $scopeId, string $run): SymfonyResponse
+    {
+        [$scope, $toolRun] = $this->find($scopeType, $scopeId, $run);
+        $text = ToolRunFiles::get($toolRun, 'system_day_inputs.csv');
+        if ($text === null) {
+            abort(404);
+        }
+
+        return response()->streamDownload(static function () use ($text): void {
+            echo $text;
+        }, str_replace('.csv', '_system_day_inputs.csv', self::fileName($scope, $toolRun, 'csv')), ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
     /** One of the run's stored CSV texts (`$key` in the result), named like the other downloads plus `_$suffix`. */

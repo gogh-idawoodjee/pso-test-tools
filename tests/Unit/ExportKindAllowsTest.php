@@ -24,3 +24,22 @@ it('lists every kind for the Unfiled scope and keeps SYS apart from a dataset', 
         ->and(ExportKind::forScope(Dataset::class))->not->toContain(ExportKind::Sys)
         ->and(ExportKind::forScope(Environment::class))->toBe([ExportKind::Sys]);
 });
+
+it('scopes the new kinds', function () {
+    expect(ExportKind::PsoEvents->allows(Dataset::class))->toBeTrue()
+        ->and(ExportKind::AppointmentHistory->allows(User::class))->toBeTrue()
+        ->and(ExportKind::MessageTexts->allows(User::class))->toBeTrue()
+        ->and(ExportKind::MessageTexts->allows(Dataset::class))->toBeFalse()
+        ->and(ExportKind::MessageTexts->allows(Environment::class))->toBeFalse();
+});
+
+it('names the extensions and roots of the new kinds', function () {
+    expect(ExportKind::PsoEvents->extensions())->toBe(['json', 'zip'])
+        ->and(ExportKind::AppointmentHistory->extensions())->toBe(['csv', 'zip'])
+        ->and(ExportKind::MessageTexts->extensions())->toBe(['xml', 'zip'])
+        ->and(ExportKind::MessageTexts->expectedRoot())->toBe('DsSystemData')
+        ->and(ExportKind::PsoEvents->expectedRoot())->toBeNull()
+        ->and(ExportKind::PsoEvents->getLabel())->toBe('PSO system events')
+        ->and(ExportKind::AppointmentHistory->getLabel())->toBe('Appointment history')
+        ->and(ExportKind::MessageTexts->getLabel())->toBe('Message texts');
+});

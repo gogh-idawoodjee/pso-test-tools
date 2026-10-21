@@ -30,6 +30,10 @@ class ExportSummariser
             return $this->summariseEventLog($localPath, (string) $file->content_type, $timeZone);
         }
 
+        if ($kind === ExportKind::PsoEvents || $kind === ExportKind::AppointmentHistory) {
+            return $this->summariseSystemDayFile($kind, $localPath, $timeZone);
+        }
+
         // Zips are often misnamed, so what the bytes are wins over what the file was called.
         $contentType = ExportFormat::sniff($localPath) ?? $file->content_type;
 
@@ -47,6 +51,10 @@ class ExportSummariser
             $found = $root ?? 'unknown';
 
             throw new InvalidExportException("This file is a <{$found}> export, not a {$kind->getLabel()} (<{$expected}>). Upload it under the right kind.");
+        }
+
+        if ($kind === ExportKind::MessageTexts) {
+            return $this->summariseMessageTexts($path, $root);
         }
 
         return $kind === ExportKind::Sys
@@ -271,6 +279,30 @@ class ExportSummariser
         return $plan === null ? null : [...$plan, 'allocation_count' => $allocations];
     }
 
+    private function summariseMessageTexts(string $path, string $root): ExportSummary
+    {
+        $reader = $this->openReader($path);
+        $count = 0;
+        $languages = [];
+
+        try {
+            while (@$reader->read()) {
+                if ($reader->nodeType !== XMLReader::ELEMENT || $reader->depth !== 1 || $reader->localName !== 'Message_Text') {
+                    continue;
+                }
+                $count++;
+                $languages[$this->childText($reader, 'language_id') ?? 'en'] = true;
+            }
+        } finally {
+            $reader->close();
+        }
+
+        $languages = array_map('strval', array_keys($languages));
+        sort($languages);
+
+        return new ExportSummary(['root' => $root, 'message_text_count' => $count, 'languages' => $languages]);
+    }
+
     /** Counts the tables we need and reads the version ids; users and credentials are skipped unread. */
     private function summariseSys(string $path): ExportSummary
     {
@@ -318,6 +350,173 @@ class ExportSummariser
             'parameter_count' => $parameters,
             'exception_type_count' => $exceptionTypes,
             'polygon_count' => $polygons,
+        ]);
+    }
+
+    /** The events JSON or appointment history CSV, either bare or as the largest matching member of a zip. */
+    private function summariseSystemDayFile(ExportKind $kind, string $localPath, string $timeZone): ExportSummary
+    {
+        $extension = $kind === ExportKind::PsoEvents ? 'json' : 'csv';
+        $path = ExportFormat::sniff($localPath) === 'zip' ? $this->zipMemberUrl($localPath, $extension) : $localPath;
+
+        return $kind === ExportKind::PsoEvents
+            ? $this->summarisePsoEvents($path)
+            : $this->summariseAppointmentHistory($path, $timeZone);
+    }
+
+    /** A zip:// url for the largest member with this extension, after the same size cap as other zip members. */
+    private function zipMemberUrl(string $zipPath, string $extension): string
+    {
+        $zip = new ZipArchive;
+        if ($zip->open($zipPath) !== true) {
+            throw new InvalidExportException('The zip could not be opened. It may be damaged or incomplete.');
+        }
+
+        try {
+            $bestName = null;
+            $bestSize = -1;
+            for ($index = 0; $index < $zip->numFiles; $index++) {
+                $name = (string) $zip->getNameIndex($index);
+                $stat = $zip->statIndex($index);
+                if ($stat !== false && ExportFormat::isReadableMember($name, $extension) && $stat['size'] > $bestSize) {
+                    $bestName = $name;
+                    $bestSize = $stat['size'];
+                }
+            }
+        } finally {
+            $zip->close();
+        }
+
+        if ($bestName === null) {
+            throw new InvalidExportException("The zip holds no .{$extension} file.");
+        }
+
+        $capMegabytes = (float) config('exports.max_member_megabytes', 600);
+        if ($bestSize > $capMegabytes * 1024 * 1024) {
+            throw new InvalidExportException('The file inside the zip is too large to read here ('.round($bestSize / 1024 / 1024).' MB uncompressed; the limit is '.round($capMegabytes).' MB).');
+        }
+
+        return 'zip://'.$zipPath.'#'.$bestName;
+    }
+
+    /** Whole-file json_decode is fine here: a day of PSO system events is a few MB. Times are UTC ISO strings. */
+    private function summarisePsoEvents(string $path): ExportSummary
+    {
+        $events = json_decode((string) @file_get_contents($path), true);
+        if (! is_array($events) || ! array_is_list($events)) {
+            throw new InvalidExportException('This file is not a JSON array of PSO system events.');
+        }
+
+        $count = 0;
+        $first = null;
+        $last = null;
+        $byMessageId = [];
+        $datasets = [];
+
+        foreach ($events as $event) {
+            if (! is_array($event)) {
+                continue;
+            }
+            $count++;
+
+            $messageId = (string) ($event['messageId'] ?? '');
+            if ($messageId !== '') {
+                $byMessageId[$messageId] = ($byMessageId[$messageId] ?? 0) + 1;
+            }
+
+            $datasetId = trim((string) ($event['externalTaskId'] ?? ''));
+            if ($datasetId !== '') {
+                $datasets[$datasetId] = true;
+            }
+
+            $loggedAt = trim((string) ($event['loggedAt'] ?? ''));
+            $time = $this->parseTime(str_starts_with($loggedAt, '\\d') ? substr($loggedAt, 2) : $loggedAt);
+            if ($time !== null) {
+                $first = $first === null || $time < $first ? $time : $first;
+                $last = $last === null || $time > $last ? $time : $last;
+            }
+        }
+
+        ksort($byMessageId, SORT_NATURAL);
+        $datasets = array_map('strval', array_keys($datasets));
+        sort($datasets);
+
+        return new ExportSummary([
+            'row_count' => $count,
+            'first_at' => $first?->utc()->toIso8601String(),
+            'last_at' => $last?->utc()->toIso8601String(),
+            'by_message_id' => $byMessageId,
+            'datasets' => $datasets,
+        ]);
+    }
+
+    /** Streams the CSV with a header map. Request Time has no zone: it is read in $timeZone and kept as UTC. */
+    private function summariseAppointmentHistory(string $path, string $timeZone): ExportSummary
+    {
+        $handle = @fopen($path, 'rb');
+        if ($handle === false) {
+            throw new InvalidExportException('The file could not be read.');
+        }
+
+        $count = 0;
+        $failed = 0;
+        $first = null;
+        $last = null;
+        $datasets = [];
+
+        try {
+            $header = fgetcsv($handle, 0, ',', '"', '');
+            $columns = [];
+            foreach (is_array($header) ? $header : [] as $position => $heading) {
+                $columns[strtolower(trim((string) preg_replace('/^\xEF\xBB\xBF/', '', (string) $heading)))] = $position;
+            }
+
+            if (! isset($columns['request time'], $columns['success'])) {
+                throw new InvalidExportException('This appointment history has no Request Time or Success column.');
+            }
+
+            while (($row = fgetcsv($handle, 0, ',', '"', '')) !== false) {
+                if ($row === [null]) {
+                    continue;
+                }
+                $count++;
+
+                if (strtolower(trim((string) ($row[$columns['success']] ?? ''))) === 'false') {
+                    $failed++;
+                }
+
+                if (isset($columns['dataset'])) {
+                    $datasetId = trim((string) ($row[$columns['dataset']] ?? ''));
+                    if ($datasetId !== '') {
+                        $datasets[$datasetId] = true;
+                    }
+                }
+
+                $value = trim((string) ($row[$columns['request time']] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+                try {
+                    $time = CarbonImmutable::parse($value, $timeZone)->utc();
+                } catch (Throwable) {
+                    continue;
+                }
+                $first = $first === null || $time < $first ? $time : $first;
+                $last = $last === null || $time > $last ? $time : $last;
+            }
+        } finally {
+            fclose($handle);
+        }
+
+        $datasets = array_map('strval', array_keys($datasets));
+        sort($datasets);
+
+        return new ExportSummary([
+            'row_count' => $count,
+            'first_at' => $first?->toIso8601String(),
+            'last_at' => $last?->toIso8601String(),
+            'failed_count' => $failed,
+            'datasets' => $datasets,
         ]);
     }
 

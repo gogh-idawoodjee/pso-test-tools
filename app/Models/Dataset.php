@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Override;
 
 /**
  * @method static Model|static create(array $attributes = [])
@@ -216,6 +217,16 @@ class Dataset extends Model
     public function exportFiles(): MorphMany
     {
         return $this->morphMany(ExportFile::class, 'scope');
+    }
+
+    #[Override]
+    protected static function booted(): void
+    {
+        static::deleting(static function (self $dataset): void {
+            ToolRun::withoutGlobalScopes()
+                ->where('scope_type', $dataset->getMorphClass())->where('scope_id', (string) $dataset->getKey())
+                ->each(static fn (ToolRun $run): ?bool => $run->delete());
+        });
     }
 
     public function toolRuns(): MorphMany

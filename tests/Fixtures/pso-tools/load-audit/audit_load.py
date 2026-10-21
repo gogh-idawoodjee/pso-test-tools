@@ -13,6 +13,17 @@ def arg(name):
     return sys.argv[sys.argv.index(name) + 1] if name in sys.argv else None
 
 
+import argparse
+_parser = argparse.ArgumentParser()
+for _flag in ('--load', '--plan', '--sys', '--messages', '--noise-ids', '--flag-activities', '--flag-deletions',
+              '--tz', '--org', '--accounts-dir', '--params', '--watchlist', '--ifs-release', '--complete-grace-hours',
+              '--review', '--out', '--json', '--html'):
+    _parser.add_argument(_flag)
+_parser.add_argument('--audits', action='append')
+_parser.add_argument('--events', action='append')
+_parser.add_argument('--appointments', action='append')
+_parser.parse_args()
+
 mode = os.environ.get('FAKE_AUDIT_MODE', 'ok')
 if os.environ.get('FAKE_AUDIT_ARGS_FILE'):
     with open(os.environ['FAKE_AUDIT_ARGS_FILE'], 'w') as fh:
@@ -71,3 +82,15 @@ with open(arg('--html'), 'w') as fh:
 with open(arg('--out'), 'w') as fh:
     fh.write('# report\n')
 print('wrote', arg('--out'), '(3 findings)')
+if (arg('--audits') or arg('--events') or arg('--appointments')) and mode != 'nosystemday':
+    out_dir = os.path.dirname(arg('--html'))
+    with open(os.path.join(out_dir, 'system_day.json'), 'w') as fh:
+        json.dump({
+            'day': {'start': 0, 'end': 0, 'tz': arg('--tz'), 'offset_minutes': 0, 'dataset': None},
+            'events': [], 'appointments': [], 'inputs': [], 'windows': [], 'findings': [],
+            'per_minute': {'inputs': {}, 'events': {}},
+            'counts': {'events_by_id': {}, 'dropped_other_datasets': 0, 'dropped_other_days': 0},
+            'texts': {},
+        }, fh)
+    with open(os.path.join(out_dir, 'system_day_inputs.csv'), 'w') as fh:
+        fh.write('file_id,type,t,bytes\nf1,events,0,1\n')
