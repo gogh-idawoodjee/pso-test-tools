@@ -60,3 +60,41 @@ it('marks a vanished upload as failed', function () {
 
     expect(app(AppSettings::class)->messageTexts()['status'])->toBe('failed');
 });
+
+it('records failed and removes the upload when the queue reports a failure', function () {
+    $key = SettingsFileStore::messageTextsKey('xml');
+    Storage::disk('r2')->put($key, 'x');
+    $user = User::factory()->create();
+
+    (new ImportMessageTextsJob($key, 'slow.xml', $user->id))->failed(new RuntimeException('timed out'));
+
+    expect(app(AppSettings::class)->messageTexts()['status'])->toBe('failed')
+        ->and(Storage::disk('r2')->exists($key))->toBeFalse();
+});
+
+it('keeps a good import ready when cleanup throws', function () {
+    $key = SettingsFileStore::messageTextsKey('xml');
+    Storage::disk('r2')->put($key, '<DsSystemData>'
+        .'<Message_Text><message_id>1</message_id><language_id>en</language_id><text>One</text></Message_Text>'
+        .'</DsSystemData>');
+    $realStore = app(SettingsFileStore::class);
+    $throwingStore = Mockery::mock(SettingsFileStore::class);
+    $throwingStore->shouldReceive('readToScratch')->andReturnUsing(static fn (string $storeKey, string $scratch): string => $realStore->readToScratch($storeKey, $scratch));
+    $throwingStore->shouldReceive('delete')->andThrow(new RuntimeException('storage down'));
+    $user = User::factory()->create();
+
+    (new ImportMessageTextsJob($key, 'a.xml', $user->id))->handle($throwingStore, app(ExportStorage::class), app(MessageTextsImporter::class), app(AppSettings::class));
+
+    expect(app(AppSettings::class)->messageTexts()['status'])->toBe('ready');
+});
+
+it('keeps the original upload time', function () {
+    $key = SettingsFileStore::messageTextsKey('xml');
+    $user = User::factory()->create();
+
+    (new ImportMessageTextsJob($key, 'gone.xml', $user->id, '2026-01-02T03:04:05+00:00'))->handle(
+        app(SettingsFileStore::class), app(ExportStorage::class), app(MessageTextsImporter::class), app(AppSettings::class),
+    );
+
+    expect(app(AppSettings::class)->messageTexts()['uploaded_at'])->toBe('2026-01-02T03:04:05+00:00');
+});

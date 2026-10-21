@@ -7,6 +7,7 @@ use App\Support\Exports\InvalidExportException;
 use App\Support\Exports\MessageTextsImporter;
 use App\Support\Settings\AppSettings;
 use App\Support\Settings\SettingsFileStore;
+use Closure;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -27,7 +28,7 @@ class ImportMessageTextsJob implements ShouldQueue
 
     public int $timeout = 600;
 
-    public function __construct(public string $objectKey, public string $fileName, public ?int $userId) {}
+    public function __construct(public string $objectKey, public string $fileName, public ?int $userId, public ?string $uploadedAt = null) {}
 
     public function handle(SettingsFileStore $files, ExportStorage $storage, MessageTextsImporter $importer, AppSettings $settings): void
     {
@@ -46,8 +47,8 @@ class ImportMessageTextsJob implements ShouldQueue
             Log::warning('Message texts import failed', ['object_key' => $this->objectKey, 'error' => $exception->getMessage()]);
             $settings->put(AppSettings::MESSAGE_TEXTS, $this->record('failed', error: 'The file could not be imported: '.$exception->getMessage()), $this->userId);
         } finally {
-            $files->delete($this->objectKey);
-            $storage->removeScratch($scratch);
+            $this->cleanUp(fn () => $files->delete($this->objectKey), 'upload');
+            $this->cleanUp(static fn () => $storage->removeScratch($scratch), 'scratch folder');
         }
     }
 
@@ -58,6 +59,17 @@ class ImportMessageTextsJob implements ShouldQueue
             $this->record('failed', error: 'The file could not be imported: '.$exception->getMessage()),
             $this->userId,
         );
+
+        $this->cleanUp(fn () => app(SettingsFileStore::class)->delete($this->objectKey), 'upload');
+    }
+
+    private function cleanUp(Closure $step, string $what): void
+    {
+        try {
+            $step();
+        } catch (Throwable $exception) {
+            Log::warning('Message texts import cleanup failed', ['step' => $what, 'object_key' => $this->objectKey, 'error' => $exception->getMessage()]);
+        }
     }
 
     /**
@@ -70,7 +82,7 @@ class ImportMessageTextsJob implements ShouldQueue
             'status' => $status,
             'file_name' => $this->fileName,
             'uploaded_by' => $this->userId,
-            'uploaded_at' => now()->toIso8601String(),
+            'uploaded_at' => $this->uploadedAt ?? now()->toIso8601String(),
             'languages' => $languages,
             'rows' => $rows,
             'error' => $error,
