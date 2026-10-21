@@ -8,7 +8,10 @@ use App\Models\PsoMessageText;
 use App\Models\User;
 use App\Support\Settings\AppSettings;
 use App\Support\Settings\SettingsFileStore;
+use App\Support\SysCompare\DefinitionsCsv;
+use App\Support\SysCompare\Exceptions\InvalidDefinitionsFile;
 use BackedEnum;
+use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
@@ -18,6 +21,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use RuntimeException;
 use Throwable;
@@ -212,6 +216,87 @@ class Settings extends Page
         return $userId === null ? null : User::query()->find($userId)?->name;
     }
 
+    public function uploadParamDefinitionsAction(): Action
+    {
+        return Action::make('uploadParamDefinitions')
+            ->label('Upload ParamDefinitions.csv')
+            ->icon(Heroicon::OutlinedArrowUpTray)
+            ->modalHeading('Upload ParamDefinitions.csv')
+            ->modalDescription('Columns Parameter, Definition, Note and Basis. It replaces the stored file, if there is one.')
+            ->modalSubmitActionLabel('Upload')
+            ->schema([
+                FileUpload::make('file')
+                    ->label('ParamDefinitions.csv')
+                    ->acceptedFileTypes(['text/csv', 'text/plain', 'application/vnd.ms-excel'])
+                    ->maxSize(10240)
+                    ->storeFiles(false)
+                    ->required(),
+            ])
+            ->action(function (array $data, Schema $schema): void {
+                $file = $data['file'] ?? null;
+                if (! $file instanceof TemporaryUploadedFile) {
+                    throw new RuntimeException('No file was uploaded.');
+                }
+
+                $fileName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
+
+                $parameterCount = $this->withLocalCopy($file, static function (string $localPath) use ($fileName, $schema): int {
+                    try {
+                        $rows = DefinitionsCsv::parse($localPath, $fileName);
+                    } catch (InvalidDefinitionsFile $exception) {
+                        throw ValidationException::withMessages([$schema->getStatePath().'.file' => $exception->getMessage()]);
+                    }
+
+                    app(SettingsFileStore::class)->putFromLocal(SettingsFileStore::PARAM_DEFINITIONS, $localPath);
+
+                    return count($rows);
+                });
+
+                $file->delete();
+
+                $userId = auth()->id();
+
+                app(AppSettings::class)->put(AppSettings::PARAM_DEFINITIONS, [
+                    'file_name' => $fileName,
+                    'parameter_count' => $parameterCount,
+                    'uploaded_by' => $userId,
+                    'uploaded_at' => now()->toIso8601String(),
+                ], $userId);
+
+                Notification::make()->success()->title('Parameter definitions saved')->send();
+            });
+    }
+
+    public function removeParamDefinitionsAction(): Action
+    {
+        return Action::make('removeParamDefinitions')
+            ->label('Remove')
+            ->color('danger')
+            ->icon(Heroicon::OutlinedTrash)
+            ->requiresConfirmation()
+            ->modalDescription('PSO Sys File Compare goes back to the built-in definitions.')
+            ->visible(fn (): bool => $this->paramDefinitionsRecord() !== null)
+            ->action(static function (): void {
+                app(SettingsFileStore::class)->delete(SettingsFileStore::PARAM_DEFINITIONS);
+                app(AppSettings::class)->forget(AppSettings::PARAM_DEFINITIONS);
+
+                Notification::make()->success()->title('Parameter definitions removed')->send();
+            });
+    }
+
+    /** @return array<mixed>|null */
+    public function paramDefinitionsRecord(): ?array
+    {
+        return app(AppSettings::class)->paramDefinitions();
+    }
+
+    public function paramDefinitionsUploaderName(): ?string
+    {
+        $userId = $this->paramDefinitionsRecord()['uploaded_by'] ?? null;
+
+        return $userId === null ? null : User::query()->find($userId)?->name;
+    }
+
     /** The job never ran, so its failed() hook will not either: record the failure here and drop the stored upload. */
     private function recordQueueFailure(string $key, string $fileName, ?int $userId, string $uploadedAt, Throwable $exception): void
     {
@@ -246,13 +331,30 @@ class Settings extends Page
         return str_contains($file->getMimeType(), 'zip') ? 'zip' : 'xml';
     }
 
-    /**
-     * Livewire's temporary uploads live on r2, so the file is streamed to a local
-     * scratch copy first: putFromLocal needs a real local path.
-     */
+    /** Livewire's temporary uploads live on r2, so putFromLocal is handed a local scratch copy. */
     private function storeUpload(TemporaryUploadedFile $file, string $key): void
     {
-        $localPath = tempnam(sys_get_temp_dir(), 'message-texts-');
+        try {
+            $this->withLocalCopy($file, static function (string $localPath) use ($key): void {
+                app(SettingsFileStore::class)->putFromLocal($key, $localPath);
+            });
+        } finally {
+            $file->delete();
+        }
+    }
+
+    /**
+     * Streams a temporary upload (which lives on r2, so getRealPath() is not a local path)
+     * to a local scratch file, hands that path to the callback and removes it afterwards.
+     *
+     * @template TResult
+     *
+     * @param  Closure(string): TResult  $callback
+     * @return TResult
+     */
+    private function withLocalCopy(TemporaryUploadedFile $file, Closure $callback): mixed
+    {
+        $localPath = tempnam(sys_get_temp_dir(), 'settings-upload-');
         if ($localPath === false) {
             throw new RuntimeException('The upload could not be copied.');
         }
@@ -270,10 +372,9 @@ class Settings extends Page
                 fclose($source);
             }
 
-            app(SettingsFileStore::class)->putFromLocal($key, $localPath);
+            return $callback($localPath);
         } finally {
             @unlink($localPath);
-            $file->delete();
         }
     }
 }

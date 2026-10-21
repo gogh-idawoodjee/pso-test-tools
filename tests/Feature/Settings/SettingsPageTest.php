@@ -7,6 +7,7 @@ use App\Jobs\ImportMessageTextsJob;
 use App\Models\PsoMessageText;
 use App\Models\User;
 use App\Support\Settings\AppSettings;
+use App\Support\Settings\SettingsFileStore;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
@@ -165,4 +166,31 @@ it('keeps Clear disabled while an import is running', function () {
     app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, messageTextsRecord(['status' => 'importing', 'languages' => [], 'rows' => 0]));
 
     Livewire::test(Settings::class)->assertActionDisabled('clearMessageTexts');
+});
+
+function storeParamDefinitions(): void
+{
+    Storage::disk('r2')->put(SettingsFileStore::PARAM_DEFINITIONS, "Parameter,Definition\nMode,x\n");
+    app(AppSettings::class)->put(AppSettings::PARAM_DEFINITIONS, ['file_name' => 'Old.csv', 'parameter_count' => 1, 'uploaded_by' => null, 'uploaded_at' => now()->toIso8601String()]);
+}
+
+it('stores a good ParamDefinitions.csv and shows what it covers', function () {
+    Livewire::test(Settings::class)->callAction('uploadParamDefinitions', ['file' => UploadedFile::fake()->createWithContent('Mine.csv', "Parameter,Definition,Basis\nMode,x,\nFoo,y,\n")])->assertHasNoActionErrors();
+    expect(Storage::disk('r2')->exists(SettingsFileStore::PARAM_DEFINITIONS))->toBeTrue()
+        ->and(app(AppSettings::class)->paramDefinitions()['parameter_count'])->toBe(2);
+    $this->get(Settings::getUrl())->assertSee('Mine.csv')->assertSee('2 parameters');
+});
+
+it('refuses a bad csv and keeps the stored one', function () {
+    storeParamDefinitions();
+    Livewire::test(Settings::class)->callAction('uploadParamDefinitions', ['file' => UploadedFile::fake()->createWithContent('Bad.csv', "Wrong,Columns\n1,2\n")])->assertHasActionErrors(['file']);
+    expect(Storage::disk('r2')->get(SettingsFileStore::PARAM_DEFINITIONS))->toContain('Mode,x')
+        ->and(app(AppSettings::class)->paramDefinitions()['file_name'])->toBe('Old.csv');
+});
+
+it('removes the stored definitions', function () {
+    storeParamDefinitions();
+    Livewire::test(Settings::class)->callAction('removeParamDefinitions');
+    expect(Storage::disk('r2')->exists(SettingsFileStore::PARAM_DEFINITIONS))->toBeFalse()->and(app(AppSettings::class)->paramDefinitions())->toBeNull();
+    $this->get(Settings::getUrl())->assertSee('uses the built-in definitions');
 });
