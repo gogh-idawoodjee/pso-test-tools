@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\Tool;
 use App\Enums\ToolRunStatus;
 use App\Models\Scopes\ScopeOwnedModel;
+use App\Support\Tools\ToolRunFiles;
 use App\Tools\Contracts\KeepsInputsPrivate;
 use App\Tools\Contracts\Tool as ToolImplementation;
 use Illuminate\Database\Eloquent\Builder;
@@ -56,6 +57,10 @@ class ToolRun extends Model
         static::creating(static function (self $run): void {
             $run->status ??= ToolRunStatus::Queued;
             $run->queued_at ??= now();
+        });
+
+        static::deleted(static function (self $run): void {
+            ToolRunFiles::deleteAll($run);
         });
     }
 

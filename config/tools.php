@@ -8,6 +8,8 @@ return [
     'load_audit' => [
         // Under RunToolJob's 900 s so the job reports the timeout in plain words.
         'timeout_seconds' => (int) env('TOOLS_LOAD_AUDIT_TIMEOUT_SECONDS', 840),
+        // Event ids kept in the System day counts but left out of its lanes and findings; the wizard prefills this.
+        'noise_event_ids' => env('TOOLS_LOAD_AUDIT_NOISE_EVENT_IDS', '3041,1767,2959,1964,1965,24578'),
     ],
     'region_availability' => [
         // The viewer reads one LOAD and does no checks; SaskTel's takes well under a minute.

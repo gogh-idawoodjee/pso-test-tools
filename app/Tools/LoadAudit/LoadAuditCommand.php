@@ -19,12 +19,22 @@ class LoadAuditCommand
 
     public const DEFAULT_GRACE_HOURS = 24;
 
+    public const DEFAULT_FLAG_ACTIVITIES = 5;
+
+    public const DEFAULT_FLAG_DELETIONS = 30;
+
+    public const MESSAGES_FILE = 'messages.json';
+
+    public const OUT_SYSTEM_DAY = 'system_day.json';
+
+    public const OUT_SYSTEM_DAY_INPUTS = 'system_day_inputs.csv';
+
     /**
      * @param  array<string, string>  $inputPaths  kind value => local path
      * @param  array<string, mixed>  $options  ifs_release, complete_grace_hours
      * @return list<string>
      */
-    public static function build(PsoToolsCheckout $checkout, string $workDir, array $inputPaths, array $options, string $timeZone, ?string $displayName): array
+    public static function build(PsoToolsCheckout $checkout, string $workDir, array $inputPaths, array $options, string $timeZone, ?string $displayName, ?string $messagesPath = null): array
     {
         $workDir = rtrim($workDir, '/');
         $argv = [$checkout->python(), '-I', $checkout->script(), '--load', $inputPaths['load']];
@@ -34,6 +44,29 @@ class LoadAuditCommand
                 $argv[] = "--{$kind}";
                 $argv[] = $inputPaths[$kind];
             }
+        }
+
+        foreach (['audits' => '--events', 'pso_events' => '--events', 'appointment_history' => '--appointments'] as $kind => $flag) {
+            if (filled($inputPaths[$kind] ?? null)) {
+                $argv[] = $flag;
+                $argv[] = $inputPaths[$kind];
+            }
+        }
+
+        if (filled($messagesPath)) {
+            $argv[] = '--messages';
+            $argv[] = $messagesPath;
+        }
+
+        $noiseIds = self::normalisedIds((string) (filled($options['noise_event_ids'] ?? null) ? $options['noise_event_ids'] : config('tools.load_audit.noise_event_ids', '')));
+        if ($noiseIds !== '') {
+            $argv[] = '--noise-ids';
+            $argv[] = $noiseIds;
+        }
+
+        foreach (['flag_activities' => self::DEFAULT_FLAG_ACTIVITIES, 'flag_deletions' => self::DEFAULT_FLAG_DELETIONS] as $option => $default) {
+            $argv[] = '--'.str_replace('_', '-', $option);
+            $argv[] = (string) (is_numeric($options[$option] ?? null) ? (int) $options[$option] : $default);
         }
 
         $argv[] = '--tz';
@@ -63,5 +96,11 @@ class LoadAuditCommand
             '--html', $workDir.'/'.self::OUT_HTML);
 
         return $argv;
+    }
+
+    /** "3041, 1767 ,24578" becomes "3041,1767,24578". */
+    private static function normalisedIds(string $list): string
+    {
+        return implode(',', array_filter(array_map('trim', explode(',', $list)), static fn (string $id): bool => $id !== ''));
     }
 }
