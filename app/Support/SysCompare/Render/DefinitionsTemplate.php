@@ -7,7 +7,7 @@ use App\Support\SysCompare\ComparisonResult;
 /**
  * ParamDefinitions_Template.csv: every parameter found that has no specific
  * definition yet. Fill in Definition (and Basis), save as ParamDefinitions.csv
- * and upload it with the next comparison.
+ * and upload it on the Settings page.
  */
 final class DefinitionsTemplate
 {

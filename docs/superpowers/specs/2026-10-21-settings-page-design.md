@@ -1,7 +1,7 @@
 # Design: a Settings page
 
 **Date:** 2026-10-21
-**Status:** Approved 2026-10-21 for build
+**Status:** Built 2026-10-22
 **Repo:** pso-test-tools only. Nothing in pso-tools changes.
 Builds on `2026-10-20-load-audit-system-day-design.md` (the message texts table and its upload) and the
 PSO Sys File Compare page (the per-run ParamDefinitions.csv upload).
