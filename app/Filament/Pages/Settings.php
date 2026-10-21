@@ -17,8 +17,10 @@ use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Log;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use RuntimeException;
+use Throwable;
 use UnitEnum;
 
 /** App-wide settings every signed-in user can change: message texts, Load audit defaults, parameter definitions and the Google Routes cache. */
@@ -149,7 +151,13 @@ class Settings extends Page
                     'error' => null,
                 ], $userId);
 
-                ImportMessageTextsJob::dispatch($key, $fileName, $userId, $uploadedAt);
+                try {
+                    ImportMessageTextsJob::dispatch($key, $fileName, $userId, $uploadedAt);
+                } catch (Throwable $exception) {
+                    $this->recordQueueFailure($key, $fileName, $userId, $uploadedAt, $exception);
+
+                    return;
+                }
 
                 Notification::make()->success()->title('Importing '.$fileName)->send();
             });
@@ -163,7 +171,7 @@ class Settings extends Page
             ->icon(Heroicon::OutlinedTrash)
             ->requiresConfirmation()
             ->modalDescription('Every loaded language is removed. The Load audit then shows message ids without their texts.')
-            ->visible(fn (): bool => $this->messageTextsLoaded() !== [])
+            ->visible(fn (): bool => $this->messageTextsRecord() !== null || $this->messageTextsLoaded() !== [])
             ->disabled(fn (): bool => $this->messageTextsBusy())
             ->action(static function (): void {
                 PsoMessageText::query()->truncate();
@@ -202,6 +210,30 @@ class Settings extends Page
         $userId = $this->messageTextsRecord()['uploaded_by'] ?? null;
 
         return $userId === null ? null : User::query()->find($userId)?->name;
+    }
+
+    /** The job never ran, so its failed() hook will not either: record the failure here and drop the stored upload. */
+    private function recordQueueFailure(string $key, string $fileName, ?int $userId, string $uploadedAt, Throwable $exception): void
+    {
+        $error = 'The import could not be queued: '.$exception->getMessage();
+
+        app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, [
+            'status' => 'failed',
+            'file_name' => $fileName,
+            'uploaded_by' => $userId,
+            'uploaded_at' => $uploadedAt,
+            'languages' => [],
+            'rows' => 0,
+            'error' => $error,
+        ], $userId);
+
+        try {
+            app(SettingsFileStore::class)->delete($key);
+        } catch (Throwable $deleteException) {
+            Log::warning('Message texts upload cleanup failed', ['object_key' => $key, 'error' => $deleteException->getMessage()]);
+        }
+
+        Notification::make()->danger()->title('The import could not be queued')->body($exception->getMessage())->send();
     }
 
     private function uploadExtension(TemporaryUploadedFile $file): string

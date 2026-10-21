@@ -7,6 +7,7 @@ use App\Jobs\ImportMessageTextsJob;
 use App\Models\PsoMessageText;
 use App\Models\User;
 use App\Support\Settings\AppSettings;
+use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -134,4 +135,34 @@ it('clears the loaded texts', function () {
 
     expect(PsoMessageText::count())->toBe(0)
         ->and(app(AppSettings::class)->messageTexts())->toBeNull();
+});
+
+it('marks the import failed and drops the stored upload when it cannot be queued', function () {
+    $this->mock(Dispatcher::class)->shouldReceive('dispatch')->andThrow(new RuntimeException('down'));
+
+    Livewire::test(Settings::class)
+        ->callAction('uploadMessageTexts', ['file' => UploadedFile::fake()->createWithContent('MessageTexts-en.xml', '<DsSystemData/>')])
+        ->assertHasNoActionErrors();
+
+    $record = app(AppSettings::class)->messageTexts();
+    expect($record['status'])->toBe('failed')
+        ->and($record['error'])->toContain('The import could not be queued')->toContain('down')
+        ->and(Storage::disk('r2')->allFiles('settings/message-texts'))->toBe([]);
+});
+
+it('offers Clear after a failed first import and forgets the record', function () {
+    app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, messageTextsRecord(['status' => 'failed', 'languages' => [], 'rows' => 0, 'error' => 'No Message_Text rows in this file.']));
+
+    Livewire::test(Settings::class)
+        ->assertActionVisible('clearMessageTexts')
+        ->assertActionEnabled('clearMessageTexts')
+        ->callAction('clearMessageTexts');
+
+    expect(app(AppSettings::class)->messageTexts())->toBeNull();
+});
+
+it('keeps Clear disabled while an import is running', function () {
+    app(AppSettings::class)->put(AppSettings::MESSAGE_TEXTS, messageTextsRecord(['status' => 'importing', 'languages' => [], 'rows' => 0]));
+
+    Livewire::test(Settings::class)->assertActionDisabled('clearMessageTexts');
 });
