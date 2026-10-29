@@ -17,6 +17,12 @@ class SettingsFileStore
 {
     public const PARAM_DEFINITIONS = 'settings/param-definitions.csv';
 
+    /** The release-notes watchlist built from an uploaded IFS Public Release Notes PDF (the Load audit's --watchlist). */
+    public const RELEASE_NOTES = 'settings/release-notes-watchlist.md';
+
+    /** The parameter catalog built from an uploaded IFS docs Parameters page (Load audit --params, Sys compare defaults). */
+    public const PARAM_REFERENCE = 'settings/pso-parameters-reference.csv';
+
     public const MESSAGE_TEXTS_PREFIX = 'settings/message-texts/';
 
     public function disk(): Filesystem
@@ -85,7 +91,7 @@ class SettingsFileStore
 
     private function assertKey(string $key): void
     {
-        if ($key === self::PARAM_DEFINITIONS) {
+        if (in_array($key, [self::PARAM_DEFINITIONS, self::RELEASE_NOTES, self::PARAM_REFERENCE], true)) {
             return;
         }
 

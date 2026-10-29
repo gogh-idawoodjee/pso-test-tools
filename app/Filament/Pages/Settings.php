@@ -7,9 +7,13 @@ use App\Jobs\ImportMessageTextsJob;
 use App\Models\PsoMessageText;
 use App\Models\User;
 use App\Support\Settings\AppSettings;
+use App\Support\Settings\InvalidKbFile;
+use App\Support\Settings\KbFiles;
 use App\Support\Settings\SettingsFileStore;
 use App\Support\SysCompare\DefinitionsCsv;
 use App\Support\SysCompare\Exceptions\InvalidDefinitionsFile;
+use App\Tools\Contracts\ToolSetupException;
+use App\Tools\LoadAudit\PsoToolsCheckout;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use Closure;
@@ -290,6 +294,176 @@ class Settings extends Page
 
                 Notification::make()->success()->title('Parameter definitions saved')->send();
             });
+    }
+
+    public function uploadReleaseNotesAction(): Action
+    {
+        return Action::make('uploadReleaseNotes')
+            ->label('Upload release notes PDF')
+            ->icon(Heroicon::OutlinedArrowUpTray)
+            ->modalHeading('Upload IFS Public Release Notes')
+            ->modalDescription('The Public Release Notes PDF from IFS. It is read into the release-notes watchlist the Load audit uses, replacing the stored one or the one shipped with the tools.')
+            ->modalSubmitActionLabel('Upload')
+            ->schema([
+                FileUpload::make('file')
+                    ->label('Public Release Notes (PDF)')
+                    ->acceptedFileTypes(['application/pdf'])
+                    ->maxSize(51200)
+                    ->storeFiles(false)
+                    ->required(),
+            ])
+            ->action(function (array $data, Schema $schema): void {
+                $file = $data['file'] ?? null;
+                if (! $file instanceof TemporaryUploadedFile) {
+                    throw new RuntimeException('No file was uploaded.');
+                }
+
+                $fileName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
+                $result = $this->buildKbFile($file, $schema, 'releaseNotesBuilder', '.md', SettingsFileStore::RELEASE_NOTES);
+
+                $userId = auth()->id();
+                app(AppSettings::class)->put(AppSettings::RELEASE_NOTES, [
+                    'file_name' => $fileName,
+                    'build' => $result['build'] ?? null,
+                    'date' => $result['date'] ?? null,
+                    'fixes' => (int) ($result['fixes'] ?? 0),
+                    'kept' => (int) ($result['kept'] ?? 0),
+                    'uploaded_by' => $userId,
+                    'uploaded_at' => now()->toIso8601String(),
+                ], $userId);
+
+                Notification::make()->success()->title('Release notes read: build '.($result['build'] ?? '?'))
+                    ->body(number_format((int) ($result['kept'] ?? 0)).' of '.number_format((int) ($result['fixes'] ?? 0)).' fixes are in the watchlist.')->send();
+            });
+    }
+
+    public function removeReleaseNotesAction(): Action
+    {
+        return Action::make('removeReleaseNotes')
+            ->label('Use the shipped watchlist')
+            ->color('danger')
+            ->icon(Heroicon::OutlinedTrash)
+            ->requiresConfirmation()
+            ->modalDescription('The uploaded release notes are removed and the Load audit goes back to the watchlist shipped with the tools.')
+            ->visible(fn (): bool => $this->releaseNotesRecord() !== null)
+            ->action(static function (): void {
+                app(SettingsFileStore::class)->delete(SettingsFileStore::RELEASE_NOTES);
+                app(AppSettings::class)->forget(AppSettings::RELEASE_NOTES);
+
+                Notification::make()->success()->title('Back to the shipped release-notes watchlist')->send();
+            });
+    }
+
+    public function uploadParamReferenceAction(): Action
+    {
+        return Action::make('uploadParamReference')
+            ->label('Upload Parameters page')
+            ->icon(Heroicon::OutlinedArrowUpTray)
+            ->modalHeading('Upload the IFS docs Parameters page')
+            ->modalDescription('In a browser, open docs.ifs.com/pso, Operations, Administration Guide, System Data, Parameters, and save it as "Webpage, HTML Only". It becomes the parameter catalog (defaults and descriptions) for the Load audit and Sys compare.')
+            ->modalSubmitActionLabel('Upload')
+            ->schema([
+                FileUpload::make('file')
+                    ->label('Parameters page (.html)')
+                    ->acceptedFileTypes(['text/html', 'application/xhtml+xml'])
+                    ->maxSize(20480)
+                    ->storeFiles(false)
+                    ->required(),
+                TextInput::make('pso_version')
+                    ->label('PSO release the page is for')
+                    ->placeholder('6.18')
+                    ->regex('/^\d+\.\d+$/')
+                    ->required(),
+            ])
+            ->action(function (array $data, Schema $schema): void {
+                $file = $data['file'] ?? null;
+                if (! $file instanceof TemporaryUploadedFile) {
+                    throw new RuntimeException('No file was uploaded.');
+                }
+
+                $fileName = basename(str_replace('\\', '/', $file->getClientOriginalName()));
+                $result = $this->buildKbFile($file, $schema, 'paramsBuilder', '.csv', SettingsFileStore::PARAM_REFERENCE);
+
+                $userId = auth()->id();
+                app(AppSettings::class)->put(AppSettings::PARAM_REFERENCE, [
+                    'file_name' => $fileName,
+                    'rows' => (int) ($result['rows'] ?? 0),
+                    'pso_version' => trim((string) $data['pso_version']),
+                    'uploaded_by' => $userId,
+                    'uploaded_at' => now()->toIso8601String(),
+                ], $userId);
+
+                Notification::make()->success()->title('Parameter catalog saved')
+                    ->body(number_format((int) ($result['rows'] ?? 0)).' parameters for PSO '.trim((string) $data['pso_version']).'.')->send();
+            });
+    }
+
+    public function removeParamReferenceAction(): Action
+    {
+        return Action::make('removeParamReference')
+            ->label('Use the shipped catalog')
+            ->color('danger')
+            ->icon(Heroicon::OutlinedTrash)
+            ->requiresConfirmation()
+            ->modalDescription('The uploaded parameter catalog is removed and the tools go back to the one shipped with them.')
+            ->visible(fn (): bool => $this->paramReferenceRecord() !== null)
+            ->action(static function (): void {
+                app(SettingsFileStore::class)->delete(SettingsFileStore::PARAM_REFERENCE);
+                app(AppSettings::class)->forget(AppSettings::PARAM_REFERENCE);
+
+                Notification::make()->success()->title('Back to the shipped parameter catalog')->send();
+            });
+    }
+
+    /** @return array<mixed>|null */
+    public function releaseNotesRecord(): ?array
+    {
+        return app(AppSettings::class)->releaseNotes();
+    }
+
+    /** @return array<mixed>|null */
+    public function paramReferenceRecord(): ?array
+    {
+        return app(AppSettings::class)->paramReference();
+    }
+
+    public function kbUploaderName(?array $record): ?string
+    {
+        $userId = $record['uploaded_by'] ?? null;
+
+        return $userId === null ? null : User::query()->find($userId)?->name;
+    }
+
+    /**
+     * Runs a pso-tools kb builder on the upload and stores what it writes; a file the builder refuses is a form error.
+     *
+     * @return array<string, string> the builder's RESULT fields
+     */
+    private function buildKbFile(TemporaryUploadedFile $file, Schema $schema, string $builder, string $outputExtension, string $key): array
+    {
+        try {
+            return $this->withLocalCopy($file, static function (string $localPath) use ($schema, $builder, $outputExtension, $key): array {
+                $checkout = PsoToolsCheckout::fromConfig();
+                $input = $localPath.'.'.($outputExtension === '.md' ? 'pdf' : 'html');
+                $output = $localPath.'-built'.$outputExtension;
+                copy($localPath, $input);
+                try {
+                    try {
+                        $result = KbFiles::build($checkout, $checkout->{$builder}(), $input, $output);
+                    } catch (InvalidKbFile|ToolSetupException $exception) {
+                        throw ValidationException::withMessages([$schema->getStatePath().'.file' => $exception->getMessage()]);
+                    }
+                    app(SettingsFileStore::class)->putFromLocal($key, $output);
+
+                    return $result;
+                } finally {
+                    @unlink($input);
+                    @unlink($output);
+                }
+            });
+        } finally {
+            $file->delete();
+        }
     }
 
     public function removeParamDefinitionsAction(): Action

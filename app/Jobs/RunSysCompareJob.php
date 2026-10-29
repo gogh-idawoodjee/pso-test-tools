@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Support\Exports\ExportStorage;
 use App\Support\Settings\AppSettings;
+use App\Support\Settings\KbFiles;
 use App\Support\Settings\SettingsFileStore;
 use App\Support\SysCompare\Comparer;
 use App\Support\SysCompare\DefinitionsCsv;
@@ -11,6 +12,7 @@ use App\Support\SysCompare\Exceptions\InvalidComparison;
 use App\Support\SysCompare\Exceptions\InvalidDefinitionsFile;
 use App\Support\SysCompare\Exceptions\InvalidSysFile;
 use App\Support\SysCompare\ParamDefinitions;
+use App\Support\SysCompare\ParameterCatalog;
 use App\Support\SysCompare\Render\CsvBundle;
 use App\Support\SysCompare\Render\DefinitionsTemplate;
 use App\Support\SysCompare\Render\HtmlReport;
@@ -74,7 +76,7 @@ class RunSysCompareJob implements ShouldQueue
             $environments = $this->readEnvironments($storage, $reader);
             $this->report('processing', 50);
 
-            $result = $comparer->compare($environments, $this->baseline, $this->loadDefinitions());
+            $result = $comparer->compare($environments, $this->baseline, $this->loadDefinitions(), catalog: $this->loadCatalog());
             $this->report('processing', 60);
 
             $storage->putRunFile($this->userId, $this->runId, SysCompareArtifact::Report->fileName(), app(HtmlReport::class)->render($result));
@@ -136,6 +138,19 @@ class RunSysCompareJob implements ShouldQueue
         }
 
         return $environments;
+    }
+
+    /** The parameter catalog uploaded on the Settings page, else the built-in one. */
+    private function loadCatalog(): ParameterCatalog
+    {
+        $exportStorage = app(ExportStorage::class);
+        $scratchDirectory = $exportStorage->scratchDirectoryFor((string) Str::uuid());
+
+        try {
+            return KbFiles::catalog($scratchDirectory);
+        } finally {
+            $exportStorage->removeScratch($scratchDirectory);
+        }
     }
 
     private function loadDefinitions(): ParamDefinitions

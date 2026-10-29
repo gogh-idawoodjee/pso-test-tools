@@ -6,6 +6,7 @@ use App\Enums\ExportKind;
 use App\Enums\Tool as ToolId;
 use App\Models\PsoMessageText;
 use App\Support\Settings\AppSettings;
+use App\Support\Settings\KbFiles;
 use App\Support\Tools\ToolRunFiles;
 use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolResult;
@@ -96,6 +97,9 @@ class LoadAuditTool implements Tool
             $checkout, $workDir, $inputPaths, $options, $context->timeZone,
             $context->settings?->displayName ?: UnfiledLabel::for($context, ExportKind::Load),
             $messagesPath,
+            // the catalog and watchlist uploaded on the Settings page, when there are some
+            KbFiles::paramsPath($checkout, $workDir),
+            KbFiles::watchlistPath($checkout, $workDir),
         );
         $timeout = (int) config('tools.load_audit.timeout_seconds', 840);
 

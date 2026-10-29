@@ -31,7 +31,7 @@ class LoadAuditCommand
      * @param  array<string, mixed>  $options  ifs_release, complete_grace_hours
      * @return list<string>
      */
-    public static function build(PsoToolsCheckout $checkout, string $workDir, array $inputPaths, array $options, string $timeZone, ?string $displayName, ?string $messagesPath = null): array
+    public static function build(PsoToolsCheckout $checkout, string $workDir, array $inputPaths, array $options, string $timeZone, ?string $displayName, ?string $messagesPath = null, ?string $paramsPath = null, ?string $watchlistPath = null): array
     {
         $workDir = rtrim($workDir, '/');
         $argv = [$checkout->python(), '-I', $checkout->script(), '--load', $inputPaths['load']];
@@ -79,8 +79,8 @@ class LoadAuditCommand
         }
 
         array_push($argv, '--accounts-dir', $workDir.'/'.self::ACCOUNTS_DIR,
-            '--params', $checkout->paramsFile(),
-            '--watchlist', $checkout->watchlistFile());
+            '--params', $paramsPath ?? $checkout->paramsFile(),
+            '--watchlist', $watchlistPath ?? $checkout->watchlistFile());
 
         $release = trim((string) ($options['ifs_release'] ?? ''));
         if ($release !== '') {

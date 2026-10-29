@@ -83,6 +83,16 @@ class PsoToolsCheckout
         return $this->file('kb/28-release-notes-watchlist.md');
     }
 
+    public function releaseNotesBuilder(): string
+    {
+        return $this->file('kb/build_release_notes.py');
+    }
+
+    public function paramsBuilder(): string
+    {
+        return $this->file('kb/build_parameters_reference.py');
+    }
+
     private function file(string $relative): string
     {
         if ($this->root === null) {

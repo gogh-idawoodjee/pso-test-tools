@@ -26,6 +26,10 @@ class AppSettings
 
     public const PARAM_DEFINITIONS = 'param_definitions';
 
+    public const RELEASE_NOTES = 'release_notes';
+
+    public const PARAM_REFERENCE = 'param_reference';
+
     public const CACHE_KEY = 'app_settings';
 
     /** Bounded so a read that refills the cache just after a write's forget cannot keep an old snapshot for good. */
@@ -38,6 +42,8 @@ class AppSettings
         self::FLAG_DELETIONS => 200,
         self::MESSAGE_TEXTS => null,
         self::PARAM_DEFINITIONS => null,
+        self::RELEASE_NOTES => null,
+        self::PARAM_REFERENCE => null,
     ];
 
     public function get(string $key): mixed
@@ -109,6 +115,22 @@ class AppSettings
     }
 
     /** @return array<mixed>|null */
+    /** @return array<string, mixed>|null file_name, build, date, fixes, kept, uploaded_by, uploaded_at */
+    public function releaseNotes(): ?array
+    {
+        $value = $this->get(self::RELEASE_NOTES);
+
+        return is_array($value) ? $value : null;
+    }
+
+    /** @return array<string, mixed>|null file_name, rows, pso_version, uploaded_by, uploaded_at */
+    public function paramReference(): ?array
+    {
+        $value = $this->get(self::PARAM_REFERENCE);
+
+        return is_array($value) ? $value : null;
+    }
+
     public function paramDefinitions(): ?array
     {
         $value = $this->get(self::PARAM_DEFINITIONS);
