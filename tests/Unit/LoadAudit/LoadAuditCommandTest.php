@@ -91,6 +91,17 @@ it('adds the System day inputs, messages and option flags after --sys and before
     expect(array_search('--flag-deletions', $argv, true))->toBeLessThan(array_search('--accounts-dir', $argv, true));
 });
 
+it('passes one System day input on its own, with the option flags', function (string $kind, string $flag) {
+    $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', $kind => '/s/x'], [], 'UTC', null, null);
+
+    $others = array_diff(['--audits', '--events', '--appointments'], [$flag]);
+    expect($argv)->toContain($flag)->toContain('--noise-ids')->toContain('--flag-activities')->toContain('--flag-deletions');
+    expect($argv[array_search($flag, $argv, true) + 1])->toBe('/s/x');
+    foreach ($others as $other) {
+        expect($argv)->not->toContain($other);
+    }
+})->with([['audits', '--audits'], ['pso_events', '--events'], ['appointment_history', '--appointments']]);
+
 it('adds none of the System day flags when there are no System day inputs', function () {
     $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml'], [], 'UTC', null, null);
 

@@ -79,13 +79,17 @@ class ToolRunPageController extends Controller
     public function downloadSystemDayCsv(string $scopeType, string $scopeId, string $run): SymfonyResponse
     {
         [$scope, $toolRun] = $this->find($scopeType, $scopeId, $run);
-        $text = ToolRunFiles::get($toolRun, 'system_day_inputs.csv');
-        if ($text === null) {
+        $stream = ToolRunFiles::readStream($toolRun, 'system_day_inputs.csv');
+        if (! is_resource($stream)) {
             abort(404);
         }
 
-        return response()->streamDownload(static function () use ($text): void {
-            echo $text;
+        return response()->streamDownload(static function () use ($stream): void {
+            try {
+                fpassthru($stream);
+            } finally {
+                fclose($stream);
+            }
         }, str_replace('.csv', '_system_day_inputs.csv', self::fileName($scope, $toolRun, 'csv')), ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 

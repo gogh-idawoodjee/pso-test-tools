@@ -16,7 +16,8 @@
             <x-filament::button tag="a" href="{{ route('tool-runs.page', $routeParams) }}" target="_blank" rel="noopener" icon="heroicon-o-arrow-top-right-on-square" color="gray" size="sm">Open full page</x-filament::button>
             <x-filament::button tag="a" href="{{ route('tool-runs.download-html', $routeParams) }}" icon="heroicon-o-arrow-down-tray" color="gray" size="sm">Download HTML</x-filament::button>
             <x-filament::button tag="a" href="{{ route('tool-runs.download-json', $routeParams) }}" icon="heroicon-o-arrow-down-tray" color="gray" size="sm">Download findings JSON</x-filament::button>
-            @if ($run->summary['system_day_csv'] ?? false)
+            {{-- runs saved before the flag existed: show the button when the file is there --}}
+            @if ($run->summary['system_day_csv'] ?? \App\Support\Tools\ToolRunFiles::exists($run, 'system_day_inputs.csv'))
                 <x-filament::button tag="a" href="{{ route('tool-runs.download-system-day-csv', $routeParams) }}" icon="heroicon-o-arrow-down-tray" color="gray" size="sm">Download inputs CSV</x-filament::button>
             @endif
         </div>

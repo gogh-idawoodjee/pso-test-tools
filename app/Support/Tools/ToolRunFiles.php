@@ -5,6 +5,7 @@ namespace App\Support\Tools;
 use App\Models\ToolRun;
 use App\Support\Exports\ExportStorage;
 use RuntimeException;
+use Throwable;
 
 /** Extra files a tool run keeps beside its result (too big or too raw for the result column), on the exports disk under tool-runs/{run id}/. */
 class ToolRunFiles
@@ -33,6 +34,25 @@ class ToolRunFiles
         $key = self::key($run, $name);
 
         return $disk->exists($key) ? $disk->get($key) : null;
+    }
+
+    /** Whether the run kept this file; a storage that cannot be reached counts as no, so a page never fails on it. */
+    public static function exists(ToolRun $run, string $name): bool
+    {
+        try {
+            return app(ExportStorage::class)->disk()->exists(self::key($run, $name));
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    /** @return resource|null a read stream on the stored file, so a download never holds it in memory */
+    public static function readStream(ToolRun $run, string $name)
+    {
+        $disk = app(ExportStorage::class)->disk();
+        $key = self::key($run, $name);
+
+        return $disk->exists($key) ? $disk->readStream($key) : null;
     }
 
     public static function deleteAll(ToolRun $run): void

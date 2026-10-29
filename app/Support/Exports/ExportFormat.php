@@ -34,11 +34,11 @@ class ExportFormat
     }
 
     /**
-     * Copies the largest .xml or .json member of a zip next to it.
+     * The largest readable member of a zip (by uncompressed size), with only `$only` files when given, after the size cap.
      *
-     * @return array{0: string, 1: string, 2: string} the copy's path, its format (by extension), the member's name
+     * @return array{0: string, 1: int} the member's name and its index
      */
-    public static function largestMember(string $zipPath): array
+    public static function largestMemberName(string $zipPath, ?string $only = null): array
     {
         $zip = new ZipArchive;
         if ($zip->open($zipPath) !== true) {
@@ -51,25 +51,42 @@ class ExportFormat
             for ($index = 0; $index < $zip->numFiles; $index++) {
                 $name = (string) $zip->getNameIndex($index);
                 $stat = $zip->statIndex($index);
-                if (! self::isReadableMember($name) || $stat === false) {
-                    continue;
-                }
-                if ($stat['size'] > $bestSize) {
+                if ($stat !== false && self::isReadableMember($name, $only) && $stat['size'] > $bestSize) {
                     $bestSize = $stat['size'];
                     $bestIndex = $index;
                 }
             }
+            $bestName = $bestIndex === null ? null : (string) $zip->getNameIndex($bestIndex);
+        } finally {
+            $zip->close();
+        }
 
-            if ($bestIndex === null) {
-                throw new InvalidExportException('The zip holds no .xml or .json file.');
-            }
+        if ($bestName === null) {
+            throw new InvalidExportException($only === null ? 'The zip holds no .xml or .json file.' : "The zip holds no .{$only} file.");
+        }
 
-            $capMegabytes = (float) config('exports.max_member_megabytes', 600);
-            if ($bestSize > $capMegabytes * 1024 * 1024) {
-                throw new InvalidExportException('The file inside the zip is too large to read here ('.round($bestSize / 1024 / 1024).' MB uncompressed; the limit is '.round($capMegabytes).' MB).');
-            }
+        $capMegabytes = (float) config('exports.max_member_megabytes', 600);
+        if ($bestSize > $capMegabytes * 1024 * 1024) {
+            throw new InvalidExportException('The file inside the zip is too large to read here ('.round($bestSize / 1024 / 1024).' MB uncompressed; the limit is '.round($capMegabytes).' MB).');
+        }
 
-            $memberName = (string) $zip->getNameIndex($bestIndex);
+        return [$bestName, $bestIndex];
+    }
+
+    /**
+     * Copies the largest .xml or .json member of a zip next to it.
+     *
+     * @return array{0: string, 1: string, 2: string} the copy's path, its format (by extension), the member's name
+     */
+    public static function largestMember(string $zipPath): array
+    {
+        [$memberName, $bestIndex] = self::largestMemberName($zipPath);
+        $zip = new ZipArchive;
+        if ($zip->open($zipPath) !== true) {
+            throw new InvalidExportException('The zip could not be opened. It may be damaged or incomplete.');
+        }
+
+        try {
             $format = strtolower(pathinfo($memberName, PATHINFO_EXTENSION));
             $target = dirname($zipPath).'/member-'.Str::uuid().'.'.$format;
             $source = $zip->getStreamIndex($bestIndex);

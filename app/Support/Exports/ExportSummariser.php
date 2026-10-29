@@ -339,36 +339,7 @@ class ExportSummariser
     /** A zip:// url for the largest member with this extension, after the same size cap as other zip members. */
     private function zipMemberUrl(string $zipPath, string $extension): string
     {
-        $zip = new ZipArchive;
-        if ($zip->open($zipPath) !== true) {
-            throw new InvalidExportException('The zip could not be opened. It may be damaged or incomplete.');
-        }
-
-        try {
-            $bestName = null;
-            $bestSize = -1;
-            for ($index = 0; $index < $zip->numFiles; $index++) {
-                $name = (string) $zip->getNameIndex($index);
-                $stat = $zip->statIndex($index);
-                if ($stat !== false && ExportFormat::isReadableMember($name, $extension) && $stat['size'] > $bestSize) {
-                    $bestName = $name;
-                    $bestSize = $stat['size'];
-                }
-            }
-        } finally {
-            $zip->close();
-        }
-
-        if ($bestName === null) {
-            throw new InvalidExportException("The zip holds no .{$extension} file.");
-        }
-
-        $capMegabytes = (float) config('exports.max_member_megabytes', 600);
-        if ($bestSize > $capMegabytes * 1024 * 1024) {
-            throw new InvalidExportException('The file inside the zip is too large to read here ('.round($bestSize / 1024 / 1024).' MB uncompressed; the limit is '.round($capMegabytes).' MB).');
-        }
-
-        return 'zip://'.$zipPath.'#'.$bestName;
+        return 'zip://'.$zipPath.'#'.ExportFormat::largestMemberName($zipPath, $extension)[0];
     }
 
     /** Whole-file json_decode is fine here: a day of PSO system events is a few MB. Times are UTC ISO strings. */
