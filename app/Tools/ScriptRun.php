@@ -47,7 +47,7 @@ final class ScriptRun
             }
             if ($progress !== null) {
                 $lastLabel = $progress['label'];
-                $context->reportProgress($progress['label'], $progress['percent'], $progress['seconds_left'], $progress['stage']);
+                $context->reportProgress($progress['label'], $progress['percent'], $progress['seconds_left'], $progress['stage'], $progress['details']);
             } elseif (! str_starts_with($line, 'PROGRESS ') && ! str_starts_with($line, 'warning: ')) {
                 $stderr[] = $redact === null ? $line : $redact($line);
                 $stderr = array_slice($stderr, -200);
