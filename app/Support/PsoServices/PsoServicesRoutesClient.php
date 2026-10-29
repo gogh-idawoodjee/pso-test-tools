@@ -54,6 +54,45 @@ class PsoServicesRoutesClient
     }
 
     /**
+     * Which trips the shared cache already answers (POST /routes/cached, no Google call), in calls of up to
+     * 5,000 trips.
+     *
+     * @param  list<array{id: string, origin: array{lat: float, lng: float}, destination: array{lat: float, lng: float}}>  $legs
+     * @return list<string> the ids of the cached trips
+     *
+     * @throws PsoServicesRoutesException
+     */
+    public function cached(array $legs, string $travelMode, string $routingPreference): array
+    {
+        $url = PsoServicesApi::url('routes/cached');
+        $token = config('psott.routes.token');
+        $cached = [];
+
+        foreach (array_chunk($legs, 5000) as $chunk) {
+            try {
+                $response = Http::acceptJson()
+                    ->asJson()
+                    ->when(filled($token), static fn ($request) => $request->withHeaders(['X-PSO-Routes-Token' => (string) $token]))
+                    ->timeout(60)
+                    ->connectTimeout(10)
+                    ->post($url, ['travelMode' => $travelMode, 'routingPreference' => $routingPreference, 'legs' => $chunk]);
+            } catch (ConnectionException $exception) {
+                throw new PsoServicesRoutesException('The PSO services API could not be reached (timed out or unreachable).', 0, $exception);
+            }
+            if (! $response->successful()) {
+                throw new PsoServicesRoutesException(PsoServicesApi::errorMessage($response), $response->status());
+            }
+            $ids = $response->json('cached');
+            if (! is_array($ids)) {
+                throw new PsoServicesRoutesException('The PSO services API answered without the cached trips.', $response->status());
+            }
+            array_push($cached, ...array_map('strval', array_filter($ids, 'is_scalar')));
+        }
+
+        return $cached;
+    }
+
+    /**
      * What the shared cache holds (GET /routes/stats): counts and dates only.
      *
      * @return array<string, mixed>

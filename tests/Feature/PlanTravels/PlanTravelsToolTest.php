@@ -58,7 +58,22 @@ function routesFake(?int $status = null): array
         }
 
         return Http::response(['results' => $results, 'counts' => $counts]);
+    }, 'https://pso-services.test/api/v2/routes/cached' => static function (Request $request) use ($status) {
+        if ($status !== null) {
+            return Http::response(['message' => 'Google Routes is not configured on pso-services.'], $status);
+        }
+        // the same rule as compute: below 51 is in the cache, except 50.0 (no route, never cached)
+        $cached = array_values(array_map(static fn (array $leg): string => $leg['id'], array_filter($request->data()['legs'],
+            static fn (array $leg): bool => $leg['origin']['lat'] < 51 && $leg['origin']['lat'] != 50.0)));
+
+        return Http::response(['cached' => $cached, 'counts' => ['cached' => count($cached), 'uncached' => count($request->data()['legs']) - count($cached)]]);
     }];
+}
+
+/** The compute calls only (the cache lookup is a separate endpoint). */
+function computeCalls(): array
+{
+    return array_values(array_filter(Http::recorded()->all(), static fn (array $pair): bool => str_ends_with($pair[0]->url(), '/routes/compute')));
 }
 
 beforeEach(function () {
@@ -152,7 +167,8 @@ it('checks each distinct route key with Google once, writes google.json keyed by
         'first_date' => '2026-10-05', 'days' => 1, 'google' => true, 'travel_mode' => 'DRIVE', 'routing_preference' => 'TRAFFIC_UNAWARE', 'review_minutes' => 20, 'review_pct' => 0,
     ]);
 
-    Http::assertSentCount(1);
+    // the key test (one trip Google has to answer), then one chunk
+    expect(array_map(static fn (array $pair): int => count($pair[0]['legs']), computeCalls()))->toBe([1, 4]);
     Http::assertSent(static fn (Request $request) => $request['travelMode'] === 'DRIVE'
         && $request['routingPreference'] === 'TRAFFIC_UNAWARE'
         && count($request['legs']) === 4
@@ -185,9 +201,9 @@ it('posts 450 distinct trips in chunks of 200, 200 and 50 and reports each chunk
 
     app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
 
-    $sizes = array_map(static fn (array $pair): int => count($pair[0]['legs']), Http::recorded()->all());
-    $ids = collect(Http::recorded())->flatMap(static fn (array $pair) => array_column($pair[0]['legs'], 'id'));
-    expect($sizes)->toBe([200, 200, 50])
+    $sizes = array_map(static fn (array $pair): int => count($pair[0]['legs']), computeCalls());
+    $ids = collect(computeCalls())->flatMap(static fn (array $pair) => array_column($pair[0]['legs'], 'id'));
+    expect($sizes)->toBe([1, 200, 200, 50])
         ->and($ids->unique()->count())->toBe(450)
         ->and($labels)->toContain('Building legs', 'Building legs: 0%', 'Checking trips with Google: 0 of 450 trips', 'Checking trips with Google: 200 of 450 trips', 'Checking trips with Google: 400 of 450 trips', 'Checking trips with Google: 450 of 450 trips', 'Merging Google results')
         // merge-google emits no progress lines (the real script never does), so its label carries no percent.
@@ -292,7 +308,7 @@ it('sends the trips pso-services did not attempt once more, and takes the second
 
     $result = app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
 
-    $sent = array_map(static fn (array $pair): array => array_column($pair[0]['legs'], 'id'), Http::recorded()->all());
+    $sent = array_map(static fn (array $pair): array => array_column($pair[0]['legs'], 'id'), computeCalls());
     expect($sent)->toHaveCount(2)
         ->and($sent[0])->toHaveCount(4)
         ->and($sent[1])->toBe([$missed])
@@ -308,8 +324,8 @@ it('keeps a trip that is still not attempted the second time as an error', funct
 
     $result = app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
 
-    Http::assertSentCount(2);
-    expect($result->summary['google'])->toBe(['cache' => 0, 'google' => 0, 'error' => 4])
+    expect(computeCalls())->toHaveCount(2)
+        ->and($result->summary['google'])->toBe(['cache' => 0, 'google' => 0, 'error' => 4])
         ->and(planCalls($this->argsFile)[1]['google'])->toHaveCount(4)
         ->and(array_column(planCalls($this->argsFile)[1]['google'], 'error'))->each->toBe('Not attempted: time budget reached');
 });
@@ -333,8 +349,8 @@ it('stops calling pso-services when too little of the run time is left, and stil
 
     $calls = planCalls($this->argsFile);
     $unchecked = array_filter($calls[1]['google'], static fn (array $answer): bool => ($answer['error'] ?? null) === "Not attempted: the run's time limit was reached");
-    Http::assertSentCount(1);
-    expect($calls)->toHaveCount(2)
+    expect(computeCalls())->toHaveCount(1)
+        ->and($calls)->toHaveCount(2)
         ->and($calls[1]['google'])->toHaveCount(450)
         ->and($unchecked)->toHaveCount(250)
         ->and($result->summary['google']['error'])->toBe(250 + count(array_filter($calls[1]['google'], static fn (array $answer): bool => ($answer['error'] ?? null) === 'No route returned')))
@@ -358,8 +374,8 @@ it('skips the retry pass when the time left is short', function () {
         Carbon\Carbon::setTestNow();
     }
 
-    Http::assertSentCount(1);
-    expect(planCalls($this->argsFile)[1]['google'][$missed])->toBe(['error' => 'Not attempted: HTTP 429'])
+    expect(computeCalls())->toHaveCount(1)
+        ->and(planCalls($this->argsFile)[1]['google'][$missed])->toBe(['error' => 'Not attempted: HTTP 429'])
         ->and($result->summary['google'])->toBe(['cache' => 3, 'google' => 0, 'error' => 1])
         ->and($result->warnings)->toContain("Google Routes check stopped early: 1 trip was not checked before the run's time limit.");
 });
@@ -428,10 +444,16 @@ it('shows the legs built, the trips done and the running Google counts while it 
     $this->run::updating(static function ($run) use (&$progress): void {
         $progress[] = $run->progress;
     });
+    Carbon\Carbon::setTestNow(Carbon\Carbon::now());     // no time passes, so no time-left line
 
-    app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+    try {
+        app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+    } finally {
+        Carbon\Carbon::setTestNow();
+    }
 
     $built = '452 legs built: 450 different trips to check with Google. Not sent: 1 leg without coordinates.';
+    $cache = '448 already in the cache, 2 need Google.';
     $checking = collect($progress)->filter(static fn (?array $p): bool => str_starts_with((string) ($p['label'] ?? ''), 'Checking trips with Google'))->values();
     expect($checking->pluck('label')->all())->toBe([
         'Checking trips with Google: 0 of 450 trips',
@@ -439,10 +461,10 @@ it('shows the legs built, the trips done and the running Google counts while it 
         'Checking trips with Google: 400 of 450 trips',
         'Checking trips with Google: 450 of 450 trips',
     ])
-        ->and($checking[0]['details'])->toBe([$built])
+        ->and($checking[0]['details'])->toBe([$built, $cache])
         // The fixed legs' trip comes from Google, generated trip 0 has no route, the rest are cache hits.
-        ->and($checking[1]['details'])->toBe([$built, 'So far: 198 trips from the cache, 1 fetched and 1 without an answer'])
-        ->and($checking[3]['details'])->toBe([$built, 'So far: 448 trips from the cache, 1 fetched and 1 without an answer'])
+        ->and($checking[1]['details'])->toBe([$built, $cache, 'So far: 198 trips from the cache, 1 fetched and 1 without an answer'])
+        ->and($checking[3]['details'])->toBe([$built, $cache, 'So far: 448 trips from the cache, 1 fetched and 1 without an answer'])
         ->and($checking->pluck('percent')->all())->toBe([0, 44, 88, 100]);
 });
 
@@ -469,4 +491,103 @@ it('says what Google answered when it refuses trips', function () {
         'So far: 4 trips without an answer',
         'Google refused 4 of the last 4 trips: '.$refusal,
     ]);
+});
+
+it('looks the trips up in the cache first and tests the key with one trip Google has to answer', function () {
+    Http::fake(routesFake());
+    $progress = [];
+    $this->run::updating(static function ($run) use (&$progress): void {
+        $progress[] = $run->progress;
+    });
+
+    app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+
+    $lookups = array_values(array_filter(Http::recorded()->all(), static fn (array $pair): bool => str_ends_with($pair[0]->url(), '/routes/cached')));
+    expect($lookups)->toHaveCount(1)
+        ->and($lookups[0][0]['legs'])->toHaveCount(4)
+        // the first trip the cache does not hold is the key test
+        ->and(array_column(computeCalls()[0][0]['legs'], 'id'))->toBe(['52.123457,-106.500000|52.200000,-106.600000'])
+        ->and(collect($progress)->pluck('label')->all())->toContain('Looking up trips in the Google cache', 'Testing the Google key with one trip')
+        ->and(collect($progress)->firstWhere('label', 'Checking trips with Google: 0 of 4 trips')['details'])->toBe([
+            '6 legs built: 4 different trips to check with Google. Not sent: 1 leg without coordinates.',
+            '2 already in the cache, 2 need Google.',
+        ]);
+});
+
+it('fails the Google step at once with Google\'s message when the key test is refused, keeping the legs', function () {
+    $refusal = 'HTTP 403: Routes API has not been used in project 1086455120179 before or it is disabled.';
+    Http::fake([
+        'https://pso-services.test/api/v2/routes/cached' => Http::response(['cached' => [], 'counts' => ['cached' => 0, 'uncached' => 4]]),
+        'https://pso-services.test/api/v2/routes/compute' => static fn (Request $request) => Http::response([
+            'results' => array_map(static fn (array $leg): array => ['id' => $leg['id'], 'error' => $refusal], $request->data()['legs']), 'counts' => []]),
+    ]);
+
+    try {
+        app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+        $this->fail('expected the run to fail');
+    } catch (ToolFailedWithResult $e) {
+        expect($e->getMessage())->toBe('The Google Routes check did not finish: Google refused the key test: '.$refusal)
+            ->and(computeCalls())->toHaveCount(1)
+            ->and($e->partial->result['html'])->toContain('Plan travels page without Google')
+            ->and($e->partial->summary['leg_count'])->toBe(6);
+    }
+});
+
+it('says no Google calls are needed when the cache holds every trip, and skips the key test', function () {
+    Http::fake([
+        ...routesFake(),
+        'https://pso-services.test/api/v2/routes/cached' => static fn (Request $request) => Http::response(['cached' => array_column($request->data()['legs'], 'id'), 'counts' => []]),
+    ]);
+    $progress = [];
+    $this->run::updating(static function ($run) use (&$progress): void {
+        $progress[] = $run->progress;
+    });
+
+    app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+
+    expect(array_map(static fn (array $pair): int => count($pair[0]['legs']), computeCalls()))->toBe([4])
+        ->and(collect($progress)->firstWhere('label', 'Checking trips with Google: 0 of 4 trips')['details'][1])->toBe('All 4 trips are already in the cache: no Google calls needed.')
+        ->and(collect($progress)->pluck('label')->all())->not->toContain('Testing the Google key with one trip');
+});
+
+it('checks without the up-front line when the cache lookup fails', function () {
+    Http::fake([
+        ...routesFake(),
+        'https://pso-services.test/api/v2/routes/cached' => Http::response(['message' => 'Not found.'], 404),
+    ]);
+
+    $result = app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+
+    expect(array_map(static fn (array $pair): int => count($pair[0]['legs']), computeCalls()))->toBe([4])
+        ->and($result->summary['google'])->toBe(['cache' => 2, 'google' => 1, 'error' => 1]);
+});
+
+it('estimates the time left from this run\'s pace, and says how many trips the time limit will leave', function () {
+    fakePlanEnv('FAKE_PLAN_LEGS', '449');
+    Http::fake([
+        'https://pso-services.test/api/v2/routes/cached' => Http::response(['cached' => [], 'counts' => []]),
+        // every trip is a Google call: the key test takes 1 s, each chunk of 200 takes 300 s (1.5 s a trip)
+        'https://pso-services.test/api/v2/routes/compute' => static function (Request $request) {
+            $legs = $request->data()['legs'];
+            Carbon\Carbon::setTestNow(Carbon\Carbon::now()->addSeconds(count($legs) > 1 ? 300 : 1));
+
+            return Http::response(['results' => array_map(static fn (array $leg): array => ['id' => $leg['id'], 'durationSec' => 600, 'distanceKm' => 9.0, 'source' => 'google'], $legs), 'counts' => []]);
+        },
+    ]);
+    $progress = [];
+    $this->run::updating(static function ($run) use (&$progress): void {
+        $progress[] = $run->progress;
+    });
+    Carbon\Carbon::setTestNow(Carbon\Carbon::now());
+
+    try {
+        app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+    } finally {
+        Carbon\Carbon::setTestNow();
+    }
+
+    // after chunk 1 (t = 301 s): 250 trips at 1.5 s is 375 s; 720 - 301 - 270 = 149 s are left, so about 150 trips
+    $after = collect($progress)->firstWhere('label', 'Checking trips with Google: 200 of 450 trips');
+    expect($after['seconds_left'])->toBe(375)
+        ->and($after['details'])->toContain('About 7 min left; about 150 trips will not be checked before the time limit.');
 });

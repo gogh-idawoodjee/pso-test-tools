@@ -23,6 +23,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use JsonException;
 use RuntimeException;
@@ -58,6 +59,12 @@ class PlanTravelsTool implements Tool
 
     /** "3,562 legs built: 3,319 different trips to check with Google. ...", the first progress detail line. */
     private string $builtLine = '';
+
+    /** "3,309 already in the cache, 10 need Google", from the up-front cache lookup; blank when it failed. */
+    private string $cacheLine = '';
+
+    /** Trips the cache lookup said need Google, for the time-left estimate; null when the lookup failed. */
+    private ?int $needGoogle = null;
 
     /** The Google fields' defaults, also set when the toggle is switched on (a hidden field keeps no default). */
     private const GOOGLE_DEFAULTS = ['travel_mode' => 'DRIVE', 'routing_preference' => 'TRAFFIC_UNAWARE', 'review_minutes' => 20, 'review_pct' => 0];
@@ -277,7 +284,8 @@ class PlanTravelsTool implements Tool
         // allowed psott.routes.timeout. The deadline (tools.plan_travels.google_deadline_seconds) stops sending
         // chunks in time for the merge, so a slow Google step never loses the built legs.
         $unchecked = 0;
-        $google = $this->computeInChunks($context, $trips, $mode, $preference, 'Checking trips with Google', 'google', $unchecked);
+        $this->lookUpCache($context, $trips, $mode, $preference);
+        $google = $this->computeInChunks($context, $trips, $mode, $preference, 'Checking trips with Google', 'google', $unchecked, $this->needGoogle);
 
         // Trips pso-services did not attempt (it stopped after a key or quota error, or hit its time budget) go
         // once more; whatever comes back the second time is final. Skipped when the deadline already stopped us.
@@ -286,7 +294,7 @@ class PlanTravelsTool implements Tool
             if ($this->timeIsShort()) {
                 $unchecked = count($retry);
             } else {
-                $google = array_replace($google, $this->computeInChunks($context, $retry, $mode, $preference, 'Retrying trips Google did not check', 'google-retry', $unchecked));
+                $google = array_replace($google, $this->computeInChunks($context, $retry, $mode, $preference, 'Retrying trips Google did not check', 'google-retry', $unchecked, null));
             }
         }
 
@@ -302,13 +310,113 @@ class PlanTravelsTool implements Tool
         return [$google, $counts, $unchecked];
     }
 
+    /**
+     * Before the batches, as the Windows script does: how many trips the cache already answers, then one trip
+     * Google has to answer as a key test, so a refused key fails the Google step at once with Google's message
+     * (the built legs are kept). A failed lookup only costs the up-front line and the test.
+     *
+     * @param  array<string, array{origin: array{lat: float, lng: float}, destination: array{lat: float, lng: float}}>  $trips
+     *
+     * @throws PsoServicesRoutesException
+     */
+    private function lookUpCache(ToolContext $context, array $trips, string $mode, string $preference): void
+    {
+        $this->cacheLine = '';
+        $this->needGoogle = null;
+        if ($trips === []) {
+            return;
+        }
+        $context->reportProgress('Looking up trips in the Google cache', 0, null, 'google-cache', [$this->builtLine]);
+        try {
+            $cached = array_flip($this->routes->cached(self::legsFor($trips), $mode, $preference));
+        } catch (PsoServicesRoutesException $e) {
+            Log::warning('Plan travels: the Google cache lookup failed, checking without it', ['message' => $e->getMessage()]);
+
+            return;
+        }
+        $uncached = array_values(array_filter(array_keys($trips), static fn ($key): bool => ! isset($cached[(string) $key])));
+        $this->needGoogle = count($uncached);
+        $inCache = count($trips) - $this->needGoogle;
+        $this->cacheLine = $this->needGoogle === 0
+            ? 'All '.number_format($inCache).' '.Str::plural('trip', $inCache).' are already in the cache: no Google calls needed.'
+            : number_format($inCache).' already in the cache, '.number_format($this->needGoogle).' need Google.';
+        if ($uncached === []) {
+            return;
+        }
+
+        $context->reportProgress('Testing the Google key with one trip', 0, null, 'google-key', array_values(array_filter([$this->builtLine, $this->cacheLine])));
+        $first = (string) $uncached[0];
+        $answer = $this->routes->compute(self::legsFor([$first => $trips[$first]]), $mode, $preference)['results'][0]['error'] ?? null;
+        $reason = preg_replace('/^'.self::NOT_ATTEMPTED.': /', '', (string) $answer);
+        // Google's refusals of the key or the quota (pso-services: "HTTP <status>: <message>").
+        if (preg_match('/^HTTP (401|403|429)\b/', $reason) === 1 || (str_starts_with($reason, 'HTTP 400') && stripos($reason, 'API key') !== false)) {
+            throw new PsoServicesRoutesException('Google refused the key test: '.Str::limit($reason, 300));
+        }
+    }
+
+    /**
+     * @param  array<string, array{origin: array{lat: float, lng: float}, destination: array{lat: float, lng: float}}>  $trips
+     * @return list<array{id: string, origin: array{lat: float, lng: float}, destination: array{lat: float, lng: float}}>
+     */
+    private static function legsFor(array $trips): array
+    {
+        $legs = [];
+        foreach ($trips as $key => $trip) {
+            $legs[] = ['id' => (string) $key, 'origin' => $trip['origin'], 'destination' => $trip['destination']];
+        }
+
+        return $legs;
+    }
+
+    /** Seconds before the Google deadline, less the margin timeIsShort keeps. */
+    private function secondsAvailable(): float
+    {
+        return ($this->googleDeadline ?? Carbon::now())->getTimestamp() - Carbon::now()->getTimestamp() - self::margin();
+    }
+
+    private static function margin(): int
+    {
+        // pso-services gives up after its own 240 s budget, so 270 s is enough margin whatever the client timeout.
+        return min((int) config('psott.routes.timeout', 300), 270);
+    }
+
     /** True when less than the margin (the request timeout, at most 270 s) is left before the Google deadline. */
     private function timeIsShort(): bool
     {
-        $left = ($this->googleDeadline ?? Carbon::now())->getTimestamp() - Carbon::now()->getTimestamp();
+        return $this->secondsAvailable() < 0;
+    }
 
-        // pso-services gives up after its own 240 s budget, so 270 s is enough margin whatever the client timeout.
-        return $left < min((int) config('psott.routes.timeout', 300), 270);
+    /**
+     * "About 3 min left." from this run's own pace: seconds per Google call when the cache lookup said how many
+     * trips need Google, else seconds per batch. Says how many trips the deadline will leave unchecked.
+     *
+     * @return array{0: ?int, 1: string} seconds left and the detail line
+     */
+    private function timeLeft(float $elapsed, int $calls, ?int $needGoogle, int $batchesDone, int $batchesLeft, int $tripsLeft): array
+    {
+        if ($elapsed <= 0 || $batchesDone === 0 || $tripsLeft === 0) {
+            return [null, ''];
+        }
+        if ($needGoogle !== null) {
+            if ($calls === 0) {
+                return [null, ''];
+            }
+            $perCall = $elapsed / $calls;
+            $eta = max(0, $needGoogle - $calls) * $perCall;
+            $tripsPerSecond = 1 / $perCall;
+        } else {
+            $perBatch = $elapsed / $batchesDone;
+            $eta = $batchesLeft * $perBatch;
+            $tripsPerSecond = self::CHUNK / $perBatch;
+        }
+        $line = $eta < 60 ? 'Under a minute left.' : 'About '.number_format((int) ceil($eta / 60)).' min left.';
+        $available = max(0.0, $this->secondsAvailable());
+        if ($eta > $available) {
+            $short = min($tripsLeft, (int) (round(($eta - $available) * $tripsPerSecond / 10) * 10) ?: 10);
+            $line = rtrim($line, '.').'; about '.number_format($short).' '.Str::plural('trip', $short).' will not be checked before the time limit.';
+        }
+
+        return [(int) round($eta), $line];
     }
 
     /**
@@ -316,14 +424,16 @@ class PlanTravelsTool implements Tool
      * @param  int  $unchecked  increased by the trips left unsent because the deadline came
      * @return array<string, array<string, mixed>> route_key => the answer as google.json stores it
      */
-    private function computeInChunks(ToolContext $context, array $trips, string $mode, string $preference, string $label, string $stage, int &$unchecked): array
+    private function computeInChunks(ToolContext $context, array $trips, string $mode, string $preference, string $label, string $stage, int &$unchecked, ?int $needGoogle): array
     {
         $chunks = array_chunk($trips, self::CHUNK, true);
         $total = count($trips);
         $google = [];
         $done = 0;
+        $calls = 0;
         $counts = ['cache' => 0, 'google' => 0, 'error' => 0];
-        $this->reportChecking($context, $label, $stage, 0, $total, $counts, null);
+        $started = Carbon::now()->getPreciseTimestamp(3) / 1000;
+        $this->reportChecking($context, $label, $stage, 0, $total, $counts, null, [null, '']);
 
         foreach ($chunks as $i => $chunk) {
             if ($this->timeIsShort()) {
@@ -336,11 +446,7 @@ class PlanTravelsTool implements Tool
 
                 break;
             }
-            $legs = [];
-            foreach ($chunk as $key => $trip) {
-                $legs[] = ['id' => (string) $key, 'origin' => $trip['origin'], 'destination' => $trip['destination']];
-            }
-            $response = $this->routes->compute($legs, $mode, $preference);
+            $response = $this->routes->compute(self::legsFor($chunk), $mode, $preference);
 
             foreach ($response['results'] as $answer) {
                 $id = (string) ($answer['id'] ?? '');
@@ -365,6 +471,11 @@ class PlanTravelsTool implements Tool
                 if (isset($counts[$source])) {
                     $counts[$source]++;
                 }
+                // a trip Google answered, or answered with an error, was a Google call; cache hits and trips not
+                // attempted were not
+                if ($source === 'google' || ($source === 'error' && ! str_starts_with((string) $answer['error'], self::NOT_ATTEMPTED))) {
+                    $calls++;
+                }
                 // pso-services words Google's own refusals "HTTP <status>: <message>", also behind "Not attempted: ".
                 $reason = preg_replace('/^'.self::NOT_ATTEMPTED.': /', '', $answer['error'] ?? '');
                 if (str_starts_with($reason, 'HTTP ')) {
@@ -378,21 +489,29 @@ class PlanTravelsTool implements Tool
                 arsort($reasons);
                 $refusal = 'Google refused '.number_format(count($refusals)).' of the last '.number_format(count($chunk)).' trips: '.Str::limit((string) array_key_first($reasons), 200);
             }
-            $this->reportChecking($context, $label, $stage, $done, $total, $counts, $refusal);
+            $eta = $this->timeLeft(Carbon::now()->getPreciseTimestamp(3) / 1000 - $started, $calls, $needGoogle, $i + 1, count($chunks) - $i - 1, $total - $done);
+            $this->reportChecking($context, $label, $stage, $done, $total, $counts, $refusal, $eta);
         }
 
         return $google;
     }
 
-    /** "Checking trips with Google: 200 of 3,319 trips", with the legs built, the counts so far and any refusal under it. */
-    private function reportChecking(ToolContext $context, string $label, string $stage, int $done, int $total, array $counts, ?string $refusal): void
+    /**
+     * "Checking trips with Google: 200 of 3,319 trips", with the legs built, the up-front cache count, the counts
+     * so far, the time left and any refusal under it.
+     *
+     * @param  array{0: ?int, 1: string}  $eta  from timeLeft()
+     */
+    private function reportChecking(ToolContext $context, string $label, string $stage, int $done, int $total, array $counts, ?string $refusal, array $eta): void
     {
         $details = array_values(array_filter([
             $this->builtLine,
+            $this->cacheLine,
             $done > 0 ? 'So far: '.self::googleCounts($counts) : '',
+            $eta[1],
             (string) $refusal,
         ]));
-        $context->reportProgress("{$label}: ".number_format($done).' of '.number_format($total).' '.Str::plural('trip', $total), $total > 0 ? intdiv($done * 100, $total) : 100, null, "{$stage}-{$done}", $details);
+        $context->reportProgress("{$label}: ".number_format($done).' of '.number_format($total).' '.Str::plural('trip', $total), $total > 0 ? intdiv($done * 100, $total) : 100, $eta[0], "{$stage}-{$done}", $details);
     }
 
     /** @param array{legs: int, trips: int, no_coordinates: int, same_place: int} $counts */

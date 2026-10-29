@@ -80,3 +80,24 @@ it('sends the routes token header only when one is configured', function () {
     expect($requests[0][0]->hasHeader('X-PSO-Routes-Token'))->toBeFalse()
         ->and($requests[1][0]->header('X-PSO-Routes-Token'))->toBe(['shared-secret']);
 });
+
+it('asks pso-services which trips are cached, in calls of up to 5,000, and returns their ids', function () {
+    $legs = array_map(static fn (int $i): array => ['id' => "t{$i}", 'origin' => ['lat' => 50 + $i / 10000, 'lng' => -106.6], 'destination' => ['lat' => 52.2, 'lng' => -106.7]], range(1, 5001));
+    Http::fake(['https://pso-services.test/api/v2/routes/cached' => static fn ($request) => Http::response([
+        'cached' => array_values(array_filter(array_column($request->data()['legs'], 'id'), static fn (string $id): bool => in_array($id, ['t1', 't5001'], true))),
+        'counts' => [],
+    ])]);
+
+    expect(app(PsoServicesRoutesClient::class)->cached($legs, 'DRIVE', 'TRAFFIC_UNAWARE'))->toBe(['t1', 't5001']);
+    expect(array_map(static fn (array $pair): int => count($pair[0]['legs']), Http::recorded()->all()))->toBe([5000, 1]);
+});
+
+it('throws on a cache lookup that fails or has no ids', function (int $status, array $body, string $message) {
+    Http::fake(['https://pso-services.test/api/v2/routes/cached' => Http::response($body, $status)]);
+
+    expect(fn () => app(PsoServicesRoutesClient::class)->cached($this->legs, 'DRIVE', 'TRAFFIC_UNAWARE'))
+        ->toThrow(PsoServicesRoutesException::class, $message);
+})->with([
+    'not found' => [404, ['message' => 'Not found.'], 'Not found.'],
+    'no ids' => [200, ['counts' => []], 'The PSO services API answered without the cached trips.'],
+]);
