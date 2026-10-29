@@ -37,3 +37,9 @@ it('names the extensions and roots of the new kinds', function () {
         ->and(ExportKind::PsoEvents->getLabel())->toBe('PSO system events')
         ->and(ExportKind::AppointmentHistory->getLabel())->toBe('Appointment history');
 });
+
+it('fits every kind in the export_files.kind column (MySQL enforces the length, SQLite does not)', function () {
+    foreach (ExportKind::cases() as $kind) {
+        expect(strlen($kind->value))->toBeLessThanOrEqual(32);
+    }
+});
