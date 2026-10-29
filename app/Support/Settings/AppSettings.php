@@ -35,7 +35,7 @@ class AppSettings
         self::NOISE_EVENT_IDS => self::SHIPPED_NOISE_EVENT_IDS,
         self::COMPLETE_GRACE_HOURS => 24,
         self::FLAG_ACTIVITIES => 5,
-        self::FLAG_DELETIONS => 30,
+        self::FLAG_DELETIONS => 200,
         self::MESSAGE_TEXTS => null,
         self::PARAM_DEFINITIONS => null,
     ];

@@ -86,7 +86,7 @@ class Settings extends Page
                             ->maxValue(100000)
                             ->required(),
                         TextInput::make('flag_deletions')
-                            ->label('Flag a resource with this many deletions')
+                            ->label('Flag an input with this many deletions')
                             ->integer()
                             ->minValue(1)
                             ->maxValue(100000)

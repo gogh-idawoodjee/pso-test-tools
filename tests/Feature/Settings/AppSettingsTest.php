@@ -10,7 +10,7 @@ it('returns the shipped defaults when nothing is saved', function () {
     expect($settings->noiseEventIds())->toBe('3041,1767,2959,1964,1965,24578')
         ->and($settings->completeGraceHours())->toBe(24)
         ->and($settings->flagActivities())->toBe(5)
-        ->and($settings->flagDeletions())->toBe(30)
+        ->and($settings->flagDeletions())->toBe(200)
         ->and($settings->messageTexts())->toBeNull()
         ->and($settings->paramDefinitions())->toBeNull();
 });

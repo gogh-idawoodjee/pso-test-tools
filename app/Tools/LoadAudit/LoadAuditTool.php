@@ -66,7 +66,7 @@ class LoadAuditTool implements Tool
                 ->maxValue(100000)
                 ->default(static fn (): string|int => app(AppSettings::class)->flagActivities()),
             TextInput::make('options.flag_deletions')
-                ->label('Flag a resource with this many deletions')
+                ->label('Flag an input with this many deletions')
                 ->integer()
                 ->minValue(1)
                 ->maxValue(100000)
