@@ -27,7 +27,10 @@ class ToolContext
      * otherwise at most every 2 seconds, so a chatty tool does not hammer the database. RunToolJob
      * clears it when the run ends.
      */
-    public function reportProgress(string $label, ?int $percent = null, ?int $secondsLeft = null, ?string $stage = null): void
+    /**
+     * @param  list<string>  $details  lines shown under the label (only stored when there are some)
+     */
+    public function reportProgress(string $label, ?int $percent = null, ?int $secondsLeft = null, ?string $stage = null, array $details = []): void
     {
         $now = Carbon::now();
         $currentStage = $stage ?? $label;
@@ -35,7 +38,11 @@ class ToolContext
             return;
         }
 
-        $this->run->forceFill(['progress' => ['label' => $label, 'percent' => $percent, 'seconds_left' => $secondsLeft]])->save();
+        $progress = ['label' => $label, 'percent' => $percent, 'seconds_left' => $secondsLeft];
+        if ($details !== []) {
+            $progress['details'] = array_values($details);
+        }
+        $this->run->forceFill(['progress' => $progress])->save();
         $this->lastStage = $currentStage;
         $this->lastSavedAt = $now;
     }

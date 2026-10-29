@@ -59,4 +59,31 @@ final class TripKeys
 
         return $trips;
     }
+
+    /**
+     * What the progress line says before the Google check: legs, distinct trips to check, and the legs never
+     * sent (no usable coordinates, or the same place at both ends).
+     *
+     * @param  array<int, mixed>  $legs
+     * @return array{legs: int, trips: int, no_coordinates: int, same_place: int}
+     */
+    public static function legCounts(array $legs): array
+    {
+        $counts = ['legs' => 0, 'trips' => 0, 'no_coordinates' => 0, 'same_place' => 0];
+        foreach ($legs as $leg) {
+            if (! is_array($leg)) {
+                continue;
+            }
+            $counts['legs']++;
+            $key = $leg['route_key'] ?? null;
+            if (! is_string($key) || self::split($key) === null) {
+                $counts['no_coordinates']++;
+            } elseif (explode('|', $key)[0] === explode('|', $key)[1]) {
+                $counts['same_place']++;
+            }
+        }
+        $counts['trips'] = count(self::trips($legs));
+
+        return $counts;
+    }
 }

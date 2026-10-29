@@ -189,7 +189,7 @@ it('posts 450 distinct trips in chunks of 200, 200 and 50 and reports each chunk
     $ids = collect(Http::recorded())->flatMap(static fn (array $pair) => array_column($pair[0]['legs'], 'id'));
     expect($sizes)->toBe([200, 200, 50])
         ->and($ids->unique()->count())->toBe(450)
-        ->and($labels)->toContain('Building legs', 'Building legs: 0%', 'Checking trips with Google, 1 of 3', 'Checking trips with Google, 2 of 3', 'Checking trips with Google, 3 of 3', 'Merging Google results')
+        ->and($labels)->toContain('Building legs', 'Building legs: 0%', 'Checking trips with Google: 0 of 450 trips', 'Checking trips with Google: 200 of 450 trips', 'Checking trips with Google: 400 of 450 trips', 'Checking trips with Google: 450 of 450 trips', 'Merging Google results')
         // merge-google emits no progress lines (the real script never does), so its label carries no percent.
         ->and(collect($labels)->filter(static fn (?string $label): bool => str_starts_with((string) $label, 'Merging Google results: ')))->toBeEmpty()
         // The script's only stage is "reading"; its shared label names the audit messages, which would be wrong here.
@@ -420,3 +420,53 @@ it('words the Google counts in the summary line without zero counts', function (
     'no answers at all' => [['cache' => 0, 'google' => 0, 'error' => 4], '4 trips without an answer'],
     'nothing to check' => [['cache' => 0, 'google' => 0, 'error' => 0], 'no trips to check'],
 ]);
+
+it('shows the legs built, the trips done and the running Google counts while it checks', function () {
+    fakePlanEnv('FAKE_PLAN_LEGS', '449');
+    Http::fake(routesFake());
+    $progress = [];
+    $this->run::updating(static function ($run) use (&$progress): void {
+        $progress[] = $run->progress;
+    });
+
+    app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+
+    $built = '452 legs built: 450 different trips to check with Google. Not sent: 1 leg without coordinates.';
+    $checking = collect($progress)->filter(static fn (?array $p): bool => str_starts_with((string) ($p['label'] ?? ''), 'Checking trips with Google'))->values();
+    expect($checking->pluck('label')->all())->toBe([
+        'Checking trips with Google: 0 of 450 trips',
+        'Checking trips with Google: 200 of 450 trips',
+        'Checking trips with Google: 400 of 450 trips',
+        'Checking trips with Google: 450 of 450 trips',
+    ])
+        ->and($checking[0]['details'])->toBe([$built])
+        // The fixed legs' trip comes from Google, generated trip 0 has no route, the rest are cache hits.
+        ->and($checking[1]['details'])->toBe([$built, 'So far: 198 trips from the cache, 1 fetched and 1 without an answer'])
+        ->and($checking[3]['details'])->toBe([$built, 'So far: 448 trips from the cache, 1 fetched and 1 without an answer'])
+        ->and($checking->pluck('percent')->all())->toBe([0, 44, 88, 100]);
+});
+
+it('says what Google answered when it refuses trips', function () {
+    $refusal = 'HTTP 403: Routes API has not been used in project 1086455120179 before or it is disabled.';
+    Http::fake(['https://pso-services.test/api/v2/routes/compute' => static function (Request $request) use ($refusal) {
+        $results = [];
+        foreach ($request->data()['legs'] as $i => $leg) {
+            $results[] = ['id' => $leg['id'], 'error' => $i === 0 ? $refusal : 'Not attempted: '.$refusal];
+        }
+
+        return Http::response(['results' => $results, 'counts' => ['cache' => 0, 'google' => 0, 'error' => count($results)]]);
+    }]);
+    $progress = [];
+    $this->run::updating(static function ($run) use (&$progress): void {
+        $progress[] = $run->progress;
+    });
+
+    app(PlanTravelsTool::class)->run($this->context, $this->inputs, ['first_date' => '2026-10-05', 'google' => true]);
+
+    $after = collect($progress)->firstWhere('label', 'Checking trips with Google: 4 of 4 trips');
+    expect($after['details'])->toBe([
+        '6 legs built: 4 different trips to check with Google. Not sent: 1 leg without coordinates.',
+        'So far: 4 trips without an answer',
+        'Google refused 4 of the last 4 trips: '.$refusal,
+    ]);
+});

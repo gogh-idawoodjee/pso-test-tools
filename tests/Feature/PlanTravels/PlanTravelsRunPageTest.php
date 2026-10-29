@@ -85,3 +85,17 @@ it('downloads an empty JSON document when the page carries no data block', funct
         ->assertOk()
         ->assertExactJson([]);
 });
+
+it('shows the progress detail lines under the label while the run is going', function () {
+    $running = ToolRun::factory()->for($this->dataset, 'scope')->create([
+        'tool' => ToolId::PlanTravels, 'status' => ToolRunStatus::Running, 'result' => null, 'summary' => null,
+        'progress' => ['label' => 'Checking trips with Google: 200 of 3,319 trips', 'percent' => 6, 'seconds_left' => null, 'details' => [
+            '3,562 legs built: 3,319 different trips to check with Google.',
+            'So far: 198 trips from the cache, 1 fetched and 1 without an answer',
+        ]],
+    ]);
+
+    Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $running->id])
+        ->assertOk()
+        ->assertSeeInOrder(['Checking trips with Google: 200 of 3,319 trips', '3,562 legs built: 3,319 different trips to check with Google.', 'So far: 198 trips from the cache, 1 fetched and 1 without an answer']);
+});

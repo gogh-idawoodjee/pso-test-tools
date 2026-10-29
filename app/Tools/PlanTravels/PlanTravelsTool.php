@@ -56,6 +56,9 @@ class PlanTravelsTool implements Tool
     /** When the Google step must stop sending chunks, so the merge still runs inside RunToolJob's 900 s. */
     private ?Carbon $googleDeadline = null;
 
+    /** "3,562 legs built: 3,319 different trips to check with Google. ...", the first progress detail line. */
+    private string $builtLine = '';
+
     /** The Google fields' defaults, also set when the toggle is switched on (a hidden field keeps no default). */
     private const GOOGLE_DEFAULTS = ['travel_mode' => 'DRIVE', 'routing_preference' => 'TRAFFIC_UNAWARE', 'review_minutes' => 20, 'review_pct' => 0];
 
@@ -164,7 +167,9 @@ class PlanTravelsTool implements Tool
         $preference = array_key_exists((string) ($options['routing_preference'] ?? ''), self::ROUTING_PREFERENCES) ? (string) $options['routing_preference'] : 'TRAFFIC_UNAWARE';
 
         try {
-            [$google, $counts, $unchecked] = $this->checkWithGoogle($context, TripKeys::trips($built['data']['legs'] ?? []), $mode, $preference);
+            $legs = $built['data']['legs'] ?? [];
+            $this->builtLine = self::builtLine(TripKeys::legCounts(is_array($legs) ? $legs : []));
+            [$google, $counts, $unchecked] = $this->checkWithGoogle($context, TripKeys::trips(is_array($legs) ? $legs : []), $mode, $preference);
         } catch (PsoServicesRoutesException $e) {
             $partial = $this->result($built, $firstDate, $days, null);
 
@@ -314,8 +319,11 @@ class PlanTravelsTool implements Tool
     private function computeInChunks(ToolContext $context, array $trips, string $mode, string $preference, string $label, string $stage, int &$unchecked): array
     {
         $chunks = array_chunk($trips, self::CHUNK, true);
-        $total = count($chunks);
+        $total = count($trips);
         $google = [];
+        $done = 0;
+        $counts = ['cache' => 0, 'google' => 0, 'error' => 0];
+        $this->reportChecking($context, $label, $stage, 0, $total, $counts, null);
 
         foreach ($chunks as $i => $chunk) {
             if ($this->timeIsShort()) {
@@ -328,9 +336,6 @@ class PlanTravelsTool implements Tool
 
                 break;
             }
-            $number = $i + 1;
-            $context->reportProgress("{$label}, {$number} of {$total}", intdiv($i * 100, $total), null, "{$stage}-{$number}");
-
             $legs = [];
             foreach ($chunk as $key => $trip) {
                 $legs[] = ['id' => (string) $key, 'origin' => $trip['origin'], 'destination' => $trip['destination']];
@@ -352,9 +357,55 @@ class PlanTravelsTool implements Tool
             foreach (array_keys($chunk) as $key) {
                 $google[(string) $key] ??= ['error' => 'No answer from pso-services for this trip'];
             }
+
+            $refusals = [];
+            foreach (array_keys($chunk) as $key) {
+                $answer = $google[(string) $key];
+                $source = isset($answer['error']) ? 'error' : $answer['source'];
+                if (isset($counts[$source])) {
+                    $counts[$source]++;
+                }
+                // pso-services words Google's own refusals "HTTP <status>: <message>", also behind "Not attempted: ".
+                $reason = preg_replace('/^'.self::NOT_ATTEMPTED.': /', '', $answer['error'] ?? '');
+                if (str_starts_with($reason, 'HTTP ')) {
+                    $refusals[] = $reason;
+                }
+            }
+            $done += count($chunk);
+            $refusal = null;
+            if ($refusals !== []) {
+                $reasons = array_count_values($refusals);
+                arsort($reasons);
+                $refusal = 'Google refused '.number_format(count($refusals)).' of the last '.number_format(count($chunk)).' trips: '.Str::limit((string) array_key_first($reasons), 200);
+            }
+            $this->reportChecking($context, $label, $stage, $done, $total, $counts, $refusal);
         }
 
         return $google;
+    }
+
+    /** "Checking trips with Google: 200 of 3,319 trips", with the legs built, the counts so far and any refusal under it. */
+    private function reportChecking(ToolContext $context, string $label, string $stage, int $done, int $total, array $counts, ?string $refusal): void
+    {
+        $details = array_values(array_filter([
+            $this->builtLine,
+            $done > 0 ? 'So far: '.self::googleCounts($counts) : '',
+            (string) $refusal,
+        ]));
+        $context->reportProgress("{$label}: ".number_format($done).' of '.number_format($total).' '.Str::plural('trip', $total), $total > 0 ? intdiv($done * 100, $total) : 100, null, "{$stage}-{$done}", $details);
+    }
+
+    /** @param array{legs: int, trips: int, no_coordinates: int, same_place: int} $counts */
+    private static function builtLine(array $counts): string
+    {
+        $line = number_format($counts['legs']).' '.Str::plural('leg', $counts['legs']).' built: '
+            .number_format($counts['trips']).' different '.Str::plural('trip', $counts['trips']).' to check with Google.';
+        $notSent = array_filter([
+            $counts['no_coordinates'] > 0 ? number_format($counts['no_coordinates']).' '.Str::plural('leg', $counts['no_coordinates']).' without coordinates' : null,
+            $counts['same_place'] > 0 ? number_format($counts['same_place']).' '.($counts['same_place'] === 1 ? 'leg that starts and ends' : 'legs that start and end').' at the same place' : null,
+        ]);
+
+        return $notSent === [] ? $line : $line.' Not sent: '.Arr::join($notSent, ', ', ' and ').'.';
     }
 
     /** @return array{html: string, csv: string, data: array<string, mixed>} */

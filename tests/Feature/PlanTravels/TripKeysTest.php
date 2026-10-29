@@ -52,3 +52,17 @@ it('drops trips whose origin equals the destination', function () {
 
     expect(array_keys($trips))->toBe(['52.100000,-106.600000|52.200000,-106.600000']);
 });
+
+it('counts the legs, the trips to check and the legs that are not sent', function () {
+    $counts = TripKeys::legCounts([
+        tripLeg('52.100000,-106.500000|52.200000,-106.600000'),
+        tripLeg('52.100000,-106.500000|52.200000,-106.600000'),
+        tripLeg('52.300000,-106.500000|52.400000,-106.600000'),
+        tripLeg(null),
+        tripLeg('north,-106.500000|52.200000,-106.600000'),
+        tripLeg('52.100000,-106.600000|52.100000,-106.600000'),
+        'not a leg',
+    ]);
+
+    expect($counts)->toBe(['legs' => 6, 'trips' => 2, 'no_coordinates' => 2, 'same_place' => 1]);
+});

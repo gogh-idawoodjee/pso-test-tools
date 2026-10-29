@@ -101,10 +101,10 @@ it('joins a progress line that arrives in two chunks', function () {
         /** @var list<string> */
         public array $labels = [];
 
-        public function reportProgress(string $label, ?int $percent = null, ?int $secondsLeft = null, ?string $stage = null): void
+        public function reportProgress(string $label, ?int $percent = null, ?int $secondsLeft = null, ?string $stage = null, array $details = []): void
         {
             $this->labels[] = $label;
-            parent::reportProgress($label, $percent, $secondsLeft, $stage);
+            parent::reportProgress($label, $percent, $secondsLeft, $stage, $details);
         }
     };
 
