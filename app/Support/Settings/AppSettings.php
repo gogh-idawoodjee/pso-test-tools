@@ -13,6 +13,9 @@ class AppSettings
 {
     public const NOISE_EVENT_IDS = 'load_audit.noise_event_ids';
 
+    /** The engine's own default noise list (system_day.DEFAULT_NOISE), shown on the Settings page. */
+    public const SHIPPED_NOISE_EVENT_IDS = '3041,1767,2959,1964,1965,24578';
+
     public const COMPLETE_GRACE_HOURS = 'load_audit.complete_grace_hours';
 
     public const FLAG_ACTIVITIES = 'load_audit.flag_activities';
@@ -29,7 +32,7 @@ class AppSettings
     public const CACHE_SECONDS = 300;
 
     private const DEFAULTS = [
-        self::NOISE_EVENT_IDS => '3041,1767,2959,1964,1965,24578',
+        self::NOISE_EVENT_IDS => self::SHIPPED_NOISE_EVENT_IDS,
         self::COMPLETE_GRACE_HOURS => 24,
         self::FLAG_ACTIVITIES => 5,
         self::FLAG_DELETIONS => 30,

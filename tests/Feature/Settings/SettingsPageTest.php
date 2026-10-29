@@ -232,3 +232,9 @@ it('removes the stored definitions', function () {
     expect(Storage::disk('r2')->exists(SettingsFileStore::PARAM_DEFINITIONS))->toBeFalse()->and(app(AppSettings::class)->paramDefinitions())->toBeNull();
     $this->get(Settings::getUrl())->assertSee('uses the built-in definitions');
 });
+
+it('says that a blank noise list means no noise ids, and names the shipped list', function () {
+    Livewire::test(Settings::class)
+        ->assertSee('Leave blank to treat no event id as noise.')
+        ->assertSee('The shipped list is 3041, 1767, 2959, 1964, 1965, 24578.');
+});

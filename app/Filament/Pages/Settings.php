@@ -77,7 +77,7 @@ class Settings extends Page
                             ->required(),
                         TextInput::make('noise_event_ids')
                             ->label('Noise event ids')
-                            ->helperText('Event ids kept in the counts but left out of the lanes and findings')
+                            ->helperText('Event ids kept in the counts but left out of the lanes and findings. Leave blank to treat no event id as noise. The shipped list is '.implode(', ', explode(',', AppSettings::SHIPPED_NOISE_EVENT_IDS)).'.')
                             ->regex('/^\s*(\d+\s*(,\s*\d+\s*)*)?$/'),
                         TextInput::make('flag_activities')
                             ->label('Flag an appointment with this many activities')

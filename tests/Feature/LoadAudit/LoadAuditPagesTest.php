@@ -176,6 +176,7 @@ it('keeps a cleared noise ids field blank through the real wizard, so the run ge
     Livewire::test(LoadAuditEntry::class)
         ->fillForm(['where' => 'dataset'])
         ->assertFormSet(['options.noise_event_ids' => '3041,24578'])
+        ->assertSee('Filled in from Settings; leave blank to treat no event id as noise.')
         ->fillForm(['options' => ['noise_event_ids' => '']])
         ->call('start')
         ->assertHasNoFormErrors();

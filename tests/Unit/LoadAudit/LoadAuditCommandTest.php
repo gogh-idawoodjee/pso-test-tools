@@ -116,3 +116,11 @@ it('falls back to the settings flag thresholds when the options are absent', fun
     $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], [], 'UTC', null);
     expect($argv)->toContain('--flag-activities')->toContain('9')->toContain('--flag-deletions')->toContain('99');
 });
+
+it('passes only whole-number noise ids, whatever reaches the command', function () {
+    expect(LoadAuditCommand::normalisedIds(' 3041, abc ,1767,, 2.5, -1,24578 '))->toBe('3041,1767,24578')
+        ->and(LoadAuditCommand::normalisedIds('x, y'))->toBe('');
+
+    $argv = LoadAuditCommand::build(checkoutForCommand(), '/s', ['load' => '/s/l.xml', 'pso_events' => '/s/e.json'], ['noise_event_ids' => '12;rm,13'], 'UTC', null);
+    expect($argv)->toContain('13')->not->toContain('12;rm,13');
+});

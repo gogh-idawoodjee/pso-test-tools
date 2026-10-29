@@ -54,7 +54,7 @@ class LoadAuditTool implements Tool
                 ->default(static fn (): string|int => app(AppSettings::class)->completeGraceHours()),
             TextInput::make('options.noise_event_ids')
                 ->label('Noise event ids')
-                ->helperText('Event ids kept in the counts but left out of the lanes and findings')
+                ->helperText('Event ids kept in the counts but left out of the lanes and findings. Filled in from Settings; leave blank to treat no event id as noise.')
                 ->regex('/^\s*(\d+\s*(,\s*\d+\s*)*)?$/')
                 ->default(static fn (): string|int => app(AppSettings::class)->noiseEventIds())
                 // Filament turns '' into null on dehydrate; a cleared field must stay '' so it means "no noise ids", not "use the setting".

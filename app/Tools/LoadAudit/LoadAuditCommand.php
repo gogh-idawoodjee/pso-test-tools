@@ -107,8 +107,9 @@ class LoadAuditCommand
     }
 
     /** "3041, 1767 ,24578" becomes "3041,1767,24578". */
+    /** Whole-number event ids, comma separated; anything else is dropped, so only ids ever reach the engine. */
     public static function normalisedIds(string $list): string
     {
-        return implode(',', array_filter(array_map('trim', explode(',', $list)), static fn (string $id): bool => $id !== ''));
+        return implode(',', array_filter(array_map('trim', explode(',', $list)), static fn (string $id): bool => preg_match('/^\d+$/', $id) === 1));
     }
 }
