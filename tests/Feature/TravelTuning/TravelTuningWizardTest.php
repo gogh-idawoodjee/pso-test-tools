@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ExportFileStatus;
 use App\Enums\Tool as ToolId;
 use App\Filament\Pages\Tools\TravelTuningEntry;
 use App\Filament\Widgets\ToolCatalogue;
@@ -137,4 +138,20 @@ it('lists the user\'s Unfiled runs on Unfiled, and starts one there', function (
     $run = ToolRun::query()->where('tool', ToolId::TravelTuning)->sole();
     expect((string) $run->scope_id)->toBe((string) $this->user->getKey())
         ->and($run->sourceRuns()[1]['label'])->toBe('Run 1');
+});
+
+it('keeps checking while a SYS export is being read, and lists it in Polygons once it is', function () {
+    $reading = ExportFile::factory()->for($this->environment, 'scope')->sys()->create([
+        'original_filename' => 'PSO_Sys_pass_2.xml', 'status' => ExportFileStatus::Summarising, 'summary' => null,
+    ]);
+
+    $page = Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'dataset'])
+        ->assertSeeHtml('wire:poll.2s="$refresh"');
+
+    $reading->update(['status' => ExportFileStatus::Ready, 'summary' => ['polygon_count' => 12]]);
+
+    $page->call('$refresh')
+        // The drop zone is idle again, so the name can only come from the Polygons options.
+        ->assertSee('PSO_Sys_pass_2.xml')
+        ->assertDontSeeHtml('wire:poll.2s="$refresh"');
 });

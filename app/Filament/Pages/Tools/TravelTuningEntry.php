@@ -14,6 +14,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Group;
 use Filament\Schemas\Components\Livewire;
 use Filament\Schemas\Components\Text;
 use Filament\Schemas\Components\Utilities\Set;
@@ -94,10 +95,13 @@ class TravelTuningEntry extends ToolWizardPage
         }
         $sysOptions = app(RunInputPicker::class)->optionsForKind($scope, ExportKind::Sys);
         $sysScope = $scope instanceof Dataset ? $scope->environment : $scope;
+        // The drop zone polls only itself: re-render the step while a SYS export is read, so it joins the Polygons lists.
+        $sysReading = ExportFile::query()->where('scope_type', $sysScope->getMorphClass())->where('scope_id', (string) $sysScope->getKey())
+            ->where('kind', ExportKind::Sys)->pending()->exists();
 
         return [
             View::make('filament.pages.tools.travel-tuning-runs')->viewData(['rows' => $rows]),
-            Repeater::make('runs')
+            Group::make([Repeater::make('runs')
                 ->label('Runs in the report')
                 ->helperText('The first run is the baseline and the last is the final run. Use the arrows to change the order. A blank label becomes Baseline, Run 1, Run 2.')
                 ->schema([
@@ -128,7 +132,8 @@ class TravelTuningEntry extends ToolWizardPage
                 ->minItems(2)
                 ->maxItems(SourceRuns::MAX_RUNS)
                 ->defaultItems(2)
-                ->addActionLabel('Add a run'),
+                ->addActionLabel('Add a run')])
+                ->extraAttributes($sysReading ? ['wire:poll.2s' => '$refresh'] : []),
             Livewire::make(ExportDropZone::class, ['scope' => $sysScope, 'kinds' => [ExportKind::Sys], 'compact' => true])
                 ->key("drop-sys-{$sysScope->getKey()}"),
             Text::make('A new SYS export appears in the Polygons lists once it has been read. SYS exports are kept for '.(int) config('exports.ttl_hours', 12).' hours. A finished report keeps working after its plan travels runs and SYS exports are gone.')->color('gray'),
