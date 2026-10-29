@@ -25,7 +25,7 @@ it('shows the summary line, the legs, Review and Missing badges, both downloads 
     Livewire::test(ToolRunPage::class, ['scope' => 'datasets', 'scopeId' => $this->dataset->getRouteKey(), 'run' => $this->run->id])
         ->assertOk()
         ->assertSee('1,781 legs for 412 resources, 2026-10-05 to 2026-10-09')
-        ->assertSee('1,781 legs')->assertSee('37 to review')->assertSee('4 missing a time')
+        ->assertSee('1,781 legs')->assertSee('37 to review')->assertSee('4 missing a travel time')
         ->assertSee('Download CSV')->assertSee('Download JSON')
         ->assertSeeHtml(e(route('tool-runs.download-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run])))
         ->assertSeeHtml('sandbox="allow-scripts allow-downloads allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation"')

@@ -171,7 +171,7 @@ it('checks each distinct route key with Google once, writes google.json keyed by
         ->and($result->summary)->toBe([
             'leg_count' => 6, 'resource_count' => 5, 'review_count' => 2, 'missing_count' => 1,
             'first_date' => '2026-10-05', 'last_date' => '2026-10-05', 'days' => 1, 'google' => ['cache' => 2, 'google' => 1, 'error' => 1],
-            'line' => '6 legs for 5 resources, 2026-10-05; Google, by trip: 2 from the cache, 1 fetched, 1 without a Google answer',
+            'line' => '6 legs for 5 resources, 2026-10-05; Google: 2 trips from the cache, 1 fetched and 1 without an answer',
         ]);
 });
 
@@ -406,3 +406,17 @@ it('names an unfiled run after the plan export file', function () {
     $argv = planCalls($this->argsFile)[0]['argv'];
     expect($argv)->toContain('--dataset-name=north_plan_1005.xml');
 });
+
+it('words the Google counts in the summary line without zero counts', function (array $google, string $expected) {
+    $line = PlanTravelsTool::line(['leg_count' => 3562, 'resource_count' => 156, 'first_date' => '2026-10-28', 'last_date' => '2026-11-26', 'google' => $google]);
+
+    expect($line)->toBe('3,562 legs for 156 resources, 2026-10-28 to 2026-11-26; Google: '.$expected);
+})->with([
+    'all from the cache' => [['cache' => 3319, 'google' => 0, 'error' => 0], 'all 3,319 trips from the cache'],
+    'one trip, from the cache' => [['cache' => 1, 'google' => 0, 'error' => 0], '1 trip from the cache'],
+    'all three sources' => [['cache' => 3309, 'google' => 8, 'error' => 2], '3,309 trips from the cache, 8 fetched and 2 without an answer'],
+    'cache and fetched' => [['cache' => 233, 'google' => 5, 'error' => 0], '233 trips from the cache and 5 fetched'],
+    'none from the cache' => [['cache' => 0, 'google' => 1, 'error' => 3302], '1 trip fetched and 3,302 without an answer'],
+    'no answers at all' => [['cache' => 0, 'google' => 0, 'error' => 4], '4 trips without an answer'],
+    'nothing to check' => [['cache' => 0, 'google' => 0, 'error' => 0], 'no trips to check'],
+]);

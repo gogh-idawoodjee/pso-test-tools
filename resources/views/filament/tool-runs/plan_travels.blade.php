@@ -15,7 +15,7 @@
             <div class="flex flex-wrap gap-2 text-sm font-medium">
                 <x-filament::badge color="gray">{{ number_format((int) ($summary['leg_count'] ?? 0)) }} legs</x-filament::badge>
                 <x-filament::badge color="warning">{{ number_format((int) ($summary['review_count'] ?? 0)) }} to review</x-filament::badge>
-                <x-filament::badge color="danger">{{ number_format((int) ($summary['missing_count'] ?? 0)) }} missing a time</x-filament::badge>
+                <x-filament::badge color="danger">{{ number_format((int) ($summary['missing_count'] ?? 0)) }} missing a travel time</x-filament::badge>
             </div>
         </div>
         @if ($hasPage)

@@ -21,6 +21,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use JsonException;
@@ -397,18 +398,42 @@ class PlanTravelsTool implements Tool
         return new ToolResult(result: ['html' => $outputs['html'], 'csv' => $outputs['csv']], warnings: [...self::storedWarnings(is_array($warnings) ? $warnings : []), ...$extraWarnings], summary: $summary);
     }
 
-    /** "6 legs for 5 resources, 2026-10-05 to 2026-10-09; Google, by trip: 2 from the cache, 1 fetched, 1 without a Google answer" */
-    private static function line(array $summary): string
+    /** "6 legs for 5 resources, 2026-10-05 to 2026-10-09; Google: 2 trips from the cache, 1 fetched and 1 without an answer" */
+    public static function line(array $summary): string
     {
         $line = number_format($summary['leg_count']).' '.Str::plural('leg', $summary['leg_count'])
             .' for '.number_format($summary['resource_count']).' '.Str::plural('resource', $summary['resource_count']).', '
             .($summary['first_date'] === $summary['last_date'] ? $summary['first_date'] : "{$summary['first_date']} to {$summary['last_date']}");
 
         if ($summary['google'] !== null) {
-            $g = $summary['google'];
-            $line .= '; Google, by trip: '.number_format($g['cache']).' from the cache, '.number_format($g['google']).' fetched, '.number_format($g['error']).' without a Google answer';
+            $line .= '; Google: '.self::googleCounts($summary['google']);
         }
 
         return $line;
+    }
+
+    /** Counts by trip, zero counts left out: "all 3,319 trips from the cache", "233 trips from the cache and 5 fetched". */
+    private static function googleCounts(array $g): string
+    {
+        $total = $g['cache'] + $g['google'] + $g['error'];
+        if ($total === 0) {
+            return 'no trips to check';
+        }
+        if ($g['cache'] === $total) {
+            return ($total > 1 ? 'all ' : '').number_format($total).' '.Str::plural('trip', $total).' from the cache';
+        }
+
+        $parts = array_filter([
+            'from the cache' => $g['cache'],
+            'fetched' => $g['google'],
+            'without an answer' => $g['error'],
+        ]);
+        $phrases = [];
+        foreach ($parts as $what => $count) {
+            // The first count carries the noun: "8 trips fetched and 2 without an answer".
+            $phrases[] = number_format($count).($phrases === [] ? ' '.Str::plural('trip', $count) : '').' '.$what;
+        }
+
+        return Arr::join($phrases, ', ', ' and ');
     }
 }
