@@ -2,7 +2,7 @@
     "$schema": "https://getcomposer.org/schema.json",
     "name": "laravel/laravel",
     "type": "project",
-    "description": "PSO Test Tools - A Laravel-based testing and management application.",
+    "description": "Jam Session: tools for IFS PSO.",
     "keywords": [
         "laravel",
         "filament",

@@ -1,4 +1,6 @@
-# PSO Test Tools
+# Jam Session
+
+Tools for IFS PSO
 
 A web app for IFS Cloud PSO (Planning and Scheduling Optimization) consultants. It has two families of tools.
 

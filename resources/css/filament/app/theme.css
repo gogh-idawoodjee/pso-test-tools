@@ -160,7 +160,7 @@ pre {
     color: var(--pso-bone);
 }
 
-/* On a light background (the sign-in card) the wordmark turns violet and TEST TOOLS gets a lime box. */
+/* On a light background (the sign-in card) the wordmark turns violet and SESSION gets a lime box. */
 .fi-simple-header .brand {
     align-items: center;
     gap: 6px;
