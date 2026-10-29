@@ -85,7 +85,7 @@ it('is registered as a wizard-only tool that takes runs', function () {
         ->and($tool->requiredKinds())->toBe([])
         ->and($tool->optionalKinds())->toBe([])
         ->and($tool->needs())->toBe('Needs two or more Plan travels runs checked with Google')
-        ->and($tool->privateOptionKeys())->toBe(['title', 'client', 'dataset', 'notes'])
+        ->and($tool->privateOptionKeys())->toBe(['title', 'client', 'dataset', 'notes', 'summary'])
         ->and($tool->privateRunKeys())->toBe(['label']);
 });
 
@@ -130,6 +130,18 @@ it('writes the notes for the script when there are some, from the encrypted inpu
     expect($call['argv'])->toContain('--notes')
         ->and($call['notes'])->toBe("## Round 2\n- **Corridors** tightened\n")
         ->and(DB::table('tool_runs')->where('id', $run->id)->value('inputs'))->not->toContain('Corridors');
+});
+
+it('writes the summary for the script when there is one, and passes the audience', function () {
+    $run = runTuningJob(tuningRun($this->dataset, [
+        ['run_id' => $this->base->id, 'label' => 'Baseline', 'sys_file_id' => null],
+        ['run_id' => $this->final->id, 'label' => 'Run 1', 'sys_file_id' => null],
+    ], ['summary' => "Round 2 is ready for UAT.\n\nWatch G051 in week one.", 'audience' => 'Client']));
+
+    $call = tuningCalls($this->argsFile)[0];
+    expect($call['argv'])->toContain('--summary', '--audience=Client')
+        ->and($call['summary'])->toBe("Round 2 is ready for UAT.\n\nWatch G051 in week one.\n")
+        ->and(DB::table('tool_runs')->where('id', $run->id)->value('inputs'))->not->toContain('Watch G051');
 });
 
 it('fails in plain words when the script stops, and deletes the SYS copy at once', function () {

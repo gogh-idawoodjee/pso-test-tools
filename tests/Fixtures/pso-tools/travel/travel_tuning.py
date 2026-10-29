@@ -33,8 +33,10 @@ for r in rows:
             entry['polygon_rows'] = fh.read().count('<Polygon>')
     seen.append(entry)
 notes = arg('--notes')
+summary = arg('--summary')
 record = {'argv': sys.argv[1:], 'cwd': os.getcwd(), 'rows': seen,
-          'notes': open(notes, encoding='utf-8').read() if notes else None}
+          'notes': open(notes, encoding='utf-8').read() if notes else None,
+          'summary': open(summary, encoding='utf-8').read() if summary else None}
 log = os.environ.get('FAKE_TUNING_ARGS_FILE')
 if log:
     with open(log, 'a') as fh:

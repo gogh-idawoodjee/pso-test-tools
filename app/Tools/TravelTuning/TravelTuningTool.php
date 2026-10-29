@@ -71,7 +71,7 @@ class TravelTuningTool implements KeepsInputsPrivate, TakesRunInputs, Tool, Wiza
 
     public function privateOptionKeys(): array
     {
-        return ['title', 'client', 'dataset', 'notes'];
+        return ['title', 'client', 'dataset', 'notes', 'summary'];
     }
 
     public function privateRunKeys(): array
@@ -96,6 +96,11 @@ class TravelTuningTool implements KeepsInputsPrivate, TakesRunInputs, Tool, Wiza
                 TextInput::make('options.region_label')->label('Region label')->helperText('What the page calls a region, as in "Region summary". Filled in from the dataset\'s Region label setting, else Region.')->default('Region')->maxLength(20)->required(),
             ]),
             Select::make('options.tiles')->label('Map tiles')->options(TravelTuningCommand::TILES)->default('esri-gray')->native(false)->required(),
+            Select::make('options.audience')->label('Audience')->options(TravelTuningCommand::AUDIENCES)->default('Internal')->native(false)->required()
+                ->helperText('Client leaves out the merged and GPS fix checks, the builder notes and export warnings, shows the timeline only with three or more runs, and shortens the still-flagged list.'),
+            Textarea::make('options.summary')->label('Summary')
+                ->helperText('A short paragraph shown under the headline cards; a blank line starts a new paragraph. Left blank, a Client report gets one written from the numbers. Stored with the run.')
+                ->rows(3)->maxLength(5000),
             Textarea::make('options.notes')->label('Consultant notes')
                 ->helperText('Markdown: headings, lists, tables, bold, italics, code and links. Shown on the page under Consultant notes. Stored with the run.')
                 ->rows(6)->maxLength(20000),
@@ -146,8 +151,13 @@ class TravelTuningTool implements KeepsInputsPrivate, TakesRunInputs, Tool, Wiza
                 throw new RuntimeException('The notes could not be written for the report.');
             }
 
+            $summary = trim((string) ($options['summary'] ?? ''));
+            if ($summary !== '' && file_put_contents($workDir.'/'.TravelTuningCommand::SUMMARY, $summary."\n") === false) {
+                throw new RuntimeException('The summary could not be written for the report.');
+            }
+
             $generated = Carbon::now($context->timeZone)->format('Y-m-d H:i');
-            $argv = TravelTuningCommand::build($checkout, $workDir, $options, $generated, $notes !== '');
+            $argv = TravelTuningCommand::build($checkout, $workDir, $options, $generated, $notes !== '', $summary !== '');
             $context->reportProgress('Building the report', 20, null, 'build');
             ScriptRun::execute($context, $workDir, $argv, (int) config('tools.travel_tuning.timeout_seconds', 600), 'The travel tuning report', redact: $redact);
         } finally {

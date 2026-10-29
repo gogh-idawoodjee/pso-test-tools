@@ -14,6 +14,11 @@ class TravelTuningCommand
 
     public const NOTES = 'notes.md';
 
+    public const SUMMARY = 'summary.txt';
+
+    /** Who the page is for: Client leaves out export checks, builder notes and parsing warnings. */
+    public const AUDIENCES = ['Internal' => 'Internal (consultants)', 'Client' => 'Client (for the customer to read)'];
+
     public const OUT_HTML = 'travel_tuning.html';
 
     public const OUT_JSON = 'travel_tuning.json';
@@ -35,7 +40,7 @@ class TravelTuningCommand
      * @param  array<string, mixed>  $options
      * @return list<string>
      */
-    public static function build(PsoToolsCheckout $checkout, string $workDir, array $options, string $generated, bool $withNotes): array
+    public static function build(PsoToolsCheckout $checkout, string $workDir, array $options, string $generated, bool $withNotes, bool $withSummary = false): array
     {
         $dir = rtrim($workDir, '/');
         $argv = [
@@ -60,9 +65,14 @@ class TravelTuningCommand
         }
         $tiles = (string) ($options['tiles'] ?? '');
         $argv[] = '--tiles='.(array_key_exists($tiles, self::TILES) ? $tiles : 'esri-gray');
+        $audience = (string) ($options['audience'] ?? '');
+        $argv[] = '--audience='.(array_key_exists($audience, self::AUDIENCES) ? $audience : 'Internal');
 
         if ($withNotes) {
             array_push($argv, '--notes', $dir.'/'.self::NOTES);
+        }
+        if ($withSummary) {
+            array_push($argv, '--summary', $dir.'/'.self::SUMMARY);
         }
 
         return $argv;

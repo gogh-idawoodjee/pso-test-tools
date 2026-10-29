@@ -18,8 +18,16 @@ it('passes the manifest, outputs, template, generated time, options and defaults
         '--template', $this->root.'/travel/travel_tuning_template.html', '--generated', '2026-10-18 09:30',
         '--title=Travel Tuning Report', '--client=SaskTel', '--dataset=North', '--region-label=Territory',
         '--review-minutes=20', '--small-minutes=5', '--model-tol-min=1', '--model-tol-pct=5', '--long-leg-km=300',
-        '--tiles=esri-gray',
+        '--tiles=esri-gray', '--audience=Internal',
     ]);
+});
+
+it('passes the audience, Internal unless Client is chosen, and the summary file when there is one', function () {
+    $build = static fn (array $options, bool $summary) => TravelTuningCommand::build(PsoToolsCheckout::fromConfig(), '/work', $options, '2026-10-18 09:30', false, $summary);
+
+    expect($build(['audience' => 'Client'], true))->toContain('--audience=Client', '--summary', '/work/summary.txt')
+        ->and($build(['audience' => 'client; rm -rf'], false))->toContain('--audience=Internal')
+        ->and(implode(' ', $build([], false)))->toContain('--audience=Internal')->not->toContain('--summary');
 });
 
 it('keeps text that starts with a dash, folds newlines, drops blanks and falls back on bad numbers and tiles', function () {
