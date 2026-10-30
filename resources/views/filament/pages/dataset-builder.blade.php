@@ -10,7 +10,16 @@
             <div class="space-y-6 text-sm">
                 <div class="flex flex-wrap gap-3">
                     {{ $this->downloadAction }}
+                    {{ $this->downloadModellingAction }}
                 </div>
+
+                @if ($summary['modelling'] ?? null)
+                    <p class="text-gray-600 dark:text-gray-400">
+                        Modelling data: <span class="font-mono text-gray-950 dark:text-white">{{ $summary['modelling']['file'] }}</span>,
+                        {{ number_format($summary['modelling']['bytes'] / 1024, 0) }} KB:
+                        {{ collect($summary['modelling']['counts'])->map(fn (int $count, string $entity): string => number_format($count).' '.$entity)->implode(', ') }}.
+                    </p>
+                @endif
 
                 <div>
                     <h3 class="mb-2 font-medium text-gray-950 dark:text-white">Resources by region and type ({{ $summary['resources'] }})</h3>

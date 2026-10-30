@@ -2,7 +2,7 @@
 
 namespace App\Support\DatasetBuilder\Spec;
 
-/** One resource type: its weekly shift pattern (local times), its break and its costs. */
+/** One resource type: its weekly shift pattern (local times), its break, its costs and its planner Gantt colour. */
 readonly class ResourceTypeSpec
 {
     /**
@@ -25,6 +25,7 @@ readonly class ResourceTypeSpec
         public float $costPhot,
         public float $costKm,
         public int $utilisation,
+        public string $shiftCategoryColour,
     ) {}
 
     public function startsAtDepot(): bool

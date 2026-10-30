@@ -5,6 +5,7 @@
   "seed": 1941,
   "base_time_zone": "America/Toronto",
   "horizon_days": 100,
+  "modelling": true,
   "activity_cap": 250,
   "input_reference": {
     "duration": "P7D",
@@ -70,7 +71,8 @@
       "cost_ph": 45,
       "cost_phot": 68,
       "cost_km": 0.6,
-      "utilisation": 100
+      "utilisation": 100,
+      "shift_category_colour": "#FF0087C1"
     },
     "SENIOR_TECH": {
       "description": "Senior Technician",
@@ -97,7 +99,8 @@
       "cost_ph": 65,
       "cost_phot": 98,
       "cost_km": 0.6,
-      "utilisation": 90
+      "utilisation": 90,
+      "shift_category_colour": "#FF6A1B9A"
     },
     "INSTALLER": {
       "description": "Installer (4x10)",
@@ -123,7 +126,8 @@
       "cost_ph": 50,
       "cost_phot": 75,
       "cost_km": 0.6,
-      "utilisation": 100
+      "utilisation": 100,
+      "shift_category_colour": "#FF2E7D32"
     },
     "CONTRACTOR": {
       "description": "Contractor",
@@ -150,7 +154,8 @@
       "cost_ph": 120,
       "cost_phot": 180,
       "cost_km": 1.1,
-      "utilisation": 100
+      "utilisation": 100,
+      "shift_category_colour": "#FFEF6C00"
     }
   },
   "regions": [

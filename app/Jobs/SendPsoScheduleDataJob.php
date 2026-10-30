@@ -60,6 +60,8 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
         public string $accountId,
         public string $username,
         #[SensitiveParameter] public string $password,
+        // Set when this upload must follow another (the Dataset Builder's LOAD after its modelling data): sent only if that one succeeded.
+        public ?string $afterUploadId = null,
     ) {}
 
     public function handle(): void
@@ -78,6 +80,16 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
             $this->failUpload($upload, 'The stored location of this upload is not a valid gateway upload path, so nothing was sent to PSO.');
 
             return;
+        }
+
+        if ($this->afterUploadId !== null) {
+            $before = PsoGatewayUpload::query()->find($this->afterUploadId);
+
+            if ($before?->status !== PsoGatewayUploadStatus::SUCCEEDED) {
+                $this->failUpload($upload, 'Not sent: the upload before it ('.($before->original_filename ?? 'unknown').') did not succeed, and this file depends on it.');
+
+                return;
+            }
         }
 
         $log = app(UploadRunLog::class, ['upload' => $upload]);
@@ -113,7 +125,8 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
                 $log->sub('Extracted '.basename($rawPath).' from the zip ('.$this->megabytes((int) filesize($rawPath)).' MB)');
             }
 
-            $format = str_ends_with(strtolower($rawPath), '.xml') ? 'xml' : 'json';
+            // .arp is PSO's modelling data (DsModelling) in XML.
+            $format = preg_match('/\.(xml|arp)\z/i', $rawPath) === 1 ? 'xml' : 'json';
             $contentType = $format === 'xml' ? 'application/xml' : 'application/json';
             $log->sub("Content type     : {$contentType} (from extension)");
 

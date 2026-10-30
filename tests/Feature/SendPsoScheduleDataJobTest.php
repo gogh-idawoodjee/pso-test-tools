@@ -1209,3 +1209,55 @@ it('says so when the file has no Input_Reference to mark', function () {
         ->toContain('No Input_Reference in the file - nothing to mark as sent from PSO Test Tools.')
         ->toContain('sending the file exactly as uploaded');
 });
+
+it('sends a Dataset Builder .arp as XML, exactly as it is', function () {
+    $arp = '<?xml version="1.0" encoding="UTF-8"?>'."\n".'<DsModelling xmlns="http://360Scheduling.com/Schema/DsModelling.xsd"><RAM_Division><id>CHI</id></RAM_Division></DsModelling>'."\n";
+    Storage::disk('r2')->put('gateway-uploads/modelling.xml', $arp);
+
+    $environment = Environment::factory()->create();
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'stored_path' => 'gateway-uploads/modelling.xml',
+        'original_filename' => '20261030-1530-stage1r.arp',
+        'skip_webhook' => true,
+        'status' => PsoGatewayUploadStatus::QUEUED,
+    ]);
+
+    Http::fake([
+        ...PsoServicesFake::session(),
+        '*/scheduling/data' => Http::response(['InternalId' => '1857055'], 200),
+    ]);
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password'))->handle();
+
+    expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+
+    Http::assertSent(static fn ($request): bool => str_contains((string) $request->url(), '/scheduling/data')
+        && $request->hasHeader('Content-Type', 'application/xml')
+        && gzdecode($request->body()) === $arp);
+});
+
+it('does not send an upload that follows one that failed', function () {
+    Storage::disk('r2')->put('gateway-uploads/load.xml', '<dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd"/>');
+
+    $environment = Environment::factory()->create();
+    $before = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'original_filename' => '20261030-1530-stage1r.arp',
+        'status' => PsoGatewayUploadStatus::FAILED,
+    ]);
+    $upload = PsoGatewayUpload::factory()->for($environment, 'environment')->create([
+        'stored_path' => 'gateway-uploads/load.xml',
+        'original_filename' => '20261030-1530-stage1.xml',
+        'skip_webhook' => true,
+        'status' => PsoGatewayUploadStatus::QUEUED,
+    ]);
+
+    Http::fake();
+
+    (new SendPsoScheduleDataJob($upload->id, 'https://example.test', 'acc-1', 'test-user', 'secret-password', afterUploadId: $before->id))->handle();
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::FAILED)
+        ->and($upload->error_message)->toContain('20261030-1530-stage1r.arp')->toContain('did not succeed');
+    Http::assertNothingSent();
+});

@@ -6,38 +6,41 @@ use App\Support\DatasetBuilder\Spec\DatasetSpec;
 use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Facades\File;
-use Random\Engine\Mt19937;
-use Random\Randomizer;
 
 /**
  * Stage 1 of the Dataset Builder: a LOAD with regions, locations, skills,
  * resource types, the commit rule set, resources, their regions, skills and
  * extra-region availability, shifts, breaks and object groups. No activities.
+ * Stage 1R: when the spec says `modelling`, the matching modelling data
+ * (ModellingData, an .arp) from the same model, and a Source_Data RAM block at
+ * the end of the LOAD.
  *
  * Entities go out in the cheat sheet's emit order
- * (docs/dataset-builder/stage1-entity-cheatsheet.md). The same spec, seed and
- * `now` give a byte-identical file: every random draw comes from one seeded
- * engine, in spec order.
+ * (docs/dataset-builder/stage1-entity-cheatsheet.md). A resource carries only
+ * what its type does not, plus the seed's `overrides`. The same spec, seed and
+ * `now` give byte-identical files: every random draw comes from one seeded
+ * engine, in spec order (DatasetModel).
  */
 class DatasetGenerator
 {
     public const string STAGE = 'stage1';
 
+    public const string MODELLING_STAGE = 'stage1r';
+
     public function generate(DatasetSpec $spec, DateTimeImmutable $now, ?string $directory = null): GeneratedDataset
     {
-        $now = $now->setTimezone(new DateTimeZone('UTC'));
+        $model = DatasetModel::build($spec, $now);
+        $now = $model->now;
         $directory ??= storage_path("app/datasets/{$spec->datasetId}");
         File::ensureDirectoryExists($directory);
         $path = $directory.'/'.$now->format('Ymd-Hi').'-'.self::STAGE.'.xml';
 
-        $random = new Randomizer(new Mt19937($spec->seed));
-        $locations = new LocationFactory($random);
         $writer = new DsScheduleDataWriter($path);
         $summary = new DatasetSummary($spec, $now);
 
         $writer->row('Input_Reference', [
             'datetime' => $now->format('Y-m-d\TH:i:sP'),
-            'id' => (string) $now->getTimestamp(),
+            'id' => $model->updateId(),
             'input_type' => 'LOAD',
             'organisation_id' => $spec->organisationId,
             'dataset_id' => $spec->datasetId,
@@ -52,16 +55,8 @@ class DatasetGenerator
             $writer->row('Region', ['id' => $region->id, 'description' => $region->description]);
         }
 
-        foreach ($spec->regions as $region) {
-            if ($region->depot !== null) {
-                $writer->row('Location', LocationFactory::depot($region));
-            }
-        }
-
-        foreach ($spec->resources as $resource) {
-            if (! $spec->resourceTypes[$resource->resourceType]->startsAtDepot()) {
-                $writer->row('Location', $locations->home($resource, $spec->regions[$resource->region]));
-            }
+        foreach ($model->locations as $location) {
+            $writer->row('Location', $location);
         }
 
         foreach ($spec->skills as $id => $description) {
@@ -75,9 +70,9 @@ class DatasetGenerator
                 'travel_to' => $type->travelTo,
                 'travel_from' => $type->travelFrom,
                 'max_travel' => $type->maxTravel,
-                'cost_ph' => self::number($type->costPh),
-                'cost_phot' => self::number($type->costPhot),
-                'cost_km' => self::number($type->costKm),
+                'cost_ph' => Decimal::format($type->costPh),
+                'cost_phot' => Decimal::format($type->costPhot),
+                'cost_km' => Decimal::format($type->costKm),
                 'speedfactor' => '1',
                 'utilisation' => (string) $type->utilisation,
                 'out_of_region_multiplier' => '0',
@@ -89,22 +84,17 @@ class DatasetGenerator
 
         foreach ($spec->resources as $resource) {
             $type = $spec->resourceTypes[$resource->resourceType];
-            $start = $type->startsAtDepot() ? "D-{$resource->region}" : "H-{$resource->id}";
+            $start = $model->startLocation($resource);
 
+            // The type carries class, travel, costs and utilisation; the resource only its own exceptions.
             $writer->row('Resources', [
                 'id' => $resource->id,
                 'first_name' => $resource->firstName,
                 'surname' => $resource->surname,
                 'resource_type_id' => $type->id,
-                'resource_class_id' => 'STANDARD',
                 'location_id_start' => $start,
                 'location_id_end' => $start,
-                'travel_to' => $type->travelTo,
-                'travel_from' => $type->travelFrom,
-                'cost_ph' => self::number($type->costPh),
-                'cost_phot' => self::number($type->costPhot),
-                'cost_km' => self::number($type->costKm),
-                'utilisation' => (string) ($resource->utilisation ?? $type->utilisation),
+                ...$resource->overrides,
                 'rule_collection_id' => $spec->ruleCollection['id'],
                 'memo' => '*',
             ]);
@@ -129,7 +119,7 @@ class DatasetGenerator
             $type = $spec->resourceTypes[$resource->resourceType];
             $region = $spec->regions[$resource->region];
 
-            foreach (ShiftFactory::shifts($resource, $type, $region, $now, $spec->horizonDays, $resource->utilisation ?? $type->utilisation) as $shift) {
+            foreach (ShiftFactory::shifts($resource, $type, $region, $now, $spec->horizonDays) as $shift) {
                 $writer->row('Shift', $shift['shift']);
                 $breaks[] = $shift['break'];
                 $summary->shift($resource, $type, $region, $shift);
@@ -148,9 +138,26 @@ class DatasetGenerator
             ]);
         }
 
-        $bytes = $writer->finish();
+        if ($spec->modelling) {
+            // The LOAD's shifts and resources stay; this tells PSO the dataset also has modelling data.
+            $writer->row('Source_Data', ['source_data_type_id' => 'RAM', 'sequence' => '1']);
+            $writer->row('Source_Data_Parameter', [
+                'source_data_type_id' => 'RAM',
+                'sequence' => '1',
+                'parameter_name' => 'rota_id',
+                'parameter_value' => $spec->datasetId,
+            ]);
+        }
 
-        return new GeneratedDataset($path, $bytes, $summary->toArray($path, $bytes));
+        $bytes = $writer->finish();
+        $modelling = null;
+
+        if ($spec->modelling) {
+            $modellingPath = $directory.'/'.$now->format('Ymd-Hi').'-'.self::MODELLING_STAGE.'.arp';
+            $modelling = ['path' => $modellingPath, ...ModellingData::write($model, $modellingPath)];
+        }
+
+        return new GeneratedDataset($path, $bytes, $summary->toArray($path, $bytes, $modelling), $modelling['path'] ?? null);
     }
 
     private function writeRuleSet(DsScheduleDataWriter $writer, DatasetSpec $spec): void
@@ -200,11 +207,5 @@ class DatasetGenerator
         foreach ($links as $link) {
             $writer->row('Resource_Region_Availability', $link);
         }
-    }
-
-    /** 45 -> "45", 0.6 -> "0.6": no trailing zeros, never scientific notation. */
-    private static function number(float $value): string
-    {
-        return rtrim(rtrim(number_format($value, 6, '.', ''), '0'), '.');
     }
 }

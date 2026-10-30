@@ -2,6 +2,7 @@
 
 namespace App\Support\DatasetBuilder\Spec;
 
+use App\Support\DatasetBuilder\Decimal;
 use App\Support\DatasetBuilder\InvalidDatasetSpec;
 use DateInterval;
 use DateTimeImmutable;
@@ -12,12 +13,32 @@ use Throwable;
 /**
  * A Dataset Builder seed spec (resources/datasets/{id}.json), validated. Stage 1
  * reads regions, skills, resource types, resources and the commit rule set;
- * everything else in the file (`_later_stages`, `activity_cap`, the regions'
- * `appointment_templates`) is kept in the JSON for later stages and ignored here.
+ * stage 1R adds `modelling` (also write the .arp) and each type's
+ * `shift_category_colour`. Everything else in the file (`_later_stages`,
+ * `activity_cap`, the regions' `appointment_templates`) is kept in the JSON for
+ * later stages and ignored here.
  */
 readonly class DatasetSpec
 {
     public const int MAX_ID_LENGTH = 32;
+
+    /** What a resource's `overrides` may set, and how each is checked; in the Resources field order of the cheat sheet. */
+    public const array OVERRIDABLE = [
+        'travel_to' => 'duration',
+        'travel_from' => 'duration',
+        'cost_ph' => 'number',
+        'cost_phot' => 'number',
+        'cost_km' => 'number',
+        'utilisation' => 'number',
+    ];
+
+    /** The stage 1R cheat sheet's planner colours (ARGB), for a type with no `shift_category_colour`. */
+    public const array SHIFT_CATEGORY_COLOURS = [
+        'FIELD_TECH' => '#FF0087C1',
+        'SENIOR_TECH' => '#FF6A1B9A',
+        'INSTALLER' => '#FF2E7D32',
+        'CONTRACTOR' => '#FFEF6C00',
+    ];
 
     /**
      * @param  array{duration: string, appointment_window_duration: string, process_type: string}  $inputReference
@@ -40,6 +61,7 @@ readonly class DatasetSpec
         public array $skills,
         public array $resourceTypes,
         public array $resources,
+        public bool $modelling,
     ) {}
 
     public static function fromFile(string $path): self
@@ -139,6 +161,12 @@ readonly class DatasetSpec
             $parameters[(string) $name] = is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
         }
 
+        $modelling = $data['modelling'] ?? true;
+
+        if (! is_bool($modelling)) {
+            throw new InvalidDatasetSpec('modelling must be true or false.');
+        }
+
         $seed = $data['seed'] ?? null;
 
         if (! is_int($seed)) {
@@ -158,6 +186,7 @@ readonly class DatasetSpec
             skills: $skills,
             resourceTypes: $resourceTypes,
             resources: $resources,
+            modelling: $modelling,
         );
     }
 
@@ -166,6 +195,7 @@ readonly class DatasetSpec
         return new self(
             $this->datasetId, $this->organisationId, $this->description, $seed, $this->baseTimeZone, $this->horizonDays,
             $this->inputReference, $this->ruleCollection, $this->regions, $this->skills, $this->resourceTypes, $this->resources,
+            $this->modelling,
         );
     }
 
@@ -253,6 +283,8 @@ readonly class DatasetSpec
     {
         self::id($id, 'resource_types key');
         $days = array_values((array) ($type['shift']['days'] ?? []));
+        // RAM_Shift_Template_Item_Break id: {type}-{sequence}.
+        self::id("{$id}-".max(1, count($days)), "Resource type {$id} shift template break id");
 
         if ($days === [] || array_filter($days, static fn (mixed $day): bool => ! is_int($day) || $day < 1 || $day > 7) !== []) {
             throw new InvalidDatasetSpec("Resource type {$id}: shift.days must list ISO weekdays, 1 (Monday) to 7 (Sunday).");
@@ -269,6 +301,12 @@ readonly class DatasetSpec
 
         if (! in_array($startEnd, ['home', 'depot'], true)) {
             throw new InvalidDatasetSpec("Resource type {$id}: start_end must be home or depot.");
+        }
+
+        $colour = $type['shift_category_colour'] ?? self::SHIFT_CATEGORY_COLOURS[$id] ?? null;
+
+        if (! is_string($colour) || preg_match('/\A#[0-9A-Fa-f]{8}\z/', $colour) !== 1) {
+            throw new InvalidDatasetSpec("Resource type {$id}: shift_category_colour must be an ARGB colour such as #FF0087C1.");
         }
 
         return new ResourceTypeSpec(
@@ -288,6 +326,7 @@ readonly class DatasetSpec
             costPhot: self::number($type['cost_phot'] ?? null, "Resource type {$id} cost_phot"),
             costKm: self::number($type['cost_km'] ?? null, "Resource type {$id} cost_km"),
             utilisation: (int) self::number($type['utilisation'] ?? null, "Resource type {$id} utilisation"),
+            shiftCategoryColour: strtoupper($colour),
         );
     }
 
@@ -336,6 +375,29 @@ readonly class DatasetSpec
 
         self::id("H-{$id}", "Resource {$id} home location id");
 
+        foreach (array_keys(self::OVERRIDABLE) as $field) {
+            if (array_key_exists($field, $resource)) {
+                throw new InvalidDatasetSpec("Resource {$id}: {$field} comes from its resource type; put an exception under overrides.{$field}.");
+            }
+        }
+
+        $overrides = [];
+        $given = (array) ($resource['overrides'] ?? []);
+
+        foreach (array_keys($given) as $field) {
+            if (! isset(self::OVERRIDABLE[$field])) {
+                throw new InvalidDatasetSpec("Resource {$id}: overrides.{$field} is not one of ".implode(', ', array_keys(self::OVERRIDABLE)).'.');
+            }
+        }
+
+        foreach (self::OVERRIDABLE as $field => $kind) {
+            if (array_key_exists($field, $given)) {
+                $overrides[$field] = $kind === 'duration'
+                    ? self::duration($given[$field], "Resource {$id} overrides.{$field}")
+                    : Decimal::format(self::number($given[$field], "Resource {$id} overrides.{$field}"));
+            }
+        }
+
         return new ResourceSpec(
             sequence: $sequence,
             id: $id,
@@ -345,7 +407,7 @@ readonly class DatasetSpec
             resourceType: $type,
             skills: $resourceSkills,
             extraRegions: $extraRegions,
-            utilisation: isset($resource['utilisation']) ? (int) $resource['utilisation'] : null,
+            overrides: $overrides,
         );
     }
 

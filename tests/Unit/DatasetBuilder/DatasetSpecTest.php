@@ -70,12 +70,49 @@ it('refuses a spec it cannot generate from', function (Closure $change, string $
 
         return $data;
     }, 'appears twice'],
+    'utilisation on the resource itself' => [static function (array $data): array {
+        $data['resources'][0]['utilisation'] = 80;
+
+        return $data;
+    }, 'R-CHI-001: utilisation comes from its resource type; put an exception under overrides.utilisation'],
+    'an override that is not a type field' => [static function (array $data): array {
+        $data['resources'][0]['overrides'] = ['max_travel' => 'PT2H'];
+
+        return $data;
+    }, 'overrides.max_travel is not one of travel_to, travel_from, cost_ph, cost_phot, cost_km, utilisation'],
+    'an override of the wrong kind' => [static function (array $data): array {
+        $data['resources'][0]['overrides'] = ['travel_to' => 45];
+
+        return $data;
+    }, 'overrides.travel_to'],
+    'modelling not a boolean' => [static function (array $data): array {
+        $data['modelling'] = 'yes';
+
+        return $data;
+    }, 'modelling must be true or false'],
+    'a type with no colour of its own or from the cheat sheet' => [static function (array $data): array {
+        $data['resource_types']['SURVEYOR'] = $data['resource_types']['FIELD_TECH'];
+        unset($data['resource_types']['SURVEYOR']['shift_category_colour']);
+
+        return $data;
+    }, 'Resource type SURVEYOR: shift_category_colour must be an ARGB colour'],
     'shift ending before it starts' => [static function (array $data): array {
         $data['resource_types']['FIELD_TECH']['shift']['end'] = '07:00';
 
         return $data;
     }, 'the shift must end after it starts'],
 ]);
+
+it('turns modelling on and takes the cheat sheet colour when a spec leaves them out', function () {
+    $spec = DatasetSpec::fromArray(datasetSpecArray(static function (array $data): array {
+        unset($data['modelling'], $data['resource_types']['INSTALLER']['shift_category_colour']);
+
+        return $data;
+    }));
+
+    expect($spec->modelling)->toBeTrue()
+        ->and($spec->resourceTypes['INSTALLER']->shiftCategoryColour)->toBe('#FF2E7D32');
+});
 
 it('refuses a spec id that is not a plain name', function () {
     expect(fn () => app(DatasetSpecRepository::class)->load('../DC_US'))->toThrow(InvalidDatasetSpec::class, 'No seed spec called');

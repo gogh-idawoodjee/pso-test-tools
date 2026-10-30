@@ -29,7 +29,6 @@ class ShiftFactory
         RegionSpec $region,
         DateTimeImmutable $now,
         int $horizonDays,
-        int $utilisation,
     ): array {
         $zone = new DateTimeZone($region->timeZone);
         $dayZero = self::dayZero($now, $zone);
@@ -54,7 +53,6 @@ class ShiftFactory
                     'start_datetime' => self::utc($localStart),
                     'end_datetime' => self::utc($localEnd),
                     'actual' => 'true',
-                    'utilisation' => (string) $utilisation,
                     'split_allowed' => 'true',
                     'split_priority' => $weekday === 1 ? '0' : '1',
                 ],

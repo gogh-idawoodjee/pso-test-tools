@@ -86,8 +86,11 @@ class DatasetSummary
         $this->starts[$key][$day]['shifts']++;
     }
 
-    /** @return array<string, mixed> */
-    public function toArray(string $path, int $bytes): array
+    /**
+     * @param  array{path: string, bytes: int, counts: array<string, int>}|null  $modelling  the .arp ModellingData wrote, if any
+     * @return array<string, mixed>
+     */
+    public function toArray(string $path, int $bytes, ?array $modelling = null): array
     {
         $types = [];
 
@@ -163,6 +166,11 @@ class DatasetSummary
             'other_shifts_at_one' => $this->otherShiftsAtOne,
             'extra_regions' => $this->extraRegions,
             'bands' => $bands,
+            'modelling' => $modelling === null ? null : [
+                'file' => basename($modelling['path']),
+                'bytes' => $modelling['bytes'],
+                'counts' => $modelling['counts'],
+            ],
         ];
     }
 

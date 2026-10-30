@@ -32,8 +32,9 @@ use UnitEnum;
 /**
  * Dataset Builder, stage 1: a synthetic LOAD of regions, locations, skills,
  * resource types, resources, shifts and breaks (no activities) from a seed
- * spec in resources/datasets, as of "now". The brief and the field names are
- * in docs/dataset-builder.
+ * spec in resources/datasets, as of "now". Stage 1R: the matching modelling
+ * data (.arp) beside it, sent first. The briefs and the field names are in
+ * docs/dataset-builder.
  */
 class DatasetBuilder extends Page
 {
@@ -58,6 +59,10 @@ class DatasetBuilder extends Page
     #[Locked]
     public ?string $generatedPath = null;
 
+    /** The modelling data (.arp) the last run wrote, if the spec asks for it; set only on the server. */
+    #[Locked]
+    public ?string $modellingPath = null;
+
     public function mount(): void
     {
         $options = app(DatasetSpecRepository::class)->options();
@@ -77,7 +82,7 @@ class DatasetBuilder extends Page
             ->statePath('data')
             ->schema([
                 Section::make('Generate')
-                    ->description('Stage 1: regions, locations, skills, resource types, resources, shifts and breaks. No activities yet.')
+                    ->description('Stage 1: regions, locations, skills, resource types, resources, shifts and breaks, and the matching modelling data (.arp) when the spec asks for it. No activities yet.')
                     ->schema([
                         Select::make('spec')
                             ->label('Seed spec')
@@ -110,7 +115,7 @@ class DatasetBuilder extends Page
             ->statePath('sendData')
             ->schema([
                 Section::make('Send to an environment')
-                    ->description('Queues a Gateway upload of this file. Its progress and log show on that environment\'s Tools tab.')
+                    ->description('Queues a Gateway upload of the modelling data, then of the LOAD, which is sent only if the modelling data went in. Their progress and logs show on that environment\'s Tools tab.')
                     ->schema([
                         Select::make('environment_id')
                             ->label('Environment')
@@ -127,7 +132,7 @@ class DatasetBuilder extends Page
                             ->label('Send')
                             ->icon(Heroicon::OutlinedArrowUpOnSquare)
                             ->requiresConfirmation()
-                            ->modalDescription('This replaces the dataset in the chosen environment with the generated LOAD.')
+                            ->modalDescription('This replaces the dataset in the chosen environment with the generated LOAD (and its modelling data, sent first).')
                             ->action(fn () => $this->send()),
                     ]),
             ]);
@@ -154,6 +159,7 @@ class DatasetBuilder extends Page
         }
 
         $this->generatedPath = $result->path;
+        $this->modellingPath = $result->modellingPath;
         $this->summary = $result->summary;
 
         Notification::make()->success()->title("Generated {$result->summary['file']}")->send();
@@ -166,6 +172,16 @@ class DatasetBuilder extends Page
             ->icon(Heroicon::OutlinedArrowDownTray)
             ->visible(fn (): bool => $this->generatedFile() !== null)
             ->action(fn (): ?BinaryFileResponse => ($path = $this->generatedFile()) === null ? null : response()->download($path));
+    }
+
+    public function downloadModellingAction(): Action
+    {
+        return Action::make('downloadModelling')
+            ->label('Download .arp')
+            ->icon(Heroicon::OutlinedArrowDownTray)
+            ->color('gray')
+            ->visible(fn (): bool => $this->generatedFile($this->modellingPath) !== null)
+            ->action(fn (): ?BinaryFileResponse => ($path = $this->generatedFile($this->modellingPath)) === null ? null : response()->download($path));
     }
 
     public function send(): void
@@ -187,8 +203,17 @@ class DatasetBuilder extends Page
             return;
         }
 
+        $files = [];
+
+        // Modelling first: the LOAD's Source_Data refers to it. Never a webhook on modelling data.
+        if (($modelling = $this->generatedFile($this->modellingPath)) !== null) {
+            $files[] = ['path' => $modelling, 'filename' => basename($modelling), 'skip_webhook' => true];
+        }
+
+        $files[] = ['path' => $path, 'filename' => basename($path), 'skip_webhook' => (bool) $state['skip_webhook']];
+
         try {
-            app(GatewayUploadQueue::class)->queue($environment, $path, basename($path), (bool) $state['skip_webhook'], auth()->id());
+            app(GatewayUploadQueue::class)->queueInOrder($environment, $files, auth()->id());
         } catch (RuntimeException $exception) {
             Notification::make()->danger()->title('Not sent')->body($exception->getMessage())->send();
 
@@ -197,7 +222,7 @@ class DatasetBuilder extends Page
 
         Notification::make()
             ->success()
-            ->title("Queued for {$environment->name}")
+            ->title(count($files) === 1 ? "Queued for {$environment->name}" : "Queued for {$environment->name}: modelling data, then the LOAD")
             ->body('Follow it on the environment\'s Tools tab.')
             ->actions([
                 Action::make('open')
@@ -207,15 +232,17 @@ class DatasetBuilder extends Page
             ->send();
     }
 
-    /** The last generated file, only while it still exists under storage/app/datasets. */
-    public function generatedFile(): ?string
+    /** The last generated LOAD (or the given file of the last run), only while it still exists under storage/app/datasets. */
+    public function generatedFile(?string $path = null): ?string
     {
-        if ($this->generatedPath === null) {
+        $path = func_num_args() === 0 ? $this->generatedPath : $path;
+
+        if ($path === null) {
             return null;
         }
 
         try {
-            $real = realpath($this->generatedPath);
+            $real = realpath($path);
             $root = realpath(storage_path('app/datasets'));
         } catch (Throwable) {
             return null;
