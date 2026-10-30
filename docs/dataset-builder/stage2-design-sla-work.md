@@ -66,7 +66,6 @@ With the defaults that's about 120 activities for CA and 360 for US. That's a li
   - priority 2, `OUT_SLA`: from the priority-1 end, for `out`.
   The two windows touch and never overlap.
 - **Activity_Status.** One row: `status_id=0`, `visit_id=1`, `fixed=false`, `date_time_status` = `date_time_stamp` = `date_time_created`. No `resource_id`, no `date_time_earliest` (that's an appointment field, stage 3).
-- **Object_Group.** One row per activity, `id = {dataset_id}-{activity_id}`, e.g. `DC_CA-A-TOR-000001`.
 
 All datetimes are built in the region zone and output in UTC, same as shifts.
 
@@ -74,7 +73,7 @@ All datetimes are built in the region zone and output in UTC, same as shifts.
 
 ## 4. Writers
 
-**Building:** the scheduling writer in modelling mode now emits, in this order: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Location`, `Location_Region`, `Shift`, `Shift_Break`, `Activity`, `Activity_Skill`, `Activity_SLA`, `Activity_Status`, `Object_Group`. Activity locations are scheduling data. They are not in the ARP, and resource home/depot locations stay ARP-only. The "no entity type in both files" test still holds (`Location` ≠ `RAM_Location`). Non-modelling mode gets the same activity entities on top of its stage 1 + 1R2 content.
+**Building:** the scheduling writer in modelling mode now emits, in this order: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Location`, `Location_Region`, `Shift`, `Shift_Break`, `Activity`, `Activity_Skill`, `Activity_SLA`, `Activity_Status`. Activity locations are scheduling data. They are not in the ARP, and resource home/depot locations stay ARP-only. The "no entity type in both files" test still holds (`Location` ≠ `RAM_Location`). Non-modelling mode gets the same activity entities on top of its stage 1 + 1R2 content.
 
 The summary panel adds: activities by region × type × target day (local date), and the IN_SLA window range per type.
 

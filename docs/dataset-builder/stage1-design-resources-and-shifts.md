@@ -32,7 +32,7 @@ The seed spec already carries the fields later stages need (`activity_types`, `s
 
 | Key | Used for |
 |---|---|
-| `dataset_id`, `organisation_id`, `description` | `Input_Reference`, `Object_Group.group_id` |
+| `dataset_id`, `organisation_id`, `description` | `Input_Reference` |
 | `seed` | Seeds a `Random\Randomizer` instance. Same seed + same spec + same `now` ⇒ byte-identical output (`Input_Reference.datetime`/`id` come from `now`, so two runs a minute apart differ only there) |
 | `base_time_zone` | Not used in stage 1 beyond being stored |
 | `horizon_days` | How many days of shifts to generate from day 0 (100 — must cover `duration` + `appointment_window_duration`, i.e. 7 + 90; validate this and refuse to generate if it doesn't) |
@@ -83,11 +83,11 @@ Region ids are short and boring (`CHI`, `LAX`, `DFW`, `DEN`, `IOWA`, `MTN`, `TOR
 
 ## 4. Resources
 
-**Building:** one `Resources` row per spec entry (yes, the entity name is plural). Fields: `id`, `first_name`, `surname`, `resource_type_id`, `resource_class_id=STANDARD`, `location_id_start`/`location_id_end` (home or depot per type), `travel_to`/`travel_from`/`cost_*`/`utilisation` copied down from the type unless overridden, `rule_collection_id=STD`, `memo=*`. One `Resource_Skill` per skill. One `Object_Group` row per resource (`group_id = dataset_id`, `id = {dataset_id}-{resource_id}`, e.g. `DC_US-R-CHI-001`; activities will follow the same shape, `DC_US-A-CHI-000417`).
+**Building:** one `Resources` row per spec entry (yes, the entity name is plural). Fields: `id`, `first_name`, `surname`, `resource_type_id`, `resource_class_id=STANDARD`, `location_id_start`/`location_id_end` (home or depot per type), `travel_to`/`travel_from`/`cost_*`/`utilisation` copied down from the type unless overridden, `rule_collection_id=STD`, `memo=*`. One `Resource_Skill` per skill.
 
 Casting (all in the seed files): Chicago = Bat-family + Lucius Fox + Alfred as contractor; LA = Green Lanterns + Carol Ferris as contractor; DFW = Flash family; Denver = Hawks and misc Leaguers; Iowa = the Kents and Smallville; Toronto = Superman family + Lex Luthor as contractor; rural Ontario = the retired JSA. Nobody appears in both datasets. Counts: US 36, CA 12.
 
-**PSO entities:** `Resources`, `Resource_Skill`, `Object_Group`.
+**PSO entities:** `Resources`, `Resource_Skill`. (No `Object_Group`: FIX on #60.)
 
 ---
 

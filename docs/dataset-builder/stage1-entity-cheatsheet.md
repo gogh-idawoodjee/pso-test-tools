@@ -6,7 +6,7 @@ Conventions: root `<dsScheduleData xmlns="http://360Scheduling.com/Schema/dsSche
 
 ## Emit order
 
-Input_Reference → Region → Location → Skill → Resource_Type → Rule → Rule_Collection → Rule_Collection_Rule → Rule_Parameter → Resources → Resource_Region → Resource_Skill → Availability → Resource_Region_Availability → Shift → Shift_Break → Object_Group
+Input_Reference → Region → Location → Skill → Resource_Type → Rule → Rule_Collection → Rule_Collection_Rule → Rule_Parameter → Resources → Resource_Region → Resource_Skill → Availability → Resource_Region_Availability → Shift → Shift_Break
 
 ## NEVER emit
 
@@ -152,7 +152,4 @@ Cover the whole horizon (day −7 to day `horizon_days`; the example is Oct 23 �
 ```
 That example is Mon Nov 2, 07:30–16:00 America/Chicago after DST end, hence `split_priority=0`. No `shift_type_id` field on Shift.
 
-## Object_Group
-```xml
-<Object_Group><group_id>DC_US</group_id><id>DC_US-R-CHI-001</id><resource_id>R-CHI-001</resource_id></Object_Group>
-```
+No `Object_Group` (FIX on #60: not needed for this dataset).

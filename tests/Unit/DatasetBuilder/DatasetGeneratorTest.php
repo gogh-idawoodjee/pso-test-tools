@@ -14,13 +14,13 @@ use Illuminate\Support\Facades\File;
 const DATASET_BUILDER_EMIT_ORDER = [
     'Input_Reference', 'Region', 'Location', 'Location_Region', 'Skill', 'Resource_Type', 'Rule', 'Rule_Collection', 'Rule_Collection_Rule',
     'Rule_Parameter', 'SLA_Type', 'Activity_Type', 'Appointment_Template', 'Appointment_Template_Item', 'Resources', 'Resource_Region', 'Resource_Skill', 'Availability', 'Resource_Region_Availability',
-    'Shift', 'Shift_Break', 'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status', 'Object_Group',
+    'Shift', 'Shift_Break', 'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status',
 ];
 
 /** The LOAD beside modelling data, in emit order. */
 const DATASET_BUILDER_SLIM_EMIT_ORDER = [
     'Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Location', 'Location_Region', 'Shift', 'Shift_Break',
-    'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status', 'Object_Group',
+    'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status',
 ];
 
 const DATASET_BUILDER_RAM_EMIT_ORDER = [
@@ -99,7 +99,6 @@ it('generates both specs with 36 and 12 resources', function (string $id, int $r
 
     expect($result->summary['resources'])->toBe($resources)
         ->and(datasetEntity($result->modellingPath, 'RAM_Resource'))->toHaveCount($resources)
-        ->and(collect(datasetEntity($result->path, 'Object_Group'))->whereNotNull('resource_id'))->toHaveCount($resources)
         ->and(datasetEntity($stage1->path, 'Resources'))->toHaveCount($resources)
         ->and(datasetEntity($stage1->path, 'Resource_Region'))->toHaveCount($resources);
 })->with([['DC_US', 36], ['DC_CA', 12]]);
@@ -268,10 +267,10 @@ it('puts a seed override on the resource in both files, and nothing else', funct
         ->and($ram['R-CHI-002'])->not->toHaveKey('utilisation');
 });
 
-it('names object groups {dataset}-{resource}', function () {
-    expect(datasetEntity(generateDataset('DC_US')->path, 'Object_Group')[0])
-        ->toBe(['group_id' => 'DC_US', 'id' => 'DC_US-R-CHI-001', 'resource_id' => 'R-CHI-001']);
-});
+it('writes no Object_Group in either mode', function (string $id) {
+    expect(datasetEntity(generateDataset($id)->path, 'Object_Group'))->toBe([])
+        ->and(datasetEntity(generateStage1Dataset($id)->path, 'Object_Group'))->toBe([]);
+})->with(['DC_US', 'DC_CA']);
 
 it('keeps homes out of the exclude polygons (the lakes)', function (string $id, string $region) {
     $spec = app(DatasetSpecRepository::class)->load($id);
@@ -303,7 +302,7 @@ it('takes day 0 from each region\'s own date, not from the UTC date', function (
     expect($lax['first_local'])->toStartWith('Fri 2026-10-23');
 });
 
-it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data RAM, shifts, breaks, object groups', function (string $id) {
+it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data RAM, activity locations, shifts, breaks, activities', function (string $id) {
     $result = generateDataset($id);
     $path = $result->path;
     $stage1 = generateStage1Dataset($id)->path;
@@ -311,7 +310,7 @@ it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data R
     expect(datasetEntityNames($path))->toBe(DATASET_BUILDER_SLIM_EMIT_ORDER)
         ->and(datasetEntity($path, 'Shift'))->toBe(datasetEntity($stage1, 'Shift'))
         ->and(datasetEntity($path, 'Shift_Break'))->toBe(datasetEntity($stage1, 'Shift_Break'))
-        ->and(datasetEntity($path, 'Object_Group'))->toBe(datasetEntity($stage1, 'Object_Group'))
+        ->and(datasetEntity($path, 'Activity'))->toBe(datasetEntity($stage1, 'Activity'))
         ->and(datasetEntity($path, 'Input_Reference'))->toBe(datasetEntity($stage1, 'Input_Reference'));
 
     // No entity in both files: every RAM entity's LOAD counterpart is missing from the LOAD.
@@ -333,7 +332,7 @@ it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data R
     $resources = array_column(datasetEntity($result->modellingPath, 'RAM_Resource'), 'id');
 
     expect(array_diff(array_column(datasetEntity($path, 'Shift'), 'resource_id'), $resources))->toBe([])
-        ->and(array_diff(array_column(datasetEntity($path, 'Object_Group'), 'resource_id'), $resources))->toBe([]);
+        ->and(array_diff(array_column(datasetEntity($path, 'Shift'), 'resource_id'), $resources))->toBe([]);
 })->with(['DC_US', 'DC_CA']);
 
 it('refuses anything RAM carries in a slim LOAD', function () {
@@ -764,7 +763,6 @@ it('gives every activity one location in its region, one status, two touching SL
                 'date_time_status' => $activity['date_time_created'], 'date_time_stamp' => $activity['date_time_created'],
             ]])
             ->and(count($rows['Activity_Skill'] ?? []))->toBeLessThanOrEqual(1)
-            ->and($rows['Object_Group'])->toBe([['group_id' => $id, 'id' => "{$id}-{$activityId}", 'activity_id' => $activityId]])
             ->and($activity['location_id'])->toBe('L-'.substr($activityId, 2, -6).sprintf('%05d', (int) substr($activityId, -6)))
             ->and($locationRegions[$activity['location_id']]->all())->toBe([['region_id' => $region, 'location_id' => $activity['location_id']]])
             ->and($spec->regions[$region]->excludes((float) $locations[$activity['location_id']]['latitude'], (float) $locations[$activity['location_id']]['longitude']))->toBeFalse()

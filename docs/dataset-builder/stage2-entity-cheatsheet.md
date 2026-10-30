@@ -6,11 +6,11 @@ From the PSO 6.18 export; values rewritten. Same conventions as stage 1: UTC `+0
 
 ## LOAD emit order in modelling mode (stage 2)
 
-Input_Reference → Source_Data → Source_Data_Parameter → Location → Location_Region → Shift → Shift_Break → Activity → Activity_Skill → Activity_SLA → Activity_Status → Object_Group
+Input_Reference → Source_Data → Source_Data_Parameter → Location → Location_Region → Shift → Shift_Break → Activity → Activity_Skill → Activity_SLA → Activity_Status
 
 ## Still NEVER emit
 
-Anything the ARP carries (Region, Resources, Resource_*, Skill, Resource_Type, Rule*, Activity_Type, SLA_Type, Appointment_Template*), any PSO output entity (Plan*, Allocation*, Schedule_Exception*, Schedule_Event), and in this stage `Availability`, `Additional_Attribute`, `Activity_Custom_URL`.
+`Object_Group` (FIX on #60: not needed for this dataset, in either mode). Anything the ARP carries (Region, Resources, Resource_*, Skill, Resource_Type, Rule*, Activity_Type, SLA_Type, Appointment_Template*), any PSO output entity (Plan*, Allocation*, Schedule_Exception*, Schedule_Event), and in this stage `Availability`, `Additional_Attribute`, `Activity_Custom_URL`.
 
 ---
 
@@ -94,8 +94,3 @@ Rows in one start-based model must not overlap; touching is fine. Every CALL nee
 </Activity_Status>
 ```
 No `resource_id`, `commit_sort_value`, `date_time_earliest`, `date_time_fixed` or `duration_override` in this stage.
-
-## Object_Group
-```xml
-<Object_Group><group_id>DC_CA</group_id><id>DC_CA-A-TOR-000042</id><activity_id>A-TOR-000042</activity_id></Object_Group>
-```

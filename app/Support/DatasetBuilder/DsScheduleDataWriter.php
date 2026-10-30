@@ -17,7 +17,7 @@ class DsScheduleDataWriter extends XmlRowWriter
     /** A LOAD beside modelling data: everything else is RAM's (stage 1R cheat sheet, slim mode; stage 2 adds the activities and their locations). */
     public const array SLIM = [
         'Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Location', 'Location_Region', 'Shift', 'Shift_Break',
-        'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status', 'Object_Group',
+        'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status',
     ];
 
     /** @param  list<string>|null  $allowed  the only entities that may be written, or null for any */

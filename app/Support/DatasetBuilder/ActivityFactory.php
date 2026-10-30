@@ -41,7 +41,7 @@ class ActivityFactory
     private const string SLA_END = '17:00';
 
     /**
-     * @return list<array{region: string, type: string, date: string, location: array<string, string>, location_region: array<string, string>, activity: array<string, string>, skill: array<string, string>|null, slas: list<array<string, string>>, status: array<string, string>, object_group: array<string, string>, in_start: DateTimeImmutable, in_end: DateTimeImmutable}>
+     * @return list<array{region: string, type: string, date: string, location: array<string, string>, location_region: array<string, string>, activity: array<string, string>, skill: array<string, string>|null, slas: list<array<string, string>>, status: array<string, string>, in_start: DateTimeImmutable, in_end: DateTimeImmutable}>
      */
     public static function activities(DatasetSpec $spec, DateTimeImmutable $now, Randomizer $random, LocationFactory $locations): array
     {
@@ -136,7 +136,7 @@ class ActivityFactory
 
     /**
      * @param  list<string>  $skills  skills held by at least two of the region's own resources
-     * @return array{region: string, type: string, date: string, location: array<string, string>, location_region: array<string, string>, activity: array<string, string>, skill: array<string, string>|null, slas: list<array<string, string>>, status: array<string, string>, object_group: array<string, string>, in_start: DateTimeImmutable, in_end: DateTimeImmutable}
+     * @return array{region: string, type: string, date: string, location: array<string, string>, location_region: array<string, string>, activity: array<string, string>, skill: array<string, string>|null, slas: list<array<string, string>>, status: array<string, string>, in_start: DateTimeImmutable, in_end: DateTimeImmutable}
      */
     private static function activity(DatasetSpec $spec, Stage2Spec $stage2, RegionSpec $region, DateTimeZone $zone, DateTimeImmutable $now, DateTimeImmutable $day, string $type, int $sequence, array $skills, Randomizer $random, LocationFactory $locations): array
     {
@@ -206,7 +206,6 @@ class ActivityFactory
                 'date_time_status' => $createdUtc,
                 'date_time_stamp' => $createdUtc,
             ],
-            'object_group' => ['group_id' => $spec->datasetId, 'id' => "{$spec->datasetId}-{$id}", 'activity_id' => $id],
             'in_start' => $inStart,
             'in_end' => $inEnd,
         ];

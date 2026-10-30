@@ -204,7 +204,7 @@ The four templates from the spec:
 
 ## Scheduling LOAD when `modelling: true` — slim mode
 
-**Nothing the `.arp` carries goes in the LOAD.** The LOAD contains exactly: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Shift`, `Shift_Break`, `Object_Group`. Everything else from the stage 1 cheat sheet (`Region`, `Location`, `Skill`, `Resource_Type`, `Rule*`, `Resources`, `Resource_Region`, `Resource_Skill`, `Availability`, `Resource_Region_Availability`) is RAM's and is **not** emitted. When `modelling: false`, the stage 1 LOAD is unchanged. A test must assert no entity type appears in both files.
+**Nothing the `.arp` carries goes in the LOAD.** The LOAD contains exactly: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Shift`, `Shift_Break` (stage 2 adds the activities and their locations; no `Object_Group`, FIX on #60). Everything else from the stage 1 cheat sheet (`Region`, `Location`, `Skill`, `Resource_Type`, `Rule*`, `Resources`, `Resource_Region`, `Resource_Skill`, `Availability`, `Resource_Region_Availability`) is RAM's and is **not** emitted. When `modelling: false`, the stage 1 LOAD is unchanged. A test must assert no entity type appears in both files.
 
 Add to the slim LOAD:
 ```xml

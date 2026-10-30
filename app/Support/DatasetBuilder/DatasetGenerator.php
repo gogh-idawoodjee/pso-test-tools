@@ -10,11 +10,12 @@ use Illuminate\Support\Facades\File;
 /**
  * Stage 1 of the Dataset Builder: a LOAD with regions, locations, skills,
  * resource types, the commit rule set, resources, their regions, skills and
- * extra-region availability, shifts, breaks and object groups. No activities.
+ * extra-region availability, shifts and breaks. No activities.
  * Stage 1R: when the spec says `modelling`, the matching modelling data
  * (ModellingData, an .arp) from the same model, and a slim LOAD that carries
  * only what RAM does not: Input_Reference, Source_Data RAM, shifts, breaks and
- * object groups.
+ * (stage 2) the activities and their locations. No Object_Group in either
+ * mode (FIX on #60).
  *
  * Entities go out in the cheat sheet's emit order
  * (docs/dataset-builder/stage1-entity-cheatsheet.md). A resource carries only
@@ -92,18 +93,6 @@ class DatasetGenerator
         }
 
         $this->writeActivities($writer, $model, $summary);
-
-        foreach ($spec->resources as $resource) {
-            $writer->row('Object_Group', [
-                'group_id' => $spec->datasetId,
-                'id' => "{$spec->datasetId}-{$resource->id}",
-                'resource_id' => $resource->id,
-            ]);
-        }
-
-        foreach ($model->activities as $activity) {
-            $writer->row('Object_Group', $activity['object_group']);
-        }
 
         $bytes = $writer->finish();
         $modelling = null;

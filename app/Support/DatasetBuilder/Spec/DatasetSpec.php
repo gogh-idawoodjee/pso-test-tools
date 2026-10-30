@@ -178,9 +178,6 @@ readonly class DatasetSpec
                 throw new InvalidDatasetSpec("Resource {$resource->id} appears twice.");
             }
 
-            // Object_Group id: {dataset}-{resource}.
-            self::id("{$datasetId}-{$resource->id}", "Resource {$resource->id} object group id");
-
             $seen[$resource->id] = true;
             $resources[] = $resource;
         }
@@ -228,7 +225,7 @@ readonly class DatasetSpec
             slaTypes: $slaTypes,
             activityTypes: $activityTypes,
             appointmentTemplateKinds: $templateKinds,
-            stage2: isset($data['stage2']) ? self::stage2((array) $data['stage2'], $datasetId, $regions, $skills, $resourceTypes, $activityTypes, $slaTypes) : null,
+            stage2: isset($data['stage2']) ? self::stage2((array) $data['stage2'], $regions, $skills, $resourceTypes, $activityTypes, $slaTypes) : null,
         );
     }
 
@@ -534,7 +531,7 @@ readonly class DatasetSpec
      * @param  array<string, array<string, string>>  $activityTypes
      * @param  array<string, array<string, string>>  $slaTypes
      */
-    private static function stage2(array $data, string $datasetId, array $regions, array $skills, array $resourceTypes, array $activityTypes, array $slaTypes): Stage2Spec
+    private static function stage2(array $data, array $regions, array $skills, array $resourceTypes, array $activityTypes, array $slaTypes): Stage2Spec
     {
         $jobs = self::number($data['jobs_per_resource_per_day'] ?? null, 'stage2.jobs_per_resource_per_day');
         $days = $data['working_days'] ?? null;
@@ -613,8 +610,8 @@ readonly class DatasetSpec
         }
 
         foreach ($regions as $region) {
-            // Ids: L-{region}-nnnnn, A-{region}-nnnnnn and the object group {dataset}-A-{region}-nnnnnn.
-            self::id("{$datasetId}-A-{$region->id}-000000", "Region {$region->id} activity object group id");
+            // Ids: L-{region}-nnnnn and A-{region}-nnnnnn.
+            self::id("A-{$region->id}-000000", "Region {$region->id} activity id");
         }
 
         return new Stage2Spec($jobs, $days, $mix, $durations, $windows, $pools);
