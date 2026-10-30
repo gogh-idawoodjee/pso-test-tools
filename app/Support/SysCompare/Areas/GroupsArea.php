@@ -8,7 +8,7 @@ use App\Support\SysCompare\ComparisonTab;
 
 /**
  * Groups and Group_Permission. Group names are matched case-insensitively, so
- * ST_Ops_Mgr and ST_Ops_MGR are one group; the spelling difference is flagged.
+ * AC_Ops_Mgr and AC_Ops_MGR are one group; the spelling difference is flagged.
  *
  * Group_Permission includes explicit denies (allow=false), so a row count is
  * "permission rows (allow + deny)" and never a count of permissions granted.
