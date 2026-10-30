@@ -6,7 +6,7 @@ Conventions: root `<DsModelling xmlns="http://360Scheduling.com/Schema/DsModelli
 
 ## Emit order
 
-RAM_Update → RAM_Division → RAM_Location → RAM_Skill → RAM_Resource_Type → RAM_Rule → RAM_Rule_Collection → RAM_Rule_Collection_Rule → RAM_Rule_Parameter → RAM_Resource → RAM_Resource_Division → RAM_Resource_Skill → RAM_Shift_Category → RAM_Shift_Template → RAM_Shift_Template_Item → RAM_Shift_Template_Item_Break
+RAM_Update → RAM_Division → RAM_Location → RAM_Skill → RAM_Resource_Type → RAM_Rule → RAM_Rule_Collection → RAM_Rule_Collection_Rule → RAM_Rule_Parameter → RAM_Resource → RAM_Resource_Division → RAM_Time_Pattern → RAM_Resource_Division_Avail → RAM_Resource_Skill → RAM_Shift_Category → RAM_Shift_Template → RAM_Shift_Template_Item → RAM_Shift_Template_Item_Break
 
 ## NEVER emit
 
@@ -108,7 +108,51 @@ Same ids as the scheduling `Location` rows for homes and depots.
   <override_priority>1</override_priority>
 </RAM_Resource_Division>
 ```
-Same inheritance as scheduling: nothing on the resource that the type already carries, except seed `overrides`. Resources with `extra_regions` get a second `RAM_Resource_Division` row for that division (the time-bounding is the scheduling LOAD's `Resource_Region_Availability`; RAM has no date-bounded equivalent in the sample, so RAM membership is permanent — acceptable).
+Same inheritance as scheduling: nothing on the resource that the type already carries, except seed `overrides`.
+
+## Time-bounded division membership (= Resource_Region_Availability) — for `extra_regions`
+
+The planner writes **both** a plain `RAM_Resource_Division` row and a dated `RAM_Resource_Division_Avail` row pointing at a `RAM_Time_Pattern`. Emit both for every `extra_regions` entry.
+
+One-off window (what the generator uses — covers the whole horizon):
+```xml
+<RAM_Resource_Division>
+  <ram_division_id>MTN</ram_division_id>
+  <ram_resource_id>R-DEN-001</ram_resource_id>
+  <override_priority>1</override_priority>
+</RAM_Resource_Division>
+<RAM_Time_Pattern>
+  <id>TP-R-DEN-001-MTN</id>
+  <base_time>2026-10-23T06:00:00+00:00</base_time>     <!-- day −7, 00:00 in the division's zone, written in UTC -->
+  <duration>P107D</duration>
+</RAM_Time_Pattern>
+<RAM_Resource_Division_Avail>
+  <id>RDA-R-DEN-001-MTN</id>
+  <ram_resource_id>R-DEN-001</ram_resource_id>
+  <ram_division_id>MTN</ram_division_id>
+  <ram_time_pattern_id>TP-R-DEN-001-MTN</ram_time_pattern_id>
+  <override_priority>1</override_priority>
+</RAM_Resource_Division_Avail>
+```
+
+Recurring window (documented for later stages, e.g. "covers the rural region on Saturdays" — **not emitted in 1R**):
+```xml
+<RAM_Time_Pattern_Template><id>TPT-SAT</id><recurrence_days>7</recurrence_days></RAM_Time_Pattern_Template>
+<RAM_Time_Pattern_Template_Item>
+  <ram_time_pattern_template_id>TPT-SAT</ram_time_pattern_template_id>
+  <sequence>0</sequence>
+  <time_increment>PT0S</time_increment>
+  <day_pattern>NNNNNYN</day_pattern>                   <!-- Mon..Sun -->
+  <move_rule>0</move_rule>
+  <duration>P1D</duration>
+</RAM_Time_Pattern_Template_Item>
+<RAM_Time_Pattern>
+  <id>TP-R-X-SAT</id>
+  <ram_time_pattern_template_id>TPT-SAT</ram_time_pattern_template_id>
+  <base_time>1899-12-31T00:00:00+00:00</base_time>     <!-- planner's "no anchor" sentinel -->
+  <time_zone>America/Denver</time_zone>
+</RAM_Time_Pattern>
+```
 
 ## RAM_Shift_Category
 ```xml
@@ -158,9 +202,11 @@ The four templates from the spec:
 
 `split_priority` on the template is the Monday-rule question: the template has one value for all its days. Planner-generated Monday shifts will therefore come out at 1, not 0, unless edited. Loaded shifts (from the scheduling LOAD) carry 0 on Mondays as before. Accept the discrepancy for planner-added shifts, or set the template to 0 and lose Tue–Fri splitting on those — brief says accept.
 
-## Scheduling LOAD additions (dsScheduleData side)
+## Scheduling LOAD when `modelling: true` — slim mode
 
-Add to every scheduling LOAD when the spec says `modelling: true`:
+**Nothing the `.arp` carries goes in the LOAD.** The LOAD contains exactly: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Shift`, `Shift_Break`, `Object_Group`. Everything else from the stage 1 cheat sheet (`Region`, `Location`, `Skill`, `Resource_Type`, `Rule*`, `Resources`, `Resource_Region`, `Resource_Skill`, `Availability`, `Resource_Region_Availability`) is RAM's and is **not** emitted. When `modelling: false`, the stage 1 LOAD is unchanged. A test must assert no entity type appears in both files.
+
+Add to the slim LOAD:
 ```xml
 <Source_Data><source_data_type_id>RAM</source_data_type_id><sequence>1</sequence></Source_Data>
 <Source_Data_Parameter><source_data_type_id>RAM</source_data_type_id><sequence>1</sequence><parameter_name>rota_id</parameter_name><parameter_value>DC_US</parameter_value></Source_Data_Parameter>

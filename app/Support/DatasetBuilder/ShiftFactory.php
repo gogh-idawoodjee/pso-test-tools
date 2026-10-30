@@ -71,6 +71,25 @@ class ShiftFactory
         return $shifts;
     }
 
+    /**
+     * The whole span shifts can fall in, in the zone: midnight of day -7 to
+     * midnight after day `horizon_days` (an extra region's availability).
+     *
+     * @return array{0: DateTimeImmutable, 1: DateTimeImmutable}
+     */
+    public static function window(DateTimeImmutable $now, DateTimeZone $zone, int $horizonDays): array
+    {
+        $dayZero = self::dayZero($now, $zone);
+
+        return [$dayZero->modify(sprintf('-%d days', self::DAYS_BEFORE)), $dayZero->modify(sprintf('+%d days', $horizonDays + 1))];
+    }
+
+    /** Calendar days in window(): day -7 to day `horizon_days`, both whole. */
+    public static function windowDays(int $horizonDays): int
+    {
+        return self::DAYS_BEFORE + $horizonDays + 1;
+    }
+
     /** Midnight of `now`'s calendar date in the zone: an 11 pm Toronto run is still today in Los Angeles. */
     public static function dayZero(DateTimeImmutable $now, DateTimeZone $zone): DateTimeImmutable
     {

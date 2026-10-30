@@ -12,8 +12,9 @@ use Illuminate\Support\Facades\File;
  * resource types, the commit rule set, resources, their regions, skills and
  * extra-region availability, shifts, breaks and object groups. No activities.
  * Stage 1R: when the spec says `modelling`, the matching modelling data
- * (ModellingData, an .arp) from the same model, and a Source_Data RAM block at
- * the end of the LOAD.
+ * (ModellingData, an .arp) from the same model, and a slim LOAD that carries
+ * only what RAM does not: Input_Reference, Source_Data RAM, shifts, breaks and
+ * object groups.
  *
  * Entities go out in the cheat sheet's emit order
  * (docs/dataset-builder/stage1-entity-cheatsheet.md). A resource carries only
@@ -35,8 +36,16 @@ class DatasetGenerator
         File::ensureDirectoryExists($directory);
         $path = $directory.'/'.$now->format('Ymd-Hi').'-'.self::STAGE.'.xml';
 
-        $writer = new DsScheduleDataWriter($path);
+        $writer = new DsScheduleDataWriter($path, $spec->modelling ? DsScheduleDataWriter::SLIM : null);
         $summary = new DatasetSummary($spec, $now);
+
+        foreach ($spec->resources as $resource) {
+            $summary->resource($resource, $spec->resourceTypes[$resource->resourceType]);
+
+            foreach ($resource->extraRegions as $regionId) {
+                $summary->extraRegion($resource, $regionId);
+            }
+        }
 
         $writer->row('Input_Reference', [
             'datetime' => $now->format('Y-m-d\TH:i:sP'),
@@ -50,6 +59,64 @@ class DatasetGenerator
             'appointment_window_duration' => $spec->inputReference['appointment_window_duration'],
             'process_type' => $spec->inputReference['process_type'],
         ]);
+
+        if ($spec->modelling) {
+            // Slim: everything else is the modelling data's, and the shifts hang off it.
+            $writer->row('Source_Data', ['source_data_type_id' => 'RAM', 'sequence' => '1']);
+            $writer->row('Source_Data_Parameter', [
+                'source_data_type_id' => 'RAM',
+                'sequence' => '1',
+                'parameter_name' => 'rota_id',
+                'parameter_value' => $spec->datasetId,
+            ]);
+        } else {
+            $this->writeResourceModel($writer, $model);
+        }
+
+        $breaks = [];
+
+        foreach ($spec->resources as $resource) {
+            $type = $spec->resourceTypes[$resource->resourceType];
+            $region = $spec->regions[$resource->region];
+
+            foreach (ShiftFactory::shifts($resource, $type, $region, $now, $spec->horizonDays) as $shift) {
+                $writer->row('Shift', $shift['shift']);
+                $breaks[] = $shift['break'];
+                $summary->shift($resource, $type, $region, $shift);
+            }
+        }
+
+        foreach ($breaks as $break) {
+            $writer->row('Shift_Break', $break);
+        }
+
+        foreach ($spec->resources as $resource) {
+            $writer->row('Object_Group', [
+                'group_id' => $spec->datasetId,
+                'id' => "{$spec->datasetId}-{$resource->id}",
+                'resource_id' => $resource->id,
+            ]);
+        }
+
+        $bytes = $writer->finish();
+        $modelling = null;
+
+        if ($spec->modelling) {
+            $modellingPath = $directory.'/'.$now->format('Ymd-Hi').'-'.self::MODELLING_STAGE.'.arp';
+            $modelling = ['path' => $modellingPath, ...ModellingData::write($model, $modellingPath)];
+        }
+
+        return new GeneratedDataset($path, $bytes, $summary->toArray($path, $bytes, $modelling), $modelling['path'] ?? null);
+    }
+
+    /**
+     * The stage 1 LOAD's regions, locations, skills, types, rule set, resources
+     * and their regions, skills and extra-region availability: written only
+     * when there is no modelling data to carry them.
+     */
+    private function writeResourceModel(DsScheduleDataWriter $writer, DatasetModel $model): void
+    {
+        $spec = $model->spec;
 
         foreach ($spec->regions as $region) {
             $writer->row('Region', ['id' => $region->id, 'description' => $region->description]);
@@ -98,7 +165,6 @@ class DatasetGenerator
                 'rule_collection_id' => $spec->ruleCollection['id'],
                 'memo' => '*',
             ]);
-            $summary->resource($resource, $type);
         }
 
         foreach ($spec->resources as $resource) {
@@ -111,53 +177,7 @@ class DatasetGenerator
             }
         }
 
-        $this->writeExtraRegions($writer, $spec, $now, $summary);
-
-        $breaks = [];
-
-        foreach ($spec->resources as $resource) {
-            $type = $spec->resourceTypes[$resource->resourceType];
-            $region = $spec->regions[$resource->region];
-
-            foreach (ShiftFactory::shifts($resource, $type, $region, $now, $spec->horizonDays) as $shift) {
-                $writer->row('Shift', $shift['shift']);
-                $breaks[] = $shift['break'];
-                $summary->shift($resource, $type, $region, $shift);
-            }
-        }
-
-        foreach ($breaks as $break) {
-            $writer->row('Shift_Break', $break);
-        }
-
-        foreach ($spec->resources as $resource) {
-            $writer->row('Object_Group', [
-                'group_id' => $spec->datasetId,
-                'id' => "{$spec->datasetId}-{$resource->id}",
-                'resource_id' => $resource->id,
-            ]);
-        }
-
-        if ($spec->modelling) {
-            // The LOAD's shifts and resources stay; this tells PSO the dataset also has modelling data.
-            $writer->row('Source_Data', ['source_data_type_id' => 'RAM', 'sequence' => '1']);
-            $writer->row('Source_Data_Parameter', [
-                'source_data_type_id' => 'RAM',
-                'sequence' => '1',
-                'parameter_name' => 'rota_id',
-                'parameter_value' => $spec->datasetId,
-            ]);
-        }
-
-        $bytes = $writer->finish();
-        $modelling = null;
-
-        if ($spec->modelling) {
-            $modellingPath = $directory.'/'.$now->format('Ymd-Hi').'-'.self::MODELLING_STAGE.'.arp';
-            $modelling = ['path' => $modellingPath, ...ModellingData::write($model, $modellingPath)];
-        }
-
-        return new GeneratedDataset($path, $bytes, $summary->toArray($path, $bytes, $modelling), $modelling['path'] ?? null);
+        $this->writeExtraRegions($writer, $spec, $model->now);
     }
 
     private function writeRuleSet(DsScheduleDataWriter $writer, DatasetSpec $spec): void
@@ -178,19 +198,19 @@ class DatasetGenerator
      * day -7 to midnight after day `horizon_days`, in that region's zone) and the
      * Resource_Region_Availability that uses it.
      */
-    private function writeExtraRegions(DsScheduleDataWriter $writer, DatasetSpec $spec, DateTimeImmutable $now, DatasetSummary $summary): void
+    private function writeExtraRegions(DsScheduleDataWriter $writer, DatasetSpec $spec, DateTimeImmutable $now): void
     {
         $links = [];
 
         foreach ($spec->resources as $resource) {
             foreach ($resource->extraRegions as $regionId) {
-                $dayZero = ShiftFactory::dayZero($now, new DateTimeZone($spec->regions[$regionId]->timeZone));
+                [$start, $end] = ShiftFactory::window($now, new DateTimeZone($spec->regions[$regionId]->timeZone), $spec->horizonDays);
                 $availabilityId = "AV-{$resource->id}-{$regionId}";
 
                 $writer->row('Availability', [
                     'id' => $availabilityId,
-                    'datetime_start' => ShiftFactory::utc($dayZero->modify(sprintf('-%d days', ShiftFactory::DAYS_BEFORE))),
-                    'datetime_end' => ShiftFactory::utc($dayZero->modify(sprintf('+%d days', $spec->horizonDays + 1))),
+                    'datetime_start' => ShiftFactory::utc($start),
+                    'datetime_end' => ShiftFactory::utc($end),
                 ]);
 
                 $links[] = [
@@ -200,7 +220,6 @@ class DatasetGenerator
                     'availability_id' => $availabilityId,
                     'override_priority' => '1',
                 ];
-                $summary->extraRegion($resource, $regionId);
             }
         }
 

@@ -41,13 +41,13 @@ Entity by entity, from the same in-memory model the scheduling writer uses:
 - **`RAM_Resource_Type`** — one per type; `ram_resource_class_id=PERSON`; costs/travel/utilisation as in the type; `hire_cost 4000`, `release_cost 4000`, `relocation_cost 2000` fixed.
 - **`RAM_Rule*`** — the STD commit rule, mirrored.
 - **`RAM_Resource`** — id, names, type, start/end location, rule collection, plus any `overrides` keys. Inheritance from the type exactly as the stage 1 fix.
-- **`RAM_Resource_Division`** — home region, plus one row per `extra_regions` entry (permanent membership in RAM; the date-bounded version stays in the LOAD).
+- **`RAM_Resource_Division`** — home region, plus for each `extra_regions` entry: a plain membership row **and** a `RAM_Time_Pattern` (one-off window, day −7 for 107 days) with a `RAM_Resource_Division_Avail` pointing at it. This replaces the LOAD's `Availability`/`Resource_Region_Availability`, which are no longer emitted in modelling mode.
 - **`RAM_Shift_Category`** — one per resource type, colour from the spec.
 - **`RAM_Shift_Template`** + **`_Item`** + **`_Item_Break`** — one template per resource type, built from `shift.days[]` (ISO weekday → `day_increment` = weekday − 1), `shift.start` (→ `time_increment`, e.g. `07:30` → `PT7H30M`), `shift.end − shift.start` (→ `duration`), and the break block. One item and one break per working day, `sequence` 1..n matching. Break ids `{template}-{sequence}`.
 
 **Not emitted:** anything rota-related, `RAM_Version_History`, anything activity-related (later stages mirror `Activity_Type`, `SLA_Type`, appointment templates into RAM the same way).
 
-**Scheduling writer change:** when `modelling` is true, append `Source_Data` + `Source_Data_Parameter rota_id={dataset_id}` to the LOAD (cheat sheet, last section). Nothing is removed from the LOAD — `Resources`, `Shift`, `Shift_Break` all stay.
+**Scheduling writer change:** when `modelling` is true the LOAD goes **slim** — only `Input_Reference`, `Source_Data` + `Source_Data_Parameter rota_id={dataset_id}`, `Shift`, `Shift_Break`, `Object_Group`. Everything RAM carries is dropped from the LOAD (full list in the cheat sheet's slim-mode section). The writer's allow-list depends on the flag; when `modelling` is false the stage 1 LOAD is unchanged. Add a test that no entity type appears in both files.
 
 ---
 
@@ -68,7 +68,7 @@ Entity by entity, from the same in-memory model the scheduling writer uses:
 1. Both datasets produce an `.arp` and an `.xml`; the consistency test passes.
 2. `.arp` entity counts match expectation: US — 6 divisions, 36 resources, 46 locations (36 homes… minus depot-based installers, plus 5 depots — print the actual count and the formula), 4 types, 4 templates with 5/5/4/5 items, 4 categories; CA — 2 divisions, 12 resources, 2 templates in use but all 4 emitted.
 3. Template spot check printed: INSTALLER has items with `day_increment` 0–3, `time_increment PT7H`, `duration PT10H30M`, breaks `PT45M PT4H–PT5H30M`; CONTRACTOR has `day_increment` 1–5.
-4. LOAD now contains `Source_Data RAM` with `rota_id` = dataset id; the stage 1 acceptance (counts, DST table, Monday rule) still holds unchanged.
+4. Slim LOAD contains only the six allowed entity types plus `Source_Data RAM` with `rota_id` = dataset id; shift counts, the DST table and the Monday rule are unchanged from stage 1. Print the LOAD's entity counts.
 5. **Ish, in the Technodrome:** import the `.arp` into `DC_US` (planner or Gateway), then send the LOAD. Expect: planner shows 6 divisions with their zones, 36 resources under them, 4 templates; event log clean; scheduling Gantt identical to stage 1. Then add one shift to Dick Grayson from the FIELD_TECH template on a day he already has one, and confirm the Gantt shows both (merge, not overwrite), and that the new one sits at 08:00 Chicago.
 6. If `rota_id` turns out to need a different value, or any *(schema, unverified)* field is rejected, report which — those are the two known soft spots.
 
@@ -79,5 +79,4 @@ Report: counts from 1–4, pass/fail per line, any import or event-log messages 
 ## Known limits, deliberately accepted
 
 - Planner-generated Monday shifts come out at the template's `split_priority` (1), not 0. Loaded shifts are unaffected. Revisit if stage 4 splitting tests ever hit a planner-added Monday.
-- RAM region membership for `extra_regions` resources is permanent; the LOAD's `Resource_Region_Availability` still time-bounds it for the DSE.
 - Template-to-resource assignment is done in the planner by hand — not modelled, by design.

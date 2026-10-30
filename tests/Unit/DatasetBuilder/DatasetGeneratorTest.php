@@ -3,6 +3,7 @@
 use App\Support\DatasetBuilder\DatasetGenerator;
 use App\Support\DatasetBuilder\DatasetSpecRepository;
 use App\Support\DatasetBuilder\DsModellingWriter;
+use App\Support\DatasetBuilder\DsScheduleDataWriter;
 use App\Support\DatasetBuilder\GeneratedDataset;
 use App\Support\DatasetBuilder\ModellingData;
 use App\Support\DatasetBuilder\Spec\DatasetSpec;
@@ -11,12 +12,16 @@ use Illuminate\Support\Facades\File;
 const DATASET_BUILDER_EMIT_ORDER = [
     'Input_Reference', 'Region', 'Location', 'Skill', 'Resource_Type', 'Rule', 'Rule_Collection', 'Rule_Collection_Rule',
     'Rule_Parameter', 'Resources', 'Resource_Region', 'Resource_Skill', 'Availability', 'Resource_Region_Availability',
-    'Shift', 'Shift_Break', 'Object_Group', 'Source_Data', 'Source_Data_Parameter',
+    'Shift', 'Shift_Break', 'Object_Group',
 ];
+
+/** The LOAD beside modelling data, in emit order. */
+const DATASET_BUILDER_SLIM_EMIT_ORDER = ['Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Shift', 'Shift_Break', 'Object_Group'];
 
 const DATASET_BUILDER_RAM_EMIT_ORDER = [
     'RAM_Update', 'RAM_Division', 'RAM_Location', 'RAM_Skill', 'RAM_Resource_Type', 'RAM_Rule', 'RAM_Rule_Collection',
-    'RAM_Rule_Collection_Rule', 'RAM_Rule_Parameter', 'RAM_Resource', 'RAM_Resource_Division', 'RAM_Resource_Skill',
+    'RAM_Rule_Collection_Rule', 'RAM_Rule_Parameter', 'RAM_Resource', 'RAM_Resource_Division', 'RAM_Time_Pattern',
+    'RAM_Resource_Division_Avail', 'RAM_Resource_Skill',
     'RAM_Shift_Category', 'RAM_Shift_Template', 'RAM_Shift_Template_Item', 'RAM_Shift_Template_Item_Break',
 ];
 
@@ -34,6 +39,21 @@ function generateDataset(string $id, string $now = '2026-10-30T15:30:00Z', ?int 
     }
 
     return (new DatasetGenerator)->generate($spec, new DateTimeImmutable($now), $directory ?? datasetBuilderDirectory()."/{$id}");
+}
+
+/** The stage 1 LOAD, with everything in it: the spec with modelling off. */
+function generateStage1Dataset(string $id, string $now = '2026-10-30T15:30:00Z', ?string $directory = null, ?Closure $change = null): GeneratedDataset
+{
+    $data = json_decode((string) file_get_contents(resource_path("datasets/{$id}.json")), true);
+    $data['modelling'] = false;
+
+    return generateDataset($id, $now, directory: $directory ?? datasetBuilderDirectory()."/{$id}-stage1", spec: DatasetSpec::fromArray($change ? $change($data) : $data));
+}
+
+/** @return list<string> the entity names in a file, once each, in order */
+function datasetEntityNames(string $path): array
+{
+    return array_values(array_unique(array_column(datasetRows($path), 'entity')));
 }
 
 /** @return list<array{entity: string, fields: array<string, string>}> */
@@ -69,11 +89,13 @@ afterEach(function () {
 
 it('generates both specs with 36 and 12 resources', function (string $id, int $resources) {
     $result = generateDataset($id);
+    $stage1 = generateStage1Dataset($id);
 
     expect($result->summary['resources'])->toBe($resources)
-        ->and(datasetEntity($result->path, 'Resources'))->toHaveCount($resources)
+        ->and(datasetEntity($result->modellingPath, 'RAM_Resource'))->toHaveCount($resources)
         ->and(datasetEntity($result->path, 'Object_Group'))->toHaveCount($resources)
-        ->and(datasetEntity($result->path, 'Resource_Region'))->toHaveCount($resources);
+        ->and(datasetEntity($stage1->path, 'Resources'))->toHaveCount($resources)
+        ->and(datasetEntity($stage1->path, 'Resource_Region'))->toHaveCount($resources);
 })->with([['DC_US', 36], ['DC_CA', 12]]);
 
 it('gives every resource the shifts its type works over the horizon', function (string $id) {
@@ -125,8 +147,8 @@ it('puts Monday shifts at split priority 0 and every other shift at 1', function
         ->and($result->summary['other_shifts_at_one'])->toBe($result->summary['other_shifts']);
 });
 
-it('writes the cheat sheet entities only, in its emit order, with every reference resolved', function (string $id) {
-    $path = generateDataset($id)->path;
+it('writes the cheat sheet entities only, in its emit order, with every reference resolved, when there is no modelling data', function (string $id) {
+    $path = generateStage1Dataset($id)->path;
     $rows = datasetRows($path);
     $sequence = [];
 
@@ -187,7 +209,7 @@ it('writes the Input_Reference from now and the spec, and nothing else', functio
 });
 
 it('covers the whole horizon with each extra region, in that region\'s time zone', function () {
-    $path = generateDataset('DC_US')->path;
+    $path = generateStage1Dataset('DC_US')->path;
 
     expect(datasetEntity($path, 'Availability'))->toBe([
         ['id' => 'AV-R-DEN-001-MTN', 'datetime_start' => '2026-10-23T06:00:00+00:00', 'datetime_end' => '2027-02-08T07:00:00+00:00'],
@@ -202,14 +224,14 @@ it('covers the whole horizon with each extra region, in that region\'s time zone
 });
 
 it('starts depot types at their region depot and home types at their own home', function () {
-    $resources = collect(datasetEntity(generateDataset('DC_US')->path, 'Resources'))->keyBy('id');
+    $resources = collect(datasetEntity(generateStage1Dataset('DC_US')->path, 'Resources'))->keyBy('id');
 
     expect($resources['R-CHI-001']['location_id_start'])->toBe('H-R-CHI-001')
         ->and($resources->firstWhere('resource_type_id', 'INSTALLER')['location_id_start'])->toStartWith('D-');
 });
 
 it('leaves everything the type carries off the resource, and utilisation off the shift', function () {
-    $path = generateDataset('DC_US')->path;
+    $path = generateStage1Dataset('DC_US')->path;
 
     foreach (datasetEntity($path, 'Resources') as $resource) {
         expect(array_keys($resource))->toBe(['id', 'first_name', 'surname', 'resource_type_id', 'location_id_start', 'location_id_end', 'rule_collection_id', 'memo']);
@@ -223,11 +245,14 @@ it('leaves everything the type carries off the resource, and utilisation off the
 });
 
 it('puts a seed override on the resource in both files, and nothing else', function () {
-    $data = json_decode((string) file_get_contents(resource_path('datasets/DC_US.json')), true);
-    $data['resources'][0]['overrides'] = ['utilisation' => 80, 'travel_to' => 'PT45M'];
-    $result = generateDataset('DC_US', spec: DatasetSpec::fromArray($data));
+    $override = static function (array $data): array {
+        $data['resources'][0]['overrides'] = ['utilisation' => 80, 'travel_to' => 'PT45M'];
 
-    $load = collect(datasetEntity($result->path, 'Resources'))->keyBy('id');
+        return $data;
+    };
+    $result = generateDataset('DC_US', spec: DatasetSpec::fromArray($override(json_decode((string) file_get_contents(resource_path('datasets/DC_US.json')), true))));
+
+    $load = collect(datasetEntity(generateStage1Dataset('DC_US', change: $override)->path, 'Resources'))->keyBy('id');
     $ram = collect(datasetEntity($result->modellingPath, 'RAM_Resource'))->keyBy('id');
 
     expect($load['R-CHI-001'])->toMatchArray(['travel_to' => 'PT45M', 'utilisation' => '80'])
@@ -245,7 +270,7 @@ it('names object groups {dataset}-{resource}', function () {
 it('keeps homes out of the exclude polygons (the lakes)', function (string $id, string $region) {
     $spec = app(DatasetSpecRepository::class)->load($id);
 
-    foreach (datasetEntity(generateDataset($id)->path, 'Location') as $location) {
+    foreach (datasetEntity(generateDataset($id)->modellingPath, 'RAM_Location') as $location) {
         expect($spec->regions[$region]->excludes((float) $location['latitude'], (float) $location['longitude']))->toBeFalse();
     }
 
@@ -260,7 +285,7 @@ it('writes the same bytes for the same spec, seed and now, and different homes f
 
     expect(file_get_contents($first->path))->toBe(file_get_contents($second->path))
         ->and(file_get_contents($first->modellingPath))->toBe(file_get_contents($second->modellingPath))
-        ->and(datasetEntity($reseeded->path, 'Location'))->not->toBe(datasetEntity($first->path, 'Location'))
+        ->and(datasetEntity($reseeded->modellingPath, 'RAM_Location'))->not->toBe(datasetEntity($first->modellingPath, 'RAM_Location'))
         ->and(datasetEntity($reseeded->path, 'Shift'))->toBe(datasetEntity($first->path, 'Shift'));
 });
 
@@ -272,7 +297,43 @@ it('takes day 0 from each region\'s own date, not from the UTC date', function (
     expect($lax['first_local'])->toStartWith('Fri 2026-10-23');
 });
 
-it('ends the LOAD with Source_Data RAM, rota_id the dataset id', function (string $id) {
+it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data RAM, shifts, breaks, object groups', function (string $id) {
+    $result = generateDataset($id);
+    $path = $result->path;
+    $stage1 = generateStage1Dataset($id)->path;
+
+    expect(datasetEntityNames($path))->toBe(DATASET_BUILDER_SLIM_EMIT_ORDER)
+        ->and(datasetEntity($path, 'Shift'))->toBe(datasetEntity($stage1, 'Shift'))
+        ->and(datasetEntity($path, 'Shift_Break'))->toBe(datasetEntity($stage1, 'Shift_Break'))
+        ->and(datasetEntity($path, 'Object_Group'))->toBe(datasetEntity($stage1, 'Object_Group'))
+        ->and(datasetEntity($path, 'Input_Reference'))->toBe(datasetEntity($stage1, 'Input_Reference'));
+
+    // No entity in both files: every RAM entity's LOAD counterpart is missing from the LOAD.
+    $counterparts = [
+        'RAM_Division' => 'Region', 'RAM_Location' => 'Location', 'RAM_Skill' => 'Skill', 'RAM_Resource_Type' => 'Resource_Type',
+        'RAM_Rule' => 'Rule', 'RAM_Rule_Collection' => 'Rule_Collection', 'RAM_Rule_Collection_Rule' => 'Rule_Collection_Rule',
+        'RAM_Rule_Parameter' => 'Rule_Parameter', 'RAM_Resource' => 'Resources', 'RAM_Resource_Division' => 'Resource_Region',
+        'RAM_Time_Pattern' => 'Availability', 'RAM_Resource_Division_Avail' => 'Resource_Region_Availability', 'RAM_Resource_Skill' => 'Resource_Skill',
+    ];
+    $ram = datasetEntityNames($result->modellingPath);
+
+    expect(array_intersect(array_map(static fn (string $entity): string => $counterparts[$entity] ?? $entity, $ram), datasetEntityNames($path)))->toBe([])
+        ->and(array_intersect($ram, datasetEntityNames($path)))->toBe([]);
+
+    $resources = array_column(datasetEntity($result->modellingPath, 'RAM_Resource'), 'id');
+
+    expect(array_diff(array_column(datasetEntity($path, 'Shift'), 'resource_id'), $resources))->toBe([])
+        ->and(array_diff(array_column(datasetEntity($path, 'Object_Group'), 'resource_id'), $resources))->toBe([]);
+})->with(['DC_US', 'DC_CA']);
+
+it('refuses anything RAM carries in a slim LOAD', function () {
+    File::ensureDirectoryExists(datasetBuilderDirectory());
+    $writer = new DsScheduleDataWriter(datasetBuilderDirectory().'/slim.xml', DsScheduleDataWriter::SLIM);
+
+    expect(fn () => $writer->row('Resources', ['id' => 'x']))->toThrow(RuntimeException::class, 'belongs to the modelling data');
+});
+
+it('points the slim LOAD at RAM, rota_id the dataset id', function (string $id) {
     $path = generateDataset($id)->path;
 
     expect(datasetEntity($path, 'Source_Data'))->toBe([['source_data_type_id' => 'RAM', 'sequence' => '1']])
@@ -325,9 +386,9 @@ it('writes the .arp beside the LOAD, in the RAM cheat sheet emit order, with no 
         ]]);
 })->with(['DC_US', 'DC_CA']);
 
-it('models the same resources, locations, skills, regions and types as the LOAD', function (string $id) {
+it('models the same resources, locations, skills, regions and types as the stage 1 LOAD', function (string $id) {
     $result = generateDataset($id);
-    $load = $result->path;
+    $load = generateStage1Dataset($id)->path;
     $ram = $result->modellingPath;
     $ids = static fn (string $path, string $entity, string $field = 'id'): array => array_column(datasetEntity($path, $entity), $field);
     $sorted = static function (array $values): array {
@@ -350,6 +411,23 @@ it('models the same resources, locations, skills, regions and types as the LOAD'
     $divisions = array_map(static fn (array $row): string => "{$row['ram_resource_id']} {$row['ram_division_id']}", datasetEntity($ram, 'RAM_Resource_Division'));
 
     expect($sorted($divisions))->toBe($sorted($memberships));
+
+    // Each extra region's dated membership: the same window as the stage 1 Availability.
+    $availability = collect(datasetEntity($load, 'Availability'))->keyBy('id');
+    $patterns = collect(datasetEntity($ram, 'RAM_Time_Pattern'))->keyBy('id');
+    $links = datasetEntity($load, 'Resource_Region_Availability');
+
+    expect(datasetEntity($ram, 'RAM_Resource_Division_Avail'))->toHaveCount(count($links));
+
+    foreach (datasetEntity($ram, 'RAM_Resource_Division_Avail') as $avail) {
+        $pattern = $patterns[$avail['ram_time_pattern_id']];
+        $window = $availability["AV-{$avail['ram_resource_id']}-{$avail['ram_division_id']}"];
+        $start = new DateTimeImmutable($pattern['base_time']);
+
+        expect($pattern['base_time'])->toBe($window['datetime_start'])
+            ->and($start->add(new DateInterval($pattern['duration'])) >= new DateTimeImmutable($window['datetime_end'])->modify('-1 hour'))->toBeTrue()
+            ->and("{$avail['ram_resource_id']} {$avail['ram_division_id']}")->toBeIn(array_map(static fn (array $row): string => "{$row['resource_id']} {$row['region_id']}", $links));
+    }
 
     $loadSkills = array_map(static fn (array $row): string => "{$row['resource_id']} {$row['skill_id']}", datasetEntity($load, 'Resource_Skill'));
     $ramSkills = array_map(static fn (array $row): string => "{$row['ram_resource_id']} {$row['ram_skill_id']}", datasetEntity($ram, 'RAM_Resource_Skill'));
@@ -419,8 +497,8 @@ it('has templates that reproduce the first week of each type\'s loaded shifts, i
 it('counts what the brief expects in the .arp', function (string $id, array $counts) {
     expect(generateDataset($id)->summary['modelling']['counts'])->toMatchArray($counts);
 })->with([
-    'DC_US' => ['DC_US', ['RAM_Update' => 1, 'RAM_Division' => 6, 'RAM_Resource' => 36, 'RAM_Resource_Type' => 4, 'RAM_Shift_Category' => 4, 'RAM_Shift_Template' => 4, 'RAM_Shift_Template_Item' => 19, 'RAM_Shift_Template_Item_Break' => 19]],
-    'DC_CA' => ['DC_CA', ['RAM_Update' => 1, 'RAM_Division' => 2, 'RAM_Resource' => 12, 'RAM_Resource_Type' => 4, 'RAM_Shift_Category' => 4, 'RAM_Shift_Template' => 4, 'RAM_Shift_Template_Item' => 19, 'RAM_Shift_Template_Item_Break' => 19]],
+    'DC_US' => ['DC_US', ['RAM_Update' => 1, 'RAM_Division' => 6, 'RAM_Location' => 34, 'RAM_Resource' => 36, 'RAM_Resource_Division' => 38, 'RAM_Time_Pattern' => 2, 'RAM_Resource_Division_Avail' => 2, 'RAM_Resource_Type' => 4, 'RAM_Shift_Category' => 4, 'RAM_Shift_Template' => 4, 'RAM_Shift_Template_Item' => 19, 'RAM_Shift_Template_Item_Break' => 19]],
+    'DC_CA' => ['DC_CA', ['RAM_Update' => 1, 'RAM_Division' => 2, 'RAM_Location' => 11, 'RAM_Resource' => 12, 'RAM_Resource_Division' => 13, 'RAM_Time_Pattern' => 1, 'RAM_Resource_Division_Avail' => 1, 'RAM_Resource_Type' => 4, 'RAM_Shift_Category' => 4, 'RAM_Shift_Template' => 4, 'RAM_Shift_Template_Item' => 19, 'RAM_Shift_Template_Item_Break' => 19]],
 ]);
 
 it('builds the INSTALLER and CONTRACTOR templates the brief spells out', function () {
@@ -460,4 +538,18 @@ it('never writes rota data into the .arp', function () {
 
     expect(fn () => $writer->row('RAM_Rota_Item', ['id' => 'x']))->toThrow(RuntimeException::class)
         ->and(fn () => $writer->row('RAM_Version_History', ['id' => 'x']))->toThrow(RuntimeException::class);
+});
+
+it('bounds each extra region in RAM with a time pattern from day -7 in that division\'s zone', function () {
+    $path = generateDataset('DC_US')->modellingPath;
+
+    expect(datasetEntity($path, 'RAM_Time_Pattern')[0])->toBe(['id' => 'TP-R-DEN-001-MTN', 'base_time' => '2026-10-23T06:00:00+00:00', 'duration' => 'P108D'])
+        ->and(datasetEntity($path, 'RAM_Resource_Division_Avail')[0])->toBe([
+            'id' => 'RDA-R-DEN-001-MTN',
+            'ram_resource_id' => 'R-DEN-001',
+            'ram_division_id' => 'MTN',
+            'ram_time_pattern_id' => 'TP-R-DEN-001-MTN',
+            'override_priority' => '1',
+        ])
+        ->and(collect(datasetEntity($path, 'RAM_Resource_Division'))->where('ram_resource_id', 'R-DEN-001')->pluck('ram_division_id')->values()->all())->toBe(['DEN', 'MTN']);
 });

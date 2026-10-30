@@ -3,11 +3,13 @@
 namespace App\Support\DatasetBuilder;
 
 use App\Support\DatasetBuilder\Spec\ResourceTypeSpec;
+use DateTimeZone;
 
 /**
  * Stage 1R: the modelling (RAM, .arp) side of a dataset, from the same model as
  * its LOAD: divisions, locations, skills, types, the commit rule set,
- * resources, their divisions and skills, and per resource type a shift
+ * resources, their divisions (an extra region bounded by a time pattern) and
+ * skills, and per resource type a shift
  * category and a weekly shift template. No rota and no shifts: shifts keep
  * coming from the LOAD, and the planner adds its own on top.
  *
@@ -100,10 +102,35 @@ class ModellingData
             ]);
         }
 
-        // Home division first, then each extra region: permanent in RAM; the LOAD's Resource_Region_Availability bounds it in time.
+        // Home division first, then each extra region, which the time pattern below also bounds in time.
         foreach ($spec->resources as $resource) {
             foreach ([$resource->region, ...$resource->extraRegions] as $division) {
                 $writer->row('RAM_Resource_Division', ['ram_division_id' => $division, 'ram_resource_id' => $resource->id, 'override_priority' => '1']);
+            }
+        }
+
+        // Each extra region's window: midnight of day -7 in that division's zone, for the whole span shifts can fall in.
+        foreach ($spec->resources as $resource) {
+            foreach ($resource->extraRegions as $division) {
+                [$start] = ShiftFactory::window($model->now, new DateTimeZone($spec->regions[$division]->timeZone), $spec->horizonDays);
+
+                $writer->row('RAM_Time_Pattern', [
+                    'id' => "TP-{$resource->id}-{$division}",
+                    'base_time' => ShiftFactory::utc($start),
+                    'duration' => 'P'.ShiftFactory::windowDays($spec->horizonDays).'D',
+                ]);
+            }
+        }
+
+        foreach ($spec->resources as $resource) {
+            foreach ($resource->extraRegions as $division) {
+                $writer->row('RAM_Resource_Division_Avail', [
+                    'id' => "RDA-{$resource->id}-{$division}",
+                    'ram_resource_id' => $resource->id,
+                    'ram_division_id' => $division,
+                    'ram_time_pattern_id' => "TP-{$resource->id}-{$division}",
+                    'override_priority' => '1',
+                ]);
             }
         }
 
