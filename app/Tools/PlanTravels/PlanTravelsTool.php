@@ -565,7 +565,7 @@ class PlanTravelsTool implements Tool
 
         $warnings = $outputs['data']['meta']['warnings'] ?? [];
 
-        // The page embeds the same JSON; storing legs.json too made a 5-day SaskTel run 9.9 MB encrypted (#40).
+        // The page embeds the same JSON; storing legs.json too made a 5-day customer run 9.9 MB encrypted (#40).
         return new ToolResult(result: ['html' => $outputs['html'], 'csv' => $outputs['csv']], warnings: [...self::storedWarnings(is_array($warnings) ? $warnings : []), ...$extraWarnings], summary: $summary);
     }
 

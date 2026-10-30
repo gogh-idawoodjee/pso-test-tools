@@ -14,7 +14,7 @@ class SeedDatasetSettings extends Command
         {file : path to a pso-tools account JSON}
         {--time-zone= : IANA time zone for the dataset}';
 
-    protected $description = 'Load a pso-tools account file (for example SATE.json) into a dataset\'s settings';
+    protected $description = 'Load a pso-tools account file (for example ACME.json) into a dataset\'s settings';
 
     public function handle(): int
     {

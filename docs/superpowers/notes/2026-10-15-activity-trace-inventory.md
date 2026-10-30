@@ -143,7 +143,7 @@ Unknown status prints the bare code; unknown exception prints "type N". The temp
 
 - ATL: a response with no appointment_offer_id is declined, with an offer id is taken.
 - ATL: a rule applies from its offset until the next rule's offset.
-- ATL: link rules checked against SaskTel NORTH 2026-10-05; slot rules against NORTH LOAD 2026-10-04 (requests carry no slot_usage_rule_set_id there; 346 of 885 templates name one; one rule per day PT0S..P364D; maximum_utilisation 0 to 100).
+- ATL: link rules checked against Acme NORTH 2026-10-05; slot rules against NORTH LOAD 2026-10-04 (requests carry no slot_usage_rule_set_id there; 346 of 885 templates name one; one rule per day PT0S..P364D; maximum_utilisation 0 to 100).
 - ATL: JSON documents built from a LOAD or a large file are "Not the original message: review it before sending".
 - PTT: input source classification calibrated on one Workbench sample (PSW, logon user, enacting app SBM) versus integration (SIM, no user); SBM meaning unconfirmed.
 - PTT: IFS event to PSO input pairing is by time only; assignment-to-activity link inferred by timing; work task from a related activity inferred; from the event log not verified.

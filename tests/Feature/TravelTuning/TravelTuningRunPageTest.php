@@ -16,7 +16,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'SATE']);
+    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'ACME']);
     $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina']]);
     $this->base = planTravelsRun($this->dataset, ['created_at' => Carbon::parse('2026-10-13 04:35:00', config('app.timezone'))]);
     $this->final = planTravelsRun($this->dataset);
@@ -79,7 +79,7 @@ it('serves the page sandboxed and the download named after the account, dataset 
 
     $this->get(route('tool-runs.download-html', $this->routeParams))
         ->assertOk()
-        ->assertDownload('travel_tuning_SATE_NORTH_2026-10-05.html');
+        ->assertDownload('travel_tuning_ACME_NORTH_2026-10-05.html');
 });
 
 it('keeps another user\'s tuning run out of reach', function () {

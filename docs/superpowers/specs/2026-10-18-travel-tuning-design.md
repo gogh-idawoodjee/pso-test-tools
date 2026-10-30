@@ -22,7 +22,7 @@ together with the polygon weightings each run used. The output is the same one-p
 
 - **Split:** like plan travels and the activity trace. Python in pso-tools is the reference implementation, and
   the web runs it as a child process. The PowerShell script stays as the Windows version, unchanged.
-- **Reference data (golden):** `~/pso-data/SATE/1013/` (local only, git-ignored). It holds:
+- **Reference data (golden):** `~/pso-data/ACME/1013/` (local only, git-ignored). It holds:
   - Ish's Windows run, `travel_tuning_report_20261013_2235.html`: "Prod (no polygons)" =
     `plan_travels_output_north_initial.csv`, and "Grid v6" = `plan_travels_output_pass2.csv` with
     `PSO_Sys_pass_1.xml` (251 polygons: 160 Grid, 82 Corridor, 9 other).
@@ -106,7 +106,7 @@ Deviations from the script, each listed on the page's footer:
 
 ### 3.3 Tests (`tests/travel_tuning/`)
 
-- **Golden** (skipped when `~/pso-data/SATE/1013/` is absent): the Python JSON against the pwsh run, compared value
+- **Golden** (skipped when `~/pso-data/ACME/1013/` is absent): the Python JSON against the pwsh run, compared value
   by value. Only `meta.generated` and the null km deviation are ignored. Against Ish's Windows report, the corridor
   rows are also compared as a set. Pinned numbers:
   - Prod: 3,463 usable legs, 75 flagged.

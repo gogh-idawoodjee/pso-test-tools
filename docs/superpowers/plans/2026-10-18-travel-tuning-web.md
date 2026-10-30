@@ -53,7 +53,7 @@
 11. **Run page.** The report in the sandboxed iframe under the standard `SANDBOX` CSP (no app links), Open full page and Download HTML. No JSON or CSV download. The Inputs panel lists the source runs in order with a link to each while it exists ("plan travels run deleted" after), and the SYS file name per row or "None".
 12. **Runs tab.** The tool is `WizardOnly`: no Run action on a dataset's Runs tab (its inputs need the wizard).
 13. **Free text is stored encrypted (decided by Ish, 2026-10-18).** Run labels, title, client, dataset name and notes can hold customer wording, so they never go into the plain `ToolRun.inputs` JSON. A new nullable column `tool_runs.private_inputs` (mediumText, cast `encrypted:array`, the same mechanism as `result`) holds them as `['options' => [title, client, dataset, notes], 'runs' => [['label' => ...], ...]]`, rows in the same order as `inputs['runs']`. A small contract `App\Tools\Contracts\KeepsInputsPrivate` (`privateOptionKeys()`, `privateRunKeys()`) names the keys; `ToolRun::inputAttributes(Tool, array $inputs)` splits them out when `StartToolRun` creates the run (a tool without the contract is stored exactly as before, `private_inputs` null). `ToolRun::options()` and `ToolRun::sourceRuns()` merge them back, and are the only readers: `RunToolJob` (options for the tool), `StartToolRun::rerun()` (so a rerun keeps the labels and notes), `TravelTuningTool::run()` and `SourceRunList` (the run page's Inputs panel, which only the run's owner can open: `ScopeOwnedModel`). `scopeWithoutResult()` does not select `private_inputs`, so lists and polls never load or decrypt it. Chosen over encrypting `inputs` itself because that would need a data migration of every existing run and would decrypt on every list row; the region label, thresholds and tiles stay plain (the region label comes from a dataset setting).
-14. **Tests.** Feature tests run a stub `tests/Fixtures/pso-tools/travel/travel_tuning.py` (as Plan travels does). Task 8 runs the real script: on a synthetic set when `TOOLS_PSO_TOOLS_PATH` is set, and against `~/pso-data/SATE/1013` when `TRAVEL_TUNING_SAMPLE_DIR` is set too (like the Region availability golden).
+14. **Tests.** Feature tests run a stub `tests/Fixtures/pso-tools/travel/travel_tuning.py` (as Plan travels does). Task 8 runs the real script: on a synthetic set when `TOOLS_PSO_TOOLS_PATH` is set, and against `~/pso-data/ACME/1013` when `TRAVEL_TUNING_SAMPLE_DIR` is set too (like the Region availability golden).
 
 ## File Structure
 
@@ -1356,13 +1356,13 @@ beforeEach(function () {
 });
 
 it('passes the manifest, outputs, template, generated time, options and defaults', function () {
-    $argv = TravelTuningCommand::build(PsoToolsCheckout::fromConfig(), '/work/', ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'North', 'region_label' => 'Territory'], '2026-10-18 09:30', false);
+    $argv = TravelTuningCommand::build(PsoToolsCheckout::fromConfig(), '/work/', ['title' => 'Travel Tuning Report', 'client' => 'Acme', 'dataset' => 'North', 'region_label' => 'Territory'], '2026-10-18 09:30', false);
 
     expect($argv)->toBe([
         'python3', $this->root.'/travel/travel_tuning.py',
         '--manifest', '/work/manifest.csv', '--out', '/work/travel_tuning.html', '--json', '/work/travel_tuning.json',
         '--template', $this->root.'/travel/travel_tuning_template.html', '--generated', '2026-10-18 09:30',
-        '--title=Travel Tuning Report', '--client=SaskTel', '--dataset=North', '--region-label=Territory',
+        '--title=Travel Tuning Report', '--client=Acme', '--dataset=North', '--region-label=Territory',
         '--review-minutes=20', '--small-minutes=5', '--model-tol-min=1', '--model-tol-pct=5', '--long-leg-km=300',
         '--tiles=esri-gray',
     ]);
@@ -1410,7 +1410,7 @@ Expected: FAIL (class `TravelTuningCommand` not found).
 
 ```php
     'travel_tuning' => [
-        // One script run over the picked plan travels CSVs and polygon files; the 2026-10-13 SaskTel pair takes seconds.
+        // One script run over the picked plan travels CSVs and polygon files; the 2026-10-13 Acme pair takes seconds.
         'timeout_seconds' => (int) env('TOOLS_TRAVEL_TUNING_TIMEOUT_SECONDS', 600),
     ],
 ```
@@ -1661,8 +1661,8 @@ beforeEach(function () {
     tuningEnv('FAKE_TUNING_ARGS_FILE', $this->argsFile);
     $this->travelTo(Carbon::parse('2026-10-18 15:30:00', 'UTC'));
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'SATE']);
-    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel']]);
+    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'ACME']);
+    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'Acme']]);
     $this->base = planTravelsRun($this->dataset);
     $this->final = planTravelsRun($this->dataset, csv: tuningCsv([960, 1560, 620, 880]));
     $this->sys = storedSys($this->environment, polygonSysXml(2), zipped: true);
@@ -1681,7 +1681,7 @@ function tuningRun(Model $scope, array $runs, array $options = []): ToolRun
     return ToolRun::factory()->for($scope, 'scope')->create([
         'tool' => ToolId::TravelTuning, 'status' => ToolRunStatus::Queued, 'result' => null, 'summary' => null, 'run_date' => null,
         ...ToolRun::inputAttributes(app(TravelTuningTool::class), [
-            'files' => [], 'options' => ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'NORTH', ...$options], 'runs' => $runs,
+            'files' => [], 'options' => ['title' => 'Travel Tuning Report', 'client' => 'Acme', 'dataset' => 'NORTH', ...$options], 'runs' => $runs,
         ]),
     ]);
 }
@@ -1714,7 +1714,7 @@ it('writes the runs, the polygons and the manifest, runs the script and keeps th
     $scratch = config('exports.scratch_path').'/'.$run->id;
     expect($run->status)->toBe(ToolRunStatus::Succeeded, (string) $run->error_message)
         ->and($call['cwd'])->toBe($scratch)
-        ->and($call['argv'])->toContain('--manifest', $scratch.'/manifest.csv', '--generated', '2026-10-18 09:30', '--client=SaskTel', '--tiles=esri-gray')
+        ->and($call['argv'])->toContain('--manifest', $scratch.'/manifest.csv', '--generated', '2026-10-18 09:30', '--client=Acme', '--tiles=esri-gray')
         ->and(implode(' ', $call['argv']))->not->toContain('--notes')
         ->and($call['rows'])->toBe([
             ['label' => 'Baseline', 'run_csv' => 'run-1.csv', 'header' => strtok(tuningCsv(), "\n"), 'polygon_xml' => ''],
@@ -1731,7 +1731,7 @@ it('writes the runs, the polygons and the manifest, runs the script and keeps th
         ->and(glob(config('exports.scratch_path').'/*'))->toBe([])
         ->and(Storage::disk('r2')->allFiles())->toBe([app(ExportStorage::class)->objectKey($this->sys)])
         // The label and client reached the script from the encrypted column; the plain one never held them.
-        ->and(DB::table('tool_runs')->where('id', $run->id)->value('inputs'))->not->toContain('Grid')->not->toContain('SaskTel');
+        ->and(DB::table('tool_runs')->where('id', $run->id)->value('inputs'))->not->toContain('Grid')->not->toContain('Acme');
 });
 
 it('writes the notes for the script when there are some, from the encrypted inputs', function () {
@@ -2254,8 +2254,8 @@ beforeEach(function () {
     Storage::fake('r2');
     config(['exports.disk' => 'r2', 'exports.scratch_path' => sys_get_temp_dir().'/exports-tuning-'.uniqid()]);
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'SATE']);
-    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel', 'dataset_display_name' => 'North', 'region_label' => 'Territory']]);
+    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'ACME']);
+    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'Acme', 'dataset_display_name' => 'North', 'region_label' => 'Territory']]);
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
     $this->actingAs($this->user);
     $this->base = planTravelsRun($this->dataset, ['created_at' => Carbon::parse('2026-10-13 04:35:00', 'UTC')]);
@@ -2292,14 +2292,14 @@ it('lists the dataset\'s finished plan travels runs and says which need Google',
 
 it('prefills the options from the dataset settings and the script defaults', function () {
     Livewire::test(TravelTuningEntry::class)->assertFormSet([
-        'options.title' => 'Travel Tuning Report', 'options.client' => 'SaskTel', 'options.dataset' => 'North', 'options.region_label' => 'Territory',
+        'options.title' => 'Travel Tuning Report', 'options.client' => 'Acme', 'options.dataset' => 'North', 'options.region_label' => 'Territory',
         'options.tiles' => 'esri-gray', 'options.review_minutes' => 20, 'options.small_minutes' => 5, 'options.long_leg_km' => 300,
         'options.model_tol_min' => 1, 'options.model_tol_pct' => 5,
     ]);
 });
 
 it('prefills the region label with Region when the dataset sets none and for Unfiled', function () {
-    $this->dataset->update(['settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel']]);
+    $this->dataset->update(['settings' => ['time_zone' => 'America/Regina', 'display_name' => 'Acme']]);
 
     Livewire::test(TravelTuningEntry::class)->assertFormSet(['options.region_label' => 'Region']);
     Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'unfiled'])->assertFormSet(['options.region_label' => 'Region']);
@@ -2319,9 +2319,9 @@ it('starts a run with the runs in order, the default labels and the chosen SYS',
     expect($run->sourceRuns())->toEqual([
         ['run_id' => $this->base->id, 'label' => 'Baseline', 'sys_file_id' => null],
         ['run_id' => $this->final->id, 'label' => 'Grid v6', 'sys_file_id' => $this->sys->id],
-    ])->and($run->options()['client'])->toBe('SaskTel')
+    ])->and($run->options()['client'])->toBe('Acme')
         ->and($run->options())->not->toHaveKey('time_zone')
-        ->and($raw)->not->toContain('Grid v6')->not->toContain('Baseline')->not->toContain('SaskTel')->not->toContain('Travel Tuning Report');
+        ->and($raw)->not->toContain('Grid v6')->not->toContain('Baseline')->not->toContain('Acme')->not->toContain('Travel Tuning Report');
     Queue::assertPushed(RunToolJob::class, 1);
 });
 
@@ -2701,7 +2701,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'SATE']);
+    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'ACME']);
     $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina']]);
     $this->base = planTravelsRun($this->dataset, ['created_at' => Carbon::parse('2026-10-13 04:35:00', 'UTC')]);
     $this->final = planTravelsRun($this->dataset);
@@ -2765,7 +2765,7 @@ it('serves the page sandboxed and the download named after the account, dataset 
 
     $this->get(route('tool-runs.download-html', $this->routeParams))
         ->assertOk()
-        ->assertDownload('travel_tuning_SATE_NORTH_2026-10-05.html');
+        ->assertDownload('travel_tuning_ACME_NORTH_2026-10-05.html');
 });
 
 it('keeps another user\'s tuning run out of reach', function () {
@@ -2966,7 +2966,7 @@ EOF
 - Test: `tests/Feature/TravelTuning/TravelTuningScriptTest.php`
 
 **Interfaces:**
-- Consumes: everything above; the real checkout at `TOOLS_PSO_TOOLS_PATH`; `TRAVEL_TUNING_SAMPLE_DIR` holding `plan_travels_output_north_initial.csv`, `plan_travels_output_pass2.csv`, `PSO_Sys_pass_1.xml` (Ish's `~/pso-data/SATE/1013`).
+- Consumes: everything above; the real checkout at `TOOLS_PSO_TOOLS_PATH`; `TRAVEL_TUNING_SAMPLE_DIR` holding `plan_travels_output_north_initial.csv`, `plan_travels_output_pass2.csv`, `PSO_Sys_pass_1.xml` (Ish's `~/pso-data/ACME/1013`).
 
 - [ ] **Step 1: Write the tests**
 
@@ -2995,8 +2995,8 @@ use Illuminate\Support\Facades\Storage;
 /*
  * Runs the real travel_tuning.py. Needs a pso-tools checkout:
  *   TOOLS_PSO_TOOLS_PATH=/path/to/pso-tools php artisan test tests/Feature/TravelTuning/TravelTuningScriptTest.php
- * The golden also needs the SaskTel 2026-10-13 folder (customer data, keep it outside this repo):
- *   TRAVEL_TUNING_SAMPLE_DIR=~/pso-data/SATE/1013
+ * The golden also needs the Acme 2026-10-13 folder (customer data, keep it outside this repo):
+ *   TRAVEL_TUNING_SAMPLE_DIR=~/pso-data/ACME/1013
  * Skipped otherwise.
  */
 
@@ -3016,8 +3016,8 @@ beforeEach(function () {
     config(['exports.disk' => 'r2', 'exports.scratch_path' => sys_get_temp_dir().'/exports-tuning-real-'.uniqid(), 'tools.pso_tools_path' => $this->checkoutPath]);
     $this->travelTo(Carbon::parse('2026-10-18 15:30:00', 'UTC'));
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'SATE']);
-    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel']]);
+    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'ACME']);
+    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'Acme']]);
 });
 
 afterEach(function () {
@@ -3032,7 +3032,7 @@ it('builds the report from synthetic runs and a zipped SYS export with the real 
     $sys = storedSys($this->environment, polygonSysXml(1), zipped: true);
     $run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::TravelTuning, 'status' => ToolRunStatus::Queued, 'result' => null, 'summary' => null, 'run_date' => null,
-        ...ToolRun::inputAttributes(app(TravelTuningTool::class), ['files' => [], 'options' => ['title' => 'Travel tuning test', 'client' => 'SaskTel', 'dataset' => 'North'], 'runs' => [
+        ...ToolRun::inputAttributes(app(TravelTuningTool::class), ['files' => [], 'options' => ['title' => 'Travel tuning test', 'client' => 'Acme', 'dataset' => 'North'], 'runs' => [
             ['run_id' => $base->id, 'label' => 'Baseline', 'sys_file_id' => null],
             ['run_id' => $final->id, 'label' => 'Grid v1', 'sys_file_id' => $sys->id],
         ]]),
@@ -3056,10 +3056,10 @@ it('builds the report from synthetic runs and a zipped SYS export with the real 
         ->and(glob(config('exports.scratch_path').'/*'))->toBe([]);
 });
 
-it('matches the command line on the SaskTel 2026-10-13 runs', function () {
+it('matches the command line on the Acme 2026-10-13 runs', function () {
     $sample = env('TRAVEL_TUNING_SAMPLE_DIR');
     if (blank($sample) || ! is_dir($sample)) {
-        $this->markTestSkipped('Set TRAVEL_TUNING_SAMPLE_DIR to the SaskTel 2026-10-13 folder to run the golden test.');
+        $this->markTestSkipped('Set TRAVEL_TUNING_SAMPLE_DIR to the Acme 2026-10-13 folder to run the golden test.');
     }
     $initial = "{$sample}/plan_travels_output_north_initial.csv";
     $pass2 = "{$sample}/plan_travels_output_pass2.csv";
@@ -3067,7 +3067,7 @@ it('matches the command line on the SaskTel 2026-10-13 runs', function () {
     $base = planTravelsRun($this->dataset, csv: (string) file_get_contents($initial));
     $final = planTravelsRun($this->dataset, csv: (string) file_get_contents($pass2));
     $sys = storedSys($this->environment, $polygons);
-    $options = ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'North'];
+    $options = ['title' => 'Travel Tuning Report', 'client' => 'Acme', 'dataset' => 'North'];
     $run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::TravelTuning, 'status' => ToolRunStatus::Queued, 'result' => null, 'summary' => null, 'run_date' => null,
         ...ToolRun::inputAttributes(app(TravelTuningTool::class), ['files' => [], 'options' => $options, 'runs' => [
@@ -3118,7 +3118,7 @@ it('matches the command line on the SaskTel 2026-10-13 runs', function () {
 Run: `php artisan test tests/Feature/TravelTuning/TravelTuningScriptTest.php`
 Expected: 2 skipped.
 
-Run: `TOOLS_PSO_TOOLS_PATH="$HOME/Documents/Projects/PSO Tools" TRAVEL_TUNING_SAMPLE_DIR="$HOME/pso-data/SATE/1013" php artisan test tests/Feature/TravelTuning/TravelTuningScriptTest.php`
+Run: `TOOLS_PSO_TOOLS_PATH="$HOME/Documents/Projects/PSO Tools" TRAVEL_TUNING_SAMPLE_DIR="$HOME/pso-data/ACME/1013" php artisan test tests/Feature/TravelTuning/TravelTuningScriptTest.php`
 Expected: PASS. If the synthetic numbers differ, run the script by hand on the same CSVs and correct the expectation only after checking the script's arithmetic is the one plan A pinned (do not change the script). If the golden differs only in `meta.generated`, the clock was not frozen: check `travelTo`.
 
 - [ ] **Step 3: Run the full suite**
@@ -3133,7 +3133,7 @@ vendor/bin/pint --dirty
 git status --short   # only the test file below should be new; no data files
 git add tests/Feature/TravelTuning/TravelTuningScriptTest.php
 git commit -m "$(cat <<'EOF'
-Travel tuning (#31): real-script tests, synthetic and the SaskTel 2026-10-13 golden
+Travel tuning (#31): real-script tests, synthetic and the Acme 2026-10-13 golden
 
 Both skip unless TOOLS_PSO_TOOLS_PATH (and TRAVEL_TUNING_SAMPLE_DIR for the golden) are set.
 

@@ -13,15 +13,15 @@ beforeEach(function () {
 });
 
 it('shows each customer environment and filters the list by it', function () {
-    $north = Dataset::factory()->for(Environment::factory()->for($this->user)->create(['name' => 'SaskTel test']))->create();
-    $south = Dataset::factory()->for(Environment::factory()->for($this->user)->create(['name' => 'Rogers test']))->create();
+    $north = Dataset::factory()->for(Environment::factory()->for($this->user)->create(['name' => 'Acme test']))->create();
+    $south = Dataset::factory()->for(Environment::factory()->for($this->user)->create(['name' => 'Globex test']))->create();
     $jane = Customer::factory()->for($north)->create(['name' => 'Jane North']);
     $raj = Customer::factory()->for($south)->create(['name' => 'Raj South']);
 
     Livewire::test(ListCustomers::class)
         ->assertCanSeeTableRecords([$jane, $raj])
-        ->assertSee('SaskTel test')
-        ->assertSee('Rogers test')
+        ->assertSee('Acme test')
+        ->assertSee('Globex test')
         ->filterTable('environment', $north->environment_id)
         ->assertCanSeeTableRecords([$jane])
         ->assertCanNotSeeTableRecords([$raj]);

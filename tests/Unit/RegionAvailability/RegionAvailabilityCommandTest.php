@@ -10,12 +10,12 @@ function raCheckout(): PsoToolsCheckout
 }
 
 it('builds the full command without a week', function () {
-    $argv = RegionAvailabilityCommand::build(raCheckout(), '/scratch/run-1/', ['load' => '/scratch/run-1/load.zip'], [], 'America/Regina', 'SATE');
+    $argv = RegionAvailabilityCommand::build(raCheckout(), '/scratch/run-1/', ['load' => '/scratch/run-1/load.zip'], [], 'America/Regina', 'ACME');
 
     expect($argv)->toBe([
         'python3', '-I', base_path('tests/Fixtures/pso-tools').'/region-availability/region_availability.py',
         '--load', '/scratch/run-1/load.zip',
-        '--account', 'SATE',
+        '--account', 'ACME',
         '--time-zone', 'America/Regina',
         '--accounts-dir', '/scratch/run-1/accounts',
         '--out-root', '/scratch/run-1/out',
@@ -23,7 +23,7 @@ it('builds the full command without a week', function () {
 });
 
 it('adds the week when one is given', function () {
-    $argv = RegionAvailabilityCommand::build(raCheckout(), '/scratch/run-1', ['load' => '/scratch/run-1/load.xml'], ['week_of' => '2026-10-07'], 'America/Regina', 'SATE');
+    $argv = RegionAvailabilityCommand::build(raCheckout(), '/scratch/run-1', ['load' => '/scratch/run-1/load.xml'], ['week_of' => '2026-10-07'], 'America/Regina', 'ACME');
 
     expect(array_slice($argv, -2))->toBe(['--week-of', '2026-10-07']);
 });

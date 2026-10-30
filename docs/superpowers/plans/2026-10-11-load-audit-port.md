@@ -85,7 +85,7 @@ from pathlib import Path
 
 LOAD = ('<?xml version="1.0"?><dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd">'
         '<Input_Reference><id>IR1</id><datetime>2026-10-04T08:06:33+00:00</datetime><dataset_id>NORTH</dataset_id>'
-        '<input_type>LOAD</input_type><enacting_app_instance_id>SATE</enacting_app_instance_id></Input_Reference>'
+        '<input_type>LOAD</input_type><enacting_app_instance_id>ACME</enacting_app_instance_id></Input_Reference>'
         '<Activity><id>A1</id><activity_type_id>INSTALL</activity_type_id><duration>PT1H</duration></Activity>'
         '<Activity_Status><activity_id>A1</activity_id><status_id>0</status_id></Activity_Status>'
         '<Resources><id>R1</id></Resources></dsScheduleData>')
@@ -95,7 +95,7 @@ PLAN = ('<?xml version="1.0"?><dsScheduleData xmlns="http://360Scheduling.com/Sc
         '<Plan><id>1</id><dataset_id>NORTH</dataset_id><input_reference_id>IR1</input_reference_id>'
         '<input_reference_date_time>2026-10-04T08:06:33+00:00</input_reference_date_time>'
         '<output_datetime>2026-10-04T08:09:00+00:00</output_datetime>'
-        '<application_instance_id>SATE</application_instance_id></Plan></dsScheduleData>')
+        '<application_instance_id>ACME</application_instance_id></Plan></dsScheduleData>')
 
 SYS = ('<?xml version="1.0"?><DsSystemData xmlns="http://360Scheduling.com/Schema/DsSystemData.xsd">'
        '<System_Version><version_id>6.14.0.0</version_id><version_type>Upgrade</version_type>'
@@ -132,7 +132,7 @@ SCRIPT = ROOT / 'load-audit' / 'audit_load.py'
 def run_audit(folder: Path, env_extra: dict, with_sys: bool = True) -> subprocess.CompletedProcess:
     p = fx.write_all(folder)
     cmd = [sys.executable, '-I', str(SCRIPT), '--load', str(p['load']), '--plan', str(p['plan']),
-           '--tz', 'America/Regina', '--org', 'SaskTel', '--accounts-dir', str(folder / 'accounts'),
+           '--tz', 'America/Regina', '--org', 'Acme', '--accounts-dir', str(folder / 'accounts'),
            '--params', str(ROOT / 'kb' / 'pso_parameters_reference.csv'),
            '--watchlist', str(ROOT / 'kb' / '28-release-notes-watchlist.md'),
            '--out', str(folder / 'r.md'), '--json', str(folder / 'r.json'), '--html', str(folder / 'r.html')]
@@ -318,7 +318,7 @@ Expected: all 6 PASS.
 
 - [ ] **Step 7: Prove the findings did not change on real data**
 
-The SaskTel exports at the repo root are swapped: `plan.zip` holds the LOAD and `load.zip` holds the plan (checked 2026-10-10). Run the audit from `main` and from this branch into two folders and compare with `Compare-LoadAudit.ps1` (it compares result, count, denominator, records and recommendation of every check):
+The customer exports at the repo root are swapped: `plan.zip` holds the LOAD and `load.zip` holds the plan (checked 2026-10-10). Run the audit from `main` and from this branch into two folders and compare with `Compare-LoadAudit.ps1` (it compares result, count, denominator, records and recommendation of every check):
 
 ```bash
 cd "/Users/idawoodjee/Documents/Projects/PSO Tools"
@@ -819,7 +819,7 @@ it('builds the full command for a LOAD, plan and SYS', function () {
     $argv = LoadAuditCommand::build(checkoutForCommand(), '/scratch/run1',
         ['load' => '/scratch/run1/a.zip', 'plan' => '/scratch/run1/b.xml', 'sys' => '/scratch/run1/c.xml'],
         ['ifs_release' => '25.2.7', 'complete_grace_hours' => 12],
-        'America/Regina', 'SaskTel', 'https://app/datasets/1?relation=toolRuns');
+        'America/Regina', 'Acme', 'https://app/datasets/1?relation=toolRuns');
 
     $root = dirname(__DIR__, 2).'/Fixtures/pso-tools';
     expect($argv)->toBe([
@@ -828,7 +828,7 @@ it('builds the full command for a LOAD, plan and SYS', function () {
         '--plan', '/scratch/run1/b.xml',
         '--sys', '/scratch/run1/c.xml',
         '--tz', 'America/Regina',
-        '--org', 'SaskTel',
+        '--org', 'Acme',
         '--accounts-dir', '/scratch/run1/accounts',
         '--params', "{$root}/kb/pso_parameters_reference.csv",
         '--watchlist', "{$root}/kb/28-release-notes-watchlist.md",
@@ -1120,7 +1120,7 @@ beforeEach(function () {
     $this->scratch = sys_get_temp_dir().'/la-'.uniqid();
     mkdir($this->scratch);
     file_put_contents($this->scratch.'/load.xml', '<dsScheduleData/>');
-    $this->dataset = Dataset::factory()->create(['settings' => ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina']]);
+    $this->dataset = Dataset::factory()->create(['settings' => ['display_name' => 'Acme', 'time_zone' => 'America/Regina']]);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'result' => null, 'progress' => null]);
     $this->context = new ToolContext($this->run, $this->dataset, $this->dataset->settings, 'America/Regina');
 });
@@ -1143,9 +1143,9 @@ it('runs the script in the scratch folder and stores html, findings, counts and 
     $args = json_decode(file_get_contents($argsFile), true);
     expect($args['cwd'])->toBe(realpath($this->scratch))
         ->and($args['progress_env'])->toBe('lines')
-        ->and($args['argv'])->toContain('--org', 'SaskTel', '--tz', 'America/Regina', '--ifs-release', '25.2.7')
+        ->and($args['argv'])->toContain('--org', 'Acme', '--tz', 'America/Regina', '--ifs-release', '25.2.7')
         ->and(is_dir($this->scratch.'/accounts'))->toBeTrue()
-        ->and($result->result['html'])->toContain('<h1>SaskTel</h1>')
+        ->and($result->result['html'])->toContain('<h1>Acme</h1>')
         ->and($result->result['findings'])->toHaveCount(3)
         ->and($result->result['counts'])->toBe(['red' => 1, 'amber' => 1, 'green' => 1])
         ->and($result->summary)->toBe(['counts' => ['red' => 1, 'amber' => 1, 'green' => 1]])
@@ -1476,7 +1476,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create(['name' => 'NORTH']);
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create(['name' => 'NORTH']);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::LoadAudit, 'run_date' => '2026-10-04',
         'result' => ['html' => '<!doctype html><html><body>Audit page <script>1</script></body></html>', 'findings' => [['check' => 'x']], 'counts' => ['red' => 2, 'amber' => 1, 'green' => 9]],
@@ -1512,18 +1512,18 @@ it('requires a login', function () {
 it('downloads the page and the findings under a name built from account, dataset and date', function () {
     $this->get(route('load-audit.download-html', [$this->dataset, $this->run]))
         ->assertOk()
-        ->assertDownload('load_audit_SATE_NORTH_2026-10-04.html');
+        ->assertDownload('load_audit_ACME_NORTH_2026-10-04.html');
 
     $this->get(route('load-audit.download-findings', [$this->dataset, $this->run]))
         ->assertOk()
-        ->assertDownload('load_audit_SATE_NORTH_2026-10-04.json')
+        ->assertDownload('load_audit_ACME_NORTH_2026-10-04.json')
         ->assertJson([['check' => 'x']]);
 });
 
 it('cleans the download name', function () {
     $this->dataset->update(['name' => 'North / West']);
 
-    $this->get(route('load-audit.download-html', [$this->dataset, $this->run]))->assertDownload('load_audit_SATE_North___West_2026-10-04.html');
+    $this->get(route('load-audit.download-html', [$this->dataset, $this->run]))->assertDownload('load_audit_ACME_North___West_2026-10-04.html');
 });
 
 it('shows counts, download buttons and the sandboxed iframe on the run page', function () {
@@ -1745,7 +1745,7 @@ Also shorten the Runs tab poll from `'10s'` to `'5s'` while a run is going.
 php artisan test --compact tests/Feature/LoadAudit tests/Feature/RunsTabTest.php
 ```
 
-Expected: all PASS. If `assertDownload` complains about the streamed response, use `->assertHeader('Content-Disposition', 'attachment; filename=load_audit_SATE_NORTH_2026-10-04.html')` instead.
+Expected: all PASS. If `assertDownload` complains about the streamed response, use `->assertHeader('Content-Disposition', 'attachment; filename=load_audit_ACME_NORTH_2026-10-04.html')` instead.
 
 - [ ] **Step 6: Commit**
 
@@ -1785,7 +1785,7 @@ use Illuminate\Support\Facades\Storage;
 /*
  * Proves the web run hands the real script exactly what the command line does. Needs a real pso-tools
  * checkout and a folder with load.(xml|zip), plan.(xml|zip), sys.(xml|zip):
- *   TOOLS_PSO_TOOLS_PATH=/Users/idawoodjee/Documents/Projects/PSO\ Tools LOAD_AUDIT_SAMPLE_DIR=~/pso-data/SATE/1005 php artisan test --filter=Golden
+ *   TOOLS_PSO_TOOLS_PATH=/Users/idawoodjee/Documents/Projects/PSO\ Tools LOAD_AUDIT_SAMPLE_DIR=~/pso-data/ACME/1005 php artisan test --filter=Golden
  * Skipped otherwise. Mind that some sample sets have load and plan swapped; check Input_Reference first.
  */
 it('produces the same findings through the web as the command line', function () {
@@ -1810,7 +1810,7 @@ it('produces the same findings through the web as the command line', function ()
 
     Storage::fake('r2');
     config(['exports.disk' => 'r2', 'exports.scratch_path' => sys_get_temp_dir().'/exports-golden-'.uniqid()]);
-    $dataset = Dataset::factory()->for(Environment::factory()->state(['account_id' => 'SATE']))->create(['name' => 'NORTH', 'settings' => ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina']]);
+    $dataset = Dataset::factory()->for(Environment::factory()->state(['account_id' => 'ACME']))->create(['name' => 'NORTH', 'settings' => ['display_name' => 'Acme', 'time_zone' => 'America/Regina']]);
     $storage = app(ExportStorage::class);
     $files = [];
     foreach ($paths as $kind => $path) {
@@ -1828,7 +1828,7 @@ it('produces the same findings through the web as the command line', function ()
     // The command line, with the same arguments the tool used, into a folder of its own.
     $work = sys_get_temp_dir().'/golden-cli-'.uniqid();
     mkdir($work.'/'.LoadAuditCommand::ACCOUNTS_DIR, 0770, true);
-    $argv = LoadAuditCommand::build(PsoToolsCheckout::fromConfig(), $work, $paths, [], 'America/Regina', 'SaskTel', 'about:blank');
+    $argv = LoadAuditCommand::build(PsoToolsCheckout::fromConfig(), $work, $paths, [], 'America/Regina', 'Acme', 'about:blank');
     $process = \Illuminate\Support\Facades\Process::path($work)->timeout(840)->run($argv);
     expect($process->successful())->toBeTrue($process->errorOutput());
 
@@ -1844,10 +1844,10 @@ it('produces the same findings through the web as the command line', function ()
 php artisan test --compact --filter=Golden
 ```
 
-Expected: 1 skipped. Then with a real sample (the SaskTel set under `~/pso-data/SATE/1005` if it holds load, plan and sys; otherwise copy the three files there, with the correct names after checking `Input_Reference`):
+Expected: 1 skipped. Then with a real sample (the customer set under `~/pso-data/ACME/1005` if it holds load, plan and sys; otherwise copy the three files there, with the correct names after checking `Input_Reference`):
 
 ```bash
-TOOLS_PSO_TOOLS_PATH="/Users/idawoodjee/Documents/Projects/PSO Tools" LOAD_AUDIT_SAMPLE_DIR=$HOME/pso-data/SATE/1005 php artisan test --compact --filter=Golden
+TOOLS_PSO_TOOLS_PATH="/Users/idawoodjee/Documents/Projects/PSO Tools" LOAD_AUDIT_SAMPLE_DIR=$HOME/pso-data/ACME/1005 php artisan test --compact --filter=Golden
 ```
 
 Expected: PASS in under a minute. This needs Task 1 merged or checked out in that path (the branch `load-audit-progress` is fine).

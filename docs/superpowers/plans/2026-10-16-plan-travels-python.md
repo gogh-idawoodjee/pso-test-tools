@@ -2730,9 +2730,9 @@ Expected: `OK` (`test_page_script_parses` runs when `node` is installed).
 - [ ] **Step 5: Browser check on the CLI output**
 
 ```bash
-python3 plan-travels/plan_travels.py build --export ~/pso-data/SATE/1005/north_travel_1005.xml --date 2026-10-05 \
-  --days 5 --dataset-name NORTH --out-dir output/SATE/NORTH/plan-travels
-open output/SATE/NORTH/plan-travels/plan_travels.html
+python3 plan-travels/plan_travels.py build --export ~/pso-data/ACME/1005/north_travel_1005.xml --date 2026-10-05 \
+  --days 5 --dataset-name NORTH --out-dir output/ACME/NORTH/plan-travels
+open output/ACME/NORTH/plan-travels/plan_travels.html
 ```
 
 Check: header line and tiles read correctly; filters narrow the table and "Showing X of Y legs" updates; header click sorts both ways; Map opens Google Maps in a new tab; Download CSV opens the CSV beside the page; "Check in PSO" is blank (file page); theme button flips light and dark and the choice survives a reload; at a 375 px window the page has no sideways scroll outside the table panel. Fix anything found in the template and re-run Step 4.
@@ -3049,14 +3049,14 @@ git commit -m "Plan travels: merge-google with review flags and weighting"
 
 ---
 
-### Task 10: Golden test and performance on the SaskTel export
+### Task 10: Golden test and performance on the customer export
 
 **Files:**
 - Create: `tests/plan_travels/test_golden.py`
 - Modify: `plan-travels/plan_travels.py` only if a mismatch is a real porting bug
 
 **Interfaces:**
-- Consumes: the whole `build` command; `~/pso-data/SATE/1005/north_travel_1005.xml` and `~/pso-data/SATE/1005/golden/plan_travels_2026-10-05_5d.csv` (local only, never committed).
+- Consumes: the whole `build` command; `~/pso-data/ACME/1005/north_travel_1005.xml` and `~/pso-data/ACME/1005/golden/plan_travels_2026-10-05_5d.csv` (local only, never committed).
 - Produces: a test that skips when either file is absent and otherwise pins every one of the 30 columns of all 1,781 rows.
 
 - [ ] **Step 1: The golden test**
@@ -3064,9 +3064,9 @@ git commit -m "Plan travels: merge-google with review flags and weighting"
 `tests/plan_travels/test_golden.py` (skip pattern from `tests/activity_trace/test_golden.py` lines 22 to 31):
 
 ```python
-"""Golden run on real SaskTel data (local only, never committed).
+"""Golden run on real customer data (local only, never committed).
 
-Runs when ~/pso-data/SATE/1005/north_travel_1005.xml and the pwsh golden CSV exist (skips otherwise):
+Runs when ~/pso-data/ACME/1005/north_travel_1005.xml and the pwsh golden CSV exist (skips otherwise):
 build --date 2026-10-05 --days 5, rows sorted on Resource ID, Activity ID (Destination), Previous Activity ID,
 Plan ID, every one of the 30 columns equal, numbers compared as decimals.
 
@@ -3084,7 +3084,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pt_fixtures import pt, run_main, tmpdir  # noqa: E402
 
-DATA = Path.home() / 'pso-data' / 'SATE' / '1005'
+DATA = Path.home() / 'pso-data' / 'ACME' / '1005'
 EXPORT = DATA / 'north_travel_1005.xml'
 GOLDEN = DATA / 'golden' / 'plan_travels_2026-10-05_5d.csv'
 SORT = ('Resource ID', 'Activity ID (Destination)', 'Previous Activity ID', 'Plan ID')
@@ -3170,8 +3170,8 @@ Expected: 4 tests pass (checked while writing this plan with the plan's code: al
 - [ ] **Step 3: Performance**
 
 ```bash
-/usr/bin/time -l python3 plan-travels/plan_travels.py build --export ~/pso-data/SATE/1005/north_travel_1005.xml \
-  --date 2026-10-05 --days 5 --out-dir output/SATE/NORTH/plan-travels-perf 2>&1 | \
+/usr/bin/time -l python3 plan-travels/plan_travels.py build --export ~/pso-data/ACME/1005/north_travel_1005.xml \
+  --date 2026-10-05 --days 5 --out-dir output/ACME/NORTH/plan-travels-perf 2>&1 | \
   grep -E 'real|maximum resident set size|summary:'
 ```
 
@@ -3216,7 +3216,7 @@ and under `tests/`, after the `activity_trace/` lines:
 
 ```
     plan_travels/               plan travels tests on synthetic exports; test_golden.py also checks the 1,781 legs of
-                                ~/pso-data/SATE/1005/north_travel_1005.xml against the pwsh golden CSV when present
+                                ~/pso-data/ACME/1005/north_travel_1005.xml against the pwsh golden CSV when present
 ```
 
 - [ ] **Step 2: CLAUDE.md parity rule**
@@ -3240,7 +3240,7 @@ Insert directly under the heading `## travel\Build-PlanTravelsReport.ps1`:
 to build the same legs from a plan export (same 30 columns, same merge rules), shows them as a page with a CSV
 download, and checks them against Google Routes through pso-services' shared cache. This script stays as the
 Windows version, with its own Google cache CSV and `-BuildImportXml`, until the web app replaces it. It is not
-kept at parity with the Python, apart from the golden test on one SaskTel export.
+kept at parity with the Python, apart from the golden test on one Acme export.
 ```
 
 - [ ] **Step 4: Check and commit**

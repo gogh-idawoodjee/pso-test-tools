@@ -375,7 +375,7 @@ function webhookJobUpload(string $path, string $contents, array $attributes = []
     Storage::disk('r2')->put($path, $contents);
 
     return PsoGatewayUpload::factory()
-        ->for(Environment::factory()->create(['name' => 'SaskTel TST']), 'environment')
+        ->for(Environment::factory()->create(['name' => 'Acme TST']), 'environment')
         ->create([
             'stored_path' => $path,
             'original_filename' => basename($path),
@@ -431,7 +431,7 @@ it('injects the webhook broadcast and records the webhook and response', functio
     $payload = sentPayload();
 
     expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
-    expect($upload->webhook_url)->toBe('https://webhook.example.test/pso-sasktel-tst');
+    expect($upload->webhook_url)->toBe('https://webhook.example.test/pso-acme-tst');
     expect($upload->webhook_view_url)->toBe('https://webhook.example.test/#!/uuid-1');
     expect($upload->response_status)->toBe(200);
     expect($upload->response_body)->toContain('1857054');
@@ -442,7 +442,7 @@ it('injects the webhook broadcast and records the webhook and response', functio
     expect($payload['ScheduleData']['Broadcast'][0]['once_only'])->toBeFalse();
     expect($payload['ScheduleData']['Broadcast'][0]['id'])->toBe('WEBHOOK_COMPLETE');
     expect(collect($payload['ScheduleData']['Broadcast_Parameter'])->firstWhere('parameter_name', 'url')['parameter_value'])
-        ->toBe('https://webhook.example.test/pso-sasktel-tst');
+        ->toBe('https://webhook.example.test/pso-acme-tst');
     expect($payload['ScheduleData']['Input_Reference'][0]['dataset_id'])->toBe('OLD');
 });
 
@@ -699,7 +699,7 @@ it('writes the script-style steps to the run log and never a secret', function (
     $text = $upload->refresh()->logLines()->orderBy('id')->pluck('text')->implode("\n");
 
     expect($text)->toContain('PSO RESTful Gateway - Schedule Data Upload');
-    expect($text)->toContain('Created new alias /pso-sasktel-tst');
+    expect($text)->toContain('Created new alias /pso-acme-tst');
     expect($text)->toContain('Stripped existing broadcast from the file: 1 Broadcast and 0 Broadcast_Parameter row(s) removed.');
     expect($text)->toContain("Injected Broadcast 'WEBHOOK_COMPLETE'");
     expect($text)->toContain('maximum_wait=PT1M, maximum_frequency=PT10M');
@@ -773,8 +773,8 @@ it('writes the log steps in the script order', function () {
         '=== PSO RESTful Gateway - Schedule Data Upload ===',
         'File found:',
         'Content type     : application/json (from extension)',
-        "Ensuring webhook alias '/pso-sasktel-tst' exists",
-        'Webhook endpoint : https://webhook.example.test/pso-sasktel-tst',
+        "Ensuring webhook alias '/pso-acme-tst' exists",
+        'Webhook endpoint : https://webhook.example.test/pso-acme-tst',
         'Dashboard        : https://webhook.example.test/#!/uuid-1',
         "Broadcast compression: none (self-hosted webhook can't store gzipped bodies)",
         'Rewriting the file (streaming)...',
@@ -1156,7 +1156,7 @@ it('marks the Input_Reference it sends as sent from PSO Test Tools, from where, 
     runUploadJob($upload);
 
     $inputReference = sentPayload()['ScheduleData']['Input_Reference'][0];
-    $expectedDescription = 'Sent from PSO Test Tools (Load from File), environment SaskTel TST, file north_load.json, 2026-10-16 13:40Z';
+    $expectedDescription = 'Sent from PSO Test Tools (Load from File), environment Acme TST, file north_load.json, 2026-10-16 13:40Z';
 
     expect($inputReference['user_id'])->toBe('PSO Test Tools');
     expect($inputReference['description'])->toBe($expectedDescription);

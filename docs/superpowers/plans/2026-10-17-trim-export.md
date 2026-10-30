@@ -5586,7 +5586,7 @@ EOF
 
 ---
 
-### Task 11: Golden tests on the SaskTel exports, and the performance check
+### Task 11: Golden tests on the customer exports, and the performance check
 
 **Files:**
 - Create: `tests/Unit/TrimExport/TrimExportGoldenTest.php`
@@ -5596,7 +5596,7 @@ EOF
 - Consumes: `ExportSource::open()` (Task 3), `TrimEngine::run()`, `TrimReport` (Task 6), `TableCounter::count()` (Task 8), `TrimPlan::fromOptions()`, `TableDependencies::CLEANUP_TABLES` (Task 1).
 - Produces: tests only. The golden tests skip themselves when `~/pso-data` (or `PSO_DATA_DIR`) lacks the files; they never copy customer data into the repo.
 
-Facts checked on this machine before writing the plan: `~/pso-data/SATE/2026-10-04/load.zip` holds one 101 MB XML LOAD (`File_2026_10_04_08_07_12.xml`) with 7,620 Activity and 3,928 Location rows; `~/pso-data/SATE/1005/north_travel_1005.xml` is 135,325,000 bytes, has no XML declaration, one Input_Reference and 5,081 Plan_Travel rows.
+Facts checked on this machine before writing the plan: `~/pso-data/ACME/2026-10-04/load.zip` holds one 101 MB XML LOAD (`File_2026_10_04_08_07_12.xml`) with 7,620 Activity and 3,928 Location rows; `~/pso-data/ACME/1005/north_travel_1005.xml` is 135,325,000 bytes, has no XML declaration, one Input_Reference and 5,081 Plan_Travel rows.
 
 - [ ] **Step 1: Write the golden tests**
 
@@ -5613,7 +5613,7 @@ use App\Support\TrimExport\TrimPlan;
 use Illuminate\Support\Facades\File;
 
 /*
- * Real SaskTel exports (customer data): read in place, never copied into the repo, skipped when absent.
+ * Real Acme exports (customer data): read in place, never copied into the repo, skipped when absent.
  * PSO_DATA_DIR overrides ~/pso-data.
  *   vendor/bin/pest tests/Unit/TrimExport/TrimExportGoldenTest.php
  */
@@ -5633,10 +5633,10 @@ afterEach(function () {
     File::deleteDirectory($this->scratch);
 });
 
-it('keeps 85 resources and 8 activities for region V1, 5 to 9 Oct, on the SaskTel LOAD (#42)', function () {
-    $zip = trimGoldenDataDir().'/SATE/2026-10-04/load.zip';
+it('keeps 85 resources and 8 activities for region V1, 5 to 9 Oct, on the customer LOAD (#42)', function () {
+    $zip = trimGoldenDataDir().'/ACME/2026-10-04/load.zip';
     if (! is_file($zip)) {
-        $this->markTestSkipped('The SaskTel LOAD of 2026-10-04 is not on this machine.');
+        $this->markTestSkipped('The customer LOAD of 2026-10-04 is not on this machine.');
     }
 
     copy($zip, $this->scratch.'/load.zip');
@@ -5662,10 +5662,10 @@ it('keeps 85 resources and 8 activities for region V1, 5 to 9 Oct, on the SaskTe
         ->and(app(TableCounter::class)->count($output, 'xml'))->toMatchArray(['Input_Reference' => 1, 'Resources' => 85, 'Activity' => 8]);
 });
 
-it('removes every Plan and Allocation table from the 135 MB SaskTel export with the Cleanup preset, in time and in flat memory', function () {
-    $path = trimGoldenDataDir().'/SATE/1005/north_travel_1005.xml';
+it('removes every Plan and Allocation table from the 135 MB Acme export with the Cleanup preset, in time and in flat memory', function () {
+    $path = trimGoldenDataDir().'/ACME/1005/north_travel_1005.xml';
     if (! is_file($path)) {
-        $this->markTestSkipped('The 135 MB SaskTel export is not on this machine.');
+        $this->markTestSkipped('The 135 MB Acme export is not on this machine.');
     }
 
     $plan = TrimPlan::fromOptions(['table_mode' => 'remove', 'tables' => TableDependencies::CLEANUP_TABLES], 'UTC');
@@ -5743,7 +5743,7 @@ Expected: PASS on this Mac (the golden files are present), printing the 135 MB t
 vendor/bin/pint --dirty
 git add tests/Unit/TrimExport/TrimExportGoldenTest.php tests/Unit/TrimExport/TrimEngineMemoryTest.php
 git commit -m "$(cat <<'EOF'
-Trim export: golden tests on the SaskTel LOAD (V1, 5 to 9 Oct) and the 135 MB export (Cleanup preset, time and memory), plus a memory check (#28)
+Trim export: golden tests on the customer LOAD (V1, 5 to 9 Oct) and the 135 MB export (Cleanup preset, time and memory), plus a memory check (#28)
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TMSuKwN5UjNYXzPgUfXPFu

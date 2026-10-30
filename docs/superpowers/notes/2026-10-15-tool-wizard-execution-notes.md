@@ -38,7 +38,7 @@ Branch `feat/tool-wizard-ia`. Not merged, not pushed. Brief and per-task reports
 4. Browser check on LXC 199:
    - Home shows four sections and Recent runs.
    - Sidebar shows Analyse exports, Live PSO actions, Setup, Admin in that order.
-   - Load audit wizard on the SaskTel dataset: Where pre-fills; Inputs shows the newest LOAD with its countdown; uploading a file selects it; clearing SYS stays cleared; Run shows progress then the result; "Open the full result" and "Run again" work.
+   - Load audit wizard on the Acme dataset: Where pre-fills; Inputs shows the newest LOAD with its countdown; uploading a file selects it; clearing SYS stays cleared; Run shows progress then the result; "Open the full result" and "Run again" work.
    - Sys compare entry is absent from the sidebar.
    - Banner shows on Activity Services.
    - Runs tab empty state reads "Start a run from a tool under Analyse exports; it will appear here."

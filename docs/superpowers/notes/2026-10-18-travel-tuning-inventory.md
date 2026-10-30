@@ -420,7 +420,7 @@ Measured impact on local data (naive `round()` against the emulation, usable leg
 
 ## 12. Observed run (pwsh 7.6.6, no polygons)
 
-Superseded as golden data on 2026-10-18: Ish replaced these four CSVs with a fresh batch with polygons, in `~/pso-data/SATE/1013/` (see the spec, section 2). The figures below describe the old batch only.
+Superseded as golden data on 2026-10-18: Ish replaced these four CSVs with a fresh batch with polygons, in `~/pso-data/ACME/1013/` (see the spec, section 2). The figures below describe the old batch only.
 
 Command: the four local CSVs as `-Runs` with labels Baseline, Grid v1, Grid v2, Grid v3, output to the scratchpad. Ran in 2.6 s.
 

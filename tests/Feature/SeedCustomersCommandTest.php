@@ -11,7 +11,7 @@ use App\Support\Booking\SampleCustomers;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
-    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'SaskTel Test']);
+    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'Acme Test']);
     $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH']);
 });
 
@@ -25,7 +25,7 @@ it('creates customers in the dataset with real city coordinates and round-robin 
         DatasetReferenceValue::factory()->for($this->dataset)->create(['entity_type' => ReferenceEntityType::Region, 'pso_id' => $pso]);
     }
 
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 5])
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 5])
         ->expectsOutputToContain('Created 5 customers')
         ->assertSuccessful();
 
@@ -45,7 +45,7 @@ it('creates customers in the dataset with real city coordinates and round-robin 
 });
 
 it('leaves the region empty and says so when none are synced', function () {
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 2])
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 2])
         ->expectsOutputToContain('No regions are synced')
         ->assertSuccessful();
 
@@ -60,30 +60,30 @@ it('finds the environment by its slug or name in any case', function () {
 });
 
 it('refuses an unknown dataset or environment', function () {
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NOPE'])->assertFailed();
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NOPE'])->assertFailed();
     $this->artisan('booking:seed-customers', ['environment' => 'Nope', 'dataset' => 'NORTH'])->assertFailed();
 
     expect(Customer::withoutGlobalScopes()->count())->toBe(0);
 });
 
 it('refuses an ambiguous dataset', function () {
-    Dataset::factory()->for(Environment::factory()->for(User::factory()->create())->create(['name' => 'SaskTel Test']))->create(['name' => 'NORTH']);
+    Dataset::factory()->for(Environment::factory()->for(User::factory()->create())->create(['name' => 'Acme Test']))->create(['name' => 'NORTH']);
 
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH'])
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH'])
         ->expectsOutputToContain('more than one')
         ->assertFailed();
 });
 
 it('skips when customers exist and replaces seeded ones with --fresh', function () {
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 3])->assertSuccessful();
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 3])->assertSuccessful();
     $firstIds = seeded($this->dataset)->pluck('id')->sort()->values()->all();
 
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 3])
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 3])
         ->expectsOutputToContain('already has customers')
         ->assertSuccessful();
     expect(seeded($this->dataset)->pluck('id')->sort()->values()->all())->toBe($firstIds);
 
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 4, '--fresh' => true])->assertSuccessful();
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 4, '--fresh' => true])->assertSuccessful();
     $after = seeded($this->dataset);
     expect($after)->toHaveCount(4)->and($after->pluck('id')->intersect($firstIds))->toBeEmpty();
 });
@@ -91,7 +91,7 @@ it('skips when customers exist and replaces seeded ones with --fresh', function 
 it('says --fresh adds samples alongside a dataset of real customers', function () {
     Customer::factory()->for($this->dataset)->create();
 
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 2])
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 2])
         ->expectsOutputToContain('Use --fresh to add sample customers alongside them.')
         ->assertSuccessful();
 
@@ -102,17 +102,17 @@ it('does not delete real customers or seeded customers that have tasks', functio
     $real = Customer::factory()->for($this->dataset)->create();
     // A real slug that only starts like a sample one is not a sample of this dataset.
     $lookalike = Customer::factory()->for($this->dataset)->create(['slug' => 'sample-'.substr($this->dataset->id, 0, 8).'-1']);
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 2, '--fresh' => true])->assertSuccessful();
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 2, '--fresh' => true])->assertSuccessful();
     expect(Customer::withoutGlobalScopes()->whereKey($real->id)->exists())->toBeTrue()
         ->and(Customer::withoutGlobalScopes()->whereKey($lookalike->id)->exists())->toBeTrue();
 
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 2, '--fresh' => true])->assertSuccessful();
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 2, '--fresh' => true])->assertSuccessful();
     $seeded = seeded($this->dataset)->whereNotIn('id', [$real->id, $lookalike->id])->values();
     $taskType = DatasetReferenceValue::factory()->for($this->dataset)->taskType(5, 1500, 90)->create(['pso_id' => 'INSTALL']);
     $withTask = $seeded[0];
     Task::factory()->for($withTask)->create(['task_type_id' => $taskType->id]);
 
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 2, '--fresh' => true])
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 2, '--fresh' => true])
         ->expectsOutputToContain('Kept 1')
         ->assertSuccessful();
 
@@ -128,19 +128,19 @@ it('creates nothing when one of the inserts fails', function () {
         }
     });
 
-    expect(fn () => $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 3]))
+    expect(fn () => $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 3]))
         ->toThrow(RuntimeException::class);
 
     expect(seeded($this->dataset))->toHaveCount(0);
 });
 
 it('numbers new samples after the highest one a --fresh run kept', function () {
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 3])->assertSuccessful();
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 3])->assertSuccessful();
     $kept = seeded($this->dataset)->firstWhere('slug', 'sample-'.$this->dataset->id.'-3');
     $taskType = DatasetReferenceValue::factory()->for($this->dataset)->taskType(5, 1500, 90)->create(['pso_id' => 'INSTALL']);
     Task::factory()->for($kept)->create(['task_type_id' => $taskType->id]);
 
-    $this->artisan('booking:seed-customers', ['environment' => 'SaskTel Test', 'dataset' => 'NORTH', '--count' => 1, '--fresh' => true])->assertSuccessful();
+    $this->artisan('booking:seed-customers', ['environment' => 'Acme Test', 'dataset' => 'NORTH', '--count' => 1, '--fresh' => true])->assertSuccessful();
 
     expect(seeded($this->dataset)->pluck('slug')->all())->toContain('sample-'.$this->dataset->id.'-3', 'sample-'.$this->dataset->id.'-4');
 });

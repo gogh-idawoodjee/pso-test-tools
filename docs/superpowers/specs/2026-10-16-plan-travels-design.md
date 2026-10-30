@@ -103,8 +103,8 @@ tool pages (light and dark, plain English, no em dashes). Contents:
   break duplicate, start-of-day trip plus slice (Pre-Shift columns), start-of-day duplicate, start-of-day unpaired,
   GPS fix chain with pre-fix catch-up, synthetic `!%!%FIX` chain, dead end at the fix, exclusions on each end,
   end-of-day leg, missing coordinates, zero legs, a zip input.
-- Golden test (skipped when the file is absent): `~/pso-data/SATE/1005/north_travel_1005.xml` with
-  `--date 2026-10-05 --days 5` against `~/pso-data/SATE/1005/golden/plan_travels_2026-10-05_5d.csv` (1,781 rows,
+- Golden test (skipped when the file is absent): `~/pso-data/ACME/1005/north_travel_1005.xml` with
+  `--date 2026-10-05 --days 5` against `~/pso-data/ACME/1005/golden/plan_travels_2026-10-05_5d.csv` (1,781 rows,
   pwsh output, no Google). Rows sorted on Resource ID, Activity ID (Destination), Previous Activity ID, Plan ID;
   every one of the 30 columns equal, numeric columns compared as decimals. Also asserts the inventory's counts
   (765 / 515 / 501 by direction; 13 Break, 8 GPS fix, 6 Start of day (duplicate), 1 Start of day; 21 rows with 2
@@ -237,7 +237,7 @@ badges and buttons; CSV download route is behind panel auth; Travel Analyzer pre
 - Build on the 135 MB test file: target under 30 s and under 200 MB RSS in Python (the pwsh DOM run takes 4 s but
   holds the whole file; streaming is the repo rule).
 - Google: 1,781 legs is about 1,800 calls worst case at 150 ms, about 5 minutes, inside the tool timeout; with the
-  seeded cache most SaskTel trips are hits. Progress is reported per chunk so the run page shows movement.
+  seeded cache most Acme trips are hits. Progress is reported per chunk so the run page shows movement.
 
 ## 9. Plans
 
@@ -249,4 +249,4 @@ output files; pso-services second, since the tool's Google step calls it).
 1. pso-tools: `plan-travels/` with tests; bundle unchanged (the Windows script stays).
 2. pso-services: client, migration, seed command, endpoint, analyzer switch, README. Ish runs the seed once.
 3. pso-test-tools: tool, options, run page, CSV route, analyzer prefill, config and `.env.example` entries.
-4. Browser check by Ish on a SaskTel plan export with Google off, then on with the cache seeded; close #29 and #27.
+4. Browser check by Ish on a Acme plan export with Google off, then on with the cache seeded; close #29 and #27.

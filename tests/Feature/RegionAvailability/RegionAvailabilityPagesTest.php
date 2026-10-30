@@ -17,7 +17,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create(['name' => 'NORTH']);
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create(['name' => 'NORTH']);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::RegionAvailability, 'run_date' => '2026-10-04',
         'result' => [
@@ -39,11 +39,11 @@ it('serves the stored page to its owner inside a sandbox', function () {
 it('downloads the page and the data under the tool, account, dataset and week', function () {
     $this->get(route('tool-runs.download-html', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
-        ->assertDownload('region_availability_SATE_NORTH_2026-10-05.html');
+        ->assertDownload('region_availability_ACME_NORTH_2026-10-05.html');
 
     $this->get(route('tool-runs.download-json', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
-        ->assertDownload('region_availability_SATE_NORTH_2026-10-05.json')
+        ->assertDownload('region_availability_ACME_NORTH_2026-10-05.json')
         ->assertJsonPath('meta.week', '2026-10-05');
 });
 

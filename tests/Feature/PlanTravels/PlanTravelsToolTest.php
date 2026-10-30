@@ -87,7 +87,7 @@ beforeEach(function () {
     $this->argsFile = $this->scratch.'/calls.jsonl';
     fakePlanEnv('FAKE_PLAN_ARGS_FILE', $this->argsFile);
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create([
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create([
         'name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina'],
     ]);
     $this->plan = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'summary' => ['export_date' => '2026-10-05']]);

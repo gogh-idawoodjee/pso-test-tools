@@ -44,10 +44,10 @@ it('gathers the same JSON through the web as the command line', function () {
     $work = sys_get_temp_dir().'/golden-ra-cli-'.uniqid();
     config(['exports.disk' => 'r2', 'exports.scratch_path' => $scratchPath]);
     $removeDirectory = static fn (string $directory) => is_dir($directory) && File::deleteDirectory($directory);
-    $settings = ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina', 'exclude_resource_types' => ['LONGCYCLE', 'SHORTCYCLE'], 'attribute_labels' => ['district' => 'District', 'supervisor_email' => 'Supervisor Email']];
+    $settings = ['display_name' => 'Acme', 'time_zone' => 'America/Regina', 'exclude_resource_types' => ['LONGCYCLE', 'SHORTCYCLE'], 'attribute_labels' => ['district' => 'District', 'supervisor_email' => 'Supervisor Email']];
 
     try {
-        $dataset = Dataset::factory()->for(Environment::factory()->state(['account_id' => 'SATE']))->create(['name' => 'NORTH', 'settings' => $settings]);
+        $dataset = Dataset::factory()->for(Environment::factory()->state(['account_id' => 'ACME']))->create(['name' => 'NORTH', 'settings' => $settings]);
         $storage = app(ExportStorage::class);
         $file = ExportFile::factory()->for($dataset, 'scope')->create(['kind' => ExportKind::Load, 'content_type' => pathinfo($load, PATHINFO_EXTENSION)]);
         Storage::disk('r2')->put($storage->objectKey($file), file_get_contents($load));
@@ -62,10 +62,10 @@ it('gathers the same JSON through the web as the command line', function () {
 
         // The command line, with the same account file and week.
         mkdir($work, 0770, true);
-        AccountSettingsFile::write(DatasetSettings::fromArray($settings), "{$work}/accounts", 'SATE');
+        AccountSettingsFile::write(DatasetSettings::fromArray($settings), "{$work}/accounts", 'ACME');
         $checkout = PsoToolsCheckout::fromConfig();
         $cli = Process::path($work)->timeout(600)->run([
-            $checkout->python(), '-I', $checkout->regionAvailabilityScript(), '--load', $load, '--account', 'SATE',
+            $checkout->python(), '-I', $checkout->regionAvailabilityScript(), '--load', $load, '--account', 'ACME',
             '--time-zone', 'America/Regina', '--accounts-dir', "{$work}/accounts", '--out-root', "{$work}/out", '--week-of', '2026-10-07',
         ]);
         expect($cli->successful())->toBeTrue($cli->errorOutput());

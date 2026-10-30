@@ -35,7 +35,7 @@ beforeEach(function () {
     mkdir($this->scratch);
     file_put_contents($this->scratch.'/audits.zip', 'zip');
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create([
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create([
         'name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'ifs_time_zone' => 'America/Toronto'],
     ]);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::AppointmentTimeline, 'result' => null, 'progress' => null]);
@@ -171,12 +171,12 @@ it('serves the stored CSVs as downloads', function () {
     $run = storedTrace();
 
     $this->get(route('tool-runs.download-booking-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $run]))
-        ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_activity813775_booking.csv')
+        ->assertOk()->assertDownload('appointment_timeline_ACME_NORTH_2026-10-04_activity813775_booking.csv')
         ->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
     $this->get(route('tool-runs.download-history-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $run]))
-        ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_activity813775_history.csv');
+        ->assertOk()->assertDownload('appointment_timeline_ACME_NORTH_2026-10-04_activity813775_history.csv');
     $this->get(route('tool-runs.download-html', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $run]))
-        ->assertOk()->assertDownload('appointment_timeline_SATE_NORTH_2026-10-04_activity813775.html');
+        ->assertOk()->assertDownload('appointment_timeline_ACME_NORTH_2026-10-04_activity813775.html');
 });
 
 it('gives 404 on the CSV routes for another user or a missing file', function () {

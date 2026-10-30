@@ -11,7 +11,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create(['name' => 'NORTH']);
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create(['name' => 'NORTH']);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::PlanTravels, 'run_date' => '2026-10-06',
         // The page carries the legs JSON the way plan_travels.py writes it: one compact line, '<' escaped.
@@ -45,11 +45,11 @@ it('shows the kept legs and the reason on a run that failed at the Google step',
 it('serves the CSV named after the account, dataset and first date', function () {
     $this->get(route('tool-runs.download-csv', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
-        ->assertDownload('plan_travels_SATE_NORTH_2026-10-05.csv')
+        ->assertDownload('plan_travels_ACME_NORTH_2026-10-05.csv')
         ->assertHeader('Content-Type', 'text/csv; charset=UTF-8')
         ->assertStreamedContent("Resource ID,Flag\nR1,Review\n");
     $this->get(route('tool-runs.download-json', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
-        ->assertOk()->assertDownload('plan_travels_SATE_NORTH_2026-10-05.json')
+        ->assertOk()->assertDownload('plan_travels_ACME_NORTH_2026-10-05.json')
         ->assertJsonPath('legs.0.resource_id', 'R1')
         ->assertJsonPath('legs.0.note', 'a < b');
 });

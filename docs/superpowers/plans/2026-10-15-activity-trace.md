@@ -116,7 +116,7 @@ plus `make_zip` writing to `tempfile.mkdtemp()`, honouring `times` through `ZipI
 - `test_order_by_sequence_then_entry_order`: `file10-...`, `file2-...`, `File_2026_10_04_07_00_00.xml`, `zzz.xml`: order is seq 2, seq 10, then the two unsequenced in zip entry order.
 - `test_unnamed_files_fall_back_to_entry_order_and_not_timed` (Review Focus 1).
 - `test_keeps_only_rows_for_the_activity`: a CHANGE with Activity 1001 and 1002, Activity_Status for both, Appointment_Request for 1001 and 1002, offers for both requests; assert booking_rows hold only 1001's request/offers and history_rows only 1001's rows; `counts` per file.
-- `test_mention_regex_matches_prefixed_ids`: `<activity_id>SATE-A-1001-2</activity_id>` is a hit for 1001; `<activity_id>11001</activity_id>` is not.
+- `test_mention_regex_matches_prefixed_ids`: `<activity_id>ACME-A-1001-2</activity_id>` is a hit for 1001; `<activity_id>11001</activity_id>` is not.
 - `test_related_through_activity_group`: Activity_Group activity_id1=1001 activity_id2=1002 makes 1002 related; its rows are kept with role data available.
 - `test_work_task_resolution_custom_url_then_attribute` and `test_work_task_not_found_exit_2` (via `main([...])` returning 2 and stderr containing both place names).
 - `test_load_config_and_load_as_file`: `--load` with Appointment_Template, Slot_Usage_Rule_Set, Slot_Usage_Rule rows and an Activity 1001 row; assert `load_config` populated and the LOAD appears as the last AuditFile of type LOAD.
@@ -166,7 +166,7 @@ Port exactly: ATL functions for dedupe (Add-Unique), timing maps (Note-Time), ou
 
 - [ ] **Step 1: Failing tests**: in `test_outputs.py` add `test_html_written_with_data_and_title` (trace.html contains `const DATA =` with the JSON and the activity id in `<title>`; no `__DATA__` left); `test_html_has_both_views_and_files_table` (strings "Booking", "History", "Files read", "pso-trace-view").
 - [ ] **Step 2: Build the template and renderer.** Open the resulting file in a browser locally (`python3 activity-trace/trace_activity.py --audits <fixture zip> --activity 1001 --out-dir /tmp/x` then open) and check light and dark, zone switch, calendar and tables.
-- [ ] **Step 3: Golden test** `test_golden.py`: skip unless `~/pso-data/SATE/2026-10-04/audits.zip` exists; run `main` with activity id from env `TRACE_GOLDEN_ACTIVITY` (skip if unset) and assert exit 0, four outputs exist, `trace.json['booking']['requests']` non-empty. Document the env var in the test docstring.
+- [ ] **Step 3: Golden test** `test_golden.py`: skip unless `~/pso-data/ACME/2026-10-04/audits.zip` exists; run `main` with activity id from env `TRACE_GOLDEN_ACTIVITY` (skip if unset) and assert exit 0, four outputs exist, `trace.json['booking']['requests']` non-empty. Document the env var in the test docstring.
 - [ ] **Step 4: Run the suite; commit** "Activity trace: page template and Booking view".
 
 ---
@@ -260,7 +260,7 @@ def planned_vs_actual(events, assign_map) -> list[dict]  # per instance: technic
 ### Task 9: Docs, notes, handoff (pso-test-tools)
 
 - README: one paragraph in the tools list for Trace an activity (inputs, two views, downloads).
-- `docs/superpowers/notes/2026-10-15-activity-trace-execution-notes.md`: per-task summary, deviations, deferred items, after-merge steps (pso-tools: pull on the box happens via the deploy cron; pso-test-tools: deploy cron; no migration unless Task 7 adds one, which it should not since settings are JSON), browser check list (Exports tab accepts an xlsx; wizard three rows; run on the SaskTel audits with a known activity; both views; zone switch; downloads; exit-2 message for a wrong id).
+- `docs/superpowers/notes/2026-10-15-activity-trace-execution-notes.md`: per-task summary, deviations, deferred items, after-merge steps (pso-tools: pull on the box happens via the deploy cron; pso-test-tools: deploy cron; no migration unless Task 7 adds one, which it should not since settings are JSON), browser check list (Exports tab accepts an xlsx; wizard three rows; run on the customer audits with a known activity; both views; zone switch; downloads; exit-2 message for a wrong id).
 - Commit "Trace an activity: docs and execution notes".
 
 ---

@@ -4,6 +4,8 @@ use App\Jobs\SyncDatasetReferenceValuesJob;
 use App\Models\Dataset;
 use App\Models\DatasetReferenceValue;
 use App\Models\Environment;
+use App\Support\ReferenceValues\ReferenceValuesClient;
+use App\Support\ReferenceValues\ReferenceValuesUpserter;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -12,8 +14,8 @@ use Illuminate\Support\Facades\Http;
 beforeEach(function () {
     config(['psott.pso-services-api' => 'pso-services.test', 'psott.pso-services-api-version' => 2]);
     $this->environment = Environment::factory()->create([
-        'base_url' => 'https://sate-pso-tst.ifs.cloud',
-        'account_id' => 'SATE',
+        'base_url' => 'https://acme-pso-tst.ifs.cloud',
+        'account_id' => 'ACME',
         'username' => 'GOGH_INT',
         'password' => Crypt::encryptString('secret'),
     ]);
@@ -36,8 +38,8 @@ it('calls pso-services with the environment headers and upserts the tables', fun
 
     runSyncJob($this->dataset->id);
 
-    Http::assertSent(fn ($request) => $request->hasHeader('baseUrl', 'https://sate-pso-tst.ifs.cloud')
-        && $request->hasHeader('accountId', 'SATE')
+    Http::assertSent(fn ($request) => $request->hasHeader('baseUrl', 'https://acme-pso-tst.ifs.cloud')
+        && $request->hasHeader('accountId', 'ACME')
         && $request->hasHeader('datasetId', 'NORTH')
         && $request->hasHeader('username', 'GOGH_INT')
         && $request->hasHeader('password', 'secret'));
@@ -93,7 +95,7 @@ it('does nothing when the dataset no longer exists', function () {
 function runSyncJob(string $datasetId): void
 {
     (new SyncDatasetReferenceValuesJob($datasetId))->handle(
-        app(\App\Support\ReferenceValues\ReferenceValuesClient::class),
-        app(\App\Support\ReferenceValues\ReferenceValuesUpserter::class),
+        app(ReferenceValuesClient::class),
+        app(ReferenceValuesUpserter::class),
     );
 }

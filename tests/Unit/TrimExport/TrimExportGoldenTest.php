@@ -8,7 +8,7 @@ use App\Support\TrimExport\TrimPlan;
 use Illuminate\Support\Facades\File;
 
 /*
- * Golden tests against real SaskTel exports. They are customer data, so they are NOT in the repo:
+ * Golden tests against real customer exports. They are customer data, so they are NOT in the repo:
  * point PSO_DATA_DIR (in your local .env) at a folder holding SATE/2026-10-04/load.zip and
  * SATE/1005/north_travel_1005.xml. The files are read in place (the LOAD zip is copied to a temp
  * folder removed afterwards) and each test is skipped when its file is not available.
@@ -35,10 +35,10 @@ afterEach(function () {
     File::deleteDirectory($this->scratch);
 });
 
-it('keeps 85 resources and 8 activities for region V1, 5 to 9 Oct, on the SaskTel LOAD (#42)', function () {
+it('keeps 85 resources and 8 activities for region V1, 5 to 9 Oct, on the customer LOAD (#42)', function () {
     $zip = trimGoldenFile('SATE/2026-10-04/load.zip');
     if ($zip === null) {
-        $this->markTestSkipped('The SaskTel LOAD of 2026-10-04 is not available (set PSO_DATA_DIR).');
+        $this->markTestSkipped('The customer LOAD of 2026-10-04 is not available (set PSO_DATA_DIR).');
     }
 
     copy($zip, $this->scratch.'/load.zip');
@@ -64,10 +64,10 @@ it('keeps 85 resources and 8 activities for region V1, 5 to 9 Oct, on the SaskTe
         ->and(app(TableCounter::class)->count($output, 'xml'))->toMatchArray(['Input_Reference' => 1, 'Resources' => 85, 'Activity' => 8]);
 });
 
-it('removes every Plan and Allocation table from the 135 MB SaskTel export with the Cleanup preset, in time and in flat memory', function () {
+it('removes every Plan and Allocation table from the 135 MB customer export with the Cleanup preset, in time and in flat memory', function () {
     $path = trimGoldenFile('SATE/1005/north_travel_1005.xml');
     if ($path === null) {
-        $this->markTestSkipped('The 135 MB SaskTel export is not available (set PSO_DATA_DIR).');
+        $this->markTestSkipped('The 135 MB customer export is not available (set PSO_DATA_DIR).');
     }
 
     $plan = TrimPlan::fromOptions(['table_mode' => 'remove', 'tables' => TableDependencies::CLEANUP_TABLES], 'UTC');

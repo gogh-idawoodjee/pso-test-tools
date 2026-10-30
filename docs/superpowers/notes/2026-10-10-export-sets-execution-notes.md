@@ -34,7 +34,7 @@ Where the plan and the spec or the real code disagreed, the spec and the code wo
 
 ### Left undone on purpose
 - Plan Task 8 step 5 (manual browser drop): standing preference not to browser-test.
-- Plan Task 10 step 5 (dev database `migrate` and `datasets:seed-settings`): the dev database has no SATE or ROGE datasets and migrating it is the user's to run.
+- Plan Task 10 step 5 (dev database `migrate` and `datasets:seed-settings`): the dev database has no ACME or GLBX datasets and migrating it is the user's to run.
 
 ## Final review
 
@@ -79,6 +79,6 @@ Fresh reviewer on the whole branch: 0 Critical, 5 Important, 11 Minor. All five 
 - PSO writes explicit offsets on its timestamps (`+00:00`), so review finding I-2 (offset-less times) has not shown up in a real file.
 
 ## To do after merge
-- `php artisan migrate`, then `php artisan datasets:seed-settings <dataset id> <account file> --time-zone=...` for SATE and ROGE.
+- `php artisan migrate`, then `php artisan datasets:seed-settings <dataset id> <account file> --time-zone=...` for ACME and GLBX.
 - R2 bucket CORS rule for the app origin (PUT, GET, `Content-Type`); see README.
 - Check the drop zone in the browser (upload, progress, complete) with R2 credentials.

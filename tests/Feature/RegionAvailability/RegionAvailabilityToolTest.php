@@ -31,8 +31,8 @@ beforeEach(function () {
     mkdir($this->scratch);
     file_put_contents($this->scratch.'/load.xml', '<dsScheduleData/>');
     $this->dataset = Dataset::factory()
-        ->for(Environment::factory()->state(['account_id' => 'sate']))
-        ->create(['settings' => ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina', 'attribute_labels' => ['district' => 'District']]]);
+        ->for(Environment::factory()->state(['account_id' => 'acme']))
+        ->create(['settings' => ['display_name' => 'Acme', 'time_zone' => 'America/Regina', 'attribute_labels' => ['district' => 'District']]]);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::RegionAvailability, 'result' => null, 'progress' => null]);
     $this->context = new ToolContext($this->run, $this->dataset, $this->dataset->settings, 'America/Regina');
 });
@@ -58,11 +58,11 @@ it('writes the account file, runs the script in the scratch folder and stores pa
     $args = json_decode(file_get_contents($argsFile), true);
     expect($args['cwd'])->toBe(realpath($this->scratch))
         ->and($args['progress_env'])->toBe('lines')
-        ->and($args['argv'])->toContain('--account', 'SATE', '--time-zone', 'America/Regina', '--week-of', '2026-10-07')
-        ->and($args['settings_file'])->toBe($this->scratch.'/accounts/SATE.json')
-        ->and($args['settings']['display_name'])->toBe('SaskTel')
+        ->and($args['argv'])->toContain('--account', 'ACME', '--time-zone', 'America/Regina', '--week-of', '2026-10-07')
+        ->and($args['settings_file'])->toBe($this->scratch.'/accounts/ACME.json')
+        ->and($args['settings']['display_name'])->toBe('Acme')
         ->and($args['settings']['attributes'])->toBe(['district' => 'District'])
-        ->and($result->result['html'])->toContain('SaskTel: regions, week of 2026-10-07')
+        ->and($result->result['html'])->toContain('Acme: regions, week of 2026-10-07')
         ->and($result->result['data']['meta']['week'])->toBe('2026-10-07')
         ->and($result->result['data']['meta']['labels']['district'])->toBe('District')
         ->and($result->summary)->toBe([

@@ -22,7 +22,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create(['name' => 'NORTH']);
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create(['name' => 'NORTH']);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::LoadAudit, 'run_date' => '2026-10-04',
         'result' => ['html' => '<!doctype html><html><body>Audit page <script>1</script></body></html>', 'findings' => [['check' => 'x']], 'counts' => ['red' => 2, 'amber' => 1, 'green' => 9]],
@@ -58,18 +58,18 @@ it('requires a login', function () {
 it('downloads the page and the findings under a name built from account, dataset and date', function () {
     $this->get(route('tool-runs.download-html', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
-        ->assertDownload('load_audit_SATE_NORTH_2026-10-04.html');
+        ->assertDownload('load_audit_ACME_NORTH_2026-10-04.html');
 
     $this->get(route('tool-runs.download-json', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))
         ->assertOk()
-        ->assertDownload('load_audit_SATE_NORTH_2026-10-04.json')
+        ->assertDownload('load_audit_ACME_NORTH_2026-10-04.json')
         ->assertJson([['check' => 'x']]);
 });
 
 it('cleans the download name', function () {
     $this->dataset->update(['name' => 'North / West']);
 
-    $this->get(route('tool-runs.download-html', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))->assertDownload('load_audit_SATE_North___West_2026-10-04.html');
+    $this->get(route('tool-runs.download-html', ['scopeType' => 'datasets', 'scopeId' => $this->dataset, 'run' => $this->run]))->assertDownload('load_audit_ACME_North___West_2026-10-04.html');
 });
 
 it('shows counts, download buttons and the sandboxed iframe on the run page', function () {

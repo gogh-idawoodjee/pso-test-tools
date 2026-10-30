@@ -26,7 +26,7 @@ same history; trend lines on the dashboard grow as days are run; a weekday run f
 
 ## 2. Findings that shape the design
 
-- **Speed is fine.** The Python runs the SaskTel Sunday set (load 2.7 MB, plan 1.2 MB, EOD 3.8 MB zipped)
+- **Speed is fine.** The Python runs the Acme Sunday set (load 2.7 MB, plan 1.2 MB, EOD 3.8 MB zipped)
   in 6.5 seconds. The two minutes is PowerShell 5.1 on the laptop.
 - **Memory is not.** Peak resident set was 554 MB on that Sunday set: 145 MB after the LOAD, 250 MB after
   the plan, 493 MB after the EOD, before the engine ran. `read_tables()` keeps every field of every row of

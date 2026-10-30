@@ -4,13 +4,13 @@ use App\Support\ScheduleData\InputReferenceIdentity;
 use Carbon\CarbonImmutable;
 
 it('describes a Load from File upload in one plain line with the time in UTC', function () {
-    $identity = InputReferenceIdentity::forLoadFromFile('SaskTel TST',
+    $identity = InputReferenceIdentity::forLoadFromFile('Acme TST',
         'north_load.xml',
         CarbonImmutable::parse('2026-10-16 09:40:12', 'America/Regina'),
     );
 
     expect($identity->userId)->toBe('PSO Test Tools');
-    expect($identity->description)->toBe('Sent from PSO Test Tools (Load from File), environment SaskTel TST, file north_load.xml, 2026-10-16 15:40Z');
+    expect($identity->description)->toBe('Sent from PSO Test Tools (Load from File), environment Acme TST, file north_load.xml, 2026-10-16 15:40Z');
     expect($identity->description)->not->toContain("\u{2014}");
 });
 
@@ -26,9 +26,9 @@ it('caps the description at 255 characters by shortening a long file name in the
     $fileName = 'north_tr'.str_repeat('x', 288).'1005.xml';
     expect(mb_strlen($fileName))->toBe(304);
 
-    $identity = InputReferenceIdentity::forLoadFromFile('SaskTel TST', $fileName, CarbonImmutable::parse('2026-10-16 13:40:00', 'UTC'));
+    $identity = InputReferenceIdentity::forLoadFromFile('Acme TST', $fileName, CarbonImmutable::parse('2026-10-16 13:40:00', 'UTC'));
 
-    $prefix = 'Sent from PSO Test Tools (Load from File), environment SaskTel TST, file ';
+    $prefix = 'Sent from PSO Test Tools (Load from File), environment Acme TST, file ';
     $suffix = ', 2026-10-16 13:40Z';
     $fileBudget = 255 - mb_strlen($prefix) - mb_strlen($suffix);
     $keep = $fileBudget - 3 - 4;

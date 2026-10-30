@@ -878,7 +878,7 @@ beforeEach(function () {
     $this->argsFile = $this->scratch.'/calls.jsonl';
     fakePlanEnv('FAKE_PLAN_ARGS_FILE', $this->argsFile);
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create([
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create([
         'name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina'],
     ]);
     $this->plan = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Plan, 'summary' => ['export_date' => '2026-10-05']]);
@@ -1540,7 +1540,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create(['name' => 'NORTH']);
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create(['name' => 'NORTH']);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::PlanTravels, 'run_date' => '2026-10-06',
         'result' => ['html' => '<!doctype html><html><body>Plan travels page</body></html>', 'csv' => "Resource ID,Flag\nR1,Review\n", 'data' => ['meta' => [], 'legs' => [['resource_id' => 'R1', 'flag' => 'Review']]]],
@@ -1573,11 +1573,11 @@ it('shows the kept legs and the reason on a run that failed at the Google step',
 it('serves the CSV named after the account, dataset and first date', function () {
     $this->get(route('tool-runs.download-csv', [$this->dataset, $this->run]))
         ->assertOk()
-        ->assertDownload('plan_travels_SATE_NORTH_2026-10-05.csv')
+        ->assertDownload('plan_travels_ACME_NORTH_2026-10-05.csv')
         ->assertHeader('Content-Type', 'text/csv; charset=UTF-8')
         ->assertStreamedContent("Resource ID,Flag\nR1,Review\n");
     $this->get(route('tool-runs.download-json', [$this->dataset, $this->run]))
-        ->assertOk()->assertDownload('plan_travels_SATE_NORTH_2026-10-05.json');
+        ->assertOk()->assertDownload('plan_travels_ACME_NORTH_2026-10-05.json');
 });
 
 it('keeps the CSV behind the panel login and the owner', function () {
@@ -1856,7 +1856,7 @@ git add -A && git commit -m "Plan travels: README"
 - [ ] **Step 4: Browser check for Ish (after the pso-tools and pso-services work is deployed and the cache seeded)**
 
 1. Tools, Plan travels: the Plan export row only; the first date shows the export's day; Google fields appear only with the toggle on.
-2. Run on the SaskTel plan export (`north_travel_1005.xml`) for 2026-10-05, 5 days, Google off: 1,781 legs, the page in the frame, Download CSV opens the same rows as the golden CSV.
+2. Run on the Acme plan export (`north_travel_1005.xml`) for 2026-10-05, 5 days, Google off: 1,781 legs, the page in the frame, Download CSV opens the same rows as the golden CSV.
 3. Same with Google on: progress moves through "Checking trips with Google, n of 9"; most trips come from the cache; Review and Missing badges match the page tiles.
 4. Click **Check in PSO** on a leg: a new tab opens the Travel Analyzer with the four coordinates filled in and the user still logged in.
 5. With the Google key removed on pso-services: the run fails with "The Google Routes check did not finish: Google Routes is not configured on pso-services." and still shows the legs.

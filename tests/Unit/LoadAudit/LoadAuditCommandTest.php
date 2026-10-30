@@ -27,7 +27,7 @@ it('builds the full command for a LOAD, plan and SYS', function () {
     $argv = LoadAuditCommand::build(checkoutForCommand(), '/scratch/run1',
         ['load' => '/scratch/run1/a.zip', 'plan' => '/scratch/run1/b.xml', 'sys' => '/scratch/run1/c.xml'],
         ['ifs_release' => '25.2.7', 'complete_grace_hours' => 12],
-        'America/Regina', 'SaskTel');
+        'America/Regina', 'Acme');
 
     $root = dirname(__DIR__, 2).'/Fixtures/pso-tools';
     expect($argv)->toBe([
@@ -36,7 +36,7 @@ it('builds the full command for a LOAD, plan and SYS', function () {
         '--plan', '/scratch/run1/b.xml',
         '--sys', '/scratch/run1/c.xml',
         '--tz', 'America/Regina',
-        '--org=SaskTel',
+        '--org=Acme',
         '--accounts-dir', '/scratch/run1/accounts',
         '--params', "{$root}/kb/pso_parameters_reference.csv",
         '--watchlist', "{$root}/kb/28-release-notes-watchlist.md",
@@ -75,7 +75,7 @@ it('adds the System day inputs, messages and option flags after --sys and before
         ['load' => '/scratch/run1/a.zip', 'plan' => '/scratch/run1/b.xml', 'sys' => '/scratch/run1/c.xml',
             'audits' => '/scratch/run1/d.zip', 'pso_events' => '/scratch/run1/e.json', 'appointment_history' => '/scratch/run1/f.csv'],
         ['noise_event_ids' => '3041, 24578', 'flag_activities' => 7, 'flag_deletions' => 40],
-        'America/Regina', 'SaskTel', '/scratch/run1/messages.json');
+        'America/Regina', 'Acme', '/scratch/run1/messages.json');
 
     $start = array_search('--sys', $argv, true);
     expect(array_slice($argv, $start, 16))->toBe([

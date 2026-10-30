@@ -4,7 +4,7 @@
 
 **Goal:** A Python reference implementation of pso-tools `travel/Build-TravelTuningReport.ps1`: `travel/travel_tuning.py` reads a baseline and one or more tuned plan travels CSVs (plus the polygon file each run used) and writes the same one-page report as the script, with its report data value-for-value equal to a pwsh 7 run of the script.
 
-**Architecture:** One standard-library module, `travel/travel_tuning.py`, built in layers that mirror the script: helpers and the run list, run CSVs, matching across runs, metrics without polygons, polygons and the model check, polygon callouts and map data, then the report data, page and command. The page is the script's here-string template extracted verbatim into `travel/travel_tuning_template.html` with two additions (a warnings banner and a footer note listing the three deviations). Tests compare every section with a committed pwsh capture of the script on a synthetic set, and the whole report with the real golden run in `~/pso-data/SATE/1013/`.
+**Architecture:** One standard-library module, `travel/travel_tuning.py`, built in layers that mirror the script: helpers and the run list, run CSVs, matching across runs, metrics without polygons, polygons and the model check, polygon callouts and map data, then the report data, page and command. The page is the script's here-string template extracted verbatim into `travel/travel_tuning_template.html` with two additions (a warnings banner and a footer note listing the three deviations). Tests compare every section with a committed pwsh capture of the script on a synthetic set, and the whole report with the real golden run in `~/pso-data/ACME/1013/`.
 
 **Tech Stack:** Python 3.9+ standard library (`argparse`, `csv`, `decimal`, `json`, `math`, `re`, `xml.etree.ElementTree.iterparse`), `unittest`. PowerShell 7 (`pwsh`, on the Mac) only to capture the script's expected output.
 
@@ -55,7 +55,7 @@
 | `tests/travel_tuning/test_polygons.py` | Polygon reader, geometry, model check, overlap count | 5 |
 | `tests/travel_tuning/test_callouts.py` | Hotspot, strongest, corridors, review CSV, map data, counts | 6 |
 | `tests/travel_tuning/test_page.py` | Whole command against the capture, template, warnings, errors | 7 |
-| `tests/travel_tuning/test_golden.py` | Real SaskTel run against the pwsh and Windows reports (skips without the data) | 8 |
+| `tests/travel_tuning/test_golden.py` | Real Acme run against the pwsh and Windows reports (skips without the data) | 8 |
 | `CLAUDE.md` | Repo structure entry, test command, the parity exception | 9 |
 
 Leg records are plain dicts with these keys (produced by `read_run`, Task 2, and used by every later task): `key` (5 dp coordinate key), `nth` (index among the run's legs with the same key, file order), `la1`, `lo1`, `la2`, `lo2`, `p`, `g`, `d` (minutes, unrounded; `d = p - g`), `ad` (`r1(abs(d))`), `km` (Google distance, else PSO distance, else None), `res`, `res_name`, `gb_from`, `gb_to`, `row` (1-based CSV data row), `merged`, `gps_fix`, `fix_time`, `prefix_km`. A run is a dict: `label`, `file`, `rows`, `legs`, `excluded`, `ex_google`, `ex_pso`, `ex_validation`, `flagged`, `over`, `under`, `total`, `has_fix_cols`. A polygon is a dict: `id`, `desc`, `group`, `gtype`, `w`, `has_w`, `s`, `n`, `west`, `east`, `rect`.
@@ -2806,7 +2806,7 @@ Claude-Session: https://claude.ai/code/session_01TMSuKwN5UjNYXzPgUfXPFu"
 
 ---
 
-### Task 8: Golden test on the real SaskTel run
+### Task 8: Golden test on the real customer run
 
 **Files:**
 - Test: `tests/travel_tuning/test_golden.py`
@@ -2815,13 +2815,13 @@ Claude-Session: https://claude.ai/code/session_01TMSuKwN5UjNYXzPgUfXPFu"
 - Consumes: `main` (Task 7), `run_main`, `page_json`, `json_diff`, `null_km_paths`, `OURS_ONLY` (Task 2).
 - Produces: nothing new.
 
-The golden folder `~/pso-data/SATE/1013/` is local only. It holds the two run CSVs, `PSO_Sys_pass_1.xml` (251 polygons), Ish's Windows report `travel_tuning_report_20261013_2235.html` and `golden/pwsh_report.html`, which was made with:
+The golden folder `~/pso-data/ACME/1013/` is local only. It holds the two run CSVs, `PSO_Sys_pass_1.xml` (251 polygons), Ish's Windows report `travel_tuning_report_20261013_2235.html` and `golden/pwsh_report.html`, which was made with:
 
 ```bash
-cd ~/pso-data/SATE/1013
+cd ~/pso-data/ACME/1013
 pwsh -NoProfile -File "/Users/idawoodjee/Documents/Projects/PSO Tools/travel/Build-TravelTuningReport.ps1" \
   -Runs plan_travels_output_north_initial.csv,plan_travels_output_pass2.csv -Labels 'Prod (no polygons)','Grid v6' \
-  -PolygonXml '',PSO_Sys_pass_1.xml -ClientName SaskTel -DatasetName NORTH_TRAVEL -OutputPath golden/pwsh_report.html
+  -PolygonXml '',PSO_Sys_pass_1.xml -ClientName Acme -DatasetName NORTH_TRAVEL -OutputPath golden/pwsh_report.html
 ```
 
 The Windows and pwsh reports agree on everything except `meta.generated` and the order of the four corridor groups with no trips (`corridors[14..17]`); Python must produce pwsh 7's order (`C15, C16, C17, C18`). When this plan was written the Python port matched the pwsh JSON on every value (only `meta.warnings` and `meta.page_warnings` extra), in 0.26 s against the script's 2.8 s, and the data has no flagged leg without a distance.
@@ -2831,9 +2831,9 @@ The Windows and pwsh reports agree on everything except `meta.generated` and the
 `tests/travel_tuning/test_golden.py`:
 
 ```python
-"""Golden run on real SaskTel data (local only, never committed).
+"""Golden run on real customer data (local only, never committed).
 
-Runs when ~/pso-data/SATE/1013/ holds the two run CSVs, the polygon file, Ish's Windows report and the pwsh 7
+Runs when ~/pso-data/ACME/1013/ holds the two run CSVs, the polygon file, Ish's Windows report and the pwsh 7
 report (golden/pwsh_report.html, made with the command in the spec); skips otherwise.
 
     python3 -m unittest tests.travel_tuning.test_golden
@@ -2847,7 +2847,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from tt_fixtures import tmpdir, run_main, page_json, json_diff, null_km_paths, OURS_ONLY  # noqa: E402
 
-DATA = Path.home() / 'pso-data' / 'SATE' / '1013'
+DATA = Path.home() / 'pso-data' / 'ACME' / '1013'
 BASE = DATA / 'plan_travels_output_north_initial.csv'
 FINAL = DATA / 'plan_travels_output_pass2.csv'
 POLYS = DATA / 'PSO_Sys_pass_1.xml'
@@ -2864,7 +2864,7 @@ class GoldenTests(unittest.TestCase):
         cls.json_path = os.path.join(out, 'golden.json')
         cls.code, cls.stdout, cls.stderr = run_main([
             '--runs', str(BASE), str(FINAL), '--labels', 'Prod (no polygons)', 'Grid v6', '--polygons', '', str(POLYS),
-            '--client', 'SaskTel', '--dataset', 'NORTH_TRAVEL', '--out', os.path.join(out, 'golden.html'),
+            '--client', 'Acme', '--dataset', 'NORTH_TRAVEL', '--out', os.path.join(out, 'golden.html'),
             '--json', cls.json_path, '--generated', '2026-10-13 22:35'])
         cls.ours = json.loads(Path(cls.json_path).read_text(encoding='utf-8'))
         cls.pwsh = page_json(PWSH.read_text(encoding='utf-8'))
@@ -2965,7 +2965,7 @@ and after the `plan_travels/` entry under `tests/` add
     travel_tuning/              travel tuning tests on a synthetic set written at test time, checked against a pwsh
                                 capture of the script (fixtures/synthetic_pwsh.json, refresh with
                                 python3 tests/travel_tuning/tt_fixtures.py --capture); test_golden.py also checks the
-                                ~/pso-data/SATE/1013/ run against the pwsh and Windows reports when present
+                                ~/pso-data/ACME/1013/ run against the pwsh and Windows reports when present
 ```
 
 - [ ] **Step 2: Update the parity exceptions paragraph**
@@ -3016,7 +3016,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 Claude-Session: https://claude.ai/code/session_01TMSuKwN5UjNYXzPgUfXPFu"
 ```
 
-No Windows test is needed: no PowerShell file changed. What Ish checks before the merge: the page from Task 7 Step 6 run on `~/pso-data/SATE/1013/` (the golden command in Task 8's test, with `--out ~/pso-data/SATE/1013/golden/python_report.html`), side by side with his Windows report.
+No Windows test is needed: no PowerShell file changed. What Ish checks before the merge: the page from Task 7 Step 6 run on `~/pso-data/ACME/1013/` (the golden command in Task 8's test, with `--out ~/pso-data/ACME/1013/golden/python_report.html`), side by side with his Windows report.
 
 ---
 
