@@ -503,7 +503,7 @@ use Tests\Support\FakeTool;
 beforeEach(function () {
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
     $this->user = User::factory()->create();
-    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'SaskTel PROD']);
+    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'Acme PROD']);
     $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH']);
     $this->actingAs($this->user);
 });
@@ -523,7 +523,7 @@ it('shows the tool question and only the user own environments and datasets', fu
         ->assertSee(ToolId::LoadAudit->question())
         ->assertFormFieldExists('environment_id')
         ->assertFormFieldExists('dataset_id')
-        ->assertSee('SaskTel PROD')
+        ->assertSee('Acme PROD')
         ->assertDontSee($other->environment->name)
         ->assertDontSee('THEIRS');
 });
@@ -542,7 +542,7 @@ it('pre-fills the remembered environment and dataset', function () {
 });
 
 it('clears the dataset when the environment changes', function () {
-    $otherEnvironment = Environment::factory()->for($this->user)->create(['name' => 'Rogers PROD']);
+    $otherEnvironment = Environment::factory()->for($this->user)->create(['name' => 'Globex PROD']);
 
     Livewire::test(LoadAuditEntry::class)
         ->assertFormSet(['dataset_id' => $this->dataset->id])
@@ -1830,7 +1830,7 @@ Expected: PASS.
 
 - [ ] **Step 4: Write the notes and README lines**
 
-Create `docs/superpowers/notes/2026-10-15-tool-wizard-execution-notes.md` with: what was built (one line per task), anything deferred, and the after-merge steps: `php artisan migrate`, `php artisan optimize:clear`, restart the queue worker, and a browser check list (home page renders four sections; Load audit wizard runs end to end on the SaskTel dataset; Sys compare entry hidden; banner on Activity Services; sidebar shows the four groups in order). In `README.md`, under the section that describes the panel, replace the old group names with the four new ones and one sentence on the wizard.
+Create `docs/superpowers/notes/2026-10-15-tool-wizard-execution-notes.md` with: what was built (one line per task), anything deferred, and the after-merge steps: `php artisan migrate`, `php artisan optimize:clear`, restart the queue worker, and a browser check list (home page renders four sections; Load audit wizard runs end to end on the Acme dataset; Sys compare entry hidden; banner on Activity Services; sidebar shows the four groups in order). In `README.md`, under the section that describes the panel, replace the old group names with the four new ones and one sentence on the wizard.
 
 - [ ] **Step 5: Full suite and commit**
 

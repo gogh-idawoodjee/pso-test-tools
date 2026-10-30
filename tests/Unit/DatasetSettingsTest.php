@@ -4,7 +4,7 @@ use App\Support\DatasetSettings;
 
 it('maps a pso-tools account file onto the typed keys', function () {
     $settings = DatasetSettings::fromAccountFile([
-        'display_name' => 'SaskTel',
+        'display_name' => 'Acme',
         'coverage_km' => 50,
         'eod_cutoff_hour' => 22,
         'exclude_resource_types' => ['LONGCYCLE'],
@@ -16,7 +16,7 @@ it('maps a pso-tools account file onto the typed keys', function () {
         'supervisor_label' => 'Company',
     ]);
 
-    expect($settings->displayName)->toBe('SaskTel')
+    expect($settings->displayName)->toBe('Acme')
         ->and($settings->coverageKm)->toBe(50.0)
         ->and($settings->eodCutoffHour)->toBe(22)
         ->and($settings->excludeResourceTypes)->toBe(['LONGCYCLE'])
@@ -28,7 +28,7 @@ it('maps a pso-tools account file onto the typed keys', function () {
 });
 
 it('round trips through toArray and fromArray', function () {
-    $settings = DatasetSettings::fromArray(['display_name' => 'Rogers', 'coverage_km' => 15, 'time_zone' => 'America/Toronto']);
+    $settings = DatasetSettings::fromArray(['display_name' => 'Globex', 'coverage_km' => 15, 'time_zone' => 'America/Toronto']);
 
     expect(DatasetSettings::fromArray($settings->toArray())->toArray())->toBe($settings->toArray())
         ->and($settings->toArray()['time_zone'])->toBe('America/Toronto');
@@ -51,7 +51,7 @@ it('has sensible defaults when nothing is set', function () {
 
 it('writes the pso-tools account file keys and round trips through fromAccountFile', function () {
     $settings = DatasetSettings::fromArray([
-        'display_name' => 'SaskTel',
+        'display_name' => 'Acme',
         'dataset_display_name' => 'North',
         'exclude_resource_types' => ['LONGCYCLE'],
         'attribute_labels' => ['district' => 'District', 'supervisor_email' => 'Supervisor Email'],

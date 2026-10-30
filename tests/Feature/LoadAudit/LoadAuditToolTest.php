@@ -37,7 +37,7 @@ beforeEach(function () {
     $this->scratch = sys_get_temp_dir().'/la-'.uniqid();
     mkdir($this->scratch);
     file_put_contents($this->scratch.'/load.xml', '<dsScheduleData/>');
-    $this->dataset = Dataset::factory()->create(['settings' => ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina']]);
+    $this->dataset = Dataset::factory()->create(['settings' => ['display_name' => 'Acme', 'time_zone' => 'America/Regina']]);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::LoadAudit, 'result' => null, 'progress' => null]);
     $this->context = new ToolContext($this->run, $this->dataset, $this->dataset->settings, 'America/Regina');
 });
@@ -64,9 +64,9 @@ it('runs the script in the scratch folder and stores html, findings, counts and 
     $args = json_decode(file_get_contents($argsFile), true);
     expect($args['cwd'])->toBe(realpath($this->scratch))
         ->and($args['progress_env'])->toBe('lines')
-        ->and($args['argv'])->toContain('--org=SaskTel', '--tz', 'America/Regina', '--ifs-release', '25.2.7')
+        ->and($args['argv'])->toContain('--org=Acme', '--tz', 'America/Regina', '--ifs-release', '25.2.7')
         ->and(is_dir($this->scratch.'/accounts'))->toBeTrue()
-        ->and($result->result['html'])->toContain('<h1>SaskTel</h1>')
+        ->and($result->result['html'])->toContain('<h1>Acme</h1>')
         ->and($result->result['findings'])->toHaveCount(3)
         ->and($result->result['counts'])->toBe(['red' => 1, 'amber' => 1, 'green' => 1])
         ->and($result->summary)->toBe(['counts' => ['red' => 1, 'amber' => 1, 'green' => 1], 'system_day' => false, 'system_day_csv' => false])

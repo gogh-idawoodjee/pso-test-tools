@@ -20,7 +20,7 @@ beforeEach(function () {
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
     app(ToolRegistry::class)->register(ToolId::RegionAvailability, FakeTool::class);
     $this->user = User::factory()->create();
-    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'SaskTel PROD']);
+    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'Acme PROD']);
     $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH']);
     $this->actingAs($this->user);
 });

@@ -1,6 +1,6 @@
 # Plan travels inventory
 
-Behaviour inventory of pso-tools `scripts/Build-PlanTravelsReport.ps1` (2,032 lines, changelog to 2026-10-08), read in full on 2026-10-16, plus the header of an older output CSV (`travel/plan_travels_output_initial.csv`) and the golden CSV at `~/pso-data/SATE/1005/golden/plan_travels_2026-10-05_5d.csv`. Reference for the spec and plan; not a design.
+Behaviour inventory of pso-tools `scripts/Build-PlanTravelsReport.ps1` (2,032 lines, changelog to 2026-10-08), read in full on 2026-10-16, plus the header of an older output CSV (`travel/plan_travels_output_initial.csv`) and the golden CSV at `~/pso-data/ACME/1005/golden/plan_travels_2026-10-05_5d.csv`. Reference for the spec and plan; not a design.
 
 ## Biggest surprises
 
@@ -274,8 +274,8 @@ else: Missing Google Time   # also psoSec == 0 with a Google time (bug), or Goog
 
 ## Golden test candidates
 
-- File: `~/pso-data/SATE/1005/north_travel_1005.xml` (135 MB, 5,081 Plan_Travel rows, 97 FIX Schedule_Events, 4 plan ids).
-- Existing golden: `~/pso-data/SATE/1005/golden/plan_travels_2026-10-05_5d.csv` (1,781 rows, 30 columns, no BOM, no Google). Name implies `-Date 2026-10-05 -Days 5 -NoTimestamp` (inference). Contents: Direction 765 Activity -> Activity, 515 Start Location -> Activity, 501 Activity -> End Location; Merge Type 13 Break, 8 GPS fix, 6 Start of day (duplicate), 1 Start of day; Merged Fragments 2 on 21 rows; no row missing coordinates.
+- File: `~/pso-data/ACME/1005/north_travel_1005.xml` (135 MB, 5,081 Plan_Travel rows, 97 FIX Schedule_Events, 4 plan ids).
+- Existing golden: `~/pso-data/ACME/1005/golden/plan_travels_2026-10-05_5d.csv` (1,781 rows, 30 columns, no BOM, no Google). Name implies `-Date 2026-10-05 -Days 5 -NoTimestamp` (inference). Contents: Direction 765 Activity -> Activity, 515 Start Location -> Activity, 501 Activity -> End Location; Merge Type 13 Break, 8 GPS fix, 6 Start of day (duplicate), 1 Start of day; Merged Fragments 2 on 21 rows; no row missing coordinates.
 - Also worth running: `-Date 2026-10-04 -Days 6` (the full Plan_Travel range per the brief) to catch the whole-file counts in the changelog.
 - Parameters: `-InputFile <file> -Date 2026-10-05 -Days 5 -OutputPath <x> -NoTimestamp`, no Google, no import XML.
 - Compare exactly without Google (after sorting rows on Resource ID, Activity ID, Previous Activity ID, Plan ID): every column 1 to 30, with care on 12 to 16 and 22 to 26 (number formatting: compare as decimals, since 5.1 prints 15 significant digits, pwsh and Python shortest round-trip, and the link column embeds the same numbers) and on rounding (`[math]::Round` is banker's on the double; Python `round` is correct on the binary value; rare differences at exact halves are possible).

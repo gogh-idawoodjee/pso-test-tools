@@ -95,7 +95,7 @@ class ProgressTests(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.load = fx.write_load(fx.base_tables(), self.tmp)
-        self.argv = ["--load", str(self.load), "--account", "SATE", "--time-zone", "America/Regina",
+        self.argv = ["--load", str(self.load), "--account", "ACME", "--time-zone", "America/Regina",
                      "--accounts-dir", str(self.tmp / "accounts"), "--out-root", str(self.tmp / "out")]
 
     def run_main(self, env_value):
@@ -126,7 +126,7 @@ class ProgressTests(unittest.TestCase):
         self.assertTrue(all(0 <= r["percent"] <= 100 for r in loads))
         self.assertEqual(recs[-1], {"stage": "gather"})
         self.assertIn("technicians", out)                      # stdout is as before
-        self.assertTrue((self.tmp / "out" / "SATE" / "NORTH" / "region_availability_2026-10-05.html").exists())
+        self.assertTrue((self.tmp / "out" / "ACME" / "NORTH" / "region_availability_2026-10-05.html").exists())
 
     def test_zip_input_reports_the_same(self):
         self.load = fx.write_load(fx.base_tables(), self.tmp, zipped=True)
@@ -252,13 +252,13 @@ Expected: all pass (the parity test needs `pwsh`; it is skipped without it, whic
 - [ ] **Step 6: Prove the command line output is unchanged**
 
 ```bash
-python3 region-availability/region_availability.py --load ~/pso-data/SATE/sunday/load.zip --accounts-dir accounts --out-root /tmp/ra-after 2>/tmp/ra-stderr.txt
-git stash && python3 region-availability/region_availability.py --load ~/pso-data/SATE/sunday/load.zip --accounts-dir accounts --out-root /tmp/ra-before && git stash pop
-diff <(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d['meta'].pop('generated');print(json.dumps(d,sort_keys=True))" /tmp/ra-before/SATE/NORTH/region_availability_*.json) \
-     <(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d['meta'].pop('generated');print(json.dumps(d,sort_keys=True))" /tmp/ra-after/SATE/NORTH/region_availability_*.json) && echo SAME
+python3 region-availability/region_availability.py --load ~/pso-data/ACME/sunday/load.zip --accounts-dir accounts --out-root /tmp/ra-after 2>/tmp/ra-stderr.txt
+git stash && python3 region-availability/region_availability.py --load ~/pso-data/ACME/sunday/load.zip --accounts-dir accounts --out-root /tmp/ra-before && git stash pop
+diff <(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d['meta'].pop('generated');print(json.dumps(d,sort_keys=True))" /tmp/ra-before/ACME/NORTH/region_availability_*.json) \
+     <(python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d['meta'].pop('generated');print(json.dumps(d,sort_keys=True))" /tmp/ra-after/ACME/NORTH/region_availability_*.json) && echo SAME
 wc -c /tmp/ra-stderr.txt
 ```
-Expected: `SAME`, and stderr is 0 bytes (no variable set). If `~/pso-data/SATE/sunday/load.zip` is missing, say so and skip this step; the unit tests still cover the change.
+Expected: `SAME`, and stderr is 0 bytes (no variable set). If `~/pso-data/ACME/sunday/load.zip` is missing, say so and skip this step; the unit tests still cover the change.
 
 - [ ] **Step 7: Commit**
 
@@ -338,7 +338,7 @@ and change the three messages: in `python()` to `"The pso-tools checkout is not 
 
 ```php
     'region_availability' => [
-        // The viewer reads one LOAD and does no checks; SaskTel's takes well under a minute.
+        // The viewer reads one LOAD and does no checks; Acme's takes well under a minute.
         'timeout_seconds' => (int) env('TOOLS_REGION_AVAILABILITY_TIMEOUT_SECONDS', 600),
     ],
 ```
@@ -368,7 +368,7 @@ def arg(name):
 
 
 mode = os.environ.get('FAKE_RA_MODE', 'ok')
-account = arg('--account') or 'SATE'
+account = arg('--account') or 'ACME'
 settings = {}
 sp = os.path.join(arg('--accounts-dir') or '.', account + '.json')
 if os.path.exists(sp):
@@ -457,7 +457,7 @@ Append to `tests/Unit/DatasetSettingsTest.php`:
 ```php
 it('writes the pso-tools account file keys and round trips through fromAccountFile', function () {
     $settings = DatasetSettings::fromArray([
-        'display_name' => 'SaskTel',
+        'display_name' => 'Acme',
         'dataset_display_name' => 'North',
         'exclude_resource_types' => ['LONGCYCLE'],
         'attribute_labels' => ['district' => 'District', 'supervisor_email' => 'Supervisor Email'],
@@ -497,18 +497,18 @@ afterEach(function () {
 
 it('writes the settings under the pso-tools key names and creates the folder', function () {
     $settings = DatasetSettings::fromArray([
-        'display_name' => 'SaskTel',
+        'display_name' => 'Acme',
         'exclude_resource_types' => ['LONGCYCLE', 'SHORTCYCLE'],
         'resource_type_names' => ['DISTRICTTECH' => 'district tech'],
         'attribute_labels' => ['district' => 'District', 'supervisor_email' => 'Supervisor Email'],
         'time_zone' => 'America/Regina',
     ]);
 
-    $path = AccountSettingsFile::write($settings, $this->dir, 'SATE');
+    $path = AccountSettingsFile::write($settings, $this->dir, 'ACME');
 
-    expect($path)->toBe($this->dir.'/SATE.json');
+    expect($path)->toBe($this->dir.'/ACME.json');
     $json = json_decode(file_get_contents($path), true);
-    expect($json['display_name'])->toBe('SaskTel')
+    expect($json['display_name'])->toBe('Acme')
         ->and($json['attributes'])->toBe(['district' => 'District', 'supervisor_email' => 'Supervisor Email'])
         ->and($json['exclude_resource_types'])->toBe(['LONGCYCLE', 'SHORTCYCLE'])
         ->and($json['resource_type_names'])->toBe(['DISTRICTTECH' => 'district tech'])
@@ -534,9 +534,9 @@ it('leaves empty maps out so the script never meets a JSON list where it expects
 it('cleans the account name', function (?string $raw, string $expected) {
     expect(AccountSettingsFile::accountName($raw))->toBe($expected);
 })->with([
-    ['sate', 'SATE'],
-    ['ROGE', 'ROGE'],
-    ['sa te-1', 'SATE1'],
+    ['acme', 'ACME'],
+    ['GLBX', 'GLBX'],
+    ['ac me-1', 'ACME1'],
     ['   ', 'ACCOUNT'],
     [null, 'ACCOUNT'],
 ]);
@@ -665,12 +665,12 @@ function raCheckout(): PsoToolsCheckout
 }
 
 it('builds the full command without a week', function () {
-    $argv = RegionAvailabilityCommand::build(raCheckout(), '/scratch/run-1/', ['load' => '/scratch/run-1/load.zip'], [], 'America/Regina', 'SATE');
+    $argv = RegionAvailabilityCommand::build(raCheckout(), '/scratch/run-1/', ['load' => '/scratch/run-1/load.zip'], [], 'America/Regina', 'ACME');
 
     expect($argv)->toBe([
         'python3', '-I', base_path('tests/Fixtures/pso-tools').'/region-availability/region_availability.py',
         '--load', '/scratch/run-1/load.zip',
-        '--account', 'SATE',
+        '--account', 'ACME',
         '--time-zone', 'America/Regina',
         '--accounts-dir', '/scratch/run-1/accounts',
         '--out-root', '/scratch/run-1/out',
@@ -678,7 +678,7 @@ it('builds the full command without a week', function () {
 });
 
 it('adds the week when one is given', function () {
-    $argv = RegionAvailabilityCommand::build(raCheckout(), '/scratch/run-1', ['load' => '/scratch/run-1/load.xml'], ['week_of' => '2026-10-07'], 'America/Regina', 'SATE');
+    $argv = RegionAvailabilityCommand::build(raCheckout(), '/scratch/run-1', ['load' => '/scratch/run-1/load.xml'], ['week_of' => '2026-10-07'], 'America/Regina', 'ACME');
 
     expect(array_slice($argv, -2))->toBe(['--week-of', '2026-10-07']);
 });
@@ -941,8 +941,8 @@ beforeEach(function () {
     mkdir($this->scratch);
     file_put_contents($this->scratch.'/load.xml', '<dsScheduleData/>');
     $this->dataset = Dataset::factory()
-        ->for(Environment::factory()->state(['account_id' => 'sate']))
-        ->create(['settings' => ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina', 'attribute_labels' => ['district' => 'District']]]);
+        ->for(Environment::factory()->state(['account_id' => 'acme']))
+        ->create(['settings' => ['display_name' => 'Acme', 'time_zone' => 'America/Regina', 'attribute_labels' => ['district' => 'District']]]);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::RegionAvailability, 'result' => null, 'progress' => null]);
     $this->context = new ToolContext($this->run, $this->dataset, $this->dataset->settings, 'America/Regina');
 });
@@ -968,11 +968,11 @@ it('writes the account file, runs the script in the scratch folder and stores pa
     $args = json_decode(file_get_contents($argsFile), true);
     expect($args['cwd'])->toBe(realpath($this->scratch))
         ->and($args['progress_env'])->toBe('lines')
-        ->and($args['argv'])->toContain('--account', 'SATE', '--time-zone', 'America/Regina', '--week-of', '2026-10-07')
-        ->and($args['settings_file'])->toBe($this->scratch.'/accounts/SATE.json')
-        ->and($args['settings']['display_name'])->toBe('SaskTel')
+        ->and($args['argv'])->toContain('--account', 'ACME', '--time-zone', 'America/Regina', '--week-of', '2026-10-07')
+        ->and($args['settings_file'])->toBe($this->scratch.'/accounts/ACME.json')
+        ->and($args['settings']['display_name'])->toBe('Acme')
         ->and($args['settings']['attributes'])->toBe(['district' => 'District'])
-        ->and($result->result['html'])->toContain('SaskTel: regions, week of 2026-10-07')
+        ->and($result->result['html'])->toContain('Acme: regions, week of 2026-10-07')
         ->and($result->result['data']['meta']['week'])->toBe('2026-10-07')
         ->and($result->result['data']['meta']['labels']['district'])->toBe('District')
         ->and($result->summary)->toBe([
@@ -1237,7 +1237,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create(['name' => 'NORTH']);
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create(['name' => 'NORTH']);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::RegionAvailability, 'run_date' => '2026-10-04',
         'result' => [
@@ -1259,11 +1259,11 @@ it('serves the stored page to its owner inside a sandbox', function () {
 it('downloads the page and the data under the tool, account, dataset and week', function () {
     $this->get(route('tool-runs.download-html', [$this->dataset, $this->run]))
         ->assertOk()
-        ->assertDownload('region_availability_SATE_NORTH_2026-10-05.html');
+        ->assertDownload('region_availability_ACME_NORTH_2026-10-05.html');
 
     $this->get(route('tool-runs.download-json', [$this->dataset, $this->run]))
         ->assertOk()
-        ->assertDownload('region_availability_SATE_NORTH_2026-10-05.json')
+        ->assertDownload('region_availability_ACME_NORTH_2026-10-05.json')
         ->assertJsonPath('meta.week', '2026-10-05');
 });
 
@@ -1603,10 +1603,10 @@ it('gathers the same JSON through the web as the command line', function () {
     $work = sys_get_temp_dir().'/golden-ra-cli-'.uniqid();
     config(['exports.disk' => 'r2', 'exports.scratch_path' => $scratchPath]);
     $removeDirectory = static fn (string $directory) => is_dir($directory) && File::deleteDirectory($directory);
-    $settings = ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina', 'exclude_resource_types' => ['LONGCYCLE', 'SHORTCYCLE'], 'attribute_labels' => ['district' => 'District', 'supervisor_email' => 'Supervisor Email']];
+    $settings = ['display_name' => 'Acme', 'time_zone' => 'America/Regina', 'exclude_resource_types' => ['LONGCYCLE', 'SHORTCYCLE'], 'attribute_labels' => ['district' => 'District', 'supervisor_email' => 'Supervisor Email']];
 
     try {
-        $dataset = Dataset::factory()->for(Environment::factory()->state(['account_id' => 'SATE']))->create(['name' => 'NORTH', 'settings' => $settings]);
+        $dataset = Dataset::factory()->for(Environment::factory()->state(['account_id' => 'ACME']))->create(['name' => 'NORTH', 'settings' => $settings]);
         $storage = app(ExportStorage::class);
         $file = ExportFile::factory()->for($dataset, 'scope')->create(['kind' => ExportKind::Load, 'content_type' => pathinfo($load, PATHINFO_EXTENSION)]);
         Storage::disk('r2')->put($storage->objectKey($file), file_get_contents($load));
@@ -1621,10 +1621,10 @@ it('gathers the same JSON through the web as the command line', function () {
 
         // The command line, with the same account file and week.
         mkdir($work, 0770, true);
-        AccountSettingsFile::write(DatasetSettings::fromArray($settings), "{$work}/accounts", 'SATE');
+        AccountSettingsFile::write(DatasetSettings::fromArray($settings), "{$work}/accounts", 'ACME');
         $checkout = PsoToolsCheckout::fromConfig();
         $cli = Process::path($work)->timeout(600)->run([
-            $checkout->python(), '-I', $checkout->regionAvailabilityScript(), '--load', $load, '--account', 'SATE',
+            $checkout->python(), '-I', $checkout->regionAvailabilityScript(), '--load', $load, '--account', 'ACME',
             '--time-zone', 'America/Regina', '--accounts-dir', "{$work}/accounts", '--out-root', "{$work}/out", '--week-of', '2026-10-07',
         ]);
         expect($cli->successful())->toBeTrue($cli->errorOutput());
@@ -1647,7 +1647,7 @@ it('gathers the same JSON through the web as the command line', function () {
 - [ ] **Step 6: Run the golden test against real data (on this Mac the checkout is the repo itself)**
 
 ```bash
-TOOLS_PSO_TOOLS_PATH="/Users/idawoodjee/Documents/Projects/PSO Tools" REGION_AVAILABILITY_SAMPLE_DIR=~/pso-data/SATE/sunday php artisan test --compact --filter=RegionAvailabilityGolden
+TOOLS_PSO_TOOLS_PATH="/Users/idawoodjee/Documents/Projects/PSO Tools" REGION_AVAILABILITY_SAMPLE_DIR=~/pso-data/ACME/sunday php artisan test --compact --filter=RegionAvailabilityGolden
 ```
 Expected: PASS (or skipped with the reason if the sample folder is missing; say which in the notes).
 

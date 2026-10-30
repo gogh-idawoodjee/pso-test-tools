@@ -144,7 +144,7 @@ The scheduler must run (`php artisan schedule:run` every minute) for `exports:pu
 
 Per-dataset settings (display names, coverage, exclusions, labels, time zone) live on the dataset's edit
 form. Seed one from a pso-tools account file with
-`php artisan datasets:seed-settings <dataset id> accounts/SATE.json --time-zone=America/Regina`.
+`php artisan datasets:seed-settings <dataset id> accounts/ACME.json --time-zone=America/Toronto`.
 
 To try the appointment booking page, `php artisan booking:seed-customers "<environment name>" <dataset name> --count=12` creates sample
 customers in New York, Toronto, London and Los Angeles for a dataset (`--fresh` replaces earlier sample ones, except any that have tasks).
@@ -219,7 +219,7 @@ set the same value here; it is optional and left blank when pso-services has non
 
 ### Trim export
 
-The trim export golden tests use real SaskTel exports, which are not in the repo. Point `PSO_DATA_DIR` at a folder holding `SATE/2026-10-04/load.zip` and `SATE/1005/north_travel_1005.xml`; the tests are skipped when they are not available.
+The trim export golden tests use real customer exports, which are not in the repo. Point `PSO_DATA_DIR` at a folder holding `SATE/2026-10-04/load.zip` and `SATE/1005/north_travel_1005.xml`; the tests are skipped when they are not available.
 
 ## Deploying
 

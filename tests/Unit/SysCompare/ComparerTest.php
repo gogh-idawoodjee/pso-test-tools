@@ -129,16 +129,16 @@ it('does not mask a key parameter that has no value', function (): void {
 
 it('treats group names that differ only by case as one group and flags the spelling', function (): void {
     $result = compareBuilders([
-        'PROD' => SysFileBuilder::make()->group('ST_Ops_Mgr')->groupPermission('ST_Ops_Mgr', 'ViewAll', true),
-        'STG' => SysFileBuilder::make()->group('ST_Ops_MGR')->groupPermission('ST_Ops_MGR', 'ViewAll', true),
+        'PROD' => SysFileBuilder::make()->group('AC_Ops_Mgr')->groupPermission('AC_Ops_Mgr', 'ViewAll', true),
+        'STG' => SysFileBuilder::make()->group('AC_Ops_MGR')->groupPermission('AC_Ops_MGR', 'ViewAll', true),
     ]);
 
     $presentAs = collect($result->tab('Groups')->rows())->firstWhere(static fn ($row): bool => $row->keyValues[1] === 'Present as');
     $permission = $result->tab('Group Permissions')->rows()[0];
 
     expect(collect($result->tab('Groups')->rows())->filter(static fn ($row): bool => $row->keyValues[1] === 'Present as'))->toHaveCount(1)
-        ->and($presentAs->keyValues[0])->toBe('ST_Ops_Mgr')
-        ->and($presentAs->cellValues)->toBe(['ST_Ops_Mgr', 'ST_Ops_MGR'])
+        ->and($presentAs->keyValues[0])->toBe('AC_Ops_Mgr')
+        ->and($presentAs->cellValues)->toBe(['AC_Ops_Mgr', 'AC_Ops_MGR'])
         ->and($permission->status)->toBe('Same')
         ->and($permission->keyValues[2])->toBe('group spelling differs across environments');
 });

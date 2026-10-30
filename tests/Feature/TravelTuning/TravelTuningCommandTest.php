@@ -10,13 +10,13 @@ beforeEach(function () {
 });
 
 it('passes the manifest, outputs, template, generated time, options and defaults', function () {
-    $argv = TravelTuningCommand::build(PsoToolsCheckout::fromConfig(), '/work/', ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'North', 'region_label' => 'Territory'], '2026-10-18 09:30', false);
+    $argv = TravelTuningCommand::build(PsoToolsCheckout::fromConfig(), '/work/', ['title' => 'Travel Tuning Report', 'client' => 'Acme', 'dataset' => 'North', 'region_label' => 'Territory'], '2026-10-18 09:30', false);
 
     expect($argv)->toBe([
         'python3', $this->root.'/travel/travel_tuning.py',
         '--manifest', '/work/manifest.csv', '--out', '/work/travel_tuning.html', '--json', '/work/travel_tuning.json',
         '--template', $this->root.'/travel/travel_tuning_template.html', '--generated', '2026-10-18 09:30',
-        '--title=Travel Tuning Report', '--client=SaskTel', '--dataset=North', '--region-label=Territory',
+        '--title=Travel Tuning Report', '--client=Acme', '--dataset=North', '--region-label=Territory',
         '--review-minutes=20', '--small-minutes=5', '--model-tol-min=1', '--model-tol-pct=5', '--long-leg-km=300',
         '--tiles=esri-gray', '--audience=Internal',
     ]);

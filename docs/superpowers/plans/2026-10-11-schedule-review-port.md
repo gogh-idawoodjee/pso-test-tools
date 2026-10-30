@@ -16,7 +16,7 @@
 
 - pso-tools: Python standard library only. `schedule_review.py`'s arguments, outputs and data JSON must not change (Task 1 proves it on real data); `Build-ScheduleReview.ps1` is not touched. `python3 -m unittest discover -s tests -t .` stays green.
 - pso-tools is private, pso-test-tools is public: never copy `schedule_review.py`, its template or `accounts/*.json` into pso-test-tools. Only the tiny fake script in `tests/Fixtures/pso-tools/schedule-review/` lives there.
-- Real data for Part A and the golden test: `~/pso-data/SATE/sunday/` (load.zip, plan.zip, eod.zip; no audits). Customer data: never copied into either repo, never committed (`*.xml`, `*.zip`, `output/`).
+- Real data for Part A and the golden test: `~/pso-data/ACME/sunday/` (load.zip, plan.zip, eod.zip; no audits). Customer data: never copied into either repo, never committed (`*.xml`, `*.zip`, `output/`).
 - pso-test-tools: run the suite with `php artisan test --compact --exclude-filter=ExampleTest`. Run `vendor/bin/pint --dirty` before each commit.
 - Unit tests that touch the database go in `tests/Feature`.
 - Wording: plain English, no em dashes, "allocated" never "placed"; every failure message says what was missing or what to do.
@@ -88,7 +88,7 @@ SRC = ROOT / "schedule-review" / "schedule_review.py"
 sys.path.insert(0, str(SRC.parent))
 import schedule_review as sr  # noqa: E402
 
-SAMPLE = Path(os.environ.get("PSO_SAMPLE_DIR", Path.home() / "pso-data" / "SATE" / "sunday"))
+SAMPLE = Path(os.environ.get("PSO_SAMPLE_DIR", Path.home() / "pso-data" / "ACME" / "sunday"))
 
 
 def scan_field_names(source: str) -> frozenset:
@@ -210,7 +210,7 @@ Note the scan regex also matches the names inside the `KEEP_FIELDS` literal itse
 
 ```bash
 python3 -m unittest tests.schedule_review.test_fields -v
-/usr/bin/time -l python3 schedule-review/schedule_review.py --data-dir ~/pso-data/SATE/sunday --accounts-dir accounts --out-root /tmp/sr-diet 2>&1 | grep -E "Done in|maximum resident"
+/usr/bin/time -l python3 schedule-review/schedule_review.py --data-dir ~/pso-data/ACME/sunday --accounts-dir accounts --out-root /tmp/sr-diet 2>&1 | grep -E "Done in|maximum resident"
 rm -rf /tmp/sr-diet
 ```
 Expected: 4 tests pass (the parity one runs because the sample exists); maximum resident set size under 300,000,000 bytes (it was 554 MB before). Record the number for the notes.
@@ -246,7 +246,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "schedule-review"))
 import schedule_review as sr  # noqa: E402
 
-SAMPLE = Path(os.environ.get("PSO_SAMPLE_DIR", Path.home() / "pso-data" / "SATE" / "sunday"))
+SAMPLE = Path(os.environ.get("PSO_SAMPLE_DIR", Path.home() / "pso-data" / "ACME" / "sunday"))
 
 
 @unittest.skipUnless((SAMPLE / "load.zip").exists() or (SAMPLE / "load.xml").exists(), "no sample data")
@@ -409,7 +409,7 @@ In `main()`:
 
 ```bash
 python3 -m unittest discover -s tests -t .
-python3 schedule-review/schedule_review.py --data-dir ~/pso-data/SATE/sunday --accounts-dir accounts --out-root /tmp/sr-check 2>/tmp/sr-stderr.txt >/dev/null; wc -c /tmp/sr-stderr.txt; rm -rf /tmp/sr-check /tmp/sr-stderr.txt
+python3 schedule-review/schedule_review.py --data-dir ~/pso-data/ACME/sunday --accounts-dir accounts --out-root /tmp/sr-check 2>/tmp/sr-stderr.txt >/dev/null; wc -c /tmp/sr-stderr.txt; rm -rf /tmp/sr-check /tmp/sr-stderr.txt
 ```
 Expected: all pass (load audit, region availability and the two new schedule review modules); stderr 0 bytes without the variable.
 
@@ -580,7 +580,7 @@ and pass `customerActivityTypes: $list($values['customer_activity_types'] ?? [])
 
 ```php
     'schedule_review' => [
-        // The review reads three exports and calculates the views; the SaskTel Sunday set takes under 10 s.
+        // The review reads three exports and calculates the views; the Acme Sunday set takes under 10 s.
         'timeout_seconds' => (int) env('TOOLS_SCHEDULE_REVIEW_TIMEOUT_SECONDS', 600),
     ],
 ```
@@ -603,7 +603,7 @@ def arg(name):
 
 
 mode = os.environ.get('FAKE_SR_MODE', 'ok')
-account = (arg('--account') or 'SATE').upper()
+account = (arg('--account') or 'ACME').upper()
 dataset = 'NORTH'
 day = os.environ.get('FAKE_SR_DAY', '2026-10-04')
 
@@ -762,8 +762,8 @@ afterEach(function () {
 });
 
 it('writes nothing on a first run', function () {
-    expect(ScheduleReviewHistory::seed($this->context, $this->work, 'SATE', 'NORTH'))->toBe(0)
-        ->and(is_dir($this->work.'/out/SATE/NORTH/history'))->toBeFalse();
+    expect(ScheduleReviewHistory::seed($this->context, $this->work, 'ACME', 'NORTH'))->toBe(0)
+        ->and(is_dir($this->work.'/out/ACME/NORTH/history'))->toBeFalse();
 });
 
 it('seeds both stored blobs into the folder the script reads', function () {
@@ -771,15 +771,15 @@ it('seeds both stored blobs into the folder the script reads', function () {
         ToolState::withoutGlobalScopes()->create(['scope_type' => $this->dataset->getMorphClass(), 'scope_id' => $this->dataset->getKey(), 'tool' => ToolId::ScheduleReview, 'key' => $key, 'state' => $state]);
     }
 
-    expect(ScheduleReviewHistory::seed($this->context, $this->work, 'SATE', 'NORTH'))->toBe(2);
-    $folder = ScheduleReviewHistory::folder($this->work, 'SATE', 'NORTH');
-    expect($folder)->toBe($this->work.'/out/SATE/NORTH/history')
+    expect(ScheduleReviewHistory::seed($this->context, $this->work, 'ACME', 'NORTH'))->toBe(2);
+    $folder = ScheduleReviewHistory::folder($this->work, 'ACME', 'NORTH');
+    expect($folder)->toBe($this->work.'/out/ACME/NORTH/history')
         ->and(json_decode(file_get_contents($folder.'/history.json'), true))->toBe(['all' => [['date' => '2026-10-03', 'booked' => 5]]])
         ->and(json_decode(file_get_contents($folder.'/dur_history.json'), true))->toBe([['date' => '2026-10-03', 'task' => 'X']]);
 });
 
 it('stores what the script wrote, replacing the previous blobs', function () {
-    $folder = $this->work.'/out/SATE/NORTH/history';
+    $folder = $this->work.'/out/ACME/NORTH/history';
     mkdir($folder, 0770, true);
     file_put_contents($folder.'/history.json', json_encode(['all' => [['date' => '2026-10-04', 'booked' => 7]]]));
     file_put_contents($folder.'/dur_history.json', json_encode([['date' => '2026-10-04', 'task' => 'Y']]));
@@ -794,7 +794,7 @@ it('stores what the script wrote, replacing the previous blobs', function () {
 });
 
 it('ignores a missing or unreadable file when storing', function () {
-    $folder = $this->work.'/out/SATE/NORTH/history';
+    $folder = $this->work.'/out/ACME/NORTH/history';
     mkdir($folder, 0770, true);
     file_put_contents($folder.'/history.json', '{not json');
 
@@ -1049,14 +1049,14 @@ function srCheckout(): PsoToolsCheckout
 }
 
 it('builds the command for the three exports', function () {
-    $argv = ScheduleReviewCommand::build(srCheckout(), '/scratch/run-1/', ['load' => '/scratch/run-1/load.zip', 'plan' => '/scratch/run-1/plan.zip', 'eod' => '/scratch/run-1/eod.xml'], 'America/Regina', 'SATE');
+    $argv = ScheduleReviewCommand::build(srCheckout(), '/scratch/run-1/', ['load' => '/scratch/run-1/load.zip', 'plan' => '/scratch/run-1/plan.zip', 'eod' => '/scratch/run-1/eod.xml'], 'America/Regina', 'ACME');
 
     expect($argv)->toBe([
         'python3', '-I', base_path('tests/Fixtures/pso-tools').'/schedule-review/schedule_review.py',
         '--load', '/scratch/run-1/load.zip',
         '--plan', '/scratch/run-1/plan.zip',
         '--eod', '/scratch/run-1/eod.xml',
-        '--account', 'SATE',
+        '--account', 'ACME',
         '--time-zone', 'America/Regina',
         '--accounts-dir', '/scratch/run-1/accounts',
         '--out-root', '/scratch/run-1/out',
@@ -1064,7 +1064,7 @@ it('builds the command for the three exports', function () {
 });
 
 it('adds the audits zip after the eod when the run has one', function () {
-    $argv = ScheduleReviewCommand::build(srCheckout(), '/scratch/run-1', ['load' => '/l', 'plan' => '/p', 'eod' => '/e', 'audits' => '/scratch/run-1/audits.zip'], 'America/Regina', 'SATE');
+    $argv = ScheduleReviewCommand::build(srCheckout(), '/scratch/run-1', ['load' => '/l', 'plan' => '/p', 'eod' => '/e', 'audits' => '/scratch/run-1/audits.zip'], 'America/Regina', 'ACME');
 
     expect(array_slice($argv, 9, 2))->toBe(['--audits', '/scratch/run-1/audits.zip'])
         ->and($argv)->toContain('--out-root', '/scratch/run-1/out');
@@ -1194,8 +1194,8 @@ beforeEach(function () {
     }
     $this->paths = ['load' => "{$this->scratch}/load.xml", 'plan' => "{$this->scratch}/plan.xml", 'eod' => "{$this->scratch}/eod.xml"];
     $this->dataset = Dataset::factory()
-        ->for(Environment::factory()->state(['account_id' => 'sate']))
-        ->create(['settings' => ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina', 'customer_activity_types' => ['INSTALL']]]);
+        ->for(Environment::factory()->state(['account_id' => 'acme']))
+        ->create(['settings' => ['display_name' => 'Acme', 'time_zone' => 'America/Regina', 'customer_activity_types' => ['INSTALL']]]);
     $this->load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'summary' => ['export_date' => '2026-10-04', 'dataset_id' => 'NORTH']]);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create(['tool' => ToolId::ScheduleReview, 'result' => null, 'progress' => null, 'run_date' => null, 'inputs' => ['files' => ['load' => $this->load->id], 'options' => []]]);
     $this->context = new ToolContext($this->run, $this->dataset, $this->dataset->settings, 'America/Regina');
@@ -1233,11 +1233,11 @@ it('runs the script with the account file, stores page, data, summary, warnings,
     $args = json_decode(file_get_contents($argsFile), true);
     expect($args['cwd'])->toBe(realpath($this->scratch))
         ->and($args['progress_env'])->toBe('lines')
-        ->and($args['argv'])->toContain('--account', 'SATE', '--time-zone', 'America/Regina')
+        ->and($args['argv'])->toContain('--account', 'ACME', '--time-zone', 'America/Regina')
         ->and($args['argv'])->not->toContain('--audits')
         ->and($args['settings']['customer_activity_types'])->toBe(['INSTALL'])
         ->and($args['history_in'])->toBe([])
-        ->and($result->result['html'])->toContain('SaskTel 2026-10-04')
+        ->and($result->result['html'])->toContain('Acme 2026-10-04')
         ->and($result->result['data']['meta']['day_iso'])->toBe('2026-10-04')
         ->and($result->runDate)->toBe('2026-10-04')
         ->and($result->summary)->toBe([
@@ -1560,7 +1560,7 @@ use Livewire\Livewire;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create(['name' => 'NORTH']);
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create(['name' => 'NORTH']);
     $this->run = ToolRun::factory()->for($this->dataset, 'scope')->create([
         'tool' => ToolId::ScheduleReview, 'run_date' => '2026-10-04',
         'result' => ['html' => '<!doctype html><html><body>Review page <script>1</script></body></html>', 'data' => ['meta' => ['day_iso' => '2026-10-04'], 'scope_list' => [['key' => 'all']]]],
@@ -1589,7 +1589,7 @@ it('serves the page under the sandbox and names downloads by the reviewed day', 
 
     $this->run->update(['run_date' => '2026-10-09']);   // the day in the summary wins over the run date
     $this->get(route('tool-runs.download-json', [$this->dataset, $this->run]))
-        ->assertDownload('schedule_review_SATE_NORTH_2026-10-04.json')
+        ->assertDownload('schedule_review_ACME_NORTH_2026-10-04.json')
         ->assertJsonPath('meta.day_iso', '2026-10-04');
 });
 
@@ -1776,7 +1776,7 @@ use Illuminate\Support\Facades\Storage;
  * Proves the web run hands the real script what the command line does. Needs a real pso-tools checkout and a
  * folder holding load, plan and eod exports (.xml or .zip), optionally audits.zip. Keep that folder outside this
  * repo (customer data):
- *   TOOLS_PSO_TOOLS_PATH=/path/to/pso-tools SCHEDULE_REVIEW_SAMPLE_DIR=~/pso-data/SATE/sunday php artisan test --filter=ScheduleReviewGolden
+ *   TOOLS_PSO_TOOLS_PATH=/path/to/pso-tools SCHEDULE_REVIEW_SAMPLE_DIR=~/pso-data/ACME/sunday php artisan test --filter=ScheduleReviewGolden
  * Skipped otherwise.
  */
 it('produces the same data JSON through the web as the command line, and keeps history across runs', function () {
@@ -1804,7 +1804,7 @@ it('produces the same data JSON through the web as the command line, and keeps h
     $work = sys_get_temp_dir().'/golden-sr-cli-'.uniqid();
     config(['exports.disk' => 'r2', 'exports.scratch_path' => $scratchPath]);
     $removeDirectory = static fn (string $directory) => is_dir($directory) && File::deleteDirectory($directory);
-    $settings = ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina', 'eod_cutoff_hour' => 22, 'coverage_km' => 50,
+    $settings = ['display_name' => 'Acme', 'time_zone' => 'America/Regina', 'eod_cutoff_hour' => 22, 'coverage_km' => 50,
         'exclude_resource_types' => ['LONGCYCLE', 'SHORTCYCLE'],
         'attribute_labels' => ['task_type' => 'Task Type', 'district' => 'District', 'sub_district' => 'Sub District', 'supervisor_email' => 'Supervisor Email', 'job_id' => 'Job ID'],
         'resource_type_names' => ['DISTRICTTECH' => 'district tech', 'CONSUMER' => 'consumer', 'BUSINESS' => 'business', 'LONGCYCLE' => 'long-cycle', 'SHORTCYCLE' => 'short-cycle']];
@@ -1830,7 +1830,7 @@ it('produces the same data JSON through the web as the command line, and keeps h
     };
 
     try {
-        $dataset = Dataset::factory()->for(Environment::factory()->state(['account_id' => 'SATE']))->create(['name' => 'NORTH', 'settings' => $settings]);
+        $dataset = Dataset::factory()->for(Environment::factory()->state(['account_id' => 'ACME']))->create(['name' => 'NORTH', 'settings' => $settings]);
         $storage = app(ExportStorage::class);
         $files = [];
         foreach ($paths as $kind => $path) {
@@ -1846,13 +1846,13 @@ it('produces the same data JSON through the web as the command line, and keeps h
 
         // The command line from an empty history, with the same account file.
         mkdir($work, 0770, true);
-        AccountSettingsFile::write(DatasetSettings::fromArray($settings), "{$work}/accounts", 'SATE');
+        AccountSettingsFile::write(DatasetSettings::fromArray($settings), "{$work}/accounts", 'ACME');
         $checkout = PsoToolsCheckout::fromConfig();
         $argv = [$checkout->python(), '-I', $checkout->scheduleReviewScript(), '--load', $paths['load'], '--plan', $paths['plan'], '--eod', $paths['eod']];
         if (isset($paths['audits'])) {
             array_push($argv, '--audits', $paths['audits']);
         }
-        array_push($argv, '--account', 'SATE', '--time-zone', 'America/Regina', '--accounts-dir', "{$work}/accounts", '--out-root', "{$work}/out");
+        array_push($argv, '--account', 'ACME', '--time-zone', 'America/Regina', '--accounts-dir', "{$work}/accounts", '--out-root', "{$work}/out");
         $cli = Process::path($work)->timeout(600)->run($argv);
         expect($cli->successful())->toBeTrue($cli->errorOutput());
         $cliJson = json_decode(file_get_contents(glob("{$work}/out/*/*/schedule_review_data_*.json")[0]), true);
@@ -1882,9 +1882,9 @@ it('produces the same data JSON through the web as the command line, and keeps h
 - [ ] **Step 2: Run it on the real data**
 
 ```bash
-TOOLS_PSO_TOOLS_PATH="/Users/idawoodjee/Documents/Projects/PSO Tools" SCHEDULE_REVIEW_SAMPLE_DIR=~/pso-data/SATE/sunday php artisan test --compact --filter=ScheduleReviewGolden
+TOOLS_PSO_TOOLS_PATH="/Users/idawoodjee/Documents/Projects/PSO Tools" SCHEDULE_REVIEW_SAMPLE_DIR=~/pso-data/ACME/sunday php artisan test --compact --filter=ScheduleReviewGolden
 ```
-Expected: PASS in about 20 s (two real runs plus the command line). If it fails on the JSON comparison, print the first differing top-level key before changing anything: the likely causes are the account file (compare `$work/accounts/SATE.json` with the repo's `accounts/SATE.json`) or `--time-zone`.
+Expected: PASS in about 20 s (two real runs plus the command line). If it fails on the JSON comparison, print the first differing top-level key before changing anything: the likely causes are the account file (compare `$work/accounts/ACME.json` with the repo's `accounts/ACME.json`) or `--time-zone`.
 
 - [ ] **Step 3: README**
 

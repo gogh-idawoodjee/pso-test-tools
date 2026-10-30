@@ -32,7 +32,7 @@ readonly class InputReferenceIdentity
 
     /**
      * One plain line, e.g. "Sent from PSO Test Tools (Load from File),
-     * environment SaskTel TST, file load.xml, 2026-10-16 13:40Z".
+     * environment Acme TST, file load.xml, 2026-10-16 13:40Z".
      *
      * Capped at DESCRIPTION_MAX_CHARACTERS: the file name is shortened first
      * (keeping its extension), then the environment name, so the fixed text,
@@ -58,7 +58,7 @@ readonly class InputReferenceIdentity
     }
 
     /**
-     * Shortens from the middle ("north_tr...1005.xml"), keeping the extension
+     * Shortens from the middle ("plan_tr...1005.xml"), keeping the extension
      * when asked. Never shorter than a few characters either side of the
      * ellipsis, so the result can exceed a very small limit.
      */

@@ -75,7 +75,7 @@ Registered in `AppServiceProvider` next to the load audit:
 ### 3.2 Configuration
 
 - `config/tools.php` gains `'region_availability' => ['timeout_seconds' => (int) env('TOOLS_REGION_AVAILABILITY_TIMEOUT_SECONDS', 600)]`.
-  The script reads one LOAD and does no checks; SaskTel's LOAD takes well under a minute.
+  The script reads one LOAD and does no checks; Acme's LOAD takes well under a minute.
 - `PsoToolsCheckout` (stays in `App\Tools\LoadAudit`, moving it is churn) gains
   `regionAvailabilityScript()` returning `<root>/region-availability/region_availability.py`. Its error
   messages drop "The load audit" for "The pso-tools checkout" so they read right from either tool:
@@ -230,7 +230,7 @@ a run shows and that the per-technician view is the search box plus a click on a
   warning is kept on the run.
 - Input is the run's own scratch copy of the LOAD; the script reads nothing else but its template and
   the generated account file. `python3 -I`, as for the load audit.
-- The page can be 1 to 2 MB for SaskTel (the gathered JSON is inlined in the HTML, and stored a second
+- The page can be 1 to 2 MB for Acme (the gathered JSON is inlined in the HTML, and stored a second
   time decoded in `data`). Within the 16 MB `result` column; the load audit's deferred minor about the
   Runs tab loading `result` on every poll gets heavier and is still a follow-up, not part of this.
 
@@ -241,14 +241,14 @@ a run shows and that the per-technician view is the search box plus a click on a
 - `tests/Unit/RegionAvailability/RegionAvailabilityCommandTest.php`: the argv with and without
   `week_of`; `--account` and `--time-zone` present; `--accounts-dir` and `--out-root` under the work dir;
   a form value `2026-10-07` and a Carbon instance both become `--week-of 2026-10-07`.
-- `tests/Unit/RegionAvailability/AccountSettingsFileTest.php`: writes SaskTel-like settings and reads
+- `tests/Unit/RegionAvailability/AccountSettingsFileTest.php`: writes Acme-like settings and reads
   the file back: `attributes.district`, `display_name`, `exclude_resource_types`, `region_pivot`,
   `resource_type_names`, `time_zone` under the pso-tools key names, no `attribute_labels` key, nulls
-  dropped; null settings write `{}`; account cleaning (`sate` to `SATE`, `' '` to `ACCOUNT`).
+  dropped; null settings write `{}`; account cleaning (`acme` to `ACME`, `' '` to `ACCOUNT`).
 - `tests/Unit/DatasetSettingsTest.php` (exists): `fromAccountFile(toAccountFile($s))` round trip.
 - `tests/Feature/RegionAvailability/RegionAvailabilityToolTest.php` with a fake
   `tests/Fixtures/pso-tools/region-availability/region_availability.py` (same pattern as the fake audit:
-  `FAKE_RA_MODE` ok | fail | nopage, `FAKE_RA_ARGS_FILE`; writes `out/SATE/NORTH/region_availability_2026-10-05.html`
+  `FAKE_RA_MODE` ok | fail | nopage, `FAKE_RA_ARGS_FILE`; writes `out/ACME/NORTH/region_availability_2026-10-05.html`
   and `.json` with a small `meta`, prints a `WARNING:` line, emits load 0/100 and gather progress):
   registered in the registry; argv, cwd and env recorded; the account file exists next to the run and
   holds the dataset's labels; `result.html`, `result.data.meta.week`, `summary` and `warnings` as in
@@ -257,7 +257,7 @@ a run shows and that the per-technician view is the search box plus a click on a
 - `tests/Feature/RegionAvailability/RegionAvailabilityPagesTest.php`: the generic controller serves the
   stored page under the sandbox for a region availability run and still for a load audit run; JSON
   download returns `data` for one and `findings` for the other; file names
-  `region_availability_SATE_NORTH_2026-10-05.json` (from `summary.week`) and
+  `region_availability_ACME_NORTH_2026-10-05.json` (from `summary.week`) and
   `load_audit_..._<run date>.html`; the run page shows the badges, the two buttons and the iframe; the
   Runs tab shows the summary line; the Run form offers "Week of" and rejects `not a date`.
 - `tests/Feature/RegionAvailability/RegionAvailabilityGoldenTest.php`, skipped unless
@@ -291,6 +291,6 @@ parity tests pass unchanged.
   remove by hand from the bucket if wanted).
 - The Runs tab loading the encrypted `result` on every poll (a load audit deferred minor in `docs/superpowers/notes/2026-10-11-load-audit-execution-notes.md`, still a
   follow-up).
-- Rogers: `ROGE.json` has no `attributes.district`, so its district filter is empty on the command line
-  and will be on the web too until the Rogers dataset's settings name the attribute. A settings
+- Globex: `GLBX.json` has no `attributes.district`, so its district filter is empty on the command line
+  and will be on the web too until the Globex dataset's settings name the attribute. A settings
   question, not a code change.

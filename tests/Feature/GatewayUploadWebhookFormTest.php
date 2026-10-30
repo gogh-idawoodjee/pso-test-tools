@@ -80,7 +80,7 @@ it('stores the override, toggle and broadcast settings on the upload row', funct
     $environment = webhookFormEnvironment();
 
     submitWebhookForm($environment, [
-        'dataset_id_override' => ' SASK_UAT ',
+        'dataset_id_override' => ' ACME_UAT ',
         'broadcast_id' => 'MY_HOOK',
         'broadcast_maximum_wait' => 'PT10M',
         'broadcast_maximum_frequency' => 'PT30M',
@@ -89,7 +89,7 @@ it('stores the override, toggle and broadcast settings on the upload row', funct
 
     $upload = PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->firstOrFail();
 
-    expect($upload->dataset_id_override)->toBe('SASK_UAT');
+    expect($upload->dataset_id_override)->toBe('ACME_UAT');
     expect($upload->skip_webhook)->toBeFalse();
     expect($upload->broadcast_settings)->toMatchArray([
         'id' => 'MY_HOOK',
@@ -298,7 +298,7 @@ it('will not show another environment\'s upload', function () {
 it('refuses a dataset ID override with characters XML cannot carry', function () {
     $environment = webhookFormEnvironment();
 
-    submitWebhookForm($environment, ['dataset_id_override' => "SASK\x01UAT"]);
+    submitWebhookForm($environment, ['dataset_id_override' => "ACME\x01UAT"]);
 
     expect(PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->count())->toBe(0);
     Queue::assertNothingPushed();

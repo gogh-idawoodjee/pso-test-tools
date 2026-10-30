@@ -102,7 +102,7 @@ from the baseline per area, per environment, plus "not identical across all".
 - **Case-sensitive and whitespace-sensitive** comparison. Show leading/trailing spaces with the
   visible marker U+2423. Treat an empty element and a missing element differently:
   `(null)` vs `(absent)`.
-- **Group names that differ only by case** (ST_Ops_Mgr vs ST_Ops_MGR) are ONE group; flag the
+- **Group names that differ only by case** (AC_Ops_Mgr vs AC_Ops_MGR) are ONE group; flag the
   spelling difference. Everything else is case-sensitive.
 - **`Group_Permission` rows include explicit denies** (`allow=false`) - in the sample, 241 of
   341 PROD rows are denies. Never label a row count as "permissions". Label it
@@ -224,7 +224,7 @@ upgrade). The Excel must open with no errors in Excel and LibreOffice.
    TST 371 differ; 473 not identical across all; per-area numbers are in the file). Parameters
    alone: 49 rows, ACC 15 / STG 7 / TST 14, 21 DIFF, 13 `Same (default)`, 15 `Same`.
 2. **Spot checks** from the same file (AllowSplitTravel, CommitToAllocatedShift, the merged
-   ST_Ops_Mgr group, the 241 deny rows, the whitespace marker, masked key, etc.).
+   AC_Ops_Mgr group, the 241 deny rows, the whitespace marker, masked key, etc.).
 3. **Mutation tests** from the same file (version patch mismatch, release mismatch, numeric
    version ordering, missing System_Version, unknown parameter, duplicate names, two baselines).
 4. **No-leak test:** run on files with a known fake key and assert the key string appears in

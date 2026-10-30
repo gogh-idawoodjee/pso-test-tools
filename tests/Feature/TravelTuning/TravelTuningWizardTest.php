@@ -20,8 +20,8 @@ beforeEach(function () {
     Storage::fake('r2');
     config(['exports.disk' => 'r2', 'exports.scratch_path' => sys_get_temp_dir().'/exports-tuning-'.uniqid()]);
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'SATE']);
-    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel', 'dataset_display_name' => 'North', 'region_label' => 'Territory']]);
+    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'ACME']);
+    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'Acme', 'dataset_display_name' => 'North', 'region_label' => 'Territory']]);
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
     $this->actingAs($this->user);
     $this->base = planTravelsRun($this->dataset, ['created_at' => Carbon::parse('2026-10-13 04:35:00', 'UTC')->setTimezone(config('app.timezone'))]);
@@ -59,14 +59,14 @@ it('lists the dataset\'s finished plan travels runs and says which need Google',
 
 it('prefills the options from the dataset settings and the script defaults', function () {
     Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'dataset'])->assertFormSet([
-        'options.title' => 'Travel Tuning Report', 'options.client' => 'SaskTel', 'options.dataset' => 'North', 'options.region_label' => 'Territory',
+        'options.title' => 'Travel Tuning Report', 'options.client' => 'Acme', 'options.dataset' => 'North', 'options.region_label' => 'Territory',
         'options.tiles' => 'esri-gray', 'options.review_minutes' => 20, 'options.small_minutes' => 5, 'options.long_leg_km' => 300,
         'options.model_tol_min' => 1, 'options.model_tol_pct' => 5,
     ]);
 });
 
 it('prefills the region label with Region when the dataset sets none and for Unfiled', function () {
-    $this->dataset->update(['settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel']]);
+    $this->dataset->update(['settings' => ['time_zone' => 'America/Regina', 'display_name' => 'Acme']]);
 
     Livewire::test(TravelTuningEntry::class)->assertFormSet(['options.region_label' => 'Region']);
     Livewire::test(TravelTuningEntry::class)->fillForm(['where' => 'unfiled'])->assertFormSet(['options.region_label' => 'Region']);
@@ -86,9 +86,9 @@ it('starts a run with the runs in order, the default labels and the chosen SYS',
     expect($run->sourceRuns())->toEqual([
         ['run_id' => $this->base->id, 'label' => 'Baseline', 'sys_file_id' => null],
         ['run_id' => $this->final->id, 'label' => 'Grid v6', 'sys_file_id' => $this->sys->id],
-    ])->and($run->options()['client'])->toBe('SaskTel')
+    ])->and($run->options()['client'])->toBe('Acme')
         ->and($run->options())->not->toHaveKey('time_zone')
-        ->and($raw)->not->toContain('Grid v6')->not->toContain('Baseline')->not->toContain('SaskTel')->not->toContain('Travel Tuning Report');
+        ->and($raw)->not->toContain('Grid v6')->not->toContain('Baseline')->not->toContain('Acme')->not->toContain('Travel Tuning Report');
     Queue::assertPushed(RunToolJob::class, 1);
 });
 

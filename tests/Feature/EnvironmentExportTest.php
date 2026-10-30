@@ -9,14 +9,14 @@ use Livewire\Livewire;
 it('builds psd1 entries keyed by camelCased environment name with the gateway path appended', function () {
     $environments = collect([
         Environment::factory()->make(['name' => 'the Drome', 'password' => 'PasswordValue', 'base_url' => 'https://pso.thetechnodro.me/', 'account_id' => 'Default', 'username' => 'INT_USER']),
-        Environment::factory()->make(['name' => 'sask TST', 'base_url' => 'https://sast-pso-tst.ifs.cloud', 'account_id' => 'sate', 'username' => 'GOGH_INT']),
+        Environment::factory()->make(['name' => 'acme TST', 'base_url' => 'https://acme-pso-tst.ifs.cloud', 'account_id' => 'acme', 'username' => 'GOGH_INT']),
     ]);
 
     $psd1 = app(PsoEnvironmentsExporter::class)->toPsd1($environments);
 
     expect($psd1)
         ->toContain("    theDrome = @{\n        GatewayBaseUrl = \"https://pso.thetechnodro.me/IFSSchedulingRESTfulGateway/api/v1\"\n        AccountId      = \"Default\"\n        UserId         = \"INT_USER\"\n    }")
-        ->toContain('    saskTST = @{')
+        ->toContain('    acmeTST = @{')
         ->toStartWith('@{')
         ->toEndWith("}\n")
         ->not->toContain('PasswordValue');

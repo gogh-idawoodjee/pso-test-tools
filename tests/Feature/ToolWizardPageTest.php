@@ -36,7 +36,7 @@ function openOnDataset(): Testable
 beforeEach(function () {
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
     $this->user = User::factory()->create();
-    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'SaskTel PROD']);
+    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'Acme PROD']);
     $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH']);
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
     $this->actingAs($this->user);
@@ -59,7 +59,7 @@ it('shows the tool question and only the user own environments and datasets', fu
         ->assertSee(ToolId::LoadAudit->question())
         ->assertFormFieldExists('environment_id')
         ->assertFormFieldExists('dataset_id')
-        ->assertSee('SaskTel PROD')
+        ->assertSee('Acme PROD')
         ->assertDontSee('Someone else PROD')
         ->assertDontSee('THEIRS');
 });
@@ -80,7 +80,7 @@ it('pre-fills the remembered environment and dataset', function () {
 });
 
 it('clears the dataset when the environment changes', function () {
-    $otherEnvironment = Environment::factory()->for($this->user)->create(['name' => 'Rogers PROD']);
+    $otherEnvironment = Environment::factory()->for($this->user)->create(['name' => 'Globex PROD']);
     // With two environments nothing is pre-filled unless remembered.
     $this->user->rememberToolContext($this->environment->id, $this->dataset->id);
 

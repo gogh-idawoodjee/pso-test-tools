@@ -99,7 +99,7 @@ Leaving every filter empty means rows are untouched: the run is tables only.
 - The whole thing runs in the queue through the standard `RunToolJob`; the tool reports progress (pass one, pass two)
   through the existing progress hook; the output is written to the scratch directory, then stored.
 
-Performance target: the 135 MB SaskTel plan export in under three minutes on the box; memory flat (ids only).
+Performance target: the 135 MB Acme plan export in under three minutes on the box; memory flat (ids only).
 
 ## 5. Output
 
@@ -136,7 +136,7 @@ After this ships and Ish has used it on a real file: the Filter Load File page a
 - Feature: wizard steps (table list from the file's counts, preset and Custom switch, footer text, warnings), the run
   creating the new export on the right scope with the right name, the Unfiled case, Count only writing nothing,
   another user never seeing the result.
-- Golden (skipped when the files are absent): the SaskTel LOAD under `~/pso-data/SATE/2026-10-04/` with region V1,
+- Golden (skipped when the files are absent): the customer LOAD under `~/pso-data/ACME/2026-10-04/` with region V1,
   5 to 9 Oct: 85 resources, 8 activities, Location 3928 to 1362 (from #26 and #42); and the 135 MB plan export with
   the Cleanup preset: every Plan* and Allocation* table gone, Input_Reference kept, time under the target.
 

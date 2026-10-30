@@ -8,8 +8,8 @@ use InvalidArgumentException;
 use JsonSerializable;
 
 /**
- * Per-dataset settings the ported tools read (what accounts/SATE.json and
- * ROGE.json hold in the pso-tools repo). Fixed key list; unknown keys are an
+ * Per-dataset settings the ported tools read (what the account files in
+ * accounts/ hold in the pso-tools repo). Fixed key list; unknown keys are an
  * error so a typo in the form or a seed file cannot silently do nothing.
  */
 class DatasetSettings implements Arrayable, JsonSerializable

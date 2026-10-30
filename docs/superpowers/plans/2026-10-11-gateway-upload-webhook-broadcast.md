@@ -2551,7 +2551,7 @@ beforeEach(function () {
     ]);
 });
 
-function provisionWebhook(string $environmentName = 'SaskTel TST', string $contentType = 'application/json'): array
+function provisionWebhook(string $environmentName = 'Acme TST', string $contentType = 'application/json'): array
 {
     $upload = PsoGatewayUpload::factory()->create();
     $endpoint = app(WebhookEndpointProvisioner::class)->provision(
@@ -2568,16 +2568,16 @@ it('creates the per-environment alias and returns its stable url', function () {
 
     [$endpoint, $lines] = provisionWebhook();
 
-    expect($endpoint->url)->toBe('https://webhook.example.test/pso-sasktel-tst');
+    expect($endpoint->url)->toBe('https://webhook.example.test/pso-acme-tst');
     expect($endpoint->viewUrl)->toBe('https://webhook.example.test/#!/uuid-1');
     expect($endpoint->uuid)->toBe('uuid-1');
-    expect($endpoint->alias)->toBe('pso-sasktel-tst');
+    expect($endpoint->alias)->toBe('pso-acme-tst');
     expect($endpoint->created)->toBeTrue();
-    expect($lines->pluck('text')->implode("\n"))->toContain('Created new alias /pso-sasktel-tst')
+    expect($lines->pluck('text')->implode("\n"))->toContain('Created new alias /pso-acme-tst')
         ->not->toContain('alias-key-123');
 
     Http::assertSent(static fn ($request) => $request->method() === 'POST'
-        && $request->url() === 'https://webhook.example.test/_alias/pso-sasktel-tst'
+        && $request->url() === 'https://webhook.example.test/_alias/pso-acme-tst'
         && $request->hasHeader('X-Alias-Key', 'alias-key-123')
         && $request['default_status'] === 200
         && $request['default_content'] === '{}'
@@ -3129,7 +3129,7 @@ function webhookJobUpload(string $path, string $contents, array $attributes = []
     Storage::disk('r2')->put($path, $contents);
 
     return PsoGatewayUpload::factory()
-        ->for(Environment::factory()->create(['name' => 'SaskTel TST']), 'environment')
+        ->for(Environment::factory()->create(['name' => 'Acme TST']), 'environment')
         ->create([
             'stored_path' => $path,
             'original_filename' => basename($path),
@@ -3185,7 +3185,7 @@ it('injects the webhook broadcast and records the webhook and response', functio
     $payload = sentPayload();
 
     expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
-    expect($upload->webhook_url)->toBe('https://webhook.example.test/pso-sasktel-tst');
+    expect($upload->webhook_url)->toBe('https://webhook.example.test/pso-acme-tst');
     expect($upload->webhook_view_url)->toBe('https://webhook.example.test/#!/uuid-1');
     expect($upload->response_status)->toBe(200);
     expect($upload->response_body)->toContain('1857054');
@@ -3194,7 +3194,7 @@ it('injects the webhook broadcast and records the webhook and response', functio
     expect($payload['ScheduleData']['Broadcast'][0]['maximum_wait'])->toBe('PT5M');
     expect($payload['ScheduleData']['Broadcast'][0]['id'])->toBe('WEBHOOK_COMPLETE');
     expect(collect($payload['ScheduleData']['Broadcast_Parameter'])->firstWhere('parameter_name', 'url')['parameter_value'])
-        ->toBe('https://webhook.example.test/pso-sasktel-tst');
+        ->toBe('https://webhook.example.test/pso-acme-tst');
     expect($payload['ScheduleData']['Input_Reference'][0]['dataset_id'])->toBe('OLD');
 });
 
@@ -3369,7 +3369,7 @@ it('writes the script-style steps to the run log and never a secret', function (
     $text = $upload->refresh()->logLines()->orderBy('id')->pluck('text')->implode("\n");
 
     expect($text)->toContain('PSO RESTful Gateway - Schedule Data Upload');
-    expect($text)->toContain('Created new alias /pso-sasktel-tst');
+    expect($text)->toContain('Created new alias /pso-acme-tst');
     expect($text)->toContain('Stripped existing broadcast from the file: 1 Broadcast and 0 Broadcast_Parameter row(s) removed.');
     expect($text)->toContain("Injected Broadcast 'WEBHOOK_COMPLETE'");
     expect($text)->toContain('maximum_wait=PT5M');
@@ -3969,7 +3969,7 @@ it('stores the override, toggle and broadcast settings on the upload row', funct
     $environment = webhookFormEnvironment();
 
     submitWebhookForm($environment, [
-        'dataset_id_override' => ' SASK_UAT ',
+        'dataset_id_override' => ' ACME_UAT ',
         'broadcast_id' => 'MY_HOOK',
         'broadcast_maximum_wait' => 'PT10M',
         'broadcast_minimum_plan_quality' => 90,
@@ -3977,7 +3977,7 @@ it('stores the override, toggle and broadcast settings on the upload row', funct
 
     $upload = PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->firstOrFail();
 
-    expect($upload->dataset_id_override)->toBe('SASK_UAT');
+    expect($upload->dataset_id_override)->toBe('ACME_UAT');
     expect($upload->skip_webhook)->toBeFalse();
     expect($upload->broadcast_settings)->toMatchArray([
         'id' => 'MY_HOOK',

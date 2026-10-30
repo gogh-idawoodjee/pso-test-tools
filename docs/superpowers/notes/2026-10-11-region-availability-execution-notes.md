@@ -10,7 +10,7 @@ Executed with subagent-driven development: a fresh implementer per task and a sp
 
 - pso-test-tools full suite: 489 passed, 19 skipped (sample-file tests that need local data, plus the golden test when its env vars are unset). `ExampleTest` excluded. The count is lower than after Task 7 (498) because Task 8 removed the old service test.
 - pso-tools `python3 -m unittest discover -s tests/region_availability -t .`: 35 passed (3 new), parity test included.
-- Golden test ran on real data (`~/pso-data/SATE/sunday/load.zip`, the PSO Tools checkout): the web run and the command line produced identical gathered JSON apart from `meta.generated`. Run once by the implementer and again by the controller at the end: passed both times.
+- Golden test ran on real data (`~/pso-data/ACME/sunday/load.zip`, the PSO Tools checkout): the web run and the command line produced identical gathered JSON apart from `meta.generated`. Run once by the implementer and again by the controller at the end: passed both times.
 - pso-tools command line output before and after the progress change: identical normalised JSON, and 0 bytes on stderr without `PSO_PROGRESS`.
 - Not done on purpose: no browser check of the run page, the iframe or the Runs tab (standing preference); worth a look after the merge.
 
@@ -47,7 +47,7 @@ No fix rounds were needed.
 - An environment-scoped run (not a dataset) always gets the account name `ACCOUNT`; use the environment's own `account_id` if the tool is ever offered there.
 - `AccountSettingsFile::write()` ignores `mkdir` and `file_put_contents` failures; the script would then fail on a missing file.
 - `DatasetSettings::toAccountFile()` uses `$out` (abbreviated name).
-- Omitted empty maps rely on the script's own defaults; the golden test covers the SATE settings only.
+- Omitted empty maps rely on the script's own defaults; the golden test covers the ACME settings only.
 - The golden test leaves a copy of the LOAD in `storage/framework/testing/disks/r2` (gitignored). Call `Storage::disk('r2')->deleteDirectory('')` in its `finally`. Removed by hand in the worktree.
 - The golden test's `glob(...)[0]` is unguarded and a `load.zip` wins over `load.xml` when both exist.
 - The retired test uses `class_exists` and so needs a fresh composer autoloader (after deletions a stale optimized classmap needed `composer dump-autoload` locally).

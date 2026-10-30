@@ -34,7 +34,7 @@ would produce from the same files and settings.
 - **Store the finished HTML.** This departs from export-sets section 2 ("dashboards are rendered from
   the result on request, not stored") on purpose: an old run must keep showing what it showed on the day,
   even after the template or the data shape changes in pso-tools, and the download must be the same file
-  a customer receives today. The rendered page is about 0.5 MB for SaskTel; it sits in the encrypted
+  a customer receives today. The rendered page is about 0.5 MB for Acme; it sits in the encrypted
   `result` with the findings.
 - **Reuse the template as-is.** The dashboard is the Python's own page in a sandboxed iframe, not a Blade
   rebuild.
@@ -188,7 +188,7 @@ customer text.
 | Timeout (840 s) | Process stopped. Failed: "The audit took longer than 14 minutes and was stopped." |
 
 - The Run action stays visible when the tool is not set up; the failure says what is missing.
-- Memory: the Python peaked at about 146 MB on the SaskTel LOAD and plan (Mac, 2026-10-10, about 10 s).
+- Memory: the Python peaked at about 146 MB on the customer LOAD and plan (Mac, 2026-10-10, about 10 s).
   The container goes from 512 MB to 1 GB before this ships. No cap is set; a process killed for memory
   shows as a non-zero exit.
 - Swapped files cannot reach the script: export sets already rejects a plan uploaded as a LOAD and a
@@ -222,7 +222,7 @@ customer text.
 - `tests/load_audit/test_progress.py` (unittest, synthetic LOAD and plan): with `PSO_PROGRESS=lines`
   every `PROGRESS` line parses and the stages appear as `load`, `plan`, `checks`, `sys`, `checks`; without it stderr carries no `PROGRESS`
   text.
-- On the SaskTel files: the findings JSON is identical before and after the change, and
+- On the Acme files: the findings JSON is identical before and after the change, and
   `Compare-LoadAudit.ps1` exits 0 against the PowerShell run (`pwsh` on the Mac).
 
 ## 8. Deploy

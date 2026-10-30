@@ -14,7 +14,7 @@ beforeEach(function () {
     ]);
 });
 
-function provisionWebhook(string $environmentName = 'SaskTel TST', string $contentType = 'application/json'): array
+function provisionWebhook(string $environmentName = 'Acme TST', string $contentType = 'application/json'): array
 {
     $upload = PsoGatewayUpload::factory()->create();
     $endpoint = app(WebhookEndpointProvisioner::class)->provision(
@@ -31,16 +31,16 @@ it('creates the per-environment alias and returns its stable url', function () {
 
     [$endpoint, $lines] = provisionWebhook();
 
-    expect($endpoint->url)->toBe('https://webhook.example.test/pso-sasktel-tst');
+    expect($endpoint->url)->toBe('https://webhook.example.test/pso-acme-tst');
     expect($endpoint->viewUrl)->toBe('https://webhook.example.test/#!/uuid-1');
     expect($endpoint->uuid)->toBe('uuid-1');
-    expect($endpoint->alias)->toBe('pso-sasktel-tst');
+    expect($endpoint->alias)->toBe('pso-acme-tst');
     expect($endpoint->created)->toBeTrue();
-    expect($lines->pluck('text')->implode("\n"))->toContain('Created new alias /pso-sasktel-tst')
+    expect($lines->pluck('text')->implode("\n"))->toContain('Created new alias /pso-acme-tst')
         ->not->toContain('alias-key-123');
 
     Http::assertSent(static fn ($request) => $request->method() === 'POST'
-        && $request->url() === 'https://webhook.example.test/_alias/pso-sasktel-tst'
+        && $request->url() === 'https://webhook.example.test/_alias/pso-acme-tst'
         && $request->hasHeader('X-Alias-Key', 'alias-key-123')
         && $request['default_status'] === 200
         && $request['default_content'] === '{}'
@@ -164,5 +164,5 @@ it('falls back to the default base url when the configured one is empty', functi
 
     [$endpoint] = provisionWebhook();
 
-    expect($endpoint->url)->toBe('https://webhook.thetechnodro.me/pso-sasktel-tst');
+    expect($endpoint->url)->toBe('https://webhook.thetechnodro.me/pso-acme-tst');
 });

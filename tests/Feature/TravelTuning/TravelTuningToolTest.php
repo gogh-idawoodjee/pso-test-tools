@@ -46,8 +46,8 @@ beforeEach(function () {
     tuningEnv('FAKE_TUNING_ARGS_FILE', $this->argsFile);
     $this->travelTo(Carbon::parse('2026-10-18 15:30:00', 'UTC'));
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'SATE']);
-    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'SaskTel']]);
+    $this->environment = Environment::factory()->for($this->user)->create(['account_id' => 'ACME']);
+    $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH', 'settings' => ['time_zone' => 'America/Regina', 'display_name' => 'Acme']]);
     $this->base = planTravelsRun($this->dataset);
     $this->final = planTravelsRun($this->dataset, csv: tuningCsv([960, 1560, 620, 880]));
     $this->sys = storedSys($this->environment, polygonSysXml(2), zipped: true);
@@ -66,7 +66,7 @@ function tuningRun(Model $scope, array $runs, array $options = []): ToolRun
     return ToolRun::factory()->for($scope, 'scope')->create([
         'tool' => ToolId::TravelTuning, 'status' => ToolRunStatus::Queued, 'result' => null, 'summary' => null, 'run_date' => null,
         ...ToolRun::inputAttributes(app(TravelTuningTool::class), [
-            'files' => [], 'options' => ['title' => 'Travel Tuning Report', 'client' => 'SaskTel', 'dataset' => 'NORTH', ...$options], 'runs' => $runs,
+            'files' => [], 'options' => ['title' => 'Travel Tuning Report', 'client' => 'Acme', 'dataset' => 'NORTH', ...$options], 'runs' => $runs,
         ]),
     ]);
 }
@@ -99,7 +99,7 @@ it('writes the runs, the polygons and the manifest, runs the script and keeps th
     $scratch = config('exports.scratch_path').'/'.$run->id;
     expect($run->status)->toBe(ToolRunStatus::Succeeded, (string) $run->error_message)
         ->and($call['cwd'])->toBe($scratch)
-        ->and($call['argv'])->toContain('--manifest', $scratch.'/manifest.csv', '--generated', '2026-10-18 09:30', '--client=SaskTel', '--tiles=esri-gray')
+        ->and($call['argv'])->toContain('--manifest', $scratch.'/manifest.csv', '--generated', '2026-10-18 09:30', '--client=Acme', '--tiles=esri-gray')
         ->and(implode(' ', $call['argv']))->not->toContain('--notes')
         ->and($call['rows'])->toBe([
             ['label' => 'Baseline', 'run_csv' => 'run-1.csv', 'header' => strtok(tuningCsv(), "\n"), 'polygon_xml' => ''],
@@ -117,7 +117,7 @@ it('writes the runs, the polygons and the manifest, runs the script and keeps th
         ->and(glob(config('exports.scratch_path').'/*'))->toBe([])
         ->and(Storage::disk('r2')->allFiles())->toBe([app(ExportStorage::class)->objectKey($this->sys)])
         // The label and client reached the script from the encrypted column; the plain one never held them.
-        ->and(DB::table('tool_runs')->where('id', $run->id)->value('inputs'))->not->toContain('Grid')->not->toContain('SaskTel');
+        ->and(DB::table('tool_runs')->where('id', $run->id)->value('inputs'))->not->toContain('Grid')->not->toContain('Acme');
 });
 
 it('writes the notes for the script when there are some, from the encrypted inputs', function () {

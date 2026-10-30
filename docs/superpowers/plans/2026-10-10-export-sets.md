@@ -579,7 +579,7 @@ use App\Support\DatasetSettings;
 
 it('maps a pso-tools account file onto the typed keys', function () {
     $settings = DatasetSettings::fromAccountFile([
-        'display_name' => 'SaskTel',
+        'display_name' => 'Acme',
         'coverage_km' => 50,
         'eod_cutoff_hour' => 22,
         'exclude_resource_types' => ['LONGCYCLE'],
@@ -591,7 +591,7 @@ it('maps a pso-tools account file onto the typed keys', function () {
         'supervisor_label' => 'Company',
     ]);
 
-    expect($settings->displayName)->toBe('SaskTel')
+    expect($settings->displayName)->toBe('Acme')
         ->and($settings->coverageKm)->toBe(50.0)
         ->and($settings->eodCutoffHour)->toBe(22)
         ->and($settings->excludeResourceTypes)->toBe(['LONGCYCLE'])
@@ -603,7 +603,7 @@ it('maps a pso-tools account file onto the typed keys', function () {
 });
 
 it('round trips through toArray and fromArray', function () {
-    $settings = DatasetSettings::fromArray(['display_name' => 'Rogers', 'coverage_km' => 15, 'time_zone' => 'America/Toronto']);
+    $settings = DatasetSettings::fromArray(['display_name' => 'Globex', 'coverage_km' => 15, 'time_zone' => 'America/Toronto']);
 
     expect(DatasetSettings::fromArray($settings->toArray())->toArray())->toBe($settings->toArray())
         ->and($settings->toArray()['time_zone'])->toBe('America/Toronto');
@@ -646,7 +646,7 @@ beforeEach(function () {
 it('saves typed settings from the dataset form', function () {
     Livewire::test(EditDataset::class, ['record' => $this->dataset->getRouteKey()])
         ->fillForm([
-            'settings.display_name' => 'SaskTel',
+            'settings.display_name' => 'Acme',
             'settings.coverage_km' => 50,
             'settings.time_zone' => 'America/Regina',
             'settings.exclude_resource_types' => ['LONGCYCLE', 'SHORTCYCLE'],
@@ -655,7 +655,7 @@ it('saves typed settings from the dataset form', function () {
         ->assertHasNoFormErrors();
 
     $settings = $this->dataset->fresh()->settings;
-    expect($settings->displayName)->toBe('SaskTel')
+    expect($settings->displayName)->toBe('Acme')
         ->and($settings->timeZone)->toBe('America/Regina')
         ->and($settings->excludeResourceTypes)->toBe(['LONGCYCLE', 'SHORTCYCLE'])
         ->and($this->dataset->fresh()->timeZone())->toBe('America/Regina');
@@ -663,12 +663,12 @@ it('saves typed settings from the dataset form', function () {
 
 it('seeds settings from a pso-tools account file', function () {
     $path = tempnam(sys_get_temp_dir(), 'acct_');
-    file_put_contents($path, json_encode(['display_name' => 'SaskTel', 'coverage_km' => 50, 'resource_type_names' => ['CONSUMER' => 'consumer']]));
+    file_put_contents($path, json_encode(['display_name' => 'Acme', 'coverage_km' => 50, 'resource_type_names' => ['CONSUMER' => 'consumer']]));
 
     Artisan::call('datasets:seed-settings', ['dataset' => $this->dataset->id, 'file' => $path, '--time-zone' => 'America/Regina']);
 
     $settings = $this->dataset->fresh()->settings;
-    expect($settings->displayName)->toBe('SaskTel')
+    expect($settings->displayName)->toBe('Acme')
         ->and($settings->resourceTypeNames)->toBe(['CONSUMER' => 'consumer'])
         ->and($settings->timeZone)->toBe('America/Regina');
     @unlink($path);
@@ -693,8 +693,8 @@ use DateTimeZone;
 use InvalidArgumentException;
 
 /**
- * Per-dataset settings the ported tools read (what accounts/SATE.json and
- * ROGE.json hold in the pso-tools repo). Fixed key list; unknown keys are an
+ * Per-dataset settings the ported tools read (what accounts/ACME.json and
+ * GLBX.json hold in the pso-tools repo). Fixed key list; unknown keys are an
  * error so a typo in the form or a seed file cannot silently do nothing.
  */
 class DatasetSettings
@@ -1518,7 +1518,7 @@ beforeEach(function () {
     Storage::fake('r2');
     config(['exports.disk' => 'r2', 'exports.scratch_path' => sys_get_temp_dir().'/exports-test-'.uniqid()]);
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
-    $this->dataset = Dataset::factory()->create(['settings' => ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina']]);
+    $this->dataset = Dataset::factory()->create(['settings' => ['display_name' => 'Acme', 'time_zone' => 'America/Regina']]);
     $this->load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'content_type' => 'xml', 'summary' => ['export_date' => '2026-10-10']]);
     Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($this->load), '<dsScheduleData><Activity/></dsScheduleData>');
 });
@@ -1540,7 +1540,7 @@ it('streams the inputs to scratch, runs the tool with the dataset settings, stor
     expect($run->status)->toBe(ToolRunStatus::Succeeded)
         ->and($run->result['seen_kinds'])->toBe(['load'])
         ->and($run->result['bytes'])->toBe(strlen('<dsScheduleData><Activity/></dsScheduleData>'))
-        ->and($run->result['display_name'])->toBe('SaskTel')
+        ->and($run->result['display_name'])->toBe('Acme')
         ->and($run->result['time_zone'])->toBe('America/Regina')
         ->and($run->result['options'])->toBe(['flag' => true])
         ->and($run->warnings)->toBe(['Fake warning'])
@@ -1967,12 +1967,12 @@ The scheduler must run (`php artisan schedule:run` every minute) for `exports:pu
 
 Per-dataset settings (display names, coverage, exclusions, labels, time zone) live on the dataset's edit
 form. Seed one from a pso-tools account file with
-`php artisan datasets:seed-settings <dataset id> accounts/SATE.json --time-zone=America/Regina`.
+`php artisan datasets:seed-settings <dataset id> accounts/ACME.json --time-zone=America/Regina`.
 ```
 
 - [ ] **Step 5: Full suite, seed on dev, commit**
 
-Run: `php artisan test` → green apart from the known `ExampleTest`. Then on the dev database: `php artisan migrate` and `php artisan datasets:seed-settings <SATE NORTH dataset id> "/Users/idawoodjee/Documents/Projects/PSO Tools/accounts/SATE.json" --time-zone=America/Regina` (and ROGE with `America/Toronto`), and check the dataset edit form shows them.
+Run: `php artisan test` → green apart from the known `ExampleTest`. Then on the dev database: `php artisan migrate` and `php artisan datasets:seed-settings <ACME NORTH dataset id> "/Users/idawoodjee/Documents/Projects/PSO Tools/accounts/ACME.json" --time-zone=America/Regina` (and GLBX with `America/Toronto`), and check the dataset edit form shows them.
 
 ```bash
 git add app/Filament/Pages/Tools README.md tests/Feature/ToolEntryPageTest.php

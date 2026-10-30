@@ -10,7 +10,7 @@ Executed with subagent-driven development: a fresh implementer per task, a spec 
 
 - pso-test-tools full suite: 462 passed, 18 skipped (17 sample-file tests that need local data, plus the load audit golden test, which needs env vars). `ExampleTest` excluded as before.
 - pso-tools `python3 -m unittest discover -s tests/load_audit -t .`: 6 passed.
-- Golden test ran once on real data (SaskTel-style `sunday` LOAD and plan, no SYS): the web run and the command line produced identical findings JSON (66 findings: 30 green, 16 amber, 3 red, 17 info).
+- Golden test ran once on real data (Acme-style `sunday` LOAD and plan, no SYS): the web run and the command line produced identical findings JSON (66 findings: 30 green, 16 amber, 3 red, 17 info).
 - pso-tools parity: `Compare-LoadAudit.ps1` reported all 66 checks match, exit 0, on the real LOAD and plan, before and after the progress change; the two JSON and markdown outputs are byte identical.
 - Not exercised on real data: a SYS file (none on this machine). The SYS path is covered by unit and fixture tests only.
 - Not done on purpose: no browser check of the run page, dashboard iframe or Runs tab (standing preference); worth a look after the merge.

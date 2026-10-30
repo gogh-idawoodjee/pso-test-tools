@@ -10,7 +10,7 @@ return [
         'timeout_seconds' => (int) env('TOOLS_LOAD_AUDIT_TIMEOUT_SECONDS', 840),
     ],
     'region_availability' => [
-        // The viewer reads one LOAD and does no checks; SaskTel's takes well under a minute.
+        // The viewer reads one LOAD and does no checks; a large customer's takes well under a minute.
         'timeout_seconds' => (int) env('TOOLS_REGION_AVAILABILITY_TIMEOUT_SECONDS', 600),
     ],
     'activity_trace' => [
@@ -26,7 +26,7 @@ return [
         'google_deadline_seconds' => (int) env('TOOLS_PLAN_TRAVELS_GOOGLE_DEADLINE_SECONDS', 720),
     ],
     'travel_tuning' => [
-        // One script run over the picked plan travels CSVs and polygon files; the 2026-10-13 SaskTel pair takes seconds.
+        // One script run over the picked plan travels CSVs and polygon files; a real customer pair takes seconds.
         'timeout_seconds' => (int) env('TOOLS_TRAVEL_TUNING_TIMEOUT_SECONDS', 600),
     ],
 ];

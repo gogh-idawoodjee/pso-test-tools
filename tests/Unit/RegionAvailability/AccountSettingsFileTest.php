@@ -16,18 +16,18 @@ afterEach(function () {
 
 it('writes the settings under the pso-tools key names and creates the folder', function () {
     $settings = DatasetSettings::fromArray([
-        'display_name' => 'SaskTel',
+        'display_name' => 'Acme',
         'exclude_resource_types' => ['LONGCYCLE', 'SHORTCYCLE'],
         'resource_type_names' => ['DISTRICTTECH' => 'district tech'],
         'attribute_labels' => ['district' => 'District', 'supervisor_email' => 'Supervisor Email'],
         'time_zone' => 'America/Regina',
     ]);
 
-    $path = AccountSettingsFile::write($settings, $this->dir, 'SATE');
+    $path = AccountSettingsFile::write($settings, $this->dir, 'ACME');
 
-    expect($path)->toBe($this->dir.'/SATE.json');
+    expect($path)->toBe($this->dir.'/ACME.json');
     $json = json_decode(file_get_contents($path), true);
-    expect($json['display_name'])->toBe('SaskTel')
+    expect($json['display_name'])->toBe('Acme')
         ->and($json['attributes'])->toBe(['district' => 'District', 'supervisor_email' => 'Supervisor Email'])
         ->and($json['exclude_resource_types'])->toBe(['LONGCYCLE', 'SHORTCYCLE'])
         ->and($json['resource_type_names'])->toBe(['DISTRICTTECH' => 'district tech'])
@@ -53,9 +53,9 @@ it('leaves empty maps out so the script never meets a JSON list where it expects
 it('cleans the account name', function (?string $raw, string $expected) {
     expect(AccountSettingsFile::accountName($raw))->toBe($expected);
 })->with([
-    ['sate', 'SATE'],
-    ['ROGE', 'ROGE'],
-    ['sa te-1', 'SATE1'],
+    ['acme', 'ACME'],
+    ['GLBX', 'GLBX'],
+    ['ac me-1', 'ACME1'],
     ['   ', 'ACCOUNT'],
     [null, 'ACCOUNT'],
 ]);

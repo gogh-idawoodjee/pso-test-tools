@@ -42,7 +42,7 @@ class Dataset extends Model
 
     /**
      * The zone the dataset's times are shown in. PSO exports are UTC, so a dataset with no zone
-     * set shows UTC rather than the app's own zone (which once showed SaskTel times in Toronto time).
+     * set shows UTC rather than the app's own zone (which once showed a customer's times in Toronto time).
      */
     public function timeZone(): string
     {
@@ -133,10 +133,10 @@ class Dataset extends Model
                 ->schema([
                     Forms\Components\TextInput::make('settings.display_name')
                         ->label('Customer name on reports')
-                        ->helperText('Shown in report titles, such as SaskTel. Blank means the environment name.'),
+                        ->helperText('Shown in report titles, such as Acme. Blank means the environment name.'),
                     Forms\Components\TextInput::make('settings.dataset_display_name')
                         ->label('Dataset name on reports')
-                        ->helperText('Shown next to the customer name, such as North. Blank means the dataset ID.'),
+                        ->helperText('Shown next to the customer name, such as Central. Blank means the dataset ID.'),
                     Forms\Components\Select::make('settings.time_zone')
                         ->label('Time zone')
                         ->helperText('PSO exports are in UTC. Reports show times in this zone. Blank means UTC.')

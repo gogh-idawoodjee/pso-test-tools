@@ -29,7 +29,7 @@ settings those tools read now live. The tool ports are separate specs on top of 
   the result on request, not stored.
 - **Minimise at the parser, do not scrub the file.** Each tool keeps only what its checks need. SYS
   credentials never leave the parser; the audits parser drops customer contact fields.
-- **Per-customer settings** (today `accounts/SATE.json` and `ROGE.json` in pso-tools) become a typed
+- **Per-customer settings** (today `accounts/ACME.json` and `GLBX.json` in pso-tools) become a typed
   `settings` JSON column on the dataset, with a form section, seeded once from those two files.
 - **Scope follows the input.** SYS exports and the sys compare belong to the **environment**; LOAD, plan,
   EOD and audits, and the tools that read them, belong to the **dataset**. XML utilities and the travel
@@ -130,7 +130,7 @@ Rules:
 
 Form: a "Settings" section on the dataset edit form with one field per key (key-value fields for the
 maps, tags input for the list). A one-off artisan command `datasets:seed-settings {dataset} {file}`
-loads a pso-tools account JSON into a dataset; run once for SATE/NORTH and ROGE/SOUTHERNONTARIO.
+loads a pso-tools account JSON into a dataset; run once for ACME/NORTH and GLBX/SOUTH.
 
 ## 4. Upload path
 
@@ -229,7 +229,7 @@ page keeps its own drop zone until it is rebuilt on export files (section 7).
 - Feature: slot request (ownership, kind-scope rule, size cap, extension), complete (size mismatch
   fails the row), purge (object deleted, row `purged`, scratch sweeper), `SummariseExportFileJob` and
   `RunToolJob` with `Storage::fake('r2')`, run picker preselects the newest set of one day, dashboards
-  need the owning user, settings form saves typed values, seed command loads SATE.json.
+  need the owning user, settings form saves typed values, seed command loads ACME.json.
 - Golden: when `EXPORTS_SAMPLE_DIR` points at a folder with a real `load.zip`, the summariser's counts
   match a sidecar expected file; skipped otherwise (same pattern as the reference values golden test).
 

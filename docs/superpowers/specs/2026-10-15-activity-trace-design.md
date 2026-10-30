@@ -191,7 +191,7 @@ Python (`tests/activity_trace/` in pso-tools, unittest, synthetic zips built in 
 - File time rule: each of the four fallbacks; "not timed" marker.
 - Event log: xlsx and csv readers; OADate; pairing within the window; assignment mapping on status 30.
 - Outputs: JSON shape, CSV column orders, exit codes 0, 1, 2; `PSO_PROGRESS=lines` output.
-- Golden test on the real SaskTel audits when `~/pso-data/SATE/<date>/audits.zip` exists, skipped otherwise.
+- Golden test on the real customer audits when `~/pso-data/ACME/<date>/audits.zip` exists, skipped otherwise.
 
 PHP (Pest): ExportKind EventLog (scope, extensions, label); summariser for xlsx and csv; ActivityTraceCommand
 argv for every input combination; ActivityTraceTool end to end with a fake script writing the four outputs;

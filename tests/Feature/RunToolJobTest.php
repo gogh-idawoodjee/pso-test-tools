@@ -20,7 +20,7 @@ beforeEach(function () {
     Storage::fake('r2');
     config(['exports.disk' => 'r2', 'exports.scratch_path' => sys_get_temp_dir().'/exports-test-'.uniqid()]);
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
-    $this->dataset = Dataset::factory()->create(['settings' => ['display_name' => 'SaskTel', 'time_zone' => 'America/Regina']]);
+    $this->dataset = Dataset::factory()->create(['settings' => ['display_name' => 'Acme', 'time_zone' => 'America/Regina']]);
     $this->load = ExportFile::factory()->for($this->dataset, 'scope')->create(['kind' => ExportKind::Load, 'content_type' => 'xml', 'summary' => ['export_date' => '2026-10-10']]);
     Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($this->load), '<dsScheduleData><Activity/></dsScheduleData>');
 });
@@ -42,7 +42,7 @@ it('streams the inputs to scratch, runs the tool with the dataset settings, stor
     expect($run->status)->toBe(ToolRunStatus::Succeeded)
         ->and($run->result['seen_kinds'])->toBe(['load'])
         ->and($run->result['bytes'])->toBe(strlen('<dsScheduleData><Activity/></dsScheduleData>'))
-        ->and($run->result['display_name'])->toBe('SaskTel')
+        ->and($run->result['display_name'])->toBe('Acme')
         ->and($run->result['time_zone'])->toBe('America/Regina')
         ->and($run->result['options'])->toBe(['flag' => true])
         ->and($run->warnings)->toBe(['Fake warning'])
@@ -135,7 +135,7 @@ it('dates a run with no LOAD from its audit messages in the dataset zone', funct
 });
 
 it('runs a dataset with no time zone in UTC and records that in the summary', function () {
-    $dataset = Dataset::factory()->create(['settings' => ['display_name' => 'SaskTel']]);
+    $dataset = Dataset::factory()->create(['settings' => ['display_name' => 'Acme']]);
     $load = ExportFile::factory()->for($dataset, 'scope')->create(['kind' => ExportKind::Load, 'content_type' => 'xml', 'summary' => ['export_date' => '2026-10-10']]);
     Storage::disk('r2')->put(app(ExportStorage::class)->objectKey($load), '<dsScheduleData/>');
     $run = runFor($dataset, $load);

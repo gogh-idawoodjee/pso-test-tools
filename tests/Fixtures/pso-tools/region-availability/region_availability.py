@@ -12,7 +12,7 @@ def arg(name):
 
 
 mode = os.environ.get('FAKE_RA_MODE', 'ok')
-account = arg('--account') or 'SATE'
+account = arg('--account') or 'ACME'
 settings = {}
 sp = os.path.join(arg('--accounts-dir') or '.', account + '.json')
 if os.path.exists(sp):

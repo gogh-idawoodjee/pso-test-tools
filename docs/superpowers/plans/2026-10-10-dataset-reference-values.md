@@ -1136,8 +1136,8 @@ use Illuminate\Support\Facades\Http;
 beforeEach(function () {
     config(['psott.pso-services-api' => 'pso-services.test', 'psott.pso-services-api-version' => 2]);
     $this->environment = Environment::factory()->create([
-        'base_url' => 'https://sate-pso-tst.ifs.cloud',
-        'account_id' => 'SATE',
+        'base_url' => 'https://acme-pso-tst.ifs.cloud',
+        'account_id' => 'ACME',
         'username' => 'GOGH_INT',
         'password' => Crypt::encryptString('secret'),
     ]);
@@ -1160,8 +1160,8 @@ it('calls pso-services with the environment headers and upserts the tables', fun
 
     (new SyncDatasetReferenceValuesJob($this->dataset->id))->handle();
 
-    Http::assertSent(fn ($request) => $request->hasHeader('baseUrl', 'https://sate-pso-tst.ifs.cloud')
-        && $request->hasHeader('accountId', 'SATE')
+    Http::assertSent(fn ($request) => $request->hasHeader('baseUrl', 'https://acme-pso-tst.ifs.cloud')
+        && $request->hasHeader('accountId', 'ACME')
         && $request->hasHeader('datasetId', 'NORTH')
         && $request->hasHeader('username', 'GOGH_INT')
         && $request->hasHeader('password', 'secret'));
@@ -2667,7 +2667,7 @@ it('upserts a real dataset export to the expected counts', function () {
 });
 ```
 
-To produce the sample once pso-services is deployed: `curl` the endpoint with the headers from the pso-services plan and save the body as `~/pso-data/SATE/reference-values.json`, then write `reference-values.expected.json` with the six counts by eye from PSO.
+To produce the sample once pso-services is deployed: `curl` the endpoint with the headers from the pso-services plan and save the body as `~/pso-data/ACME/reference-values.json`, then write `reference-values.expected.json` with the six counts by eye from PSO.
 
 - [ ] **Step 2: README**
 

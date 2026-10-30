@@ -8,7 +8,7 @@
 
 The "Base Data" entities (Region, Skill, TaskType, SlotUsageRule, AppointmentTemplate) are
 owned by the logged-in user, not by a PSO dataset. In PSO those identifiers live in a dataset,
-and one environment holds several datasets (for example account SATE has dataset NORTH). A
+and one environment holds several datasets (for example account ACME has dataset NORTH). A
 user with two environments cannot keep the right identifiers with the right environment, and a
 Customer can point at a Region that does not exist in the dataset a test is being sent to.
 
@@ -106,7 +106,7 @@ and stores `totalMinutes` rounded to a whole number. No new conversion helper is
 Attribute values are validated per type in the form and in the sync (numeric, nullable).
 
 **Field reality, found in review (2026-10-10):** the earlier draft of this spec named `Slot_Usage_Rule`.
-In the real SaskTel LOAD those rows have no `id` or `description`; the Scheduling Schema confirms the
+In the real customer LOAD those rows have no `id` or `description`; the Scheduling Schema confirms the
 identifier lives on `Slot_Usage_Rule_Set` (`id`, `description`), and `Appointment_Request` and
 `Appointment_Template` both reference `slot_usage_rule_set_id`. The `slot_usage_rule` type therefore
 mirrors `Slot_Usage_Rule_Set`. The enum case and the UI label keep the shorter name the app already uses.

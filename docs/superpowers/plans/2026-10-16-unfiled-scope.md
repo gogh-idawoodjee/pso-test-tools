@@ -942,7 +942,7 @@ beforeEach(function () {
     app(ToolRegistry::class)->register(ToolId::LoadAudit, FakeTool::class);
     app(ToolRegistry::class)->register(ToolId::RegionAvailability, FakeTool::class);
     $this->user = User::factory()->create();
-    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'SaskTel PROD']);
+    $this->environment = Environment::factory()->for($this->user)->create(['name' => 'Acme PROD']);
     $this->dataset = Dataset::factory()->for($this->environment)->create(['name' => 'NORTH']);
     $this->actingAs($this->user);
 });
@@ -1662,7 +1662,7 @@ use Tests\Support\FakeTool;
 
 beforeEach(function () {
     $this->user = User::factory()->create(['email' => 'ish@mac.com']);
-    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'SATE']))->create(['name' => 'NORTH']);
+    $this->dataset = Dataset::factory()->for(Environment::factory()->for($this->user)->state(['account_id' => 'ACME']))->create(['name' => 'NORTH']);
     $this->run = ToolRun::factory()->for($this->user, 'scope')->create([
         'tool' => ToolId::LoadAudit, 'run_date' => '2026-10-04',
         'result' => ['html' => '<!doctype html><html><body>Audit page</body></html>', 'findings' => [['check' => 'x']], 'counts' => ['red' => 2, 'amber' => 1, 'green' => 9]],

@@ -7,7 +7,7 @@ Date: 2026-10-15. Spec: `docs/superpowers/specs/2026-10-15-activity-trace-design
 
 pso-tools, branch `activity-trace` (from main 6bc37cf):
 
-1. Reader, file time rule and CLI: 6ede34d, fix round 41edd38. Streams the audit zip once, byte pre-scans so only files holding the id are parsed, resolves work task and related activities. About 27 s on the 868 MB SaskTel zip.
+1. Reader, file time rule and CLI: 6ede34d, fix round 41edd38. Streams the audit zip once, byte pre-scans so only files holding the id are parsed, resolves work task and related activities. About 27 s on the 868 MB Acme zip.
 2. Booking builder and booking.csv: 6ab3d7a.
 3. Page template and Booking view: 84da7f1, fix round 16cc662. Page size on a real run went from 13 MB to about 1 MB.
 4. History builder and history.csv: baf1ea9, fix round 46b1daa.
@@ -62,6 +62,6 @@ pso-test-tools:
 - Exports tab accepts an .xlsx event log and shows "N events, first to last".
 - Datasets settings show IFS event log time zone.
 - The wizard for Trace an activity shows three input rows (Audit messages, LOAD, IFS event log) and the two option fields (activity id, work task id).
-- A run on the SaskTel dataset with activity 813775 (known: 35 requests, 87 steps, no allocations) shows Booking and History, the zone switch and the four downloads (page, JSON, booking CSV, history CSV).
+- A run on the Acme dataset with activity 813775 (known: 35 requests, 87 steps, no allocations) shows Booking and History, the zone switch and the four downloads (page, JSON, booking CSV, history CSV).
 - A wrong activity id fails the run with the plain "not found" message.
 - Recent runs shows the summary line.
