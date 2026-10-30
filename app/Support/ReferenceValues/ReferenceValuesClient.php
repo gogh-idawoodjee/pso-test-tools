@@ -4,6 +4,7 @@ namespace App\Support\ReferenceValues;
 
 use App\Models\Environment;
 use App\Support\PsoServices\PsoServicesApi;
+use App\Support\Settings\AppSettings;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
@@ -27,7 +28,7 @@ class ReferenceValuesClient
 
         try {
             $response = Http::acceptJson()
-                ->timeout((int) config('psott.reference_values.timeout', 600))
+                ->timeout(app(AppSettings::class)->timeout('reference_values'))
                 ->connectTimeout(10)
                 ->withHeaders([
                     'baseUrl' => $environment->base_url,

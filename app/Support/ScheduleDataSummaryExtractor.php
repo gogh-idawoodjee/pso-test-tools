@@ -9,11 +9,13 @@ use Throwable;
 use XMLReader;
 
 /**
- * Pulls a handful of display-only fields out of an uploaded schedule data
- * file: the Input_Reference block's dataset_id/datetime, and how many
- * Activity/Resources entries the file contains. None of this feeds the
- * actual gateway upload — the raw bytes are gzipped and sent unchanged
- * regardless of whether this extraction succeeds.
+ * Pulls a handful of fields out of an uploaded schedule data file: the
+ * Input_Reference block's dataset_id/datetime, and how many
+ * Activity/Resources entries the file contains, for display; and its
+ * input_type, duration and appointment_window_duration, which decide whether
+ * the gateway upload adds its webhook Broadcast (a LOAD only) and that
+ * Broadcast's time filter. A file this cannot read gives nulls, so no
+ * Broadcast is added.
  *
  * XML is read with XMLReader, a streaming pull-parser — this stays safe at
  * any file size, since it only ever builds a DOM for the small
@@ -23,7 +25,7 @@ use XMLReader;
 class ScheduleDataSummaryExtractor
 {
     /**
-     * @return array{dataset_id: ?string, input_reference_datetime: ?CarbonImmutable, activity_count: int, resource_count: int, table_counts: array<string, int>}
+     * @return array{dataset_id: ?string, input_reference_datetime: ?CarbonImmutable, input_type: ?string, duration: ?string, appointment_window_duration: ?string, activity_count: int, resource_count: int, table_counts: array<string, int>}
      */
     public static function extract(string $filePath, string $format): array
     {
@@ -44,8 +46,7 @@ class ScheduleDataSummaryExtractor
             return self::empty();
         }
 
-        $datasetId = null;
-        $datetime = null;
+        $fields = self::emptyFields();
         $activityCount = 0;
         $resourceCount = 0;
         $tableCounts = [];
@@ -69,21 +70,17 @@ class ScheduleDataSummaryExtractor
 
                 if ($reader->localName === 'Input_Reference') {
                     $node = $reader->expand();
-                    $datasetId = $node instanceof DOMNode ? self::childText($node, 'dataset_id') : null;
-                    $datetime = $node instanceof DOMNode ? self::childText($node, 'datetime') : null;
+
+                    foreach (array_keys($fields) as $field) {
+                        $fields[$field] = $node instanceof DOMNode ? self::childText($node, $field) : null;
+                    }
                 }
             }
         } finally {
             $reader->close();
         }
 
-        return [
-            'dataset_id' => $datasetId,
-            'input_reference_datetime' => self::parseDatetime($datetime),
-            'activity_count' => $activityCount,
-            'resource_count' => $resourceCount,
-            'table_counts' => $tableCounts,
-        ];
+        return self::result($fields, $activityCount, $resourceCount, $tableCounts);
     }
 
     private static function childText(DOMNode $node, string $tagName): ?string
@@ -113,8 +110,7 @@ class ScheduleDataSummaryExtractor
         $entityName = null;
         $entityIsArray = false;
         $wantedField = null;
-        $datasetId = null;
-        $datetime = null;
+        $fields = self::emptyFields();
         $activityCount = 0;
         $resourceCount = 0;
         $tableCounts = [];
@@ -137,11 +133,7 @@ class ScheduleDataSummaryExtractor
                         $text = json_decode($token);
 
                         if (is_string($text) && $text !== '') {
-                            if ($wantedField === 'dataset_id') {
-                                $datasetId ??= $text;
-                            } else {
-                                $datetime ??= $text;
-                            }
+                            $fields[$wantedField] ??= $text;
                         }
                     }
 
@@ -202,7 +194,7 @@ class ScheduleDataSummaryExtractor
                         && $entityName === 'Input_Reference'
                         && (($depth === 3 && ! $entityIsArray) || ($depth === 4 && $entityIsArray))
                     ) {
-                        $wantedField = in_array($key, ['dataset_id', 'datetime'], true) ? $key : null;
+                        $wantedField = is_string($key) && array_key_exists($key, $fields) ? $key : null;
                     }
                 }
             }
@@ -214,9 +206,31 @@ class ScheduleDataSummaryExtractor
             return self::empty();
         }
 
+        return self::result($fields, $activityCount, $resourceCount, $tableCounts);
+    }
+
+    /**
+     * The Input_Reference fields read, each null until found.
+     *
+     * @return array{dataset_id: null, datetime: null, input_type: null, duration: null, appointment_window_duration: null}
+     */
+    private static function emptyFields(): array
+    {
+        return ['dataset_id' => null, 'datetime' => null, 'input_type' => null, 'duration' => null, 'appointment_window_duration' => null];
+    }
+
+    /**
+     * @param  array<string, ?string>  $fields
+     * @param  array<string, int>  $tableCounts
+     */
+    private static function result(array $fields, int $activityCount, int $resourceCount, array $tableCounts): array
+    {
         return [
-            'dataset_id' => $datasetId,
-            'input_reference_datetime' => self::parseDatetime($datetime),
+            'dataset_id' => $fields['dataset_id'],
+            'input_reference_datetime' => self::parseDatetime($fields['datetime']),
+            'input_type' => $fields['input_type'],
+            'duration' => $fields['duration'],
+            'appointment_window_duration' => $fields['appointment_window_duration'],
             'activity_count' => $activityCount,
             'resource_count' => $resourceCount,
             'table_counts' => $tableCounts,
@@ -254,13 +268,16 @@ class ScheduleDataSummaryExtractor
     }
 
     /**
-     * @return array{dataset_id: null, input_reference_datetime: null, activity_count: int, resource_count: int, table_counts: array{}}
+     * @return array{dataset_id: null, input_reference_datetime: null, input_type: null, duration: null, appointment_window_duration: null, activity_count: int, resource_count: int, table_counts: array{}}
      */
     private static function empty(): array
     {
         return [
             'dataset_id' => null,
             'input_reference_datetime' => null,
+            'input_type' => null,
+            'duration' => null,
+            'appointment_window_duration' => null,
             'activity_count' => 0,
             'resource_count' => 0,
             'table_counts' => [],

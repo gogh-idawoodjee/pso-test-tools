@@ -2,6 +2,7 @@
 
 namespace App\Support\PsoServices;
 
+use App\Support\Settings\AppSettings;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -59,7 +60,7 @@ class PsoServicesSessionClient
 
         try {
             $response = Http::acceptJson()
-                ->timeout((int) config('psott.session.timeout', 20))
+                ->timeout(app(AppSettings::class)->timeout('session'))
                 ->connectTimeout(10)
                 ->withHeaders($headers)
                 ->{$method}($url);

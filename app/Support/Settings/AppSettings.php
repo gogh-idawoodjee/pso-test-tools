@@ -24,6 +24,26 @@ class AppSettings
 
     public const MESSAGE_TEXTS = 'message_texts';
 
+    /** The Gateway upload's webhook Broadcast defaults; null until saved, so config/psott.php's shipped values apply. */
+    public const GATEWAY_BROADCAST = 'gateway_upload.broadcast';
+
+    /** Customer map tiles (url, subdomains, max_zoom, attribution); null until saved, so config psott.map_tiles applies. */
+    public const MAP_TILES = 'map_tiles';
+
+    /** Seconds per call (default, session, appointment, routes, reference_values); null until saved, so config psott applies. */
+    public const TIMEOUTS = 'timeouts';
+
+    /** Each timeout and the config key that ships its value. */
+    public const TIMEOUT_CONFIG_KEYS = [
+        'default' => 'psott.defaults.timeout',
+        'session' => 'psott.session.timeout',
+        'appointment' => 'psott.appointment.timeout',
+        'routes' => 'psott.routes.timeout',
+        'reference_values' => 'psott.reference_values.timeout',
+    ];
+
+    public const MAP_TILE_FIELDS = ['url', 'subdomains', 'max_zoom', 'attribution'];
+
     public const PARAM_DEFINITIONS = 'param_definitions';
 
     public const RELEASE_NOTES = 'release_notes';
@@ -41,6 +61,9 @@ class AppSettings
         self::FLAG_ACTIVITIES => 5,
         self::FLAG_DELETIONS => 200,
         self::MESSAGE_TEXTS => null,
+        self::GATEWAY_BROADCAST => null,
+        self::MAP_TILES => null,
+        self::TIMEOUTS => null,
         self::PARAM_DEFINITIONS => null,
         self::RELEASE_NOTES => null,
         self::PARAM_REFERENCE => null,
@@ -104,6 +127,95 @@ class AppSettings
         $this->put(self::COMPLETE_GRACE_HOURS, $completeGraceHours, $userId);
         $this->put(self::FLAG_ACTIVITIES, $flagActivities, $userId);
         $this->put(self::FLAG_DELETIONS, $flagDeletions, $userId);
+    }
+
+    /** @return array<string, mixed>|null id, plan_type, minimum_plan_quality, maximum_wait, maximum_frequency, allocation_type, required_tables */
+    public function gatewayBroadcastDefaults(): ?array
+    {
+        $value = $this->get(self::GATEWAY_BROADCAST);
+
+        return is_array($value) ? $value : null;
+    }
+
+    /** @param array<string, mixed> $defaults as BroadcastSettings::toArray() */
+    public function saveGatewayBroadcastDefaults(array $defaults, ?int $userId): void
+    {
+        $this->put(self::GATEWAY_BROADCAST, $defaults, $userId);
+    }
+
+    /**
+     * The map tile settings: the Settings page's values over the shipped ones.
+     *
+     * @return array{url: string, subdomains: string, max_zoom: int, attribution: string}
+     */
+    public function mapTiles(): array
+    {
+        $saved = $this->get(self::MAP_TILES);
+        $saved = is_array($saved) ? $saved : [];
+        $tiles = [];
+
+        foreach (self::MAP_TILE_FIELDS as $field) {
+            $tiles[$field] = array_key_exists($field, $saved) ? $saved[$field] : config("psott.map_tiles.{$field}");
+        }
+
+        return [
+            'url' => (string) $tiles['url'],
+            'subdomains' => (string) $tiles['subdomains'],
+            'max_zoom' => (int) $tiles['max_zoom'],
+            'attribution' => (string) $tiles['attribution'],
+        ];
+    }
+
+    /** @return array{url: string, subdomains: string, max_zoom: int, attribution: string} */
+    public function shippedMapTiles(): array
+    {
+        return [
+            'url' => (string) config('psott.map_tiles.url'),
+            'subdomains' => (string) config('psott.map_tiles.subdomains'),
+            'max_zoom' => (int) config('psott.map_tiles.max_zoom'),
+            'attribution' => (string) config('psott.map_tiles.attribution'),
+        ];
+    }
+
+    /** Seconds allowed for one call of this kind (a TIMEOUT_CONFIG_KEYS name): the Settings page's value, else the shipped one. */
+    public function timeout(string $name): int
+    {
+        if (! array_key_exists($name, self::TIMEOUT_CONFIG_KEYS)) {
+            throw new InvalidArgumentException("Unknown timeout [{$name}].");
+        }
+
+        $saved = $this->get(self::TIMEOUTS);
+
+        return is_array($saved) && isset($saved[$name])
+            ? (int) $saved[$name]
+            : $this->shippedTimeout($name);
+    }
+
+    public function shippedTimeout(string $name): int
+    {
+        return (int) config(self::TIMEOUT_CONFIG_KEYS[$name]);
+    }
+
+    /** @return array<string, int> every timeout by name */
+    public function timeouts(): array
+    {
+        $timeouts = [];
+
+        foreach (array_keys(self::TIMEOUT_CONFIG_KEYS) as $name) {
+            $timeouts[$name] = $this->timeout($name);
+        }
+
+        return $timeouts;
+    }
+
+    /**
+     * @param  array{url: string, subdomains: string, max_zoom: int, attribution: string}  $mapTiles
+     * @param  array<string, int>  $timeouts  by TIMEOUT_CONFIG_KEYS name
+     */
+    public function saveConnectionDefaults(array $mapTiles, array $timeouts, ?int $userId): void
+    {
+        $this->put(self::MAP_TILES, $mapTiles, $userId);
+        $this->put(self::TIMEOUTS, $timeouts, $userId);
     }
 
     /** @return array<mixed>|null */

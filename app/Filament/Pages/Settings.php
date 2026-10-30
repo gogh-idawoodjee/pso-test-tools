@@ -2,10 +2,13 @@
 
 namespace App\Filament\Pages;
 
+use App\Enums\BroadcastAllocationType;
+use App\Enums\BroadcastPlanType;
 use App\Filament\Navigation\Groups;
 use App\Jobs\ImportMessageTextsJob;
 use App\Models\PsoMessageText;
 use App\Models\User;
+use App\Support\ScheduleData\BroadcastSettings;
 use App\Support\Settings\AppSettings;
 use App\Support\Settings\InvalidKbFile;
 use App\Support\Settings\KbFiles;
@@ -19,6 +22,8 @@ use Carbon\CarbonImmutable;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -32,7 +37,7 @@ use RuntimeException;
 use Throwable;
 use UnitEnum;
 
-/** App-wide settings every signed-in user can change: message texts, Load audit defaults, parameter definitions and the Google Routes cache. */
+/** App-wide settings every signed-in user can change: message texts, Load audit defaults, Gateway upload broadcast defaults, map tiles and timeouts, parameter definitions and the Google Routes cache. */
 class Settings extends Page
 {
     protected static string|UnitEnum|null $navigationGroup = Groups::ADMIN;
@@ -52,6 +57,19 @@ class Settings extends Page
 
     public ?array $auditDefaults = [];
 
+    public ?array $broadcastDefaults = [];
+
+    public ?array $connectionDefaults = [];
+
+    /** Timeout fields: name => [label, help]. */
+    private const TIMEOUT_FIELDS = [
+        'default' => ['Other pso-services calls', 'Any pso-services call without its own timeout below.'],
+        'session' => ['Gateway logon and logoff', 'Logon goes through pso-services to PSO, so it needs more than a plain call.'],
+        'appointment' => ['Appointment calls', 'Request, check, accept and decline: pso-services waits on PSO for the offers.'],
+        'routes' => ['Google Routes check', 'One chunk of up to 200 trips. Plan travels keeps at most 270 seconds of margin whatever this is.'],
+        'reference_values' => ['Reference values', 'The gateway returns the whole dataset body; pso-services streams and parses it.'],
+    ];
+
     public function mount(): void
     {
         $settings = app(AppSettings::class);
@@ -62,6 +80,9 @@ class Settings extends Page
             'flag_activities' => $settings->flagActivities(),
             'flag_deletions' => $settings->flagDeletions(),
         ]);
+
+        $this->broadcastDefaultsForm->fill(BroadcastSettings::defaults()->toFormState());
+        $this->connectionDefaultsForm->fill($this->connectionFormState());
     }
 
     public function form(Schema $form): Schema
@@ -121,6 +142,222 @@ class Settings extends Page
         ]);
 
         Notification::make()->success()->title('Load audit defaults saved')->send();
+    }
+
+    public function broadcastDefaultsForm(Schema $form): Schema
+    {
+        return $form
+            ->statePath('broadcastDefaults')
+            ->schema([
+                Section::make('Gateway upload broadcast defaults')
+                    ->description('The webhook Broadcast added to a LOAD sent through Gateway upload starts from these values. Any of them can still be changed for one upload. A CHANGE file never gets it.')
+                    ->schema([
+                        TextInput::make('broadcast_id')
+                            ->label('Broadcast ID')
+                            ->maxLength(255)
+                            ->required(),
+                        Select::make('broadcast_plan_type')
+                            ->label('Plan Type')
+                            ->native(false)
+                            ->options(BroadcastPlanType::class)
+                            ->required(),
+                        TextInput::make('broadcast_minimum_plan_quality')
+                            ->label('Minimum Plan Quality')
+                            ->integer()
+                            ->minValue(0)
+                            ->maxValue(100)
+                            ->suffix('%')
+                            ->required(),
+                        Select::make('broadcast_allocation_type')
+                            ->label('Allocation Type')
+                            ->native(false)
+                            ->options(BroadcastAllocationType::class)
+                            ->required(),
+                        TextInput::make('broadcast_maximum_wait')
+                            ->label('Maximum Wait')
+                            ->helperText('An ISO 8601 duration, such as PT1M. The longest PSO waits for the minimum plan quality before it broadcasts anyway.')
+                            ->required(),
+                        TextInput::make('broadcast_maximum_frequency')
+                            ->label('Maximum Frequency')
+                            ->helperText('An ISO 8601 duration, such as PT10M. The minimum gap between two broadcasts.')
+                            ->required(),
+                        TagsInput::make('broadcast_required_tables')
+                            ->label('Required Tables')
+                            ->helperText('Sent as the required_tables parameter, joined with commas. Table names only (letters, digits and underscores).')
+                            ->required()
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    public function saveBroadcastDefaults(): void
+    {
+        $settings = BroadcastSettings::validated($this->broadcastDefaultsForm->getState(), $error, $errorField);
+
+        if ($settings === null) {
+            throw ValidationException::withMessages(["broadcastDefaults.{$errorField}" => $error]);
+        }
+
+        app(AppSettings::class)->saveGatewayBroadcastDefaults($settings->toArray(), auth()->id());
+
+        $this->broadcastDefaultsForm->fill($settings->toFormState());
+
+        Notification::make()->success()->title('Gateway upload broadcast defaults saved')->send();
+    }
+
+    public function connectionDefaultsForm(Schema $form): Schema
+    {
+        $timeoutInputs = [];
+
+        foreach (self::TIMEOUT_FIELDS as $name => [$label, $help]) {
+            $timeoutInputs[] = TextInput::make("timeout_{$name}")
+                ->label($label)
+                ->helperText($help.' Shipped: '.app(AppSettings::class)->shippedTimeout($name).' s.')
+                ->integer()
+                ->minValue(1)
+                ->maxValue(3600)
+                ->suffix('s')
+                ->required();
+        }
+
+        return $form
+            ->statePath('connectionDefaults')
+            ->schema([
+                Section::make('Customer map tiles')
+                    ->description('The map on the dashboard. Any Leaflet tile URL works; a provider that needs a key takes it inside the URL.')
+                    ->schema([
+                        TextInput::make('map_tiles_url')
+                            ->label('Tile URL')
+                            ->helperText('With the {z}, {x} and {y} placeholders ({s} for a subdomain, {r} for retina). The shipped one is Esri World Street Map, which needs no key.')
+                            ->maxLength(1000)
+                            ->required()
+                            ->columnSpanFull(),
+                        TextInput::make('map_tiles_subdomains')
+                            ->label('Subdomains')
+                            ->helperText('The letters {s} cycles through, such as abc. Blank when the URL has no {s}.')
+                            ->maxLength(20)
+                            ->regex('/^[a-z0-9]*$/'),
+                        TextInput::make('map_tiles_max_zoom')
+                            ->label('Maximum zoom')
+                            ->integer()
+                            ->minValue(1)
+                            ->maxValue(22)
+                            ->required(),
+                        TextInput::make('map_tiles_attribution')
+                            ->label('Attribution')
+                            ->helperText('Shown on the map. Plain text and links only, such as Tiles &copy; <a href="https://www.esri.com/">Esri</a>.')
+                            ->maxLength(1000)
+                            ->required()
+                            ->columnSpanFull(),
+                    ])
+                    ->columns(2)
+                    ->columnSpanFull(),
+                Section::make('Timeouts')
+                    ->description('How long the app waits for pso-services before it gives up. A change applies to the next call.')
+                    ->schema($timeoutInputs)
+                    ->columns(2)
+                    ->columnSpanFull(),
+            ]);
+    }
+
+    public function saveConnectionDefaults(): void
+    {
+        $state = $this->connectionDefaultsForm->getState();
+
+        $url = trim((string) $state['map_tiles_url']);
+
+        if (! preg_match('#^https://#i', $url) || ! str_contains($url, '{z}') || ! str_contains($url, '{x}') || ! str_contains($url, '{y}')) {
+            throw ValidationException::withMessages(['connectionDefaults.map_tiles_url' => 'The tile URL must start with https:// and hold the {z}, {x} and {y} placeholders.']);
+        }
+
+        $attribution = trim((string) $state['map_tiles_attribution']);
+
+        if (! self::isSafeAttribution($attribution)) {
+            throw ValidationException::withMessages(['connectionDefaults.map_tiles_attribution' => 'The attribution can hold plain text and <a href="https://...">links</a> only.']);
+        }
+
+        $timeouts = [];
+
+        foreach (array_keys(self::TIMEOUT_FIELDS) as $name) {
+            $timeouts[$name] = (int) $state["timeout_{$name}"];
+        }
+
+        app(AppSettings::class)->saveConnectionDefaults([
+            'url' => $url,
+            'subdomains' => (string) ($state['map_tiles_subdomains'] ?? ''),
+            'max_zoom' => (int) $state['map_tiles_max_zoom'],
+            'attribution' => $attribution,
+        ], $timeouts, auth()->id());
+
+        $this->connectionDefaultsForm->fill($this->connectionFormState());
+
+        Notification::make()->success()->title('Map tiles and timeouts saved')->send();
+    }
+
+    public function resetConnectionDefaultsAction(): Action
+    {
+        return Action::make('resetConnectionDefaults')
+            ->label('Reset to shipped values')
+            ->color('gray')
+            ->requiresConfirmation()
+            ->visible(static fn (): bool => app(AppSettings::class)->get(AppSettings::MAP_TILES) !== null
+                || app(AppSettings::class)->get(AppSettings::TIMEOUTS) !== null)
+            ->action(function (): void {
+                app(AppSettings::class)->forget(AppSettings::MAP_TILES);
+                app(AppSettings::class)->forget(AppSettings::TIMEOUTS);
+
+                $this->connectionDefaultsForm->fill($this->connectionFormState());
+
+                Notification::make()->success()->title('Map tiles and timeouts reset')->send();
+            });
+    }
+
+    /**
+     * The attribution is written into the map as HTML for every user, so it may
+     * hold only text, character references and plain https links.
+     */
+    public static function isSafeAttribution(string $attribution): bool
+    {
+        $withoutLinks = preg_replace('#<a href="https://[^"<>\s]+">([^<>]*)</a>#i', '$1', $attribution);
+
+        return $withoutLinks !== null && ! str_contains($withoutLinks, '<') && ! str_contains($withoutLinks, '>');
+    }
+
+    /** @return array<string, mixed> */
+    private function connectionFormState(): array
+    {
+        $settings = app(AppSettings::class);
+        $tiles = $settings->mapTiles();
+        $state = [
+            'map_tiles_url' => $tiles['url'],
+            'map_tiles_subdomains' => $tiles['subdomains'],
+            'map_tiles_max_zoom' => $tiles['max_zoom'],
+            'map_tiles_attribution' => $tiles['attribution'],
+        ];
+
+        foreach ($settings->timeouts() as $name => $seconds) {
+            $state["timeout_{$name}"] = $seconds;
+        }
+
+        return $state;
+    }
+
+    public function resetBroadcastDefaultsAction(): Action
+    {
+        return Action::make('resetBroadcastDefaults')
+            ->label('Reset to shipped values')
+            ->color('gray')
+            ->requiresConfirmation()
+            ->visible(static fn (): bool => app(AppSettings::class)->gatewayBroadcastDefaults() !== null)
+            ->action(function (): void {
+                app(AppSettings::class)->forget(AppSettings::GATEWAY_BROADCAST);
+
+                $this->broadcastDefaultsForm->fill(BroadcastSettings::defaults()->toFormState());
+
+                Notification::make()->success()->title('Gateway upload broadcast defaults reset')->send();
+            });
     }
 
     public function uploadMessageTextsAction(): Action

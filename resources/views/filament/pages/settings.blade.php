@@ -67,6 +67,24 @@
         <x-filament::button type="submit">Save</x-filament::button>
     </form>
 
+    <form wire:submit="saveBroadcastDefaults" class="space-y-4">
+        {{ $this->broadcastDefaultsForm }}
+
+        <div class="flex flex-wrap gap-3">
+            <x-filament::button type="submit">Save</x-filament::button>
+            {{ $this->resetBroadcastDefaultsAction }}
+        </div>
+    </form>
+
+    <form wire:submit="saveConnectionDefaults" class="space-y-4">
+        {{ $this->connectionDefaultsForm }}
+
+        <div class="flex flex-wrap gap-3">
+            <x-filament::button type="submit">Save</x-filament::button>
+            {{ $this->resetConnectionDefaultsAction }}
+        </div>
+    </form>
+
     @php
         $definitions = $this->paramDefinitionsRecord();
     @endphp

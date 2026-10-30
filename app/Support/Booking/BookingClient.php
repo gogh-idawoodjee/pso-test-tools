@@ -5,6 +5,7 @@ namespace App\Support\Booking;
 use App\Enums\HttpMethod;
 use App\Models\Environment;
 use App\Models\Task;
+use App\Support\Settings\AppSettings;
 use App\Traits\PSOInteractionsTrait;
 use JsonException;
 
@@ -112,10 +113,10 @@ final class BookingClient
         return ['data' => is_array($data) ? $data : [], 'error' => null, 'status' => $status];
     }
 
-    /** Seconds allowed for each appointment call (config psott.appointment.timeout, env APPOINTMENT_TIMEOUT). */
+    /** Seconds allowed for each appointment call (Settings page, else config psott.appointment.timeout). */
     public static function appointmentTimeout(): int
     {
-        return (int) config('psott.appointment.timeout', 60);
+        return app(AppSettings::class)->timeout('appointment');
     }
 
     private static function servicesErrorText(mixed $body): ?string

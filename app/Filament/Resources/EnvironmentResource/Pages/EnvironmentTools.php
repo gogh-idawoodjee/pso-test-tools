@@ -17,9 +17,7 @@ use App\Support\ScheduleData\BroadcastSettings;
 use App\Traits\EnvironmentToolsPayloadTrait;
 use App\Traits\EnvironmentToolsUsageTrait;
 use App\Traits\PSOInteractionsTrait;
-use BackedEnum;
 use Carbon\Carbon;
-use Closure;
 use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Components\CheckboxList;
@@ -49,8 +47,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use JsonException;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
@@ -733,7 +729,7 @@ class EnvironmentTools extends Page
                     ->visible(static fn (Get $get): bool => (bool) $get('skip_webhook') && ! $get('strip_existing_broadcast'))
                     ->columnSpanFull(),
                 Section::make('Broadcast settings')
-                    ->description('Any Broadcast and Broadcast_Parameter rows already in the file are removed and replaced by this webhook Broadcast. To send the file with its own rows unchanged, turn on Skip webhook broadcast and turn off Remove existing Broadcast rows.')
+                    ->description('Added to a LOAD only: a CHANGE file is sent with its own rows. Any Broadcast and Broadcast_Parameter rows already in a LOAD are removed and replaced by this webhook Broadcast, which runs from now to the end of the day (UTC) its DSE window plus appointment window reaches. To send the file with its own rows unchanged, turn on Skip webhook broadcast and turn off Remove existing Broadcast rows. The starting values come from Settings.')
                     ->collapsed()
                     ->hidden(static fn (Get $get): bool => (bool) $get('skip_webhook'))
                     ->columns(2)
@@ -754,7 +750,10 @@ class EnvironmentTools extends Page
                             ->suffix('%'),
                         TextInput::make('broadcast_maximum_wait')
                             ->label('Maximum Wait')
-                            ->helperText('An ISO 8601 duration, such as PT5M. The longest PSO waits for the minimum plan quality before it broadcasts anyway.'),
+                            ->helperText('An ISO 8601 duration, such as PT1M. The longest PSO waits for the minimum plan quality before it broadcasts anyway.'),
+                        TextInput::make('broadcast_maximum_frequency')
+                            ->label('Maximum Frequency')
+                            ->helperText('An ISO 8601 duration, such as PT10M. The minimum gap between two broadcasts.'),
                         Select::make('broadcast_allocation_type')
                             ->label('Allocation Type')
                             ->native(false)
@@ -1069,18 +1068,11 @@ class EnvironmentTools extends Page
      */
     private function gatewayUploadDefaults(): array
     {
-        $settings = BroadcastSettings::defaults();
-
         return [
             'dataset_id_override' => null,
             'skip_webhook' => false,
             'strip_existing_broadcast' => true,
-            'broadcast_id' => $settings->broadcastId,
-            'broadcast_plan_type' => $settings->planType,
-            'broadcast_minimum_plan_quality' => $settings->minimumPlanQuality,
-            'broadcast_maximum_wait' => $settings->maximumWait,
-            'broadcast_allocation_type' => $settings->allocationType,
-            'broadcast_required_tables' => $settings->requiredTables,
+            ...BroadcastSettings::defaults()->toFormState(),
         ];
     }
 
@@ -1112,69 +1104,28 @@ class EnvironmentTools extends Page
     }
 
     /**
-     * Validates the broadcast part of the form. BroadcastSettings::fromArray()
-     * casts silently, so anything it would mangle is refused here. Returns
-     * null (after raising a notification) when a value is invalid.
+     * Validates the broadcast part of the form (BroadcastSettings::validated()).
+     * Returns null (after raising a notification) when a value is invalid.
      *
-     * @return array{id: string, plan_type: string, minimum_plan_quality: int, maximum_wait: string, allocation_type: int, required_tables: list<string>}|null
+     * @return array<string, mixed>|null as BroadcastSettings::toArray()
      */
     private function validatedBroadcastSettings(Get $get): ?array
     {
-        $normalise = static fn (mixed $value): mixed => $value instanceof BackedEnum ? $value->value : $value;
+        $values = [];
 
-        $values = [
-            'broadcast_id' => is_string($get('broadcast_id')) ? trim($get('broadcast_id')) : $get('broadcast_id'),
-            'broadcast_plan_type' => $normalise($get('broadcast_plan_type')),
-            'broadcast_minimum_plan_quality' => $get('broadcast_minimum_plan_quality'),
-            'broadcast_maximum_wait' => is_string($get('broadcast_maximum_wait')) ? trim($get('broadcast_maximum_wait')) : $get('broadcast_maximum_wait'),
-            'broadcast_allocation_type' => $normalise($get('broadcast_allocation_type')),
-            'broadcast_required_tables' => $get('broadcast_required_tables'),
-        ];
+        foreach (BroadcastSettings::FORM_FIELDS as $field) {
+            $values[$field] = $get($field);
+        }
 
-        $validator = Validator::make($values, [
-            'broadcast_id' => ['required', 'string', 'max:255', 'regex:'.self::XML_SAFE_LINE_PATTERN],
-            'broadcast_plan_type' => ['required', Rule::enum(BroadcastPlanType::class)],
-            'broadcast_minimum_plan_quality' => ['required', 'integer', 'between:0,100'],
-            'broadcast_maximum_wait' => [
-                'required',
-                'string',
-                static function (string $attribute, mixed $value, Closure $fail): void {
-                    if (! is_string($value) || ! BroadcastSettings::isValidDuration($value)) {
-                        $fail('Maximum Wait must be an ISO 8601 duration, such as PT5M.');
-                    }
-                },
-            ],
-            'broadcast_allocation_type' => ['required', Rule::enum(BroadcastAllocationType::class)],
-            'broadcast_required_tables' => ['required', 'array', 'min:1'],
-            'broadcast_required_tables.*' => ['required', 'string', 'max:255', 'regex:/\A[A-Za-z0-9_]+\z/'],
-        ], [
-            'broadcast_id.regex' => 'Broadcast ID contains a character that cannot be sent (a control character such as a tab or line break).',
-            'broadcast_required_tables.required' => 'Required Tables needs at least one table name.',
-            'broadcast_required_tables.min' => 'Required Tables needs at least one table name.',
-            'broadcast_required_tables.*.regex' => 'Each required table must be a single table name (letters, digits and underscores), such as Allocation.',
-        ], [
-            'broadcast_id' => 'Broadcast ID',
-            'broadcast_plan_type' => 'Plan Type',
-            'broadcast_minimum_plan_quality' => 'Minimum Plan Quality',
-            'broadcast_maximum_wait' => 'Maximum Wait',
-            'broadcast_allocation_type' => 'Allocation Type',
-            'broadcast_required_tables' => 'Required Tables',
-        ]);
+        $settings = BroadcastSettings::validated($values, $error);
 
-        if ($validator->fails()) {
-            $this->notifyPayloadSent('Upload Failed', (string) $validator->errors()->first(), false);
+        if ($settings === null) {
+            $this->notifyPayloadSent('Upload Failed', (string) $error, false);
 
             return null;
         }
 
-        return BroadcastSettings::fromArray([
-            'id' => $values['broadcast_id'],
-            'plan_type' => $values['broadcast_plan_type'],
-            'minimum_plan_quality' => (int) $values['broadcast_minimum_plan_quality'],
-            'maximum_wait' => $values['broadcast_maximum_wait'],
-            'allocation_type' => (int) $values['broadcast_allocation_type'],
-            'required_tables' => array_values($values['broadcast_required_tables']),
-        ])->toArray();
+        return $settings->toArray();
     }
 
     public function gatewayUploadHistory(): Collection

@@ -804,7 +804,7 @@ class AppointmentBooking extends Page
         return (new BookingClient($this->record))->send($segment, $payload, $method);
     }
 
-    /** Seconds allowed for each appointment call (config psott.appointment.timeout, env APPOINTMENT_TIMEOUT). */
+    /** Seconds allowed for each appointment call (Settings page, else config psott.appointment.timeout). */
     public static function appointmentTimeout(): int
     {
         return BookingClient::appointmentTimeout();

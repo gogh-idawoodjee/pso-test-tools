@@ -7,6 +7,8 @@ return [
     'pso-services-api' => Str::after(env('PSO_SERVICES_API', 'pso-services.test'), '://'),
     'pso-services-api-version' => env('PSO_SERVICES_API_VERSION'),
     'google_api_key' => env('GOOGLE_MAPS_GEOCODING_API_KEY', ''),
+    // The timeouts and map tiles below are the shipped values: the Settings page overrides them
+    // (AppSettings::TIMEOUTS and AppSettings::MAP_TILES), so day-to-day changes need no server edit.
     'defaults' => [
         'timeout' => env('DEFAULT_TIMEOUT', 5),
     ],
@@ -35,14 +37,15 @@ return [
         'token' => env('PSO_ROUTES_TOKEN'),
     ],
     'gateway_upload' => [
-        // Defaults for the webhook Broadcast injected into an upload; these
-        // mirror Send-PsoScheduleData.ps1 (edit here to change them, as the
-        // script's param block is edited there).
+        // Shipped defaults for the webhook Broadcast injected into a LOAD; these
+        // mirror Send-PsoScheduleData.ps1's param block. The Settings page
+        // overrides them (AppSettings::GATEWAY_BROADCAST).
         'broadcast' => [
             'id' => 'WEBHOOK_COMPLETE',
-            'plan_type' => 'COMPLETE',
+            'plan_type' => 'CHANGE',
             'minimum_plan_quality' => 85,
-            'maximum_wait' => 'PT5M',
+            'maximum_wait' => 'PT1M',
+            'maximum_frequency' => 'PT10M',
             'allocation_type' => 1,
             'required_tables' => [
                 'Allocation',

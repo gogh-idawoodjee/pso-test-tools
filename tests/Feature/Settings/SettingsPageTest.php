@@ -7,6 +7,8 @@ use App\Jobs\ImportMessageTextsJob;
 use App\Models\AppSetting;
 use App\Models\PsoMessageText;
 use App\Models\User;
+use App\Support\Booking\BookingClient;
+use App\Support\ScheduleData\BroadcastSettings;
 use App\Support\Settings\AppSettings;
 use App\Support\Settings\SettingsFileStore;
 use Illuminate\Contracts\Bus\Dispatcher;
@@ -56,6 +58,9 @@ it('sits under Admin at /settings and renders every section', function () {
         ->assertOk()
         ->assertSee('Message texts')
         ->assertSee('Load audit defaults')
+        ->assertSee('Gateway upload broadcast defaults')
+        ->assertSee('Customer map tiles')
+        ->assertSee('Timeouts')
         ->assertSee('Parameter definitions')
         ->assertSee('Google Routes cache')
         ->assertSee('No message texts loaded.')
@@ -84,6 +89,54 @@ it('saves a blank noise ids value as no noise ids, not the shipped list', functi
 
     expect(AppSetting::query()->find(AppSettings::NOISE_EVENT_IDS)->value)->toBe('')
         ->and(app(AppSettings::class)->noiseEventIds())->toBe('');
+});
+
+it('starts the broadcast defaults from the shipped values and saves new ones', function () {
+    Livewire::test(Settings::class)
+        ->assertSet('broadcastDefaults.broadcast_id', 'WEBHOOK_COMPLETE')
+        ->assertSet('broadcastDefaults.broadcast_maximum_wait', 'PT1M')
+        ->assertSet('broadcastDefaults.broadcast_maximum_frequency', 'PT10M')
+        ->assertSet('broadcastDefaults.broadcast_minimum_plan_quality', 85)
+        ->set('broadcastDefaults.broadcast_id', ' TEAM_HOOK ')
+        ->set('broadcastDefaults.broadcast_maximum_frequency', 'PT15M')
+        ->set('broadcastDefaults.broadcast_required_tables', ['Plan', 'Allocation'])
+        ->call('saveBroadcastDefaults')
+        ->assertHasNoErrors()
+        ->assertSet('broadcastDefaults.broadcast_id', 'TEAM_HOOK');
+
+    expect(app(AppSettings::class)->gatewayBroadcastDefaults())->toBe([
+        'id' => 'TEAM_HOOK',
+        'plan_type' => 'CHANGE',
+        'minimum_plan_quality' => 85,
+        'maximum_wait' => 'PT1M',
+        'maximum_frequency' => 'PT15M',
+        'allocation_type' => 1,
+        'required_tables' => ['Plan', 'Allocation'],
+    ]);
+    expect(BroadcastSettings::defaults()->maximumFrequency)->toBe('PT15M');
+});
+
+it('refuses a broadcast default that is not a duration, on the field, and keeps the saved values', function () {
+    Livewire::test(Settings::class)
+        ->set('broadcastDefaults.broadcast_maximum_frequency', 'ten minutes')
+        ->call('saveBroadcastDefaults')
+        ->assertHasErrors(['broadcastDefaults.broadcast_maximum_frequency']);
+
+    expect(app(AppSettings::class)->gatewayBroadcastDefaults())->toBeNull();
+});
+
+it('resets the broadcast defaults to the shipped values', function () {
+    app(AppSettings::class)->saveGatewayBroadcastDefaults(
+        BroadcastSettings::fromArray(['id' => 'TEAM_HOOK'])->toArray(),
+        null,
+    );
+
+    Livewire::test(Settings::class)
+        ->assertSet('broadcastDefaults.broadcast_id', 'TEAM_HOOK')
+        ->callAction('resetBroadcastDefaults')
+        ->assertSet('broadcastDefaults.broadcast_id', 'WEBHOOK_COMPLETE');
+
+    expect(app(AppSettings::class)->gatewayBroadcastDefaults())->toBeNull();
 });
 
 it('validates the audit defaults like the audit form does', function () {
@@ -237,4 +290,77 @@ it('says that a blank noise list means no noise ids, and names the shipped list'
     Livewire::test(Settings::class)
         ->assertSee('Leave blank to treat no event id as noise.')
         ->assertSee('The shipped list is 3041, 1767, 2959, 1964, 1965, 24578.');
+});
+
+it('starts the map tiles and timeouts from the shipped values and saves new ones that the app then uses', function () {
+    Livewire::test(Settings::class)
+        ->assertSet('connectionDefaults.timeout_session', 20)
+        ->assertSet('connectionDefaults.timeout_appointment', 60)
+        ->assertSet('connectionDefaults.map_tiles_max_zoom', 19)
+        ->set('connectionDefaults.timeout_appointment', 90)
+        ->set('connectionDefaults.map_tiles_url', 'https://tiles.example.com/{z}/{x}/{y}.png?key=abc')
+        ->set('connectionDefaults.map_tiles_attribution', 'Tiles &copy; <a href="https://tiles.example.com/">Example</a>')
+        ->call('saveConnectionDefaults')
+        ->assertHasNoErrors();
+
+    $settings = app(AppSettings::class);
+
+    expect($settings->timeout('appointment'))->toBe(90)
+        ->and($settings->timeout('session'))->toBe(20)
+        ->and(BookingClient::appointmentTimeout())->toBe(90)
+        ->and($settings->mapTiles()['url'])->toBe('https://tiles.example.com/{z}/{x}/{y}.png?key=abc');
+});
+
+it('refuses a tile URL without its placeholders or https', function (string $url) {
+    Livewire::test(Settings::class)
+        ->set('connectionDefaults.map_tiles_url', $url)
+        ->call('saveConnectionDefaults')
+        ->assertHasErrors(['connectionDefaults.map_tiles_url']);
+
+    expect(app(AppSettings::class)->get(AppSettings::MAP_TILES))->toBeNull();
+})->with([
+    'no placeholders' => ['https://tiles.example.com/tile.png'],
+    'plain http' => ['http://tiles.example.com/{z}/{x}/{y}.png'],
+]);
+
+it('refuses an attribution that holds more than text and https links', function (string $attribution) {
+    Livewire::test(Settings::class)
+        ->set('connectionDefaults.map_tiles_attribution', $attribution)
+        ->call('saveConnectionDefaults')
+        ->assertHasErrors(['connectionDefaults.map_tiles_attribution']);
+})->with([
+    'script' => ['<script>alert(1)</script>'],
+    'event handler' => ['<a href="https://x.test/" onclick="alert(1)">x</a>'],
+    'javascript link' => ['<a href="javascript:alert(1)">x</a>'],
+    'image' => ['<img src=x onerror=alert(1)>'],
+]);
+
+it('accepts the shipped attribution', function () {
+    expect(Settings::isSafeAttribution((string) config('psott.map_tiles.attribution')))->toBeTrue()
+        ->and(Settings::isSafeAttribution('Plain text only'))->toBeTrue();
+});
+
+it('refuses a timeout outside 1 to 3600 seconds', function () {
+    Livewire::test(Settings::class)
+        ->set('connectionDefaults.timeout_routes', 0)
+        ->set('connectionDefaults.timeout_reference_values', 3601)
+        ->call('saveConnectionDefaults')
+        ->assertHasErrors(['connectionDefaults.timeout_routes', 'connectionDefaults.timeout_reference_values']);
+});
+
+it('resets the map tiles and timeouts to the shipped values', function () {
+    app(AppSettings::class)->saveConnectionDefaults(
+        ['url' => 'https://tiles.example.com/{z}/{x}/{y}.png', 'subdomains' => '', 'max_zoom' => 12, 'attribution' => 'Example'],
+        ['default' => 5, 'session' => 45, 'appointment' => 60, 'routes' => 300, 'reference_values' => 600],
+        null,
+    );
+
+    Livewire::test(Settings::class)
+        ->assertSet('connectionDefaults.timeout_session', 45)
+        ->callAction('resetConnectionDefaults')
+        ->assertSet('connectionDefaults.timeout_session', 20)
+        ->assertSet('connectionDefaults.map_tiles_max_zoom', 19);
+
+    expect(app(AppSettings::class)->get(AppSettings::TIMEOUTS))->toBeNull()
+        ->and(app(AppSettings::class)->get(AppSettings::MAP_TILES))->toBeNull();
 });

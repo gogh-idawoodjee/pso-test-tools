@@ -36,6 +36,33 @@ it('extracts dataset id, datetime, and counts from an xml file', function () {
     expect($summary['activity_count'])->toBe(1);
 });
 
+it('reads the input type and the DSE and appointment windows from the Input_Reference', function (string $format, string $contents) {
+    $path = scheduleDataSummaryFixturePath("summary-windows.{$format}");
+    file_put_contents($path, $contents);
+
+    $summary = ScheduleDataSummaryExtractor::extract($path, $format);
+
+    expect($summary['input_type'])->toBe('LOAD');
+    expect($summary['duration'])->toBe('P7D');
+    expect($summary['appointment_window_duration'])->toBe('P180D');
+    expect($summary['dataset_id'])->toBe('NORTH');
+})->with([
+    'xml' => ['xml', '<dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd"><Activity><id>1</id></Activity><Input_Reference><input_type>LOAD</input_type><dataset_id>NORTH</dataset_id><duration>P7D</duration><appointment_window_duration>P180D</appointment_window_duration></Input_Reference></dsScheduleData>'],
+    'json' => ['json', '{"ScheduleData":{"Activity":[{"id":"1"}],"Input_Reference":[{"input_type":"LOAD","dataset_id":"NORTH","duration":"P7D","appointment_window_duration":"P180D"}]}}'],
+    'legacy json' => ['json', '{"dsScheduleData":{"Input_Reference":{"input_type":"LOAD","dataset_id":"NORTH","duration":"P7D","appointment_window_duration":"P180D"}}}'],
+]);
+
+it('gives a null input type and windows when the Input_Reference has none', function () {
+    $path = scheduleDataSummaryFixturePath('summary-change.json');
+    file_put_contents($path, '{"ScheduleData":{"Input_Reference":[{"dataset_id":"NORTH"}]}}');
+
+    $summary = ScheduleDataSummaryExtractor::extract($path, 'json');
+
+    expect($summary['input_type'])->toBeNull();
+    expect($summary['duration'])->toBeNull();
+    expect($summary['appointment_window_duration'])->toBeNull();
+});
+
 it('returns nulls and zero counts when the xml has no Input_Reference, Activity, or Resources', function () {
     $path = scheduleDataSummaryFixturePath('summary-empty.xml');
     file_put_contents($path, '<dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd"><Region><id>NORTH</id></Region></dsScheduleData>');

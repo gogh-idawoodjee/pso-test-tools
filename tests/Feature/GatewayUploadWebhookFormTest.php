@@ -14,6 +14,8 @@ use App\Models\PsoGatewayUploadLogLine;
 use App\Models\User;
 use App\Support\PsoServices\PsoServicesSessionClient;
 use App\Support\PsoServices\PsoServicesSessionException;
+use App\Support\ScheduleData\BroadcastSettings;
+use App\Support\Settings\AppSettings;
 use Filament\Actions\Testing\TestAction;
 use Filament\Notifications\Notification;
 use Illuminate\Http\UploadedFile;
@@ -62,9 +64,10 @@ it('defaults the broadcast settings to the script values', function () {
     Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
         ->assertSchemaStateSet([
             'broadcast_id' => 'WEBHOOK_COMPLETE',
-            'broadcast_plan_type' => BroadcastPlanType::COMPLETE,
+            'broadcast_plan_type' => BroadcastPlanType::CHANGE,
             'broadcast_minimum_plan_quality' => 85,
-            'broadcast_maximum_wait' => 'PT5M',
+            'broadcast_maximum_wait' => 'PT1M',
+            'broadcast_maximum_frequency' => 'PT10M',
             'broadcast_allocation_type' => BroadcastAllocationType::DYNAMIC_SCHEDULING,
             'skip_webhook' => false,
             'strip_existing_broadcast' => true,
@@ -80,6 +83,7 @@ it('stores the override, toggle and broadcast settings on the upload row', funct
         'dataset_id_override' => ' SASK_UAT ',
         'broadcast_id' => 'MY_HOOK',
         'broadcast_maximum_wait' => 'PT10M',
+        'broadcast_maximum_frequency' => 'PT30M',
         'broadcast_minimum_plan_quality' => 90,
     ]);
 
@@ -90,12 +94,39 @@ it('stores the override, toggle and broadcast settings on the upload row', funct
     expect($upload->broadcast_settings)->toMatchArray([
         'id' => 'MY_HOOK',
         'maximum_wait' => 'PT10M',
+        'maximum_frequency' => 'PT30M',
         'minimum_plan_quality' => 90,
-        'plan_type' => 'COMPLETE',
+        'plan_type' => 'CHANGE',
         'allocation_type' => 1,
     ]);
 
     Queue::assertPushed(SendPsoScheduleDataJob::class);
+});
+
+it('starts the broadcast settings from the Settings page defaults', function () {
+    $environment = webhookFormEnvironment();
+    app(AppSettings::class)->saveGatewayBroadcastDefaults(
+        BroadcastSettings::fromArray(['id' => 'TEAM_HOOK', 'maximum_frequency' => 'PT15M', 'plan_type' => 'COMPLETE'])->toArray(),
+        null,
+    );
+
+    Livewire::test(EnvironmentTools::class, ['record' => $environment->getRouteKey()])
+        ->assertSchemaStateSet([
+            'broadcast_id' => 'TEAM_HOOK',
+            'broadcast_plan_type' => BroadcastPlanType::COMPLETE,
+            'broadcast_maximum_frequency' => 'PT15M',
+            'broadcast_maximum_wait' => 'PT1M',
+        ], 'gatewayUploadForm');
+});
+
+it('refuses a maximum frequency that is not a duration', function () {
+    $environment = webhookFormEnvironment();
+
+    submitWebhookForm($environment, ['broadcast_maximum_frequency' => 'ten minutes']);
+
+    expect(PsoGatewayUpload::query()->where('pso_environment_id', $environment->id)->exists())->toBeFalse();
+    Notification::assertNotified('Upload Failed');
+    Queue::assertNothingPushed();
 });
 
 it('stores the skip toggle and ignores broadcast settings when skipped', function () {

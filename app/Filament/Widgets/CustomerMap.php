@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Filament\Resources\CustomerResource;
 use App\Models\Customer;
+use App\Support\Settings\AppSettings;
 use Filament\Widgets\Widget;
 
 /** Every customer the user can see that has coordinates, as a pin on a Leaflet map (Customers list page). */
@@ -23,11 +24,13 @@ class CustomerMap extends Widget
     /** @return array{url: string, subdomains: string, maxZoom: int, attribution: string} */
     public function tiles(): array
     {
+        $tiles = app(AppSettings::class)->mapTiles();
+
         return [
-            'url' => (string) config('psott.map_tiles.url'),
-            'subdomains' => (string) config('psott.map_tiles.subdomains'),
-            'maxZoom' => (int) config('psott.map_tiles.max_zoom'),
-            'attribution' => (string) config('psott.map_tiles.attribution'),
+            'url' => $tiles['url'],
+            'subdomains' => $tiles['subdomains'],
+            'maxZoom' => $tiles['max_zoom'],
+            'attribution' => $tiles['attribution'],
         ];
     }
 

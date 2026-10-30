@@ -5,6 +5,7 @@ namespace App\Traits;
 use App\Enums\HttpMethod;
 use App\Support\PsoServices\PsoServicesSessionClient;
 use App\Support\PsoServices\PsoServicesSessionException;
+use App\Support\Settings\AppSettings;
 use Filament\Notifications\Notification;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Arr;
@@ -116,7 +117,7 @@ trait PSOInteractionsTrait
 
         $version = config('psott.pso-services-api-version');
         $url = 'https://'.config('psott.pso-services-api').'/api/'.($version ? "{$version}/" : '').$api_segment;
-        $timeout ??= config('psott.defaults.timeout', 10);
+        $timeout ??= app(AppSettings::class)->timeout('default');
 
         $request = Http::contentType('application/json')
             ->accept('application/json')

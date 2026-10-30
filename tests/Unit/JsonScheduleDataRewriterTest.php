@@ -28,7 +28,7 @@ function rewriteJson(string $json, ?string $datasetIdOverride = null, ?Broadcast
 
 function webhookInjection(): BroadcastInjection
 {
-    return new BroadcastInjection(BroadcastSettings::defaults(), 'https://webhook.example.test/pso-env');
+    return new BroadcastInjection(BroadcastSettings::shipped(), 'https://webhook.example.test/pso-env');
 }
 
 it('injects a typed Broadcast and parameters into a ScheduleData file', function () {
@@ -44,18 +44,19 @@ it('injects a typed Broadcast and parameters into a ScheduleData file', function
         'id' => 'WEBHOOK_COMPLETE',
         'active' => true,
         'broadcast_type_id' => 'REST',
-        'plan_type' => 'COMPLETE',
+        'plan_type' => 'CHANGE',
         'minimum_plan_quality' => 85,
-        'maximum_wait' => 'PT5M',
         'minimum_step_interval' => 1,
-        'once_only' => true,
+        'once_only' => false,
+        'maximum_wait' => 'PT1M',
+        'maximum_frequency' => 'PT10M',
         'allocation_type' => 1,
     ]);
 
     $parameters = $decoded['ScheduleData']['Broadcast_Parameter'];
-    expect(array_column($parameters, 'parameter_name'))->toBe(['url', 'mediatype', 'httpmethod', 'etag', 'required_tables']);
-    expect($parameters[0]['parameter_value'])->toBe('https://webhook.example.test/pso-env');
-    expect($parameters[1]['parameter_value'])->toBe('application/json');
+    expect(array_column($parameters, 'parameter_name'))->toBe(['etag', 'httpmethod', 'mediatype', 'required_tables', 'url']);
+    expect($parameters[4]['parameter_value'])->toBe('https://webhook.example.test/pso-env');
+    expect($parameters[2]['parameter_value'])->toBe('application/json');
 });
 
 it('injects string-typed rows and a single Broadcast object into a legacy dsScheduleData file', function () {
@@ -68,8 +69,9 @@ it('injects string-typed rows and a single Broadcast object into a legacy dsSche
     expect($report->wrapperFound)->toBeTrue();
     expect($broadcast['active'])->toBe('true');
     expect($broadcast['minimum_plan_quality'])->toBe('85');
-    expect($broadcast['once_only'])->toBe('true');
-    expect($broadcast['maximum_wait'])->toBe('PT5M');
+    expect($broadcast['once_only'])->toBe('false');
+    expect($broadcast['maximum_wait'])->toBe('PT1M');
+    expect($broadcast['maximum_frequency'])->toBe('PT10M');
     expect(array_is_list($broadcast))->toBeFalse();
     expect($decoded['dsScheduleData']['Broadcast_Parameter'])->toHaveCount(5);
 });

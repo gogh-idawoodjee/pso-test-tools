@@ -2,6 +2,7 @@
 
 namespace App\Support\PsoServices;
 
+use App\Support\Settings\AppSettings;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -27,7 +28,7 @@ class PsoServicesRoutesClient
             $response = Http::acceptJson()
                 ->asJson()
                 ->when(filled($token), static fn ($request) => $request->withHeaders(['X-PSO-Routes-Token' => (string) $token]))
-                ->timeout((int) config('psott.routes.timeout', 300))
+                ->timeout(app(AppSettings::class)->timeout('routes'))
                 ->connectTimeout(10)
                 ->post($url, ['travelMode' => $travelMode, 'routingPreference' => $routingPreference, 'legs' => $legs]);
         } catch (ConnectionException $exception) {

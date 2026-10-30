@@ -423,7 +423,7 @@ function sentPayload(): array
 
 it('injects the webhook broadcast and records the webhook and response', function () {
     fakeWebhookAndGateway();
-    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}],"Resources":[{"id":"R1"}]}}');
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD","dataset_id":"OLD","duration":"P7D","appointment_window_duration":"P180D"}],"Resources":[{"id":"R1"}]}}');
 
     runUploadJob($upload);
 
@@ -437,7 +437,9 @@ it('injects the webhook broadcast and records the webhook and response', functio
     expect($upload->response_body)->toContain('1857054');
     expect($upload->wire_bytes)->toBeGreaterThan(0);
     expect($upload->post_duration_ms)->not->toBeNull();
-    expect($payload['ScheduleData']['Broadcast'][0]['maximum_wait'])->toBe('PT5M');
+    expect($payload['ScheduleData']['Broadcast'][0]['maximum_wait'])->toBe('PT1M');
+    expect($payload['ScheduleData']['Broadcast'][0]['maximum_frequency'])->toBe('PT10M');
+    expect($payload['ScheduleData']['Broadcast'][0]['once_only'])->toBeFalse();
     expect($payload['ScheduleData']['Broadcast'][0]['id'])->toBe('WEBHOOK_COMPLETE');
     expect(collect($payload['ScheduleData']['Broadcast_Parameter'])->firstWhere('parameter_name', 'url')['parameter_value'])
         ->toBe('https://webhook.example.test/pso-sasktel-tst');
@@ -448,8 +450,8 @@ it('uses the per-upload broadcast settings', function () {
     fakeWebhookAndGateway();
     $upload = webhookJobUpload(
         'gateway-uploads/schedule.json',
-        '{"ScheduleData":{"Resources":[]}}',
-        ['broadcast_settings' => BroadcastSettings::fromArray(['id' => 'MY_HOOK', 'maximum_wait' => 'PT10M', 'minimum_plan_quality' => 90])->toArray()],
+        '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD"}],"Resources":[]}}',
+        ['broadcast_settings' => BroadcastSettings::fromArray(['id' => 'MY_HOOK', 'maximum_wait' => 'PT10M', 'maximum_frequency' => 'PT30M', 'minimum_plan_quality' => 90])->toArray()],
     );
 
     runUploadJob($upload);
@@ -458,7 +460,71 @@ it('uses the per-upload broadcast settings', function () {
 
     expect($broadcast['id'])->toBe('MY_HOOK');
     expect($broadcast['maximum_wait'])->toBe('PT10M');
+    expect($broadcast['maximum_frequency'])->toBe('PT30M');
     expect($broadcast['minimum_plan_quality'])->toBe(90);
+});
+
+it('fills a broadcast saved before maximum frequency existed from the defaults', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD"}]}}',
+        ['broadcast_settings' => ['id' => 'OLD_ROW', 'plan_type' => 'COMPLETE', 'minimum_plan_quality' => 85, 'maximum_wait' => 'PT5M', 'allocation_type' => 1, 'required_tables' => ['Plan']]],
+    );
+
+    runUploadJob($upload);
+
+    $broadcast = sentPayload()['ScheduleData']['Broadcast'][0];
+
+    expect($broadcast['id'])->toBe('OLD_ROW');
+    expect($broadcast['plan_type'])->toBe('COMPLETE');
+    expect($broadcast['maximum_frequency'])->toBe('PT10M');
+});
+
+it('runs the time filter from now to the end of the UTC day the DSE and appointment windows reach', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-10-30T13:37:10Z'));
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD","dataset_id":"OLD","duration":"P7D","appointment_window_duration":"P180D"}]}}');
+
+    runUploadJob($upload);
+
+    $broadcast = sentPayload()['ScheduleData']['Broadcast'][0];
+
+    expect($broadcast['time_filter_start'])->toBe('2026-10-30T13:37:10+00:00');
+    expect($broadcast['time_filter_end'])->toBe('2027-05-05T23:59:59+00:00');
+    expect($upload->refresh()->logLines->pluck('text')->implode("\n"))
+        ->toContain('Time filter: 2026-10-30T13:37:10+00:00 to 2027-05-05T23:59:59+00:00');
+});
+
+it('sends the broadcast without a time filter, and says so, when the LOAD has no DSE window', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD"}]}}');
+
+    runUploadJob($upload);
+
+    expect(sentPayload()['ScheduleData']['Broadcast'][0])->not->toHaveKeys(['time_filter_start', 'time_filter_end']);
+    expect($upload->refresh()->logLines->pluck('text')->implode("\n"))
+        ->toContain('Input_Reference has no duration (DSE window) - the broadcast goes without a time filter.');
+});
+
+it('sends a CHANGE as it is, with its own broadcast rows and no webhook', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload(
+        'gateway-uploads/schedule.json',
+        '{"ScheduleData":{"Input_Reference":[{"input_type":"CHANGE","dataset_id":"OLD"}],"Broadcast":[{"id":"CUSTOMER"}]}}',
+    );
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+    $payload = sentPayload();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect($upload->webhook_url)->toBeNull();
+    expect($payload['ScheduleData']['Broadcast'])->toBe([['id' => 'CUSTOMER']]);
+    expect($upload->logLines->pluck('text')->implode("\n"))
+        ->toContain('Input_Reference.input_type is CHANGE, not LOAD - no webhook broadcast added; sending the file as it is.');
+    Http::assertNotSent(static fn ($request) => str_contains((string) $request->url(), 'webhook.example.test'));
 });
 
 it('sends the original bytes when the webhook is skipped and no dataset id is given', function () {
@@ -495,7 +561,7 @@ it('applies a dataset id override even when the webhook is skipped', function ()
 
 it('injects into an xml upload', function () {
     fakeWebhookAndGateway();
-    $xml = '<dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd"><Resources><id>R1</id></Resources></dsScheduleData>';
+    $xml = '<dsScheduleData xmlns="http://360Scheduling.com/Schema/dsScheduleData.xsd"><Resources><id>R1</id></Resources><Input_Reference><input_type>LOAD</input_type><duration>P7D</duration></Input_Reference></dsScheduleData>';
     $upload = webhookJobUpload('gateway-uploads/schedule.xml', $xml);
 
     runUploadJob($upload);
@@ -512,12 +578,14 @@ it('injects into an xml upload', function () {
     });
 
     expect($upload->refresh()->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
-    expect($sentXml)->toContain('<Broadcast>')->toContain('<maximum_wait>PT5M</maximum_wait>');
+    expect($sentXml)->toContain('<Broadcast>')
+        ->toContain('<maximum_wait>PT1M</maximum_wait><maximum_frequency>PT10M</maximum_frequency>')
+        ->toContain('<time_filter_end>');
 });
 
 it('fails the run and sends nothing to PSO when the webhook cannot be provisioned', function () {
     fakeWebhookAndGateway(['https://webhook.example.test/_alias/*' => Http::response('forbidden', 403)]);
-    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD"}],"Resources":[]}}');
 
     runUploadJob($upload);
 
@@ -529,9 +597,22 @@ it('fails the run and sends nothing to PSO when the webhook cannot be provisione
     Http::assertNotSent(static fn ($request) => $request->url() === PsoServicesFake::sessionUrl());
 });
 
-it('fails with the script message when the file has no schedule data wrapper', function () {
+it('sends a json file with no schedule data wrapper as it is, as it has no LOAD Input_Reference', function () {
     fakeWebhookAndGateway();
     $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"Other":{}}');
+
+    runUploadJob($upload);
+
+    $upload->refresh();
+
+    expect($upload->status)->toBe(PsoGatewayUploadStatus::SUCCEEDED);
+    expect($upload->logLines->pluck('text')->implode("\n"))->toContain('Input_Reference.input_type is (none), not LOAD');
+    expect(sentPayload())->toBe(['Other' => []]);
+});
+
+it('fails with the script message when an xml LOAD has no schedule data root', function () {
+    fakeWebhookAndGateway();
+    $upload = webhookJobUpload('gateway-uploads/schedule.xml', '<Other><Input_Reference><input_type>LOAD</input_type></Input_Reference></Other>');
 
     runUploadJob($upload);
 
@@ -611,7 +692,7 @@ it('puts the pso-services reason in the run log when logon is refused', function
 
 it('writes the script-style steps to the run log and never a secret', function () {
     fakeWebhookAndGateway();
-    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}],"Broadcast":[{"id":"X"}]}}');
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD","dataset_id":"OLD"}],"Broadcast":[{"id":"X"}]}}');
 
     runUploadJob($upload);
 
@@ -621,7 +702,7 @@ it('writes the script-style steps to the run log and never a secret', function (
     expect($text)->toContain('Created new alias /pso-sasktel-tst');
     expect($text)->toContain('Stripped existing broadcast from the file: 1 Broadcast and 0 Broadcast_Parameter row(s) removed.');
     expect($text)->toContain("Injected Broadcast 'WEBHOOK_COMPLETE'");
-    expect($text)->toContain('maximum_wait=PT5M');
+    expect($text)->toContain('maximum_wait=PT1M, maximum_frequency=PT10M');
     expect($text)->toContain('required_tables: Allocation,Plan,');
     expect($text)->toContain('Logon successful');
     expect($text)->toContain('Response body:');
@@ -634,7 +715,7 @@ it('writes the script-style steps to the run log and never a secret', function (
 
 it('logs "nothing to strip" when the file has no broadcast rows', function () {
     fakeWebhookAndGateway();
-    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD"}],"Resources":[]}}');
 
     runUploadJob($upload);
 
@@ -680,7 +761,7 @@ it('writes the log steps in the script order', function () {
     fakeWebhookAndGateway();
     $upload = webhookJobUpload(
         'gateway-uploads/schedule.json',
-        '{"ScheduleData":{"Input_Reference":[{"dataset_id":"OLD"}],"Resources":[]}}',
+        '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD","dataset_id":"OLD","duration":"P7D","appointment_window_duration":"P180D"}],"Resources":[]}}',
         ['dataset_id_override' => 'NEW'],
     );
 
@@ -700,6 +781,7 @@ it('writes the log steps in the script order', function () {
         "Changed Input_Reference.dataset_id: 'OLD' -> 'NEW'",
         'No existing Broadcast or Broadcast_Parameter in the file - nothing to strip.',
         "Injected Broadcast 'WEBHOOK_COMPLETE'",
+        'Time filter: ',
         'Sending modified copy instead of the original: schedule_withBroadcast.json',
         'Step 1/3: Logging on',
         'Logon successful',
@@ -804,7 +886,7 @@ it('sends a json file with no wrapper unchanged when only a dataset id override 
 
 it('suggests the skip toggle when the wrapper is missing', function () {
     fakeWebhookAndGateway();
-    $upload = webhookJobUpload('gateway-uploads/schedule.xml', '<Other><Resources/></Other>');
+    $upload = webhookJobUpload('gateway-uploads/schedule.xml', '<Other><Input_Reference><input_type>LOAD</input_type></Input_Reference><Resources/></Other>');
 
     runUploadJob($upload);
 
@@ -1028,7 +1110,7 @@ it('shows Preparing during the webhook and rewrite steps and Compressing only fo
             return Http::response(['InternalId' => '1857054'], 200);
         },
     ]);
-    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Resources":[]}}');
+    $upload = webhookJobUpload('gateway-uploads/schedule.json', '{"ScheduleData":{"Input_Reference":[{"input_type":"LOAD"}],"Resources":[]}}');
     $uploadIdHolder['id'] = $upload->id;
 
     runUploadJob($upload);

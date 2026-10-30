@@ -21,6 +21,7 @@ use App\Support\ScheduleDataSummaryExtractor;
 use App\Support\ScheduleDataZipExtractor;
 use App\Support\Webhook\WebhookEndpointProvisioner;
 use App\Traits\PSOInteractionsTrait;
+use Carbon\CarbonImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -262,7 +263,9 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
      * Provisions the webhook, then writes the modified copy (dataset id
      * override, Input_Reference marked as sent from PSO Test Tools, old
      * broadcast rows stripped, new Broadcast injected) and returns its path.
-     * Returns the original path when nothing changed.
+     * Only a LOAD gets the Broadcast; any other input type (a CHANGE) keeps
+     * its own rows, as the script sends it as it is. Returns the original
+     * path when nothing changed.
      */
     private function preparePayload(
         PsoGatewayUpload $upload,
@@ -275,9 +278,15 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
     ): string {
         $datasetIdOverride = filled($upload->dataset_id_override) ? trim((string) $upload->dataset_id_override) : null;
         $injection = null;
+        // The column defaults to true; only an explicit false keeps the file's own rows.
+        $stripExisting = $upload->strip_existing_broadcast !== false;
+        $inputReference = $upload->skip_webhook ? null : ScheduleDataSummaryExtractor::extract($rawPath, $format);
 
         if ($upload->skip_webhook) {
             $log->sub('Webhook broadcast skipped (Skip webhook broadcast is on).');
+        } elseif ($inputReference['input_type'] !== 'LOAD') {
+            $log->warn('Input_Reference.input_type is '.($inputReference['input_type'] ?? '(none)').', not LOAD - no webhook broadcast added; sending the file as it is.');
+            $stripExisting = false;
         } else {
             $environmentName = $this->environmentName($upload);
 
@@ -300,14 +309,19 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
                 'webhook_view_url' => $endpoint->viewUrl,
             ]);
 
+            $timeFilter = BroadcastInjection::timeFilter(CarbonImmutable::now(), $inputReference['duration'], $inputReference['appointment_window_duration']);
+
+            if ($timeFilter === null) {
+                $log->warn('Input_Reference has no duration (DSE window) - the broadcast goes without a time filter.');
+            }
+
             $injection = new BroadcastInjection(
                 BroadcastSettings::fromArray($upload->broadcast_settings ?? []),
                 $endpoint->url,
+                $timeFilter[0] ?? null,
+                $timeFilter[1] ?? null,
             );
         }
-
-        // The column defaults to true; only an explicit false keeps the file's own rows.
-        $stripExisting = $upload->strip_existing_broadcast !== false;
 
         // Always written, so the copy is always made: PSO shows where the load came from.
         $identity = $this->inputReferenceIdentity($upload);
@@ -406,7 +420,11 @@ class SendPsoScheduleDataJob implements ShouldBeEncrypted, ShouldQueue
 
         $settings = $injection->settings;
 
-        $log->sub("Injected Broadcast '{$settings->broadcastId}' (plan_type={$settings->planType}, once_only=true, minimum_plan_quality={$settings->minimumPlanQuality}, maximum_wait={$settings->maximumWait}, allocation_type={$settings->allocationType})");
+        $log->sub("Injected Broadcast '{$settings->broadcastId}' (plan_type={$settings->planType}, once_only=false, minimum_plan_quality={$settings->minimumPlanQuality}, maximum_wait={$settings->maximumWait}, maximum_frequency={$settings->maximumFrequency}, allocation_type={$settings->allocationType})");
+
+        if ($injection->timeFilterStart !== null) {
+            $log->sub("Time filter: {$injection->timeFilterStart} to {$injection->timeFilterEnd}");
+        }
         $log->sub('required_tables: '.implode(',', $settings->requiredTables));
     }
 

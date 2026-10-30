@@ -32,7 +32,7 @@ function rewriteXml(string $xml, ?string $datasetIdOverride = null, ?BroadcastIn
 
 function xmlWebhookInjection(): BroadcastInjection
 {
-    return new BroadcastInjection(BroadcastSettings::defaults(), 'https://webhook.example.test/pso-env');
+    return new BroadcastInjection(BroadcastSettings::shipped(), 'https://webhook.example.test/pso-env');
 }
 
 function xpathFor(string $xml): DOMXPath
@@ -57,8 +57,8 @@ it('injects a Broadcast and its parameters in the root namespace', function () {
     expect($xpath->evaluate('string(/s:dsScheduleData/s:Resources/s:id)'))->toBe('R1');
     expect($xpath->evaluate('count(/s:dsScheduleData/s:Broadcast)'))->toBe(1.0);
     expect($xpath->evaluate('string(/s:dsScheduleData/s:Broadcast/s:id)'))->toBe('WEBHOOK_COMPLETE');
-    expect($xpath->evaluate('string(/s:dsScheduleData/s:Broadcast/s:maximum_wait)'))->toBe('PT5M');
-    expect($xpath->evaluate('string(/s:dsScheduleData/s:Broadcast/s:once_only)'))->toBe('true');
+    expect($xpath->evaluate('string(/s:dsScheduleData/s:Broadcast/s:maximum_wait)'))->toBe('PT1M');
+    expect($xpath->evaluate('string(/s:dsScheduleData/s:Broadcast/s:once_only)'))->toBe('false');
     expect($xpath->evaluate('count(/s:dsScheduleData/s:Broadcast_Parameter)'))->toBe(5.0);
     expect($xpath->evaluate('string(/s:dsScheduleData/s:Broadcast_Parameter[s:parameter_name="url"]/s:parameter_value)'))
         ->toBe('https://webhook.example.test/pso-env');
@@ -77,7 +77,7 @@ it('writes the Broadcast fields in the script order', function () {
 
     expect($names)->toBe([
         'id', 'active', 'broadcast_type_id', 'plan_type', 'minimum_plan_quality',
-        'maximum_wait', 'minimum_step_interval', 'once_only', 'allocation_type',
+        'minimum_step_interval', 'once_only', 'maximum_wait', 'maximum_frequency', 'allocation_type',
     ]);
 });
 

@@ -8,6 +8,7 @@ use App\Models\Dataset;
 use App\Models\ExportFile;
 use App\Support\PsoServices\PsoServicesRoutesClient;
 use App\Support\PsoServices\PsoServicesRoutesException;
+use App\Support\Settings\AppSettings;
 use App\Tools\Contracts\Tool;
 use App\Tools\Contracts\ToolFailedWithResult;
 use App\Tools\Contracts\ToolResult;
@@ -281,7 +282,7 @@ class PlanTravelsTool implements Tool
     private function checkWithGoogle(ToolContext $context, array $trips, string $mode, string $preference): array
     {
         // RunToolJob allows 900 s for the whole run: 1,781 legs with a cold cache is about 9 chunks of 200, each
-        // allowed psott.routes.timeout. The deadline (tools.plan_travels.google_deadline_seconds) stops sending
+        // allowed routes timeout (Settings page, else psott.routes.timeout). The deadline (tools.plan_travels.google_deadline_seconds) stops sending
         // chunks in time for the merge, so a slow Google step never loses the built legs.
         $unchecked = 0;
         $this->lookUpCache($context, $trips, $mode, $preference);
@@ -377,7 +378,7 @@ class PlanTravelsTool implements Tool
     private static function margin(): int
     {
         // pso-services gives up after its own 240 s budget, so 270 s is enough margin whatever the client timeout.
-        return min((int) config('psott.routes.timeout', 300), 270);
+        return min(app(AppSettings::class)->timeout('routes'), 270);
     }
 
     /** True when less than the margin (the request timeout, at most 270 s) is left before the Google deadline. */
