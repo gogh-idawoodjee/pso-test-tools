@@ -1127,6 +1127,69 @@
       ]
     }
   ],
+  "stage2": {
+    "jobs_per_resource_per_day": 2,
+    "working_days": 5,
+    "mix": {
+      "REPAIR": 0.55,
+      "MAINT": 0.3,
+      "EMERGENCY": 0.15
+    },
+    "durations": {
+      "REPAIR": {
+        "min": "PT45M",
+        "max": "PT1H30M"
+      },
+      "MAINT": {
+        "min": "PT1H",
+        "max": "PT2H"
+      },
+      "EMERGENCY": {
+        "min": "PT45M",
+        "max": "PT1H15M"
+      }
+    },
+    "sla_windows": {
+      "REPAIR": {
+        "in": "P3D",
+        "out": "P7D"
+      },
+      "MAINT": {
+        "in": "P10D",
+        "out": "P7D"
+      },
+      "EMERGENCY": {
+        "in": "same_day",
+        "out": "P1D"
+      }
+    },
+    "skills": {
+      "REPAIR": {
+        "pool": [
+          "ELEC",
+          "NET",
+          "HVAC",
+          "FIBRE"
+        ],
+        "p": 1.0
+      },
+      "MAINT": {
+        "pool": [
+          "ELEC",
+          "HVAC"
+        ],
+        "p": 0.6
+      },
+      "EMERGENCY": {
+        "pool": [
+          "ELEC",
+          "NET",
+          "HVAC"
+        ],
+        "p": 1.0
+      }
+    }
+  },
   "_later_stages": {
     "note": "Read by stages 2–6 only. Shapes may change before then.",
     "backlog": {},

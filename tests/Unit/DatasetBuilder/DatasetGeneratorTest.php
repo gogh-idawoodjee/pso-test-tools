@@ -1,22 +1,27 @@
 <?php
 
+use App\Support\DatasetBuilder\ActivityFactory;
 use App\Support\DatasetBuilder\DatasetGenerator;
 use App\Support\DatasetBuilder\DatasetSpecRepository;
 use App\Support\DatasetBuilder\DsModellingWriter;
 use App\Support\DatasetBuilder\DsScheduleDataWriter;
 use App\Support\DatasetBuilder\GeneratedDataset;
 use App\Support\DatasetBuilder\ModellingData;
+use App\Support\DatasetBuilder\ShiftFactory;
 use App\Support\DatasetBuilder\Spec\DatasetSpec;
 use Illuminate\Support\Facades\File;
 
 const DATASET_BUILDER_EMIT_ORDER = [
-    'Input_Reference', 'Region', 'Location', 'Skill', 'Resource_Type', 'Rule', 'Rule_Collection', 'Rule_Collection_Rule',
+    'Input_Reference', 'Region', 'Location', 'Location_Region', 'Skill', 'Resource_Type', 'Rule', 'Rule_Collection', 'Rule_Collection_Rule',
     'Rule_Parameter', 'SLA_Type', 'Activity_Type', 'Appointment_Template', 'Appointment_Template_Item', 'Resources', 'Resource_Region', 'Resource_Skill', 'Availability', 'Resource_Region_Availability',
-    'Shift', 'Shift_Break', 'Object_Group',
+    'Shift', 'Shift_Break', 'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status', 'Object_Group',
 ];
 
 /** The LOAD beside modelling data, in emit order. */
-const DATASET_BUILDER_SLIM_EMIT_ORDER = ['Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Shift', 'Shift_Break', 'Object_Group'];
+const DATASET_BUILDER_SLIM_EMIT_ORDER = [
+    'Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Location', 'Location_Region', 'Shift', 'Shift_Break',
+    'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status', 'Object_Group',
+];
 
 const DATASET_BUILDER_RAM_EMIT_ORDER = [
     'RAM_Update', 'RAM_Division', 'RAM_Location', 'RAM_Skill', 'RAM_Resource_Type', 'RAM_Rule', 'RAM_Rule_Collection',
@@ -94,7 +99,7 @@ it('generates both specs with 36 and 12 resources', function (string $id, int $r
 
     expect($result->summary['resources'])->toBe($resources)
         ->and(datasetEntity($result->modellingPath, 'RAM_Resource'))->toHaveCount($resources)
-        ->and(datasetEntity($result->path, 'Object_Group'))->toHaveCount($resources)
+        ->and(collect(datasetEntity($result->path, 'Object_Group'))->whereNotNull('resource_id'))->toHaveCount($resources)
         ->and(datasetEntity($stage1->path, 'Resources'))->toHaveCount($resources)
         ->and(datasetEntity($stage1->path, 'Resource_Region'))->toHaveCount($resources);
 })->with([['DC_US', 36], ['DC_CA', 12]]);
@@ -311,7 +316,7 @@ it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data R
 
     // No entity in both files: every RAM entity's LOAD counterpart is missing from the LOAD.
     $counterparts = [
-        'RAM_Division' => 'Region', 'RAM_Location' => 'Location', 'RAM_Skill' => 'Skill', 'RAM_Resource_Type' => 'Resource_Type',
+        'RAM_Division' => 'Region', 'RAM_Skill' => 'Skill', 'RAM_Resource_Type' => 'Resource_Type',
         'RAM_Rule' => 'Rule', 'RAM_Rule_Collection' => 'Rule_Collection', 'RAM_Rule_Collection_Rule' => 'Rule_Collection_Rule',
         'RAM_Rule_Parameter' => 'Rule_Parameter', 'RAM_Resource' => 'Resources', 'RAM_Resource_Division' => 'Resource_Region',
         'RAM_Time_Pattern' => 'Availability', 'RAM_Resource_Division_Avail' => 'Resource_Region_Availability', 'RAM_Resource_Skill' => 'Resource_Skill',
@@ -321,7 +326,9 @@ it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data R
     $ram = datasetEntityNames($result->modellingPath);
 
     expect(array_intersect(array_map(static fn (string $entity): string => $counterparts[$entity] ?? $entity, $ram), datasetEntityNames($path)))->toBe([])
-        ->and(array_intersect($ram, datasetEntityNames($path)))->toBe([]);
+        ->and(array_intersect($ram, datasetEntityNames($path)))->toBe([])
+        // Location and RAM_Location both exist, but never for the same place: activity locations are scheduling data, homes and depots RAM's.
+        ->and(array_intersect(array_column(datasetEntity($path, 'Location'), 'id'), array_column(datasetEntity($result->modellingPath, 'RAM_Location'), 'id')))->toBe([]);
 
     $resources = array_column(datasetEntity($result->modellingPath, 'RAM_Resource'), 'id');
 
@@ -401,7 +408,7 @@ it('models the same resources, locations, skills, regions and types as the stage
     };
 
     expect($sorted($ids($ram, 'RAM_Resource')))->toBe($sorted($ids($load, 'Resources')))
-        ->and($sorted($ids($ram, 'RAM_Location')))->toBe($sorted($ids($load, 'Location')))
+        ->and($sorted($ids($ram, 'RAM_Location')))->toBe($sorted(array_values(array_filter($ids($load, 'Location'), static fn (string $id): bool => ! str_starts_with($id, 'L-')))))
         ->and($sorted($ids($ram, 'RAM_Skill')))->toBe($sorted($ids($load, 'Skill')))
         ->and($sorted($ids($ram, 'RAM_Division')))->toBe($sorted($ids($load, 'Region')))
         ->and($sorted($ids($ram, 'RAM_Resource_Type')))->toBe($sorted($ids($load, 'Resource_Type')));
@@ -687,4 +694,152 @@ it('puts the scheduling-side reference data in the LOAD when there is no modelli
         ])
         ->and(datasetEntity($path, 'Appointment_Template'))->toHaveCount(3)
         ->and(datasetEntity($path, 'Appointment_Template_Item'))->toHaveCount(4);
+});
+
+/** @return array<string, list<array<string, string>>> entity => rows for one activity id */
+function activityRows(string $path): array
+{
+    $rows = [];
+
+    foreach (datasetRows($path) as $row) {
+        $id = $row['fields']['activity_id'] ?? ($row['entity'] === 'Activity' ? $row['fields']['id'] : null);
+
+        if ($id !== null) {
+            $rows[$id][$row['entity']][] = $row['fields'];
+        }
+    }
+
+    return $rows;
+}
+
+it('makes round(2 x home resources) jobs a working day per region, split by the mix, emergencies on the first day only', function (string $id, int $total) {
+    $result = generateDataset($id);
+    $spec = app(DatasetSpecRepository::class)->load($id);
+    $activities = collect(datasetEntity($result->path, 'Activity'));
+
+    expect($activities)->toHaveCount($total)->and($result->summary['activities'])->toBe($total);
+
+    foreach ($spec->regions as $region) {
+        $residents = count(array_filter($spec->resources, static fn ($resource): bool => $resource->region === $region->id));
+        $days = $result->summary['activity_days'][$region->id] ?? [];
+        $byType = ActivityFactory::largestRemainder((int) round(2 * $residents) * 5, $spec->stage2->mix);
+
+        expect(array_sum(array_map('array_sum', $days)))->toBe((int) round(2 * $residents) * 5);
+
+        if ($residents === 0) {
+            continue;
+        }
+
+        expect($days)->toHaveCount(5);
+
+        foreach (['REPAIR', 'MAINT', 'EMERGENCY'] as $type) {
+            expect(array_sum(array_column($days, $type)))->toBe($byType[$type]);
+        }
+
+        expect(array_slice(array_column($days, 'EMERGENCY'), 1))->toBe([])
+            ->and(array_values($days)[0]['EMERGENCY'] ?? 0)->toBe($byType['EMERGENCY']);
+    }
+})->with([['DC_US', 360], ['DC_CA', 120]]);
+
+it('gives every activity one location in its region, one status, two touching SLA rows and at most one skill two residents hold', function (string $id) {
+    $result = generateDataset($id);
+    $spec = app(DatasetSpecRepository::class)->load($id);
+    $path = $result->path;
+    $now = new DateTimeImmutable('2026-10-30T15:30:00Z');
+    $locations = collect(datasetEntity($path, 'Location'))->keyBy('id');
+    $locationRegions = collect(datasetEntity($path, 'Location_Region'))->groupBy('location_id');
+
+    expect(datasetEntity($path, 'Location_Region'))->toHaveCount(count(datasetEntity($path, 'Activity')));
+
+    foreach (activityRows($path) as $activityId => $rows) {
+        $activity = $rows['Activity'][0];
+        $region = explode('-', $activityId)[1];
+        $type = $activity['activity_type_id'];
+        $minutes = (new DateTimeImmutable('2000-01-01'))->add(new DateInterval($activity['duration']))->getTimestamp() / 60 - (new DateTimeImmutable('2000-01-01'))->getTimestamp() / 60;
+        $range = $spec->stage2->durations[$type];
+
+        expect($rows['Activity'])->toHaveCount(1)
+            ->and($rows['Activity_Status'])->toBe([[
+                'activity_id' => $activityId, 'status_id' => '0', 'visit_id' => '1', 'fixed' => 'false',
+                'date_time_status' => $activity['date_time_created'], 'date_time_stamp' => $activity['date_time_created'],
+            ]])
+            ->and(count($rows['Activity_Skill'] ?? []))->toBeLessThanOrEqual(1)
+            ->and($rows['Object_Group'])->toBe([['group_id' => $id, 'id' => "{$id}-{$activityId}", 'activity_id' => $activityId]])
+            ->and($activity['location_id'])->toBe('L-'.substr($activityId, 2, -6).sprintf('%05d', (int) substr($activityId, -6)))
+            ->and($locationRegions[$activity['location_id']]->all())->toBe([['region_id' => $region, 'location_id' => $activity['location_id']]])
+            ->and($spec->regions[$region]->excludes((float) $locations[$activity['location_id']]['latitude'], (float) $locations[$activity['location_id']]['longitude']))->toBeFalse()
+            ->and($minutes % 15)->toBe(0)
+            ->and($minutes)->toBeGreaterThanOrEqual(15)
+            ->and($minutes)->toBeLessThanOrEqual((int) ceil($range['max'] / 15) * 15)
+            ->and((int) $activity['base_value'])->toBe((int) round(1000 * $minutes / 60 * ($type === 'EMERGENCY' ? 4 : 1)))
+            ->and($activity['description'])->toBe("{$type} : {$locations[$activity['location_id']]['address_line1']}")
+            ->and($activity['date_time_open'])->toBe($activity['date_time_created']);
+
+        $created = new DateTimeImmutable($activity['date_time_created']);
+        $dayMinusOne = ShiftFactory::dayZero($now, new DateTimeZone($spec->regions[$region]->timeZone))->modify('-1 day');
+
+        expect($created <= $now)->toBeTrue()
+            ->and($created >= $now->modify('-72 hours'))->toBeTrue()
+            ->and($created >= $dayMinusOne)->toBeTrue();
+
+        [$primary, $secondary] = $rows['Activity_SLA'];
+
+        expect($rows['Activity_SLA'])->toHaveCount(2)
+            ->and($primary['sla_type_id'])->toBe($type === 'EMERGENCY' ? 'EMERGENCY' : 'IN_SLA')
+            ->and($primary['priority'])->toBe('1')
+            ->and($secondary)->toMatchArray(['sla_type_id' => 'OUT_SLA', 'priority' => '2', 'start_based' => 'true'])
+            ->and($primary['start_based'])->toBe('true')
+            ->and($secondary['datetime_start'])->toBe($primary['datetime_end'])
+            ->and($primary['datetime_start'] < $primary['datetime_end'])->toBeTrue()
+            ->and($secondary['datetime_start'] < $secondary['datetime_end'])->toBeTrue()
+            ->and(new DateTimeImmutable($primary['datetime_start']) >= $now)->toBeTrue();
+
+        // The priority 1 window ends at 17:00 in the region.
+        expect((new DateTimeImmutable($primary['datetime_end']))->setTimezone(new DateTimeZone($spec->regions[$region]->timeZone))->format('H:i'))->toBe('17:00');
+
+        foreach ($rows['Activity_Skill'] ?? [] as $skill) {
+            $holders = count(array_filter($spec->resources, static fn ($resource): bool => $resource->region === $region && in_array($skill['skill_id'], $resource->skills, true)));
+
+            expect($holders)->toBeGreaterThanOrEqual(2)
+                ->and($skill['skill_id'])->toBeIn($spec->stage2->skills[$type]['pool'])
+                ->and($skill['share_with_corequisites'])->toBe('false');
+        }
+    }
+})->with(['DC_US', 'DC_CA']);
+
+it('takes each region\'s working days in its own zone: a 17:00 Toronto Friday run starts Toronto on Monday, Los Angeles on Friday', function () {
+    $now = new DateTimeImmutable('2026-10-30T21:00:00Z'); // Fri 17:00 Toronto, 14:00 Los Angeles
+    $ca = app(DatasetSpecRepository::class)->load('DC_CA');
+    $us = app(DatasetSpecRepository::class)->load('DC_US');
+    $dates = static fn (array $days): array => array_map(static fn (DateTimeImmutable $day): string => $day->format('D Y-m-d'), $days);
+
+    expect($dates(ActivityFactory::workingDays($ca, $ca->regions['TOR'], $now)))->toBe(['Mon 2026-11-02', 'Tue 2026-11-03', 'Wed 2026-11-04', 'Thu 2026-11-05', 'Fri 2026-11-06'])
+        ->and($dates(ActivityFactory::workingDays($us, $us->regions['LAX'], $now)))->toBe(['Fri 2026-10-30', 'Mon 2026-11-02', 'Tue 2026-11-03', 'Wed 2026-11-04', 'Thu 2026-11-05']);
+});
+
+it('keeps 17:00 local on both sides of the DST change in a 10-day MAINT window', function () {
+    $path = generateDataset('DC_CA')->path;
+    $maint = collect(activityRows($path))->first(static fn (array $rows): bool => $rows['Activity'][0]['activity_type_id'] === 'MAINT' && str_starts_with($rows['Activity_SLA'][0]['datetime_start'], '2026-10-30'));
+    [$primary, $secondary] = $maint['Activity_SLA'];
+
+    // Fri 30 Oct, 11:30 Toronto (EDT, -4) is now; ten days on is Mon 9 Nov, 17:00 EST (-5) = 22:00Z.
+    expect($primary['datetime_start'])->toBe('2026-10-30T15:30:00+00:00')
+        ->and($primary['datetime_end'])->toBe('2026-11-09T22:00:00+00:00')
+        ->and($secondary['datetime_end'])->toBe('2026-11-16T22:00:00+00:00');
+});
+
+it('leaves the .arp exactly as it was before activities: they are scheduling data', function () {
+    $data = json_decode((string) file_get_contents(resource_path('datasets/DC_CA.json')), true);
+    unset($data['stage2']);
+    $without = generateDataset('DC_CA', directory: datasetBuilderDirectory().'/without', spec: DatasetSpec::fromArray($data));
+    $with = generateDataset('DC_CA', directory: datasetBuilderDirectory().'/with');
+
+    expect(file_get_contents($with->modellingPath))->toBe(file_get_contents($without->modellingPath))
+        ->and(datasetEntity($without->path, 'Activity'))->toBe([]);
+});
+
+it('splits a total by largest remainder, exactly', function () {
+    expect(ActivityFactory::largestRemainder(90, ['REPAIR' => 0.55, 'MAINT' => 0.30, 'EMERGENCY' => 0.15]))->toBe(['REPAIR' => 50, 'MAINT' => 27, 'EMERGENCY' => 13])
+        ->and(ActivityFactory::largestRemainder(13, [1, 1, 1, 1, 1]))->toBe([3, 3, 3, 2, 2])
+        ->and(ActivityFactory::largestRemainder(0, ['A' => 1]))->toBe(['A' => 0]);
 });

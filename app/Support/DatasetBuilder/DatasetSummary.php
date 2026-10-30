@@ -39,6 +39,12 @@ class DatasetSummary
     /** @var list<string> */
     private array $extraRegions = [];
 
+    /** @var array<string, array<string, array<string, int>>> region => local date => type => activities */
+    private array $activityDays = [];
+
+    /** @var array<string, array{type: string, activities: int, shortest: float, longest: float}> type => priority 1 window lengths, hours */
+    private array $inSla = [];
+
     public function __construct(private readonly DatasetSpec $spec, private readonly DateTimeImmutable $now) {}
 
     public function resource(ResourceSpec $resource, ResourceTypeSpec $type): void
@@ -50,6 +56,22 @@ class DatasetSummary
     public function extraRegion(ResourceSpec $resource, string $regionId): void
     {
         $this->extraRegions[] = "{$resource->firstName} {$resource->surname} ({$resource->id}): {$resource->region} + {$regionId}";
+    }
+
+    /** @param array{region: string, type: string, date: string, in_start: DateTimeImmutable, in_end: DateTimeImmutable} $activity */
+    public function activity(array $activity): void
+    {
+        $type = $activity['type'];
+        $this->activityDays[$activity['region']][$activity['date']][$type] = ($this->activityDays[$activity['region']][$activity['date']][$type] ?? 0) + 1;
+
+        $hours = ($activity['in_end']->getTimestamp() - $activity['in_start']->getTimestamp()) / 3600;
+        $known = $this->inSla[$type] ?? ['type' => $type, 'activities' => 0, 'shortest' => INF, 'longest' => 0.0];
+        $this->inSla[$type] = [
+            'type' => $type,
+            'activities' => $known['activities'] + 1,
+            'shortest' => min($known['shortest'], $hours),
+            'longest' => max($known['longest'], $hours),
+        ];
     }
 
     /** @param array{shift: array<string, string>, local_start: DateTimeImmutable} $shift */
@@ -166,6 +188,10 @@ class DatasetSummary
             'other_shifts_at_one' => $this->otherShiftsAtOne,
             'extra_regions' => $this->extraRegions,
             'bands' => $bands,
+            'activities' => array_sum(array_map(static fn (array $days): int => array_sum(array_map('array_sum', $days)), $this->activityDays)),
+            'activity_types' => array_keys($this->spec->stage2?->mix ?? []),
+            'activity_days' => $this->activityDays,
+            'in_sla' => array_values($this->inSla),
             'modelling' => $modelling === null ? null : [
                 'file' => basename($modelling['path']),
                 'bytes' => $modelling['bytes'],

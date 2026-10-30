@@ -16,7 +16,8 @@ use Throwable;
  * stage 1R adds `modelling` (also write the .arp) and each type's
  * `shift_category_colour`; stage 1R2 the activity reference data:
  * `sla_types`, `activity_types`, `appointment_templates` (template kinds,
- * made per region from the regions' `appointment_templates`). Everything else
+ * made per region from the regions' `appointment_templates`); stage 2 the
+ * `stage2` block (Stage2Spec), the first activities. Everything else
  * in the file (`_later_stages`, `activity_cap`) is kept in the JSON for later
  * stages and ignored here. Reference data values are kept as the file text
  * they become (numbers without trailing zeros, booleans as true/false).
@@ -71,6 +72,7 @@ readonly class DatasetSpec
         public array $slaTypes = [],
         public array $activityTypes = [],
         public array $appointmentTemplateKinds = [],
+        public ?Stage2Spec $stage2 = null,
     ) {}
 
     public static function fromFile(string $path): self
@@ -226,6 +228,7 @@ readonly class DatasetSpec
             slaTypes: $slaTypes,
             activityTypes: $activityTypes,
             appointmentTemplateKinds: $templateKinds,
+            stage2: isset($data['stage2']) ? self::stage2((array) $data['stage2'], $datasetId, $regions, $skills, $resourceTypes, $activityTypes, $slaTypes) : null,
         );
     }
 
@@ -234,7 +237,7 @@ readonly class DatasetSpec
         return new self(
             $this->datasetId, $this->organisationId, $this->description, $seed, $this->baseTimeZone, $this->horizonDays,
             $this->inputReference, $this->ruleCollection, $this->regions, $this->skills, $this->resourceTypes, $this->resources,
-            $this->modelling, $this->slaTypes, $this->activityTypes, $this->appointmentTemplateKinds,
+            $this->modelling, $this->slaTypes, $this->activityTypes, $this->appointmentTemplateKinds, $this->stage2,
         );
     }
 
@@ -521,6 +524,100 @@ readonly class DatasetSpec
             'appointment_window_length' => self::duration($template['appointment_window_length'] ?? null, "{$path} appointment_window_length"),
             'items' => $items,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, RegionSpec>  $regions
+     * @param  array<string, string>  $skills
+     * @param  array<string, ResourceTypeSpec>  $resourceTypes
+     * @param  array<string, array<string, string>>  $activityTypes
+     * @param  array<string, array<string, string>>  $slaTypes
+     */
+    private static function stage2(array $data, string $datasetId, array $regions, array $skills, array $resourceTypes, array $activityTypes, array $slaTypes): Stage2Spec
+    {
+        $jobs = self::number($data['jobs_per_resource_per_day'] ?? null, 'stage2.jobs_per_resource_per_day');
+        $days = $data['working_days'] ?? null;
+
+        if ($jobs < 0) {
+            throw new InvalidDatasetSpec('stage2.jobs_per_resource_per_day must be 0 or more.');
+        }
+
+        if (! is_int($days) || $days < 1 || $days > 20) {
+            throw new InvalidDatasetSpec('stage2.working_days must be a whole number from 1 to 20.');
+        }
+
+        if (! isset($resourceTypes[Stage2Spec::WORKING_DAY_TYPE])) {
+            throw new InvalidDatasetSpec('stage2 needs a '.Stage2Spec::WORKING_DAY_TYPE.' resource type: its shift end decides which days are still working days.');
+        }
+
+        foreach (['IN_SLA', 'OUT_SLA'] as $slaType) {
+            if (! isset($slaTypes[$slaType])) {
+                throw new InvalidDatasetSpec("stage2 needs the {$slaType} SLA type in sla_types.");
+            }
+        }
+
+        $mix = [];
+        $durations = [];
+        $windows = [];
+        $pools = [];
+
+        foreach ((array) ($data['mix'] ?? []) as $type => $share) {
+            $type = (string) $type;
+            $path = "stage2 {$type}";
+
+            if (! isset($activityTypes[$type])) {
+                throw new InvalidDatasetSpec("stage2.mix: activity type {$type} is not in activity_types.");
+            }
+
+            $mix[$type] = self::number($share, "stage2.mix.{$type}");
+
+            if ($mix[$type] < 0) {
+                throw new InvalidDatasetSpec("stage2.mix.{$type} must be 0 or more.");
+            }
+
+            $min = intdiv(self::seconds(self::duration($data['durations'][$type]['min'] ?? null, "{$path} durations.min")), 60);
+            $max = intdiv(self::seconds(self::duration($data['durations'][$type]['max'] ?? null, "{$path} durations.max")), 60);
+
+            if ($min < 1 || $max < $min) {
+                throw new InvalidDatasetSpec("{$path}: durations.min must be at least a minute and no more than durations.max.");
+            }
+
+            $durations[$type] = ['min' => $min, 'max' => $max];
+
+            $in = $data['sla_windows'][$type]['in'] ?? null;
+            $windows[$type] = [
+                'in' => $in === Stage2Spec::SAME_DAY ? $in : self::duration($in, "{$path} sla_windows.in (or same_day)"),
+                'out' => self::duration($data['sla_windows'][$type]['out'] ?? null, "{$path} sla_windows.out"),
+            ];
+
+            $pool = array_values(array_map('strval', (array) ($data['skills'][$type]['pool'] ?? [])));
+
+            foreach ($pool as $skill) {
+                if (! isset($skills[$skill])) {
+                    throw new InvalidDatasetSpec("{$path} skills.pool: skill {$skill} is not in skills.");
+                }
+            }
+
+            $p = self::number($data['skills'][$type]['p'] ?? null, "{$path} skills.p");
+
+            if ($p < 0 || $p > 1) {
+                throw new InvalidDatasetSpec("{$path} skills.p must be from 0 to 1.");
+            }
+
+            $pools[$type] = ['pool' => $pool, 'p' => $p];
+        }
+
+        if ($mix === [] || array_sum($mix) <= 0) {
+            throw new InvalidDatasetSpec('stage2.mix must give at least one activity type a share above 0.');
+        }
+
+        foreach ($regions as $region) {
+            // Ids: L-{region}-nnnnn, A-{region}-nnnnnn and the object group {dataset}-A-{region}-nnnnnn.
+            self::id("{$datasetId}-A-{$region->id}-000000", "Region {$region->id} activity object group id");
+        }
+
+        return new Stage2Spec($jobs, $days, $mix, $durations, $windows, $pools);
     }
 
     private static function boolean(mixed $value, string $path): string

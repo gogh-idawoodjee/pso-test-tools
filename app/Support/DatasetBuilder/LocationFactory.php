@@ -7,7 +7,7 @@ use App\Support\DatasetBuilder\Spec\ResourceSpec;
 use Random\Randomizer;
 
 /**
- * Home and depot Locations. Homes in a metro region scatter around a centroid
+ * Home, depot and (stage 2) activity Locations. Homes in a metro region scatter around a centroid
  * picked by weight (normal, sigma = spread_km / 2 on each axis); homes in a
  * rural region sit at a random point on the line between two consecutive
  * centroids, jittered up to 8 km. A home that lands inside one of the
@@ -35,11 +35,23 @@ class LocationFactory
     /** @return array<string, string> Location fields, in the cheat sheet's order */
     public function home(ResourceSpec $resource, RegionSpec $region): array
     {
+        return $this->place("H-{$resource->id}", $region, "a home for {$resource->id}");
+    }
+
+    /** @return array<string, string> Location fields for an activity, drawn exactly as a home is */
+    public function activity(string $id, RegionSpec $region): array
+    {
+        return $this->place($id, $region, "activity location {$id}");
+    }
+
+    /** @return array<string, string> Location fields, in the cheat sheet's order */
+    private function place(string $id, RegionSpec $region, string $what): array
+    {
         $draws = 0;
 
         do {
             if (++$draws > self::MAX_DRAWS) {
-                throw new InvalidDatasetSpec("Region {$region->id}: no home for {$resource->id} outside the exclude polygons in ".self::MAX_DRAWS.' draws. Check the polygons against the centroids.');
+                throw new InvalidDatasetSpec("Region {$region->id}: no place for {$what} outside the exclude polygons in ".self::MAX_DRAWS.' draws. Check the polygons against the centroids.');
             }
 
             [$lat, $lon] = $region->kind === 'rural' ? $this->ruralPoint($region) : $this->metroPoint($region);
@@ -51,7 +63,7 @@ class LocationFactory
         $city = $this->nearestLabel($region, $lat, $lon);
 
         return [
-            'id' => "H-{$resource->id}",
+            'id' => $id,
             'name' => "{$addressLine1}, {$city}",
             'post_code_zip' => $this->postcode($region->postcodePrefix),
             'address_line1' => $addressLine1,

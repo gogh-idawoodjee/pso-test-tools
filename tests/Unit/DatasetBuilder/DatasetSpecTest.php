@@ -116,6 +116,26 @@ it('refuses a spec it cannot generate from', function (Closure $change, string $
 
         return $data;
     }, 'Activity type PROJECT split_allowed must be true or false'],
+    'a stage 2 type that is not an activity type' => [static function (array $data): array {
+        $data['stage2']['mix']['PLUMBING'] = 0.1;
+
+        return $data;
+    }, 'stage2.mix: activity type PLUMBING is not in activity_types'],
+    'a stage 2 skill that is not a skill' => [static function (array $data): array {
+        $data['stage2']['skills']['REPAIR']['pool'][] = 'WELDING';
+
+        return $data;
+    }, 'stage2 REPAIR skills.pool: skill WELDING is not in skills'],
+    'a stage 2 window that is neither a duration nor same_day' => [static function (array $data): array {
+        $data['stage2']['sla_windows']['MAINT']['in'] = 'next_week';
+
+        return $data;
+    }, 'stage2 MAINT sla_windows.in (or same_day)'],
+    'a stage 2 duration range the wrong way round' => [static function (array $data): array {
+        $data['stage2']['durations']['REPAIR'] = ['min' => 'PT2H', 'max' => 'PT1H'];
+
+        return $data;
+    }, 'stage2 REPAIR: durations.min must be at least a minute and no more than durations.max'],
     'shift ending before it starts' => [static function (array $data): array {
         $data['resource_types']['FIELD_TECH']['shift']['end'] = '07:00';
 

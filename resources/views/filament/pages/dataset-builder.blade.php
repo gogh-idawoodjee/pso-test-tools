@@ -142,6 +142,42 @@
                         </tbody>
                     </table>
                 </div>
+
+                @if (($summary['activities'] ?? 0) > 0)
+                    <div>
+                        <h3 class="mb-2 font-medium text-gray-950 dark:text-white">Activities by region, type and target day, local date ({{ number_format($summary['activities']) }}, all unallocated)</h3>
+                        <table class="text-left">
+                            <thead class="text-gray-500 dark:text-gray-400">
+                                <tr>
+                                    <th class="pe-6 font-medium">Region</th>
+                                    <th class="pe-6 font-medium">Day</th>
+                                    @foreach ($summary['activity_types'] as $type)
+                                        <th class="pe-6 font-medium">{{ $type }}</th>
+                                    @endforeach
+                                    <th class="pe-6 font-medium">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-950 dark:text-white">
+                                @foreach ($summary['activity_days'] as $region => $days)
+                                    @foreach ($days as $date => $counts)
+                                        <tr>
+                                            <td class="pe-6 font-mono">{{ $region }}</td>
+                                            <td class="pe-6">{{ \Carbon\CarbonImmutable::parse($date)->format('D Y-m-d') }}</td>
+                                            @foreach ($summary['activity_types'] as $type)
+                                                <td class="pe-6">{{ $counts[$type] ?? '' }}</td>
+                                            @endforeach
+                                            <td class="pe-6">{{ array_sum($counts) }}</td>
+                                        </tr>
+                                    @endforeach
+                                @endforeach
+                            </tbody>
+                        </table>
+                        <p class="mt-2 text-gray-600 dark:text-gray-400">
+                            Priority 1 SLA window:
+                            {{ collect($summary['in_sla'])->map(fn (array $row): string => "{$row['type']} ".number_format($row['shortest'], 1).' to '.number_format($row['longest'], 1).' h')->implode('; ') }}.
+                        </p>
+                    </div>
+                @endif
             </div>
         </x-filament::section>
 

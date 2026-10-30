@@ -69,6 +69,7 @@ class DatasetGenerator
                 'parameter_name' => 'rota_id',
                 'parameter_value' => $spec->datasetId,
             ]);
+            $this->writeActivityLocations($writer, $model);
         } else {
             $this->writeResourceModel($writer, $model);
         }
@@ -90,12 +91,18 @@ class DatasetGenerator
             $writer->row('Shift_Break', $break);
         }
 
+        $this->writeActivities($writer, $model, $summary);
+
         foreach ($spec->resources as $resource) {
             $writer->row('Object_Group', [
                 'group_id' => $spec->datasetId,
                 'id' => "{$spec->datasetId}-{$resource->id}",
                 'resource_id' => $resource->id,
             ]);
+        }
+
+        foreach ($model->activities as $activity) {
+            $writer->row('Object_Group', $activity['object_group']);
         }
 
         $bytes = $writer->finish();
@@ -125,6 +132,8 @@ class DatasetGenerator
         foreach ($model->locations as $location) {
             $writer->row('Location', $location);
         }
+
+        $this->writeActivityLocations($writer, $model);
 
         foreach ($spec->skills as $id => $description) {
             $writer->row('Skill', ['id' => $id, 'description' => $description]);
@@ -179,6 +188,43 @@ class DatasetGenerator
         }
 
         $this->writeExtraRegions($writer, $spec, $model->now);
+    }
+
+    /** Each activity's own Location and its Location_Region (stage 2): scheduling data in both modes. */
+    private function writeActivityLocations(DsScheduleDataWriter $writer, DatasetModel $model): void
+    {
+        foreach ($model->activities as $activity) {
+            $writer->row('Location', $activity['location']);
+        }
+
+        foreach ($model->activities as $activity) {
+            $writer->row('Location_Region', $activity['location_region']);
+        }
+    }
+
+    /** Stage 2's unallocated activities: Activity, then each one's skill, SLA rows and status. */
+    private function writeActivities(DsScheduleDataWriter $writer, DatasetModel $model, DatasetSummary $summary): void
+    {
+        foreach ($model->activities as $activity) {
+            $writer->row('Activity', $activity['activity']);
+            $summary->activity($activity);
+        }
+
+        foreach ($model->activities as $activity) {
+            if ($activity['skill'] !== null) {
+                $writer->row('Activity_Skill', $activity['skill']);
+            }
+        }
+
+        foreach ($model->activities as $activity) {
+            foreach ($activity['slas'] as $sla) {
+                $writer->row('Activity_SLA', $sla);
+            }
+        }
+
+        foreach ($model->activities as $activity) {
+            $writer->row('Activity_Status', $activity['status']);
+        }
     }
 
     /**

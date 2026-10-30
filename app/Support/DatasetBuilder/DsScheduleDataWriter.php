@@ -14,8 +14,11 @@ class DsScheduleDataWriter extends XmlRowWriter
     /** PSO's own output: never part of a LOAD. */
     private const array NEVER = ['Plan', 'Plan_Resource', 'Plan_Route', 'Allocation', 'Allocation_Data', 'Schedule_Exception', 'Schedule_Exception_Data', 'Schedule_Event'];
 
-    /** A LOAD beside modelling data: everything else is RAM's (stage 1R cheat sheet, slim mode). */
-    public const array SLIM = ['Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Shift', 'Shift_Break', 'Object_Group'];
+    /** A LOAD beside modelling data: everything else is RAM's (stage 1R cheat sheet, slim mode; stage 2 adds the activities and their locations). */
+    public const array SLIM = [
+        'Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Location', 'Location_Region', 'Shift', 'Shift_Break',
+        'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status', 'Object_Group',
+    ];
 
     /** @param  list<string>|null  $allowed  the only entities that may be written, or null for any */
     public function __construct(string $path, private readonly ?array $allowed = null)

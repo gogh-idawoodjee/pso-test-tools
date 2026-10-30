@@ -11,26 +11,32 @@ use Random\Randomizer;
 
 /**
  * Everything one generate run decides, made once: `now` in UTC, the update id
- * both files carry, and every location (the only random draws, all from one
- * seeded engine in spec order). The LOAD and the modelling data are both
- * written from this, so neither re-derives anything.
+ * both files carry, every home and depot location and (stage 2) the
+ * activities. The random draws all come from one seeded engine: homes first in
+ * spec order, then activities, so adding activities never moves a home. The
+ * LOAD and the modelling data are both written from this, so neither
+ * re-derives anything.
  */
 readonly class DatasetModel
 {
     /**
      * @param  list<array<string, string>>  $locations  Location fields: depots in region order, then homes in resource order
      * @param  array<string, string>  $startLocations  resource id => its start and end location id
+     * @param  list<array<string, mixed>>  $activities  ActivityFactory::activities()
      */
     private function __construct(
         public DatasetSpec $spec,
         public DateTimeImmutable $now,
         public array $locations,
         public array $startLocations,
+        public array $activities,
     ) {}
 
     public static function build(DatasetSpec $spec, DateTimeImmutable $now): self
     {
-        $factory = new LocationFactory(new Randomizer(new Mt19937($spec->seed)));
+        $random = new Randomizer(new Mt19937($spec->seed));
+        $factory = new LocationFactory($random);
+        $now = $now->setTimezone(new DateTimeZone('UTC'));
         $locations = [];
         $startLocations = [];
 
@@ -52,7 +58,7 @@ readonly class DatasetModel
             $startLocations[$resource->id] = $home['id'];
         }
 
-        return new self($spec, $now->setTimezone(new DateTimeZone('UTC')), $locations, $startLocations);
+        return new self($spec, $now, $locations, $startLocations, ActivityFactory::activities($spec, $now, $random, $factory));
     }
 
     /** Input_Reference.id and RAM_Update.id: the run's unix timestamp. */
