@@ -9,8 +9,9 @@ use DateTimeZone;
  * Stage 1R: the modelling (RAM, .arp) side of a dataset, from the same model as
  * its LOAD: divisions, locations, skills, types, the commit rule set,
  * resources, their divisions (an extra region bounded by a time pattern) and
- * skills, and per resource type a shift
- * category and a weekly shift template. No rota and no shifts: shifts keep
+ * skills, per resource type a shift category and a weekly shift template, and
+ * (stage 1R2) the activity reference data: SLA types, activity types and the
+ * regions' appointment templates. No rota and no shifts: shifts keep
  * coming from the LOAD, and the planner adds its own on top.
  *
  * Field names are the stage 1R cheat sheet's
@@ -179,6 +180,63 @@ class ModellingData
                     'duration' => $type->breakDuration,
                     'earliest_start' => $type->breakEarliestOffset,
                     'latest_start' => $type->breakLatestOffset,
+                ]);
+            }
+        }
+
+        foreach ($spec->slaTypes as $id => $type) {
+            $writer->row('RAM_SLA_Type', [
+                'id' => $id,
+                'description' => $type['description'],
+                'start_proportion' => $type['start_proportion'],
+                'end_proportion' => $type['end_proportion'],
+                'curve_shape' => $type['curve_shape'],
+                'activity_ageing_factor' => $type['activity_ageing_factor'],
+                'generate_jeopardy_exceptions' => $type['generate_jeopardy_exceptions'],
+                'ram_sla_mechanism_type_id' => $type['mechanism_type'],
+            ]);
+        }
+
+        foreach ($spec->activityTypes as $id => $type) {
+            $writer->row('RAM_Activity_Type', [
+                'id' => $id,
+                'description' => $type['description'],
+                'duration' => $type['duration'],
+                'base_value' => $type['base_value'],
+                'supply_locations' => 'false',
+                'split_allowed' => $type['split_allowed'],
+                'interrupt' => 'false',
+                'minimum_split' => $type['min_split'],
+                'cost_of_split' => $type['cost_of_split'],
+                'priority' => $type['priority'],
+                'on_location_duration_factor' => '1',
+            ]);
+        }
+
+        $templates = $model->appointmentTemplates();
+
+        // No slot usage rule set, and none of the scheduling-only template fields (stage 1R2 cheat sheet).
+        foreach ($templates as $template) {
+            $writer->row('RAM_Appointment_Template', [
+                'id' => $template['id'],
+                'description' => $template['description'],
+                'day_pattern' => $template['day_pattern'],
+                'number_of_slots' => $template['number_of_slots'],
+                'exclude_to_template_start' => 'false',
+                'start_based' => 'true',
+                'offer_expiry_window' => 'PT3M',
+                'default_template' => 'false',
+                'blocking' => 'false',
+                'time_zone' => $template['time_zone'],
+            ]);
+        }
+
+        foreach ($templates as $template) {
+            foreach ($template['items'] as $item) {
+                $writer->row('RAM_Appointment_Template_Item', [
+                    'ram_appointment_template_id' => $template['id'],
+                    'slot_start_time' => $item['start'],
+                    'slot_end_time' => $item['end'],
                 ]);
             }
         }

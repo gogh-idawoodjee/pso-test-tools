@@ -158,6 +158,157 @@
       "shift_category_colour": "#FFEF6C00"
     }
   },
+  "sla_types": {
+    "APPOINTMENT": {
+      "description": "Booked appointment window",
+      "start_proportion": 1,
+      "end_proportion": 0.9,
+      "curve_shape": 0.9,
+      "activity_ageing_factor": 1,
+      "generate_jeopardy_exceptions": true,
+      "mechanism_type": "POWER_BASED",
+      "revenue": 1000,
+      "penalty": 1000,
+      "cost": 0,
+      "early_sla_benefit": 0
+    },
+    "IN_SLA": {
+      "description": "Inside agreed window",
+      "start_proportion": 1,
+      "end_proportion": 1,
+      "curve_shape": 1,
+      "activity_ageing_factor": 1,
+      "generate_jeopardy_exceptions": true,
+      "mechanism_type": "POWER_BASED",
+      "revenue": 1000,
+      "penalty": 1000,
+      "cost": 0,
+      "early_sla_benefit": 0
+    },
+    "OUT_SLA": {
+      "description": "After the agreed window",
+      "start_proportion": 0.95,
+      "end_proportion": 0.9,
+      "curve_shape": 1,
+      "activity_ageing_factor": 1,
+      "generate_jeopardy_exceptions": false,
+      "mechanism_type": "POWER_BASED",
+      "revenue": 1000,
+      "penalty": 1000,
+      "cost": 0,
+      "early_sla_benefit": 0
+    },
+    "PROJECT": {
+      "description": "Project work, 10-day window",
+      "start_proportion": 1,
+      "end_proportion": 0.9,
+      "curve_shape": 1,
+      "activity_ageing_factor": 1,
+      "generate_jeopardy_exceptions": true,
+      "mechanism_type": "POWER_BASED",
+      "revenue": 1000,
+      "penalty": 1000,
+      "cost": 0,
+      "early_sla_benefit": 0
+    },
+    "EMERGENCY": {
+      "description": "Same-day emergency",
+      "start_proportion": 1,
+      "end_proportion": 0.8,
+      "curve_shape": 1,
+      "activity_ageing_factor": 1.1,
+      "generate_jeopardy_exceptions": true,
+      "mechanism_type": "POWER_BASED",
+      "revenue": 1000,
+      "penalty": 1000,
+      "cost": 0,
+      "early_sla_benefit": 0
+    }
+  },
+  "activity_types": {
+    "REPAIR": {
+      "description": "Repair",
+      "duration": "PT1H",
+      "base_value": 1000,
+      "split_allowed": false,
+      "min_split": "PT1H",
+      "cost_of_split": 0,
+      "priority": 1
+    },
+    "MAINT": {
+      "description": "Preventive maintenance",
+      "duration": "PT1H30M",
+      "base_value": 1000,
+      "split_allowed": false,
+      "min_split": "PT1H",
+      "cost_of_split": 0,
+      "priority": 1
+    },
+    "INSTALL": {
+      "description": "Installation",
+      "duration": "PT2H15M",
+      "base_value": 1000,
+      "split_allowed": false,
+      "min_split": "PT1H",
+      "cost_of_split": 0,
+      "priority": 1
+    },
+    "SURVEY": {
+      "description": "Site survey",
+      "duration": "PT45M",
+      "base_value": 1000,
+      "split_allowed": false,
+      "min_split": "PT1H",
+      "cost_of_split": 0,
+      "priority": 1
+    },
+    "PROJECT": {
+      "description": "Project work",
+      "duration": "PT12H",
+      "base_value": 1000,
+      "split_allowed": true,
+      "min_split": "PT2H",
+      "cost_of_split": 200,
+      "priority": 1
+    },
+    "EMERGENCY": {
+      "description": "Emergency callout",
+      "duration": "PT1H",
+      "base_value": 1000,
+      "split_allowed": false,
+      "min_split": "PT1H",
+      "cost_of_split": 0,
+      "priority": 1
+    }
+  },
+  "appointment_templates": {
+    "AMPM": {
+      "description": "AM/PM weekdays",
+      "day_pattern": "YYYYYNN",
+      "appointment_window_length": "PT4H",
+      "items": [
+        {
+          "start": "PT8H",
+          "end": "PT12H"
+        },
+        {
+          "start": "PT12H",
+          "end": "PT17H"
+        }
+      ]
+    },
+    "ALLDAY": {
+      "description": "all day weekdays",
+      "day_pattern": "YYYYYNN",
+      "appointment_window_length": "PT9H",
+      "items": [
+        {
+          "start": "PT8H",
+          "end": "PT17H"
+        }
+      ]
+    }
+  },
   "regions": [
     {
       "id": "CHI",
@@ -978,9 +1129,6 @@
   ],
   "_later_stages": {
     "note": "Read by stages 2–6 only. Shapes may change before then.",
-    "sla_types": {},
-    "activity_types": {},
-    "appointment_templates": {},
     "backlog": {},
     "defects": {}
   }

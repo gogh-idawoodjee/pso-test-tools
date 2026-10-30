@@ -148,6 +148,7 @@ class DatasetGenerator
         }
 
         $this->writeRuleSet($writer, $spec);
+        $this->writeActivityReferenceData($writer, $model);
 
         foreach ($spec->resources as $resource) {
             $type = $spec->resourceTypes[$resource->resourceType];
@@ -178,6 +179,81 @@ class DatasetGenerator
         }
 
         $this->writeExtraRegions($writer, $spec, $model->now);
+    }
+
+    /**
+     * The scheduling-side SLA types, activity types and appointment templates
+     * (stage 1R2 cheat sheet, last section): in modelling mode they are the
+     * .arp's instead.
+     */
+    private function writeActivityReferenceData(DsScheduleDataWriter $writer, DatasetModel $model): void
+    {
+        foreach ($model->spec->slaTypes as $id => $type) {
+            $writer->row('SLA_Type', [
+                'id' => $id,
+                'description' => $type['description'],
+                'revenue' => $type['revenue'],
+                'penalty' => $type['penalty'],
+                'cost' => $type['cost'],
+                'early_sla_benefit' => $type['early_sla_benefit'],
+                'mechanism_type' => $type['mechanism_type'],
+                'start_proportion' => $type['start_proportion'],
+                'end_proportion' => $type['end_proportion'],
+                'curve_shape' => $type['curve_shape'],
+                'activity_ageing_factor' => $type['activity_ageing_factor'],
+                'generate_jeopardy_exceptions' => $type['generate_jeopardy_exceptions'],
+            ]);
+        }
+
+        foreach ($model->spec->activityTypes as $id => $type) {
+            $writer->row('Activity_Type', [
+                'id' => $id,
+                'description' => $type['description'],
+                'duration' => $type['duration'],
+                'base_value' => $type['base_value'],
+                'split_allowed' => $type['split_allowed'],
+                'min_split' => $type['min_split'],
+                'interrupt' => 'false',
+                'cost_of_split' => $type['cost_of_split'],
+                'priority' => $type['priority'],
+                'on_location_duration_factor' => '1',
+                'remote_fulfillment' => 'false',
+                'ignore_days_old' => '1000',
+            ]);
+        }
+
+        $templates = $model->appointmentTemplates();
+
+        foreach ($templates as $template) {
+            $writer->row('Appointment_Template', [
+                'id' => $template['id'],
+                'description' => $template['description'],
+                'day_pattern' => $template['day_pattern'],
+                'number_of_slots' => $template['number_of_slots'],
+                'appointment_window_length' => $template['appointment_window_length'],
+                'template_start_day_of_week' => '1',
+                'template_start_time_of_day' => $template['items'][0]['start'],
+                'exclude_to_template_start' => 'false',
+                'time_zone' => $template['time_zone'],
+                'start_based' => 'true',
+                'offer_expiry_window' => 'PT3M',
+                'default_template' => 'false',
+                'blocking' => 'false',
+            ]);
+        }
+
+        // Each slot may be used across the template's whole day.
+        foreach ($templates as $template) {
+            foreach ($template['items'] as $item) {
+                $writer->row('Appointment_Template_Item', [
+                    'appointment_template_id' => $template['id'],
+                    'slot_start_time' => $item['start'],
+                    'slot_end_time' => $item['end'],
+                    'slot_usage_window_start' => $template['items'][0]['start'],
+                    'slot_usage_window_end' => end($template['items'])['end'],
+                ]);
+            }
+        }
     }
 
     private function writeRuleSet(DsScheduleDataWriter $writer, DatasetSpec $spec): void

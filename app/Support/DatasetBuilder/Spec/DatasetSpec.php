@@ -14,9 +14,12 @@ use Throwable;
  * A Dataset Builder seed spec (resources/datasets/{id}.json), validated. Stage 1
  * reads regions, skills, resource types, resources and the commit rule set;
  * stage 1R adds `modelling` (also write the .arp) and each type's
- * `shift_category_colour`. Everything else in the file (`_later_stages`,
- * `activity_cap`, the regions' `appointment_templates`) is kept in the JSON for
- * later stages and ignored here.
+ * `shift_category_colour`; stage 1R2 the activity reference data:
+ * `sla_types`, `activity_types`, `appointment_templates` (template kinds,
+ * made per region from the regions' `appointment_templates`). Everything else
+ * in the file (`_later_stages`, `activity_cap`) is kept in the JSON for later
+ * stages and ignored here. Reference data values are kept as the file text
+ * they become (numbers without trailing zeros, booleans as true/false).
  */
 readonly class DatasetSpec
 {
@@ -47,6 +50,9 @@ readonly class DatasetSpec
      * @param  array<string, string>  $skills  id => description
      * @param  array<string, ResourceTypeSpec>  $resourceTypes  by id, in spec order
      * @param  list<ResourceSpec>  $resources
+     * @param  array<string, array<string, string>>  $slaTypes  id => description, mechanism_type, curve and value fields
+     * @param  array<string, array<string, string>>  $activityTypes  id => description, duration, base_value, split_allowed, min_split, cost_of_split, priority
+     * @param  array<string, array{description: string, day_pattern: string, appointment_window_length: string, items: list<array{start: string, end: string}>}>  $appointmentTemplateKinds
      */
     public function __construct(
         public string $datasetId,
@@ -62,6 +68,9 @@ readonly class DatasetSpec
         public array $resourceTypes,
         public array $resources,
         public bool $modelling,
+        public array $slaTypes = [],
+        public array $activityTypes = [],
+        public array $appointmentTemplateKinds = [],
     ) {}
 
     public static function fromFile(string $path): self
@@ -113,10 +122,37 @@ readonly class DatasetSpec
             $skills[$id] = self::text($skill['description'] ?? null, "skills[{$index}].description");
         }
 
+        $slaTypes = [];
+
+        foreach ((array) ($data['sla_types'] ?? []) as $id => $type) {
+            $slaTypes[self::id((string) $id, 'sla_types key')] = self::slaType((string) $id, (array) $type);
+        }
+
+        $activityTypes = [];
+
+        foreach ((array) ($data['activity_types'] ?? []) as $id => $type) {
+            $activityTypes[self::id((string) $id, 'activity_types key')] = self::activityType((string) $id, (array) $type);
+        }
+
+        $templateKinds = [];
+
+        foreach ((array) ($data['appointment_templates'] ?? []) as $kind => $template) {
+            $templateKinds[(string) $kind] = self::templateKind((string) $kind, (array) $template);
+        }
+
         $regions = [];
 
         foreach (self::list($data['regions'] ?? null, 'regions') as $index => $region) {
             $region = self::region($region, "regions[{$index}]");
+
+            foreach ($region->appointmentTemplates as $kind) {
+                if (! isset($templateKinds[$kind])) {
+                    throw new InvalidDatasetSpec("Region {$region->id}: appointment template {$kind} is not in appointment_templates.");
+                }
+
+                self::id("{$region->id}-{$kind}", "Region {$region->id} appointment template id");
+            }
+
             $regions[$region->id] = $region;
         }
 
@@ -187,6 +223,9 @@ readonly class DatasetSpec
             resourceTypes: $resourceTypes,
             resources: $resources,
             modelling: $modelling,
+            slaTypes: $slaTypes,
+            activityTypes: $activityTypes,
+            appointmentTemplateKinds: $templateKinds,
         );
     }
 
@@ -195,7 +234,7 @@ readonly class DatasetSpec
         return new self(
             $this->datasetId, $this->organisationId, $this->description, $seed, $this->baseTimeZone, $this->horizonDays,
             $this->inputReference, $this->ruleCollection, $this->regions, $this->skills, $this->resourceTypes, $this->resources,
-            $this->modelling,
+            $this->modelling, $this->slaTypes, $this->activityTypes, $this->appointmentTemplateKinds,
         );
     }
 
@@ -275,6 +314,7 @@ readonly class DatasetSpec
             depot: $depot,
             streetNames: $streetNames,
             excludePolygons: $excludePolygons,
+            appointmentTemplates: array_values(array_map('strval', (array) ($region['appointment_templates'] ?? []))),
         );
     }
 
@@ -409,6 +449,94 @@ readonly class DatasetSpec
             extraRegions: $extraRegions,
             overrides: $overrides,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $type
+     * @return array<string, string>
+     */
+    private static function slaType(string $id, array $type): array
+    {
+        $path = "SLA type {$id}";
+        $fields = ['description' => self::text($type['description'] ?? null, "{$path} description")];
+
+        foreach (['revenue', 'penalty', 'cost', 'early_sla_benefit', 'start_proportion', 'end_proportion', 'curve_shape', 'activity_ageing_factor'] as $field) {
+            $fields[$field] = Decimal::format(self::number($type[$field] ?? null, "{$path} {$field}"));
+        }
+
+        $fields['generate_jeopardy_exceptions'] = self::boolean($type['generate_jeopardy_exceptions'] ?? null, "{$path} generate_jeopardy_exceptions");
+        $fields['mechanism_type'] = self::id($type['mechanism_type'] ?? null, "{$path} mechanism_type");
+
+        return $fields;
+    }
+
+    /**
+     * @param  array<string, mixed>  $type
+     * @return array<string, string>
+     */
+    private static function activityType(string $id, array $type): array
+    {
+        $path = "Activity type {$id}";
+
+        return [
+            'description' => self::text($type['description'] ?? null, "{$path} description"),
+            'duration' => self::duration($type['duration'] ?? null, "{$path} duration"),
+            'base_value' => Decimal::format(self::number($type['base_value'] ?? null, "{$path} base_value")),
+            'split_allowed' => self::boolean($type['split_allowed'] ?? null, "{$path} split_allowed"),
+            'min_split' => self::duration($type['min_split'] ?? null, "{$path} min_split"),
+            'cost_of_split' => Decimal::format(self::number($type['cost_of_split'] ?? null, "{$path} cost_of_split")),
+            'priority' => Decimal::format(self::number($type['priority'] ?? null, "{$path} priority")),
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $template
+     * @return array{description: string, day_pattern: string, appointment_window_length: string, items: list<array{start: string, end: string}>}
+     */
+    private static function templateKind(string $kind, array $template): array
+    {
+        $path = "Appointment template {$kind}";
+        $dayPattern = $template['day_pattern'] ?? null;
+
+        if (! is_string($dayPattern) || preg_match('/\A[YN]{7}\z/', $dayPattern) !== 1 || ! str_contains($dayPattern, 'Y')) {
+            throw new InvalidDatasetSpec("{$path}: day_pattern must be seven Y or N, Monday first, with at least one Y.");
+        }
+
+        $items = [];
+
+        foreach (self::list($template['items'] ?? null, "{$path} items") as $index => $item) {
+            $start = self::duration($item['start'] ?? null, "{$path} items[{$index}].start");
+            $end = self::duration($item['end'] ?? null, "{$path} items[{$index}].end");
+
+            if (self::seconds($end) <= self::seconds($start)) {
+                throw new InvalidDatasetSpec("{$path} items[{$index}]: the slot must end after it starts.");
+            }
+
+            $items[] = ['start' => $start, 'end' => $end];
+        }
+
+        return [
+            'description' => self::text($template['description'] ?? null, "{$path} description"),
+            'day_pattern' => $dayPattern,
+            'appointment_window_length' => self::duration($template['appointment_window_length'] ?? null, "{$path} appointment_window_length"),
+            'items' => $items,
+        ];
+    }
+
+    private static function boolean(mixed $value, string $path): string
+    {
+        if (! is_bool($value)) {
+            throw new InvalidDatasetSpec("{$path} must be true or false.");
+        }
+
+        return $value ? 'true' : 'false';
+    }
+
+    private static function seconds(string $duration): int
+    {
+        $start = new DateTimeImmutable('2000-01-01T00:00:00Z');
+
+        return $start->add(new DateInterval($duration))->getTimestamp() - $start->getTimestamp();
     }
 
     /** @return list<array<string, mixed>> */

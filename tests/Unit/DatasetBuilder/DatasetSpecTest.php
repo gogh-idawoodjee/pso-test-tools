@@ -96,6 +96,26 @@ it('refuses a spec it cannot generate from', function (Closure $change, string $
 
         return $data;
     }, 'Resource type SURVEYOR: shift_category_colour must be an ARGB colour'],
+    'a region asking for a template kind that does not exist' => [static function (array $data): array {
+        $data['regions'][0]['appointment_templates'][] = 'EVENINGS';
+
+        return $data;
+    }, 'Region CHI: appointment template EVENINGS is not in appointment_templates'],
+    'a bad day pattern' => [static function (array $data): array {
+        $data['appointment_templates']['AMPM']['day_pattern'] = 'YYYYY';
+
+        return $data;
+    }, 'Appointment template AMPM: day_pattern must be seven Y or N'],
+    'a slot ending before it starts' => [static function (array $data): array {
+        $data['appointment_templates']['ALLDAY']['items'][0]['end'] = 'PT7H';
+
+        return $data;
+    }, 'Appointment template ALLDAY items[0]: the slot must end after it starts'],
+    'split_allowed not a boolean' => [static function (array $data): array {
+        $data['activity_types']['PROJECT']['split_allowed'] = 'yes';
+
+        return $data;
+    }, 'Activity type PROJECT split_allowed must be true or false'],
     'shift ending before it starts' => [static function (array $data): array {
         $data['resource_types']['FIELD_TECH']['shift']['end'] = '07:00';
 

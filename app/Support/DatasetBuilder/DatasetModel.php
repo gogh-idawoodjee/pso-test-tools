@@ -65,4 +65,34 @@ readonly class DatasetModel
     {
         return $this->startLocations[$resource->id];
     }
+
+    /**
+     * One appointment template per region and kind the region lists, id
+     * {REGION}-{KIND}, in the region's own time zone. number_of_slots is the
+     * working days in the day pattern times the slots in a day.
+     *
+     * @return list<array{id: string, description: string, day_pattern: string, number_of_slots: string, appointment_window_length: string, time_zone: string, items: list<array{start: string, end: string}>}>
+     */
+    public function appointmentTemplates(): array
+    {
+        $templates = [];
+
+        foreach ($this->spec->regions as $region) {
+            foreach ($region->appointmentTemplates as $kind) {
+                $template = $this->spec->appointmentTemplateKinds[$kind];
+
+                $templates[] = [
+                    'id' => "{$region->id}-{$kind}",
+                    'description' => "{$region->description} {$template['description']}",
+                    'day_pattern' => $template['day_pattern'],
+                    'number_of_slots' => (string) (substr_count($template['day_pattern'], 'Y') * count($template['items'])),
+                    'appointment_window_length' => $template['appointment_window_length'],
+                    'time_zone' => $region->timeZone,
+                    'items' => $template['items'],
+                ];
+            }
+        }
+
+        return $templates;
+    }
 }

@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\File;
 
 const DATASET_BUILDER_EMIT_ORDER = [
     'Input_Reference', 'Region', 'Location', 'Skill', 'Resource_Type', 'Rule', 'Rule_Collection', 'Rule_Collection_Rule',
-    'Rule_Parameter', 'Resources', 'Resource_Region', 'Resource_Skill', 'Availability', 'Resource_Region_Availability',
+    'Rule_Parameter', 'SLA_Type', 'Activity_Type', 'Appointment_Template', 'Appointment_Template_Item', 'Resources', 'Resource_Region', 'Resource_Skill', 'Availability', 'Resource_Region_Availability',
     'Shift', 'Shift_Break', 'Object_Group',
 ];
 
@@ -23,6 +23,7 @@ const DATASET_BUILDER_RAM_EMIT_ORDER = [
     'RAM_Rule_Collection_Rule', 'RAM_Rule_Parameter', 'RAM_Resource', 'RAM_Resource_Division', 'RAM_Time_Pattern',
     'RAM_Resource_Division_Avail', 'RAM_Resource_Skill',
     'RAM_Shift_Category', 'RAM_Shift_Template', 'RAM_Shift_Template_Item', 'RAM_Shift_Template_Item_Break',
+    'RAM_SLA_Type', 'RAM_Activity_Type', 'RAM_Appointment_Template', 'RAM_Appointment_Template_Item',
 ];
 
 function datasetBuilderDirectory(): string
@@ -314,6 +315,8 @@ it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data R
         'RAM_Rule' => 'Rule', 'RAM_Rule_Collection' => 'Rule_Collection', 'RAM_Rule_Collection_Rule' => 'Rule_Collection_Rule',
         'RAM_Rule_Parameter' => 'Rule_Parameter', 'RAM_Resource' => 'Resources', 'RAM_Resource_Division' => 'Resource_Region',
         'RAM_Time_Pattern' => 'Availability', 'RAM_Resource_Division_Avail' => 'Resource_Region_Availability', 'RAM_Resource_Skill' => 'Resource_Skill',
+        'RAM_SLA_Type' => 'SLA_Type', 'RAM_Activity_Type' => 'Activity_Type', 'RAM_Appointment_Template' => 'Appointment_Template',
+        'RAM_Appointment_Template_Item' => 'Appointment_Template_Item',
     ];
     $ram = datasetEntityNames($result->modellingPath);
 
@@ -497,8 +500,8 @@ it('has templates that reproduce the first week of each type\'s loaded shifts, i
 it('counts what the brief expects in the .arp', function (string $id, array $counts) {
     expect(generateDataset($id)->summary['modelling']['counts'])->toMatchArray($counts);
 })->with([
-    'DC_US' => ['DC_US', ['RAM_Update' => 1, 'RAM_Division' => 6, 'RAM_Location' => 34, 'RAM_Resource' => 36, 'RAM_Resource_Division' => 38, 'RAM_Time_Pattern' => 2, 'RAM_Resource_Division_Avail' => 2, 'RAM_Resource_Type' => 4, 'RAM_Shift_Category' => 4, 'RAM_Shift_Template' => 4, 'RAM_Shift_Template_Item' => 19, 'RAM_Shift_Template_Item_Break' => 19]],
-    'DC_CA' => ['DC_CA', ['RAM_Update' => 1, 'RAM_Division' => 2, 'RAM_Location' => 11, 'RAM_Resource' => 12, 'RAM_Resource_Division' => 13, 'RAM_Time_Pattern' => 1, 'RAM_Resource_Division_Avail' => 1, 'RAM_Resource_Type' => 4, 'RAM_Shift_Category' => 4, 'RAM_Shift_Template' => 4, 'RAM_Shift_Template_Item' => 19, 'RAM_Shift_Template_Item_Break' => 19]],
+    'DC_US' => ['DC_US', ['RAM_SLA_Type' => 5, 'RAM_Activity_Type' => 6, 'RAM_Appointment_Template' => 10, 'RAM_Appointment_Template_Item' => 14, 'RAM_Update' => 1, 'RAM_Division' => 6, 'RAM_Location' => 34, 'RAM_Resource' => 36, 'RAM_Resource_Division' => 38, 'RAM_Time_Pattern' => 2, 'RAM_Resource_Division_Avail' => 2, 'RAM_Resource_Type' => 4, 'RAM_Shift_Category' => 4, 'RAM_Shift_Template' => 4, 'RAM_Shift_Template_Item' => 19, 'RAM_Shift_Template_Item_Break' => 19]],
+    'DC_CA' => ['DC_CA', ['RAM_SLA_Type' => 5, 'RAM_Activity_Type' => 6, 'RAM_Appointment_Template' => 3, 'RAM_Appointment_Template_Item' => 4, 'RAM_Update' => 1, 'RAM_Division' => 2, 'RAM_Location' => 11, 'RAM_Resource' => 12, 'RAM_Resource_Division' => 13, 'RAM_Time_Pattern' => 1, 'RAM_Resource_Division_Avail' => 1, 'RAM_Resource_Type' => 4, 'RAM_Shift_Category' => 4, 'RAM_Shift_Template' => 4, 'RAM_Shift_Template_Item' => 19, 'RAM_Shift_Template_Item_Break' => 19]],
 ]);
 
 it('builds the INSTALLER and CONTRACTOR templates the brief spells out', function () {
@@ -552,4 +555,136 @@ it('bounds each extra region in RAM with a time pattern from day -7 in that divi
             'override_priority' => '1',
         ])
         ->and(collect(datasetEntity($path, 'RAM_Resource_Division'))->where('ram_resource_id', 'R-DEN-001')->pluck('ram_division_id')->values()->all())->toBe(['DEN', 'MTN']);
+});
+
+it('models the activity reference data in the .arp, PROJECT the only splittable type', function () {
+    $path = generateDataset('DC_CA')->modellingPath;
+    $activityTypes = collect(datasetEntity($path, 'RAM_Activity_Type'))->keyBy('id');
+
+    expect($activityTypes->keys()->all())->toBe(['REPAIR', 'MAINT', 'INSTALL', 'SURVEY', 'PROJECT', 'EMERGENCY'])
+        ->and($activityTypes['PROJECT'])->toBe([
+            'id' => 'PROJECT',
+            'description' => 'Project work',
+            'duration' => 'PT12H',
+            'base_value' => '1000',
+            'supply_locations' => 'false',
+            'split_allowed' => 'true',
+            'interrupt' => 'false',
+            'minimum_split' => 'PT2H',
+            'cost_of_split' => '200',
+            'priority' => '1',
+            'on_location_duration_factor' => '1',
+        ])
+        ->and($activityTypes->where('split_allowed', 'true')->keys()->all())->toBe(['PROJECT'])
+        ->and($activityTypes['INSTALL']['duration'])->toBe('PT2H15M');
+
+    $slaTypes = collect(datasetEntity($path, 'RAM_SLA_Type'))->keyBy('id');
+
+    expect($slaTypes->keys()->all())->toBe(['APPOINTMENT', 'IN_SLA', 'OUT_SLA', 'PROJECT', 'EMERGENCY'])
+        ->and($slaTypes['IN_SLA'])->toBe([
+            'id' => 'IN_SLA',
+            'description' => 'Inside agreed window',
+            'start_proportion' => '1',
+            'end_proportion' => '1',
+            'curve_shape' => '1',
+            'activity_ageing_factor' => '1',
+            'generate_jeopardy_exceptions' => 'true',
+            'ram_sla_mechanism_type_id' => 'POWER_BASED',
+        ])
+        ->and($slaTypes['APPOINTMENT']['curve_shape'])->toBe('0.9')
+        ->and($slaTypes['OUT_SLA']['start_proportion'])->toBe('0.95')
+        ->and($slaTypes['OUT_SLA']['generate_jeopardy_exceptions'])->toBe('false')
+        ->and($slaTypes['EMERGENCY']['activity_ageing_factor'])->toBe('1.1');
+
+    $templates = collect(datasetEntity($path, 'RAM_Appointment_Template'))->keyBy('id');
+    $items = collect(datasetEntity($path, 'RAM_Appointment_Template_Item'))->groupBy('ram_appointment_template_id');
+
+    expect($templates->keys()->all())->toBe(['TOR-AMPM', 'TOR-ALLDAY', 'ONT_RURAL-ALLDAY'])
+        ->and($templates['TOR-AMPM'])->toBe([
+            'id' => 'TOR-AMPM',
+            'description' => 'Toronto Metro AM/PM weekdays',
+            'day_pattern' => 'YYYYYNN',
+            'number_of_slots' => '10',
+            'exclude_to_template_start' => 'false',
+            'start_based' => 'true',
+            'offer_expiry_window' => 'PT3M',
+            'default_template' => 'false',
+            'blocking' => 'false',
+            'time_zone' => 'America/Toronto',
+        ])
+        ->and($templates['ONT_RURAL-ALLDAY']['number_of_slots'])->toBe('5')
+        ->and($items['TOR-AMPM']->all())->toBe([
+            ['ram_appointment_template_id' => 'TOR-AMPM', 'slot_start_time' => 'PT8H', 'slot_end_time' => 'PT12H'],
+            ['ram_appointment_template_id' => 'TOR-AMPM', 'slot_start_time' => 'PT12H', 'slot_end_time' => 'PT17H'],
+        ])
+        ->and($items['TOR-ALLDAY']->all())->toBe([['ram_appointment_template_id' => 'TOR-ALLDAY', 'slot_start_time' => 'PT8H', 'slot_end_time' => 'PT17H']]);
+});
+
+it('makes each region\'s templates in its own zone, metros AM/PM and all day, rurals all day', function () {
+    $templates = collect(datasetEntity(generateDataset('DC_US')->modellingPath, 'RAM_Appointment_Template'));
+
+    expect($templates->pluck('time_zone', 'id')->all())->toBe([
+        'CHI-AMPM' => 'America/Chicago', 'CHI-ALLDAY' => 'America/Chicago',
+        'LAX-AMPM' => 'America/Los_Angeles', 'LAX-ALLDAY' => 'America/Los_Angeles',
+        'DFW-AMPM' => 'America/Chicago', 'DFW-ALLDAY' => 'America/Chicago',
+        'DEN-AMPM' => 'America/Denver', 'DEN-ALLDAY' => 'America/Denver',
+        'MTN-ALLDAY' => 'America/Denver', 'IOWA-ALLDAY' => 'America/Chicago',
+    ]);
+});
+
+it('puts the scheduling-side reference data in the LOAD when there is no modelling data', function () {
+    $path = generateStage1Dataset('DC_CA')->path;
+
+    expect(datasetEntity($path, 'SLA_Type')[1])->toBe([
+        'id' => 'IN_SLA',
+        'description' => 'Inside agreed window',
+        'revenue' => '1000',
+        'penalty' => '1000',
+        'cost' => '0',
+        'early_sla_benefit' => '0',
+        'mechanism_type' => 'POWER_BASED',
+        'start_proportion' => '1',
+        'end_proportion' => '1',
+        'curve_shape' => '1',
+        'activity_ageing_factor' => '1',
+        'generate_jeopardy_exceptions' => 'true',
+    ])
+        ->and(collect(datasetEntity($path, 'Activity_Type'))->firstWhere('id', 'PROJECT'))->toBe([
+            'id' => 'PROJECT',
+            'description' => 'Project work',
+            'duration' => 'PT12H',
+            'base_value' => '1000',
+            'split_allowed' => 'true',
+            'min_split' => 'PT2H',
+            'interrupt' => 'false',
+            'cost_of_split' => '200',
+            'priority' => '1',
+            'on_location_duration_factor' => '1',
+            'remote_fulfillment' => 'false',
+            'ignore_days_old' => '1000',
+        ])
+        ->and(datasetEntity($path, 'Appointment_Template')[0])->toBe([
+            'id' => 'TOR-AMPM',
+            'description' => 'Toronto Metro AM/PM weekdays',
+            'day_pattern' => 'YYYYYNN',
+            'number_of_slots' => '10',
+            'appointment_window_length' => 'PT4H',
+            'template_start_day_of_week' => '1',
+            'template_start_time_of_day' => 'PT8H',
+            'exclude_to_template_start' => 'false',
+            'time_zone' => 'America/Toronto',
+            'start_based' => 'true',
+            'offer_expiry_window' => 'PT3M',
+            'default_template' => 'false',
+            'blocking' => 'false',
+        ])
+        ->and(datasetEntity($path, 'Appointment_Template_Item')[1])->toBe([
+            'appointment_template_id' => 'TOR-AMPM',
+            'slot_start_time' => 'PT12H',
+            'slot_end_time' => 'PT17H',
+            'slot_usage_window_start' => 'PT8H',
+            'slot_usage_window_end' => 'PT17H',
+        ])
+        ->and(datasetEntity($path, 'Appointment_Template'))->toHaveCount(3)
+        ->and(datasetEntity($path, 'Appointment_Template_Item'))->toHaveCount(4);
 });
