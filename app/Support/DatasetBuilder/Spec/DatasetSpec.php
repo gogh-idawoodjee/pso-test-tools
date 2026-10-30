@@ -1,0 +1,433 @@
+<?php
+
+namespace App\Support\DatasetBuilder\Spec;
+
+use App\Support\DatasetBuilder\InvalidDatasetSpec;
+use DateInterval;
+use DateTimeImmutable;
+use DateTimeZone;
+use JsonException;
+use Throwable;
+
+/**
+ * A Dataset Builder seed spec (resources/datasets/{id}.json), validated. Stage 1
+ * reads regions, skills, resource types, resources and the commit rule set;
+ * everything else in the file (`_later_stages`, `activity_cap`, the regions'
+ * `appointment_templates`) is kept in the JSON for later stages and ignored here.
+ */
+readonly class DatasetSpec
+{
+    public const int MAX_ID_LENGTH = 32;
+
+    /**
+     * @param  array{duration: string, appointment_window_duration: string, process_type: string}  $inputReference
+     * @param  array{id: string, parameters: array<string, string>}  $ruleCollection
+     * @param  array<string, RegionSpec>  $regions  by id, in spec order
+     * @param  array<string, string>  $skills  id => description
+     * @param  array<string, ResourceTypeSpec>  $resourceTypes  by id, in spec order
+     * @param  list<ResourceSpec>  $resources
+     */
+    public function __construct(
+        public string $datasetId,
+        public string $organisationId,
+        public string $description,
+        public int $seed,
+        public string $baseTimeZone,
+        public int $horizonDays,
+        public array $inputReference,
+        public array $ruleCollection,
+        public array $regions,
+        public array $skills,
+        public array $resourceTypes,
+        public array $resources,
+    ) {}
+
+    public static function fromFile(string $path): self
+    {
+        if (! is_file($path)) {
+            throw new InvalidDatasetSpec("No seed spec at {$path}.");
+        }
+
+        try {
+            $data = json_decode((string) file_get_contents($path), true, 64, JSON_THROW_ON_ERROR);
+        } catch (JsonException $exception) {
+            throw new InvalidDatasetSpec(basename($path).' is not valid JSON: '.$exception->getMessage(), previous: $exception);
+        }
+
+        if (! is_array($data)) {
+            throw new InvalidDatasetSpec(basename($path).' does not hold a JSON object.');
+        }
+
+        return self::fromArray($data);
+    }
+
+    /** @param array<string, mixed> $data */
+    public static function fromArray(array $data): self
+    {
+        $datasetId = self::id($data['dataset_id'] ?? null, 'dataset_id');
+
+        $inputReference = [
+            'duration' => self::duration($data['input_reference']['duration'] ?? null, 'input_reference.duration'),
+            'appointment_window_duration' => self::duration($data['input_reference']['appointment_window_duration'] ?? null, 'input_reference.appointment_window_duration'),
+            'process_type' => self::text($data['input_reference']['process_type'] ?? null, 'input_reference.process_type'),
+        ];
+
+        $horizonDays = $data['horizon_days'] ?? null;
+
+        if (! is_int($horizonDays) || $horizonDays < 1) {
+            throw new InvalidDatasetSpec('horizon_days must be a whole number of days, 1 or more.');
+        }
+
+        $windowDays = self::days($inputReference['duration']) + self::days($inputReference['appointment_window_duration']);
+
+        if ($horizonDays < $windowDays) {
+            throw new InvalidDatasetSpec("horizon_days is {$horizonDays}, but the DSE window plus the appointment window is {$windowDays} days: shifts must cover both.");
+        }
+
+        $skills = [];
+
+        foreach (self::list($data['skills'] ?? null, 'skills') as $index => $skill) {
+            $id = self::id($skill['id'] ?? null, "skills[{$index}].id");
+            $skills[$id] = self::text($skill['description'] ?? null, "skills[{$index}].description");
+        }
+
+        $regions = [];
+
+        foreach (self::list($data['regions'] ?? null, 'regions') as $index => $region) {
+            $region = self::region($region, "regions[{$index}]");
+            $regions[$region->id] = $region;
+        }
+
+        $resourceTypes = [];
+
+        foreach ((array) ($data['resource_types'] ?? []) as $id => $type) {
+            $resourceTypes[(string) $id] = self::resourceType((string) $id, (array) $type);
+        }
+
+        if ($resourceTypes === []) {
+            throw new InvalidDatasetSpec('resource_types is missing or empty.');
+        }
+
+        $resources = [];
+        $seen = [];
+
+        foreach (self::list($data['resources'] ?? null, 'resources') as $index => $resource) {
+            $resource = self::resource($index + 1, (array) $resource, $regions, $skills, $resourceTypes);
+
+            if (isset($seen[$resource->id])) {
+                throw new InvalidDatasetSpec("Resource {$resource->id} appears twice.");
+            }
+
+            // Object_Group id: {dataset}-{resource}.
+            self::id("{$datasetId}-{$resource->id}", "Resource {$resource->id} object group id");
+
+            $seen[$resource->id] = true;
+            $resources[] = $resource;
+        }
+
+        if (count($resources) > 999) {
+            throw new InvalidDatasetSpec('At most 999 resources: shift ids carry the resource number in three digits.');
+        }
+
+        $ruleCollection = (array) ($data['rule_collection'] ?? []);
+        $ruleId = self::id($ruleCollection['id'] ?? null, 'rule_collection.id');
+        unset($ruleCollection['id']);
+
+        $parameters = [];
+
+        foreach ($ruleCollection as $name => $value) {
+            $parameters[(string) $name] = is_bool($value) ? ($value ? 'true' : 'false') : (string) $value;
+        }
+
+        $seed = $data['seed'] ?? null;
+
+        if (! is_int($seed)) {
+            throw new InvalidDatasetSpec('seed must be a whole number.');
+        }
+
+        return new self(
+            datasetId: $datasetId,
+            organisationId: self::text($data['organisation_id'] ?? null, 'organisation_id'),
+            description: self::text($data['description'] ?? null, 'description'),
+            seed: $seed,
+            baseTimeZone: self::timeZone($data['base_time_zone'] ?? null, 'base_time_zone'),
+            horizonDays: $horizonDays,
+            inputReference: $inputReference,
+            ruleCollection: ['id' => $ruleId, 'parameters' => $parameters],
+            regions: $regions,
+            skills: $skills,
+            resourceTypes: $resourceTypes,
+            resources: $resources,
+        );
+    }
+
+    public function withSeed(int $seed): self
+    {
+        return new self(
+            $this->datasetId, $this->organisationId, $this->description, $seed, $this->baseTimeZone, $this->horizonDays,
+            $this->inputReference, $this->ruleCollection, $this->regions, $this->skills, $this->resourceTypes, $this->resources,
+        );
+    }
+
+    /** @param array<string, mixed> $region */
+    private static function region(mixed $region, string $path): RegionSpec
+    {
+        $region = (array) $region;
+        $id = self::id($region['id'] ?? null, "{$path}.id");
+        $kind = $region['kind'] ?? null;
+
+        if (! in_array($kind, ['metro', 'rural'], true)) {
+            throw new InvalidDatasetSpec("Region {$id}: kind must be metro or rural.");
+        }
+
+        $centroids = [];
+
+        foreach (self::list($region['centroids'] ?? null, "Region {$id} centroids") as $index => $centroid) {
+            $centroids[] = [
+                'label' => self::text($centroid['label'] ?? null, "Region {$id} centroids[{$index}].label"),
+                'lat' => self::number($centroid['lat'] ?? null, "Region {$id} centroids[{$index}].lat"),
+                'lon' => self::number($centroid['lon'] ?? null, "Region {$id} centroids[{$index}].lon"),
+                'weight' => max(1, (int) ($centroid['weight'] ?? 1)),
+            ];
+        }
+
+        if ($kind === 'rural' && count($centroids) < 2) {
+            throw new InvalidDatasetSpec("Region {$id} is rural, so it needs at least two centroids to lay homes along.");
+        }
+
+        $depot = $region['depot'] ?? null;
+
+        if ($depot !== null) {
+            $depot = [
+                'lat' => self::number($depot['lat'] ?? null, "Region {$id} depot.lat"),
+                'lon' => self::number($depot['lon'] ?? null, "Region {$id} depot.lon"),
+                'address_line1' => self::text($depot['address_line1'] ?? null, "Region {$id} depot.address_line1"),
+                'city' => self::text($depot['city'] ?? null, "Region {$id} depot.city"),
+                'postcode' => self::text($depot['postcode'] ?? null, "Region {$id} depot.postcode"),
+            ];
+        }
+
+        $streetNames = array_values(array_map('strval', (array) ($region['street_names'] ?? [])));
+
+        if ($streetNames === []) {
+            throw new InvalidDatasetSpec("Region {$id} needs street_names for its addresses.");
+        }
+
+        $excludePolygons = [];
+
+        foreach ((array) ($region['exclude_polygons'] ?? []) as $index => $ring) {
+            $points = [];
+
+            foreach ((array) $ring as $point) {
+                if (! is_array($point) || count($point) !== 2) {
+                    throw new InvalidDatasetSpec("Region {$id} exclude_polygons[{$index}]: each point must be [lat, lon].");
+                }
+
+                $points[] = [self::number($point[0], "Region {$id} exclude_polygons[{$index}] lat"), self::number($point[1], "Region {$id} exclude_polygons[{$index}] lon")];
+            }
+
+            if (count($points) < 3) {
+                throw new InvalidDatasetSpec("Region {$id} exclude_polygons[{$index}] needs at least three points.");
+            }
+
+            $excludePolygons[] = $points;
+        }
+
+        return new RegionSpec(
+            id: $id,
+            description: self::text($region['description'] ?? null, "Region {$id} description"),
+            kind: $kind,
+            timeZone: self::timeZone($region['time_zone'] ?? null, "Region {$id} time_zone"),
+            state: self::text($region['state'] ?? null, "Region {$id} state"),
+            postcodePrefix: self::text($region['postcode_prefix'] ?? null, "Region {$id} postcode_prefix"),
+            centroids: $centroids,
+            spreadKm: self::number($region['spread_km'] ?? null, "Region {$id} spread_km"),
+            depot: $depot,
+            streetNames: $streetNames,
+            excludePolygons: $excludePolygons,
+        );
+    }
+
+    /** @param array<string, mixed> $type */
+    private static function resourceType(string $id, array $type): ResourceTypeSpec
+    {
+        self::id($id, 'resource_types key');
+        $days = array_values((array) ($type['shift']['days'] ?? []));
+
+        if ($days === [] || array_filter($days, static fn (mixed $day): bool => ! is_int($day) || $day < 1 || $day > 7) !== []) {
+            throw new InvalidDatasetSpec("Resource type {$id}: shift.days must list ISO weekdays, 1 (Monday) to 7 (Sunday).");
+        }
+
+        $start = self::clock($type['shift']['start'] ?? null, "Resource type {$id} shift.start");
+        $end = self::clock($type['shift']['end'] ?? null, "Resource type {$id} shift.end");
+
+        if ($end <= $start) {
+            throw new InvalidDatasetSpec("Resource type {$id}: the shift must end after it starts on the same day.");
+        }
+
+        $startEnd = $type['start_end'] ?? null;
+
+        if (! in_array($startEnd, ['home', 'depot'], true)) {
+            throw new InvalidDatasetSpec("Resource type {$id}: start_end must be home or depot.");
+        }
+
+        return new ResourceTypeSpec(
+            id: $id,
+            description: self::text($type['description'] ?? null, "Resource type {$id} description"),
+            shiftDays: $days,
+            shiftStart: $start,
+            shiftEnd: $end,
+            breakDuration: self::duration($type['break']['duration'] ?? null, "Resource type {$id} break.duration"),
+            breakEarliestOffset: self::duration($type['break']['earliest_offset'] ?? null, "Resource type {$id} break.earliest_offset"),
+            breakLatestOffset: self::duration($type['break']['latest_offset'] ?? null, "Resource type {$id} break.latest_offset"),
+            startEnd: $startEnd,
+            travelTo: self::duration($type['travel_to'] ?? null, "Resource type {$id} travel_to"),
+            travelFrom: self::duration($type['travel_from'] ?? null, "Resource type {$id} travel_from"),
+            maxTravel: self::duration($type['max_travel'] ?? null, "Resource type {$id} max_travel"),
+            costPh: self::number($type['cost_ph'] ?? null, "Resource type {$id} cost_ph"),
+            costPhot: self::number($type['cost_phot'] ?? null, "Resource type {$id} cost_phot"),
+            costKm: self::number($type['cost_km'] ?? null, "Resource type {$id} cost_km"),
+            utilisation: (int) self::number($type['utilisation'] ?? null, "Resource type {$id} utilisation"),
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $resource
+     * @param  array<string, RegionSpec>  $regions
+     * @param  array<string, string>  $skills
+     * @param  array<string, ResourceTypeSpec>  $resourceTypes
+     */
+    private static function resource(int $sequence, array $resource, array $regions, array $skills, array $resourceTypes): ResourceSpec
+    {
+        $id = self::id($resource['id'] ?? null, "resources[{$sequence}].id");
+        $region = (string) ($resource['region'] ?? '');
+        $type = (string) ($resource['resource_type'] ?? '');
+
+        if (! isset($regions[$region])) {
+            throw new InvalidDatasetSpec("Resource {$id}: region {$region} is not in regions.");
+        }
+
+        if (! isset($resourceTypes[$type])) {
+            throw new InvalidDatasetSpec("Resource {$id}: resource_type {$type} is not in resource_types.");
+        }
+
+        if ($resourceTypes[$type]->startsAtDepot() && $regions[$region]->depot === null) {
+            throw new InvalidDatasetSpec("Resource {$id} is a {$type}, which starts at a depot, but region {$region} has no depot.");
+        }
+
+        $resourceSkills = array_values(array_map('strval', (array) ($resource['skills'] ?? [])));
+
+        foreach ($resourceSkills as $skill) {
+            if (! isset($skills[$skill])) {
+                throw new InvalidDatasetSpec("Resource {$id}: skill {$skill} is not in skills.");
+            }
+        }
+
+        $extraRegions = array_values(array_map('strval', (array) ($resource['extra_regions'] ?? [])));
+
+        foreach ($extraRegions as $extra) {
+            if (! isset($regions[$extra]) || $extra === $region) {
+                throw new InvalidDatasetSpec("Resource {$id}: extra region {$extra} must be another region in regions.");
+            }
+
+            // Availability ids: AV-{resource}-{region}, RRA-{resource}-{region}.
+            self::id("RRA-{$id}-{$extra}", "Resource {$id} extra region {$extra} availability id");
+        }
+
+        self::id("H-{$id}", "Resource {$id} home location id");
+
+        return new ResourceSpec(
+            sequence: $sequence,
+            id: $id,
+            firstName: self::text($resource['first_name'] ?? null, "Resource {$id} first_name"),
+            surname: self::text($resource['surname'] ?? null, "Resource {$id} surname"),
+            region: $region,
+            resourceType: $type,
+            skills: $resourceSkills,
+            extraRegions: $extraRegions,
+            utilisation: isset($resource['utilisation']) ? (int) $resource['utilisation'] : null,
+        );
+    }
+
+    /** @return list<array<string, mixed>> */
+    private static function list(mixed $value, string $path): array
+    {
+        if (! is_array($value) || $value === [] || ! array_is_list($value)) {
+            throw new InvalidDatasetSpec("{$path} must be a non-empty list.");
+        }
+
+        return $value;
+    }
+
+    private static function id(mixed $value, string $path): string
+    {
+        $value = self::text($value, $path);
+
+        if (strlen($value) > self::MAX_ID_LENGTH) {
+            throw new InvalidDatasetSpec("{$path} '{$value}' is longer than ".self::MAX_ID_LENGTH.' characters.');
+        }
+
+        return $value;
+    }
+
+    private static function text(mixed $value, string $path): string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            throw new InvalidDatasetSpec("{$path} is missing or blank.");
+        }
+
+        return $value;
+    }
+
+    private static function number(mixed $value, string $path): float
+    {
+        if (! is_int($value) && ! is_float($value)) {
+            throw new InvalidDatasetSpec("{$path} must be a number.");
+        }
+
+        return (float) $value;
+    }
+
+    private static function duration(mixed $value, string $path): string
+    {
+        $value = self::text($value, $path);
+
+        try {
+            new DateInterval($value);
+        } catch (Throwable) {
+            throw new InvalidDatasetSpec("{$path} '{$value}' is not an ISO 8601 duration such as PT30M or P7D.");
+        }
+
+        return $value;
+    }
+
+    private static function clock(mixed $value, string $path): string
+    {
+        if (! is_string($value) || preg_match('/\A([01]\d|2[0-3]):[0-5]\d\z/', $value) !== 1) {
+            throw new InvalidDatasetSpec("{$path} must be a local time HH:MM.");
+        }
+
+        return $value;
+    }
+
+    private static function timeZone(mixed $value, string $path): string
+    {
+        $value = self::text($value, $path);
+
+        try {
+            new DateTimeZone($value);
+        } catch (Throwable) {
+            throw new InvalidDatasetSpec("{$path} '{$value}' is not an IANA time zone such as America/Chicago.");
+        }
+
+        return $value;
+    }
+
+    /** Whole days in an ISO duration, counted from a fixed date (P1M is a calendar month). */
+    private static function days(string $duration): int
+    {
+        $start = new DateTimeImmutable('2000-01-01T00:00:00Z');
+
+        return (int) ceil(($start->add(new DateInterval($duration))->getTimestamp() - $start->getTimestamp()) / 86400);
+    }
+}

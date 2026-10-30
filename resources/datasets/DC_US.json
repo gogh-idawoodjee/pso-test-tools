@@ -1,0 +1,982 @@
+{
+  "dataset_id": "DC_US",
+  "organisation_id": "2",
+  "description": "DC demo dataset — United States",
+  "seed": 1938,
+  "base_time_zone": "America/Chicago",
+  "horizon_days": 100,
+  "activity_cap": 750,
+  "input_reference": {
+    "duration": "P7D",
+    "appointment_window_duration": "P90D",
+    "process_type": "APPOINTMENT"
+  },
+  "rule_collection": {
+    "id": "STD",
+    "MaximumCommittedActivities": 2,
+    "CommitBreaks": false,
+    "CountBreaks": false,
+    "LogonRequired": false
+  },
+  "skills": [
+    {
+      "id": "ELEC",
+      "description": "Electrical"
+    },
+    {
+      "id": "NET",
+      "description": "Network / data"
+    },
+    {
+      "id": "HVAC",
+      "description": "HVAC"
+    },
+    {
+      "id": "FIBRE",
+      "description": "Fibre splicing"
+    },
+    {
+      "id": "COMMERCIAL",
+      "description": "Commercial premises"
+    },
+    {
+      "id": "SAFETY_CERT",
+      "description": "Confined space / height certified"
+    }
+  ],
+  "resource_types": {
+    "FIELD_TECH": {
+      "description": "Field Technician",
+      "shift": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "08:00",
+        "end": "16:30"
+      },
+      "break": {
+        "duration": "PT30M",
+        "earliest_offset": "PT3H",
+        "latest_offset": "PT5H"
+      },
+      "start_end": "home",
+      "travel_to": "PT1H",
+      "travel_from": "PT1H",
+      "max_travel": "PT3H",
+      "cost_ph": 45,
+      "cost_phot": 68,
+      "cost_km": 0.6,
+      "utilisation": 100
+    },
+    "SENIOR_TECH": {
+      "description": "Senior Technician",
+      "shift": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "07:30",
+        "end": "16:00"
+      },
+      "break": {
+        "duration": "PT30M",
+        "earliest_offset": "PT3H",
+        "latest_offset": "PT5H"
+      },
+      "start_end": "home",
+      "travel_to": "PT1H",
+      "travel_from": "PT1H",
+      "max_travel": "PT3H",
+      "cost_ph": 65,
+      "cost_phot": 98,
+      "cost_km": 0.6,
+      "utilisation": 90
+    },
+    "INSTALLER": {
+      "description": "Installer (4x10)",
+      "shift": {
+        "days": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "start": "07:00",
+        "end": "17:30"
+      },
+      "break": {
+        "duration": "PT45M",
+        "earliest_offset": "PT4H",
+        "latest_offset": "PT5H30M"
+      },
+      "start_end": "depot",
+      "travel_to": "PT1H30M",
+      "travel_from": "PT1H30M",
+      "max_travel": "PT3H",
+      "cost_ph": 50,
+      "cost_phot": 75,
+      "cost_km": 0.6,
+      "utilisation": 100
+    },
+    "CONTRACTOR": {
+      "description": "Contractor",
+      "shift": {
+        "days": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "09:00",
+        "end": "17:00"
+      },
+      "break": {
+        "duration": "PT30M",
+        "earliest_offset": "PT3H",
+        "latest_offset": "PT5H"
+      },
+      "start_end": "home",
+      "travel_to": "PT1H",
+      "travel_from": "PT1H",
+      "max_travel": "PT2H",
+      "cost_ph": 120,
+      "cost_phot": 180,
+      "cost_km": 1.1,
+      "utilisation": 100
+    }
+  },
+  "regions": [
+    {
+      "id": "CHI",
+      "description": "Chicago Metro",
+      "kind": "metro",
+      "time_zone": "America/Chicago",
+      "state": "IL",
+      "postcode_prefix": "606",
+      "centroids": [
+        {
+          "label": "Chicago",
+          "lat": 41.8781,
+          "lon": -87.6298,
+          "weight": 5
+        },
+        {
+          "label": "Evanston",
+          "lat": 42.0451,
+          "lon": -87.6877,
+          "weight": 1
+        },
+        {
+          "label": "Oak Park",
+          "lat": 41.885,
+          "lon": -87.7845,
+          "weight": 1
+        },
+        {
+          "label": "Naperville",
+          "lat": 41.7508,
+          "lon": -88.1535,
+          "weight": 1
+        }
+      ],
+      "spread_km": 12,
+      "depot": {
+        "lat": 41.856,
+        "lon": -87.652,
+        "address_line1": "2400 Wayne Industrial Pkwy",
+        "city": "Chicago",
+        "postcode": "60616"
+      },
+      "street_names": [
+        "Wayne",
+        "Gordon",
+        "Pennyworth",
+        "Grayson",
+        "Kane",
+        "Crime Alley",
+        "Park Row",
+        "Finger",
+        "Sprang",
+        "Aparo"
+      ],
+      "appointment_templates": [
+        "AMPM",
+        "ALLDAY"
+      ],
+      "exclude_polygons": [
+        [
+          [
+            42.4,
+            -87.81
+          ],
+          [
+            42.2,
+            -87.75
+          ],
+          [
+            42.06,
+            -87.67
+          ],
+          [
+            41.98,
+            -87.645
+          ],
+          [
+            41.9,
+            -87.615
+          ],
+          [
+            41.86,
+            -87.605
+          ],
+          [
+            41.8,
+            -87.58
+          ],
+          [
+            41.76,
+            -87.545
+          ],
+          [
+            41.7,
+            -87.52
+          ],
+          [
+            41.66,
+            -87.45
+          ],
+          [
+            41.6,
+            -87.0
+          ],
+          [
+            42.4,
+            -87.0
+          ]
+        ]
+      ]
+    },
+    {
+      "id": "LAX",
+      "description": "Los Angeles Metro",
+      "kind": "metro",
+      "time_zone": "America/Los_Angeles",
+      "state": "CA",
+      "postcode_prefix": "900",
+      "centroids": [
+        {
+          "label": "Los Angeles",
+          "lat": 34.0522,
+          "lon": -118.2437,
+          "weight": 4
+        },
+        {
+          "label": "Santa Monica",
+          "lat": 34.0195,
+          "lon": -118.4912,
+          "weight": 1
+        },
+        {
+          "label": "Pasadena",
+          "lat": 34.1478,
+          "lon": -118.1445,
+          "weight": 1
+        },
+        {
+          "label": "Long Beach",
+          "lat": 33.7701,
+          "lon": -118.1937,
+          "weight": 1
+        },
+        {
+          "label": "Burbank",
+          "lat": 34.1808,
+          "lon": -118.309,
+          "weight": 1
+        }
+      ],
+      "spread_km": 15,
+      "depot": {
+        "lat": 34.03,
+        "lon": -118.23,
+        "address_line1": "1 Ferris Aircraft Way",
+        "city": "Los Angeles",
+        "postcode": "90021"
+      },
+      "street_names": [
+        "Ferris",
+        "Jordan",
+        "Oa",
+        "Sector",
+        "Coast City",
+        "Lantern",
+        "Rayner",
+        "Stewart",
+        "Gardner",
+        "Broome"
+      ],
+      "appointment_templates": [
+        "AMPM",
+        "ALLDAY"
+      ]
+    },
+    {
+      "id": "DFW",
+      "description": "Dallas–Fort Worth",
+      "kind": "metro",
+      "time_zone": "America/Chicago",
+      "state": "TX",
+      "postcode_prefix": "752",
+      "centroids": [
+        {
+          "label": "Dallas",
+          "lat": 32.7767,
+          "lon": -96.797,
+          "weight": 3
+        },
+        {
+          "label": "Fort Worth",
+          "lat": 32.7555,
+          "lon": -97.3308,
+          "weight": 2
+        },
+        {
+          "label": "Arlington",
+          "lat": 32.7357,
+          "lon": -97.1081,
+          "weight": 1
+        },
+        {
+          "label": "Plano",
+          "lat": 33.0198,
+          "lon": -96.6989,
+          "weight": 1
+        }
+      ],
+      "spread_km": 12,
+      "depot": {
+        "lat": 32.79,
+        "lon": -96.82,
+        "address_line1": "1956 Central City Blvd",
+        "city": "Dallas",
+        "postcode": "75207"
+      },
+      "street_names": [
+        "Allen",
+        "Garrick",
+        "Keystone",
+        "Central City",
+        "Infantino",
+        "Kanigher",
+        "Fox",
+        "Speed Force",
+        "Thawne",
+        "Mercury"
+      ],
+      "appointment_templates": [
+        "AMPM",
+        "ALLDAY"
+      ]
+    },
+    {
+      "id": "DEN",
+      "description": "Denver Metro",
+      "kind": "metro",
+      "time_zone": "America/Denver",
+      "state": "CO",
+      "postcode_prefix": "802",
+      "centroids": [
+        {
+          "label": "Denver",
+          "lat": 39.7392,
+          "lon": -104.9903,
+          "weight": 4
+        },
+        {
+          "label": "Aurora",
+          "lat": 39.7294,
+          "lon": -104.8319,
+          "weight": 1
+        },
+        {
+          "label": "Lakewood",
+          "lat": 39.7047,
+          "lon": -105.0814,
+          "weight": 1
+        },
+        {
+          "label": "Boulder",
+          "lat": 40.015,
+          "lon": -105.2705,
+          "weight": 1
+        }
+      ],
+      "spread_km": 12,
+      "depot": {
+        "lat": 39.76,
+        "lon": -105.0,
+        "address_line1": "4000 Midway City Rd",
+        "city": "Denver",
+        "postcode": "80216"
+      },
+      "street_names": [
+        "Hall",
+        "Hol",
+        "Saunders",
+        "Palmer",
+        "Kord",
+        "Carter",
+        "Thanagar",
+        "Midway",
+        "Ivy Town",
+        "Hawk"
+      ],
+      "appointment_templates": [
+        "AMPM",
+        "ALLDAY"
+      ]
+    },
+    {
+      "id": "MTN",
+      "description": "Front Range Mountain (Denver overflow)",
+      "kind": "rural",
+      "time_zone": "America/Denver",
+      "state": "CO",
+      "postcode_prefix": "804",
+      "centroids": [
+        {
+          "label": "Evergreen",
+          "lat": 39.6333,
+          "lon": -105.3172,
+          "weight": 1
+        },
+        {
+          "label": "Conifer",
+          "lat": 39.5214,
+          "lon": -105.3058,
+          "weight": 1
+        },
+        {
+          "label": "Idaho Springs",
+          "lat": 39.7425,
+          "lon": -105.5133,
+          "weight": 1
+        }
+      ],
+      "spread_km": 8,
+      "depot": null,
+      "street_names": [
+        "Hall",
+        "Thanagar",
+        "Nth Metal"
+      ],
+      "appointment_templates": [
+        "ALLDAY"
+      ]
+    },
+    {
+      "id": "IOWA",
+      "description": "Central Iowa Corridor",
+      "kind": "rural",
+      "time_zone": "America/Chicago",
+      "state": "IA",
+      "postcode_prefix": "503",
+      "centroids": [
+        {
+          "label": "Des Moines",
+          "lat": 41.5868,
+          "lon": -93.625,
+          "weight": 2
+        },
+        {
+          "label": "Ames",
+          "lat": 42.0308,
+          "lon": -93.6319,
+          "weight": 1
+        },
+        {
+          "label": "Fort Dodge",
+          "lat": 42.4975,
+          "lon": -94.168,
+          "weight": 1
+        }
+      ],
+      "spread_km": 8,
+      "depot": {
+        "lat": 41.6,
+        "lon": -93.61,
+        "address_line1": "1 Smallville Grain Rd",
+        "city": "Des Moines",
+        "postcode": "50309"
+      },
+      "street_names": [
+        "Kent",
+        "Ross",
+        "Lang",
+        "Smallville",
+        "Siegel",
+        "Shuster",
+        "Hubbard",
+        "Loeb"
+      ],
+      "appointment_templates": [
+        "ALLDAY"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "id": "R-CHI-001",
+      "first_name": "Bruce",
+      "surname": "Wayne",
+      "region": "CHI",
+      "resource_type": "SENIOR_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "FIBRE",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-CHI-002",
+      "first_name": "Lucius",
+      "surname": "Fox",
+      "region": "CHI",
+      "resource_type": "SENIOR_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "HVAC",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-CHI-003",
+      "first_name": "Dick",
+      "surname": "Grayson",
+      "region": "CHI",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-CHI-004",
+      "first_name": "Jason",
+      "surname": "Todd",
+      "region": "CHI",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "HVAC"
+      ]
+    },
+    {
+      "id": "R-CHI-005",
+      "first_name": "Tim",
+      "surname": "Drake",
+      "region": "CHI",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-CHI-006",
+      "first_name": "Cassandra",
+      "surname": "Cain",
+      "region": "CHI",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "HVAC",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-CHI-007",
+      "first_name": "Stephanie",
+      "surname": "Brown",
+      "region": "CHI",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "HVAC"
+      ]
+    },
+    {
+      "id": "R-CHI-008",
+      "first_name": "Kate",
+      "surname": "Kane",
+      "region": "CHI",
+      "resource_type": "INSTALLER",
+      "skills": [
+        "FIBRE",
+        "ELEC",
+        "COMMERCIAL"
+      ]
+    },
+    {
+      "id": "R-CHI-009",
+      "first_name": "Helena",
+      "surname": "Bertinelli",
+      "region": "CHI",
+      "resource_type": "INSTALLER",
+      "skills": [
+        "FIBRE",
+        "ELEC",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-CHI-010",
+      "first_name": "Alfred",
+      "surname": "Pennyworth",
+      "region": "CHI",
+      "resource_type": "CONTRACTOR",
+      "skills": [
+        "ELEC",
+        "HVAC"
+      ]
+    },
+    {
+      "id": "R-LAX-001",
+      "first_name": "Hal",
+      "surname": "Jordan",
+      "region": "LAX",
+      "resource_type": "SENIOR_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "FIBRE",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-LAX-002",
+      "first_name": "John",
+      "surname": "Stewart",
+      "region": "LAX",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "COMMERCIAL"
+      ]
+    },
+    {
+      "id": "R-LAX-003",
+      "first_name": "Guy",
+      "surname": "Gardner",
+      "region": "LAX",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "HVAC",
+        "ELEC"
+      ]
+    },
+    {
+      "id": "R-LAX-004",
+      "first_name": "Kyle",
+      "surname": "Rayner",
+      "region": "LAX",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-LAX-005",
+      "first_name": "Jessica",
+      "surname": "Cruz",
+      "region": "LAX",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "HVAC",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-LAX-006",
+      "first_name": "Simon",
+      "surname": "Baz",
+      "region": "LAX",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "NET"
+      ]
+    },
+    {
+      "id": "R-LAX-007",
+      "first_name": "Alan",
+      "surname": "Scott",
+      "region": "LAX",
+      "resource_type": "INSTALLER",
+      "skills": [
+        "FIBRE",
+        "ELEC",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-LAX-008",
+      "first_name": "Thomas",
+      "surname": "Kalmaku",
+      "region": "LAX",
+      "resource_type": "INSTALLER",
+      "skills": [
+        "FIBRE",
+        "ELEC",
+        "COMMERCIAL"
+      ]
+    },
+    {
+      "id": "R-LAX-009",
+      "first_name": "Carol",
+      "surname": "Ferris",
+      "region": "LAX",
+      "resource_type": "CONTRACTOR",
+      "skills": [
+        "NET",
+        "COMMERCIAL"
+      ]
+    },
+    {
+      "id": "R-DFW-001",
+      "first_name": "Barry",
+      "surname": "Allen",
+      "region": "DFW",
+      "resource_type": "SENIOR_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "HVAC",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-DFW-002",
+      "first_name": "Wally",
+      "surname": "West",
+      "region": "DFW",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-DFW-003",
+      "first_name": "Bart",
+      "surname": "Allen",
+      "region": "DFW",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-DFW-004",
+      "first_name": "Jay",
+      "surname": "Garrick",
+      "region": "DFW",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "HVAC",
+        "COMMERCIAL"
+      ]
+    },
+    {
+      "id": "R-DFW-005",
+      "first_name": "Iris",
+      "surname": "West",
+      "region": "DFW",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "HVAC"
+      ]
+    },
+    {
+      "id": "R-DFW-006",
+      "first_name": "Max",
+      "surname": "Mercury",
+      "region": "DFW",
+      "resource_type": "INSTALLER",
+      "skills": [
+        "FIBRE",
+        "ELEC",
+        "COMMERCIAL"
+      ]
+    },
+    {
+      "id": "R-DFW-007",
+      "first_name": "Jesse",
+      "surname": "Chambers",
+      "region": "DFW",
+      "resource_type": "CONTRACTOR",
+      "skills": [
+        "ELEC",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-DEN-001",
+      "first_name": "Carter",
+      "surname": "Hall",
+      "region": "DEN",
+      "resource_type": "SENIOR_TECH",
+      "skills": [
+        "ELEC",
+        "HVAC",
+        "FIBRE",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ],
+      "extra_regions": [
+        "MTN"
+      ]
+    },
+    {
+      "id": "R-DEN-002",
+      "first_name": "Shayera",
+      "surname": "Hol",
+      "region": "DEN",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "FIBRE"
+      ],
+      "extra_regions": [
+        "MTN"
+      ]
+    },
+    {
+      "id": "R-DEN-003",
+      "first_name": "Kendra",
+      "surname": "Saunders",
+      "region": "DEN",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "HVAC"
+      ]
+    },
+    {
+      "id": "R-DEN-004",
+      "first_name": "Ray",
+      "surname": "Palmer",
+      "region": "DEN",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "NET"
+      ]
+    },
+    {
+      "id": "R-DEN-005",
+      "first_name": "Ted",
+      "surname": "Kord",
+      "region": "DEN",
+      "resource_type": "INSTALLER",
+      "skills": [
+        "FIBRE",
+        "ELEC",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-DEN-006",
+      "first_name": "Michael",
+      "surname": "Carter",
+      "region": "DEN",
+      "resource_type": "CONTRACTOR",
+      "skills": [
+        "HVAC",
+        "ELEC"
+      ]
+    },
+    {
+      "id": "R-IOWA-001",
+      "first_name": "Jonathan",
+      "surname": "Kent",
+      "region": "IOWA",
+      "resource_type": "SENIOR_TECH",
+      "skills": [
+        "ELEC",
+        "HVAC",
+        "FIBRE",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-IOWA-002",
+      "first_name": "Martha",
+      "surname": "Kent",
+      "region": "IOWA",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "HVAC"
+      ]
+    },
+    {
+      "id": "R-IOWA-003",
+      "first_name": "Pete",
+      "surname": "Ross",
+      "region": "IOWA",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-IOWA-004",
+      "first_name": "Lana",
+      "surname": "Lang",
+      "region": "IOWA",
+      "resource_type": "INSTALLER",
+      "skills": [
+        "FIBRE",
+        "ELEC",
+        "COMMERCIAL"
+      ]
+    }
+  ],
+  "_later_stages": {
+    "note": "Read by stages 2–6 only. Shapes may change before then.",
+    "sla_types": {},
+    "activity_types": {},
+    "appointment_templates": {},
+    "backlog": {},
+    "defects": {}
+  }
+}

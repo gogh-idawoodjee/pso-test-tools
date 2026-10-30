@@ -1,0 +1,480 @@
+{
+  "dataset_id": "DC_CA",
+  "organisation_id": "2",
+  "description": "DC demo dataset — Canada",
+  "seed": 1941,
+  "base_time_zone": "America/Toronto",
+  "horizon_days": 100,
+  "activity_cap": 250,
+  "input_reference": {
+    "duration": "P7D",
+    "appointment_window_duration": "P90D",
+    "process_type": "APPOINTMENT"
+  },
+  "rule_collection": {
+    "id": "STD",
+    "MaximumCommittedActivities": 2,
+    "CommitBreaks": false,
+    "CountBreaks": false,
+    "LogonRequired": false
+  },
+  "skills": [
+    {
+      "id": "ELEC",
+      "description": "Electrical"
+    },
+    {
+      "id": "NET",
+      "description": "Network / data"
+    },
+    {
+      "id": "HVAC",
+      "description": "HVAC"
+    },
+    {
+      "id": "FIBRE",
+      "description": "Fibre splicing"
+    },
+    {
+      "id": "COMMERCIAL",
+      "description": "Commercial premises"
+    },
+    {
+      "id": "SAFETY_CERT",
+      "description": "Confined space / height certified"
+    }
+  ],
+  "resource_types": {
+    "FIELD_TECH": {
+      "description": "Field Technician",
+      "shift": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "08:00",
+        "end": "16:30"
+      },
+      "break": {
+        "duration": "PT30M",
+        "earliest_offset": "PT3H",
+        "latest_offset": "PT5H"
+      },
+      "start_end": "home",
+      "travel_to": "PT1H",
+      "travel_from": "PT1H",
+      "max_travel": "PT3H",
+      "cost_ph": 45,
+      "cost_phot": 68,
+      "cost_km": 0.6,
+      "utilisation": 100
+    },
+    "SENIOR_TECH": {
+      "description": "Senior Technician",
+      "shift": {
+        "days": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "start": "07:30",
+        "end": "16:00"
+      },
+      "break": {
+        "duration": "PT30M",
+        "earliest_offset": "PT3H",
+        "latest_offset": "PT5H"
+      },
+      "start_end": "home",
+      "travel_to": "PT1H",
+      "travel_from": "PT1H",
+      "max_travel": "PT3H",
+      "cost_ph": 65,
+      "cost_phot": 98,
+      "cost_km": 0.6,
+      "utilisation": 90
+    },
+    "INSTALLER": {
+      "description": "Installer (4x10)",
+      "shift": {
+        "days": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "start": "07:00",
+        "end": "17:30"
+      },
+      "break": {
+        "duration": "PT45M",
+        "earliest_offset": "PT4H",
+        "latest_offset": "PT5H30M"
+      },
+      "start_end": "depot",
+      "travel_to": "PT1H30M",
+      "travel_from": "PT1H30M",
+      "max_travel": "PT3H",
+      "cost_ph": 50,
+      "cost_phot": 75,
+      "cost_km": 0.6,
+      "utilisation": 100
+    },
+    "CONTRACTOR": {
+      "description": "Contractor",
+      "shift": {
+        "days": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "09:00",
+        "end": "17:00"
+      },
+      "break": {
+        "duration": "PT30M",
+        "earliest_offset": "PT3H",
+        "latest_offset": "PT5H"
+      },
+      "start_end": "home",
+      "travel_to": "PT1H",
+      "travel_from": "PT1H",
+      "max_travel": "PT2H",
+      "cost_ph": 120,
+      "cost_phot": 180,
+      "cost_km": 1.1,
+      "utilisation": 100
+    }
+  },
+  "regions": [
+    {
+      "id": "TOR",
+      "description": "Toronto Metro",
+      "kind": "metro",
+      "time_zone": "America/Toronto",
+      "state": "ON",
+      "postcode_prefix": "M5",
+      "centroids": [
+        {
+          "label": "Toronto",
+          "lat": 43.6532,
+          "lon": -79.3832,
+          "weight": 4
+        },
+        {
+          "label": "Scarborough",
+          "lat": 43.7764,
+          "lon": -79.2318,
+          "weight": 1
+        },
+        {
+          "label": "Etobicoke",
+          "lat": 43.6205,
+          "lon": -79.5132,
+          "weight": 1
+        },
+        {
+          "label": "North York",
+          "lat": 43.7615,
+          "lon": -79.4111,
+          "weight": 1
+        },
+        {
+          "label": "Mississauga",
+          "lat": 43.589,
+          "lon": -79.6441,
+          "weight": 1
+        }
+      ],
+      "spread_km": 12,
+      "depot": {
+        "lat": 43.64,
+        "lon": -79.4,
+        "address_line1": "1 Daily Planet Way",
+        "city": "Toronto",
+        "postcode": "M5V 3L9"
+      },
+      "street_names": [
+        "Kent",
+        "Lane",
+        "Olsen",
+        "White",
+        "Shuster",
+        "Siegel",
+        "Metropolis",
+        "Krypton",
+        "Irons",
+        "Lang"
+      ],
+      "appointment_templates": [
+        "AMPM",
+        "ALLDAY"
+      ],
+      "exclude_polygons": [
+        [
+          [
+            43.55,
+            -79.7
+          ],
+          [
+            43.58,
+            -79.6
+          ],
+          [
+            43.59,
+            -79.54
+          ],
+          [
+            43.615,
+            -79.49
+          ],
+          [
+            43.625,
+            -79.44
+          ],
+          [
+            43.635,
+            -79.4
+          ],
+          [
+            43.655,
+            -79.32
+          ],
+          [
+            43.67,
+            -79.28
+          ],
+          [
+            43.7,
+            -79.23
+          ],
+          [
+            43.76,
+            -79.14
+          ],
+          [
+            43.8,
+            -79.05
+          ],
+          [
+            43.8,
+            -78.9
+          ],
+          [
+            43.3,
+            -78.9
+          ],
+          [
+            43.3,
+            -79.7
+          ]
+        ]
+      ]
+    },
+    {
+      "id": "ONT_RURAL",
+      "description": "Cottage Country (Muskoka / Parry Sound / Haliburton)",
+      "kind": "rural",
+      "time_zone": "America/Toronto",
+      "state": "ON",
+      "postcode_prefix": "P0",
+      "centroids": [
+        {
+          "label": "Parry Sound",
+          "lat": 45.3473,
+          "lon": -80.0353,
+          "weight": 1
+        },
+        {
+          "label": "Huntsville",
+          "lat": 45.327,
+          "lon": -79.2193,
+          "weight": 1
+        },
+        {
+          "label": "Haliburton",
+          "lat": 45.045,
+          "lon": -78.508,
+          "weight": 1
+        }
+      ],
+      "spread_km": 8,
+      "depot": null,
+      "street_names": [
+        "Grant",
+        "Pratt",
+        "Tyler",
+        "Society",
+        "Gotham Lake",
+        "Wildcat"
+      ],
+      "appointment_templates": [
+        "ALLDAY"
+      ]
+    }
+  ],
+  "resources": [
+    {
+      "id": "R-TOR-001",
+      "first_name": "Clark",
+      "surname": "Kent",
+      "region": "TOR",
+      "resource_type": "SENIOR_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "HVAC",
+        "FIBRE",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-TOR-002",
+      "first_name": "Lois",
+      "surname": "Lane",
+      "region": "TOR",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "COMMERCIAL"
+      ]
+    },
+    {
+      "id": "R-TOR-003",
+      "first_name": "Kara",
+      "surname": "Danvers",
+      "region": "TOR",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-TOR-004",
+      "first_name": "Conner",
+      "surname": "Kent",
+      "region": "TOR",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "HVAC"
+      ]
+    },
+    {
+      "id": "R-TOR-005",
+      "first_name": "Jimmy",
+      "surname": "Olsen",
+      "region": "TOR",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "FIBRE"
+      ]
+    },
+    {
+      "id": "R-TOR-006",
+      "first_name": "Perry",
+      "surname": "White",
+      "region": "TOR",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "HVAC",
+        "ELEC"
+      ]
+    },
+    {
+      "id": "R-TOR-007",
+      "first_name": "John Henry",
+      "surname": "Irons",
+      "region": "TOR",
+      "resource_type": "INSTALLER",
+      "skills": [
+        "FIBRE",
+        "ELEC",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ],
+      "extra_regions": [
+        "ONT_RURAL"
+      ]
+    },
+    {
+      "id": "R-TOR-008",
+      "first_name": "Natasha",
+      "surname": "Irons",
+      "region": "TOR",
+      "resource_type": "INSTALLER",
+      "skills": [
+        "FIBRE",
+        "ELEC",
+        "COMMERCIAL"
+      ]
+    },
+    {
+      "id": "R-TOR-009",
+      "first_name": "Lex",
+      "surname": "Luthor",
+      "region": "TOR",
+      "resource_type": "CONTRACTOR",
+      "skills": [
+        "NET",
+        "COMMERCIAL"
+      ]
+    },
+    {
+      "id": "R-ONT-001",
+      "first_name": "Ted",
+      "surname": "Grant",
+      "region": "ONT_RURAL",
+      "resource_type": "SENIOR_TECH",
+      "skills": [
+        "ELEC",
+        "HVAC",
+        "FIBRE",
+        "COMMERCIAL",
+        "SAFETY_CERT"
+      ]
+    },
+    {
+      "id": "R-ONT-002",
+      "first_name": "Al",
+      "surname": "Pratt",
+      "region": "ONT_RURAL",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "ELEC",
+        "NET",
+        "HVAC"
+      ]
+    },
+    {
+      "id": "R-ONT-003",
+      "first_name": "Rex",
+      "surname": "Tyler",
+      "region": "ONT_RURAL",
+      "resource_type": "FIELD_TECH",
+      "skills": [
+        "NET",
+        "FIBRE"
+      ]
+    }
+  ],
+  "_later_stages": {
+    "note": "Read by stages 2–6 only. Shapes may change before then.",
+    "sla_types": {},
+    "activity_types": {},
+    "appointment_templates": {},
+    "backlog": {},
+    "defects": {}
+  }
+}

@@ -59,6 +59,7 @@ class ToolCatalogue extends Widget
                 $this->item(Resources\EnvironmentResource::class, 'Environments', 'The PSO systems you connect to.', null),
                 $this->item(Resources\DatasetResource::class, 'Datasets', 'One per customer dataset: settings, exports and run history.', null),
                 $this->item(Resources\RegionResource::class, 'Reference values', 'Regions, skills and types synced from PSO.', null),
+                $this->item(Pages\DatasetBuilder::class, 'Dataset Builder', 'Generate a synthetic demo LOAD from a seed spec, as of now.', null),
             ]],
             ['label' => Groups::ADMIN, 'items' => [
                 $this->item(Resources\TokenUsageLogResource::class, 'Token usage', 'API calls made through this app.', null),
