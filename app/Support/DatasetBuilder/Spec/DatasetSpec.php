@@ -17,7 +17,9 @@ use Throwable;
  * `shift_category_colour`; stage 1R2 the activity reference data:
  * `sla_types`, `activity_types`, `appointment_templates` (template kinds,
  * made per region from the regions' `appointment_templates`); stage 2 the
- * `stage2` block (Stage2Spec), the first activities. Everything else
+ * `stage2` block (Stage2Spec), the first activities; stage 3 each activity
+ * type's `work_mode` and `primary_sla_type`, `extra_region_weight` and the
+ * `stage3` block (Stage3Spec), booked appointments. Everything else
  * in the file (`_later_stages`, `activity_cap`) is kept in the JSON for later
  * stages and ignored here. Reference data values are kept as the file text
  * they become (numbers without trailing zeros, booleans as true/false).
@@ -52,7 +54,7 @@ readonly class DatasetSpec
      * @param  array<string, ResourceTypeSpec>  $resourceTypes  by id, in spec order
      * @param  list<ResourceSpec>  $resources
      * @param  array<string, array<string, string>>  $slaTypes  id => description, mechanism_type, curve and value fields
-     * @param  array<string, array<string, string>>  $activityTypes  id => description, duration, base_value, split_allowed, min_split, cost_of_split, priority
+     * @param  array<string, array<string, string>>  $activityTypes  id => description, duration, base_value, split_allowed, min_split, cost_of_split, priority, work_mode, primary_sla_type
      * @param  array<string, array{description: string, day_pattern: string, appointment_window_length: string, items: list<array{start: string, end: string}>}>  $appointmentTemplateKinds
      */
     public function __construct(
@@ -73,7 +75,37 @@ readonly class DatasetSpec
         public array $activityTypes = [],
         public array $appointmentTemplateKinds = [],
         public ?Stage2Spec $stage2 = null,
+        public float $extraRegionWeight = 0.5,
+        public ?Stage3Spec $stage3 = null,
     ) {}
+
+    /**
+     * A region's serving resources: its home resources, plus `extra_region_weight`
+     * for each resource that also covers it through `extra_regions`.
+     */
+    public function servingResources(string $regionId): float
+    {
+        $serving = 0.0;
+
+        foreach ($this->resources as $resource) {
+            if ($resource->region === $regionId) {
+                $serving += 1;
+            } elseif (in_array($regionId, $resource->extraRegions, true)) {
+                $serving += $this->extraRegionWeight;
+            }
+        }
+
+        return $serving;
+    }
+
+    /** @return list<ResourceSpec> the region's home resources, then those covering it through `extra_regions` */
+    public function servingResourceList(string $regionId): array
+    {
+        return [
+            ...array_filter($this->resources, static fn (ResourceSpec $resource): bool => $resource->region === $regionId),
+            ...array_filter($this->resources, static fn (ResourceSpec $resource): bool => in_array($regionId, $resource->extraRegions, true)),
+        ];
+    }
 
     public static function fromFile(string $path): self
     {
@@ -133,7 +165,7 @@ readonly class DatasetSpec
         $activityTypes = [];
 
         foreach ((array) ($data['activity_types'] ?? []) as $id => $type) {
-            $activityTypes[self::id((string) $id, 'activity_types key')] = self::activityType((string) $id, (array) $type);
+            $activityTypes[self::id((string) $id, 'activity_types key')] = self::activityType((string) $id, (array) $type, $slaTypes);
         }
 
         $templateKinds = [];
@@ -202,6 +234,12 @@ readonly class DatasetSpec
             throw new InvalidDatasetSpec('modelling must be true or false.');
         }
 
+        $extraRegionWeight = self::number($data['extra_region_weight'] ?? 0.5, 'extra_region_weight');
+
+        if ($extraRegionWeight < 0) {
+            throw new InvalidDatasetSpec('extra_region_weight must be 0 or more.');
+        }
+
         $seed = $data['seed'] ?? null;
 
         if (! is_int($seed)) {
@@ -226,6 +264,8 @@ readonly class DatasetSpec
             activityTypes: $activityTypes,
             appointmentTemplateKinds: $templateKinds,
             stage2: isset($data['stage2']) ? self::stage2((array) $data['stage2'], $regions, $skills, $resourceTypes, $activityTypes, $slaTypes) : null,
+            extraRegionWeight: $extraRegionWeight,
+            stage3: isset($data['stage3']) ? self::stage3((array) $data['stage3'], $regions, $skills, $activityTypes, $templateKinds) : null,
         );
     }
 
@@ -235,6 +275,7 @@ readonly class DatasetSpec
             $this->datasetId, $this->organisationId, $this->description, $seed, $this->baseTimeZone, $this->horizonDays,
             $this->inputReference, $this->ruleCollection, $this->regions, $this->skills, $this->resourceTypes, $this->resources,
             $this->modelling, $this->slaTypes, $this->activityTypes, $this->appointmentTemplateKinds, $this->stage2,
+            $this->extraRegionWeight, $this->stage3,
         );
     }
 
@@ -472,11 +513,22 @@ readonly class DatasetSpec
 
     /**
      * @param  array<string, mixed>  $type
+     * @param  array<string, array<string, string>>  $slaTypes
      * @return array<string, string>
      */
-    private static function activityType(string $id, array $type): array
+    private static function activityType(string $id, array $type, array $slaTypes): array
     {
         $path = "Activity type {$id}";
+        $workMode = $type['work_mode'] ?? null;
+        $primary = $type['primary_sla_type'] ?? null;
+
+        if (! in_array($workMode, ['sla', 'appointment'], true)) {
+            throw new InvalidDatasetSpec("{$path}: work_mode must be sla or appointment.");
+        }
+
+        if (! is_string($primary) || ! isset($slaTypes[$primary])) {
+            throw new InvalidDatasetSpec("{$path}: primary_sla_type must be one of the sla_types.");
+        }
 
         return [
             'description' => self::text($type['description'] ?? null, "{$path} description"),
@@ -486,6 +538,8 @@ readonly class DatasetSpec
             'min_split' => self::duration($type['min_split'] ?? null, "{$path} min_split"),
             'cost_of_split' => Decimal::format(self::number($type['cost_of_split'] ?? null, "{$path} cost_of_split")),
             'priority' => Decimal::format(self::number($type['priority'] ?? null, "{$path} priority")),
+            'work_mode' => $workMode,
+            'primary_sla_type' => $primary,
         ];
     }
 
@@ -567,6 +621,10 @@ readonly class DatasetSpec
                 throw new InvalidDatasetSpec("stage2.mix: activity type {$type} is not in activity_types.");
             }
 
+            if ($activityTypes[$type]['work_mode'] !== 'sla') {
+                throw new InvalidDatasetSpec("stage2.mix: activity type {$type} is appointment work; stage 2 is SLA work only.");
+            }
+
             $mix[$type] = self::number($share, "stage2.mix.{$type}");
 
             if ($mix[$type] < 0) {
@@ -615,6 +673,106 @@ readonly class DatasetSpec
         }
 
         return new Stage2Spec($jobs, $days, $mix, $durations, $windows, $pools);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, RegionSpec>  $regions
+     * @param  array<string, string>  $skills
+     * @param  array<string, array<string, string>>  $activityTypes
+     * @param  array<string, array<string, mixed>>  $templateKinds
+     */
+    private static function stage3(array $data, array $regions, array $skills, array $activityTypes, array $templateKinds): Stage3Spec
+    {
+        $perDay = self::number($data['appointments_per_resource_per_day'] ?? null, 'stage3.appointments_per_resource_per_day');
+        $days = $data['working_days'] ?? null;
+
+        if ($perDay < 0) {
+            throw new InvalidDatasetSpec('stage3.appointments_per_resource_per_day must be 0 or more.');
+        }
+
+        if (! is_int($days) || $days < 1 || $days > 20) {
+            throw new InvalidDatasetSpec('stage3.working_days must be a whole number from 1 to 20.');
+        }
+
+        $mix = [];
+        $durations = [];
+        $pools = [];
+
+        foreach ((array) ($data['mix'] ?? []) as $type => $share) {
+            $type = (string) $type;
+            $path = "stage3 {$type}";
+
+            if (($activityTypes[$type]['work_mode'] ?? null) !== 'appointment') {
+                throw new InvalidDatasetSpec("stage3.mix: {$type} must be an activity type whose work_mode is appointment.");
+            }
+
+            $mix[$type] = self::number($share, "stage3.mix.{$type}");
+
+            if ($mix[$type] < 0) {
+                throw new InvalidDatasetSpec("stage3.mix.{$type} must be 0 or more.");
+            }
+
+            $min = intdiv(self::seconds(self::duration($data['durations'][$type]['min'] ?? null, "{$path} durations.min")), 60);
+            $max = intdiv(self::seconds(self::duration($data['durations'][$type]['max'] ?? null, "{$path} durations.max")), 60);
+
+            if ($min < 1 || $max < $min) {
+                throw new InvalidDatasetSpec("{$path}: durations.min must be at least a minute and no more than durations.max.");
+            }
+
+            $durations[$type] = ['min' => $min, 'max' => $max];
+            $pool = array_values(array_map('strval', (array) ($data['skills'][$type]['pool'] ?? [])));
+
+            foreach ($pool as $skill) {
+                if (! isset($skills[$skill])) {
+                    throw new InvalidDatasetSpec("{$path} skills.pool: skill {$skill} is not in skills.");
+                }
+            }
+
+            $p = self::number($data['skills'][$type]['p'] ?? null, "{$path} skills.p");
+
+            if ($p < 0 || $p > 1) {
+                throw new InvalidDatasetSpec("{$path} skills.p must be from 0 to 1.");
+            }
+
+            $pools[$type] = ['pool' => $pool, 'p' => $p];
+        }
+
+        if ($mix === [] || array_sum($mix) <= 0) {
+            throw new InvalidDatasetSpec('stage3.mix must give at least one activity type a share above 0.');
+        }
+
+        $weights = [];
+
+        foreach ((array) ($data['kind_weights'] ?? []) as $kind => $weight) {
+            if (! isset($templateKinds[$kind])) {
+                throw new InvalidDatasetSpec("stage3.kind_weights: {$kind} is not in appointment_templates.");
+            }
+
+            $weights[(string) $kind] = self::number($weight, "stage3.kind_weights.{$kind}");
+
+            if ($weights[(string) $kind] < 0) {
+                throw new InvalidDatasetSpec("stage3.kind_weights.{$kind} must be 0 or more.");
+            }
+        }
+
+        foreach ($regions as $region) {
+            if (array_sum(array_map(static fn (string $kind): float => $weights[$kind] ?? 0, $region->appointmentTemplates)) <= 0) {
+                throw new InvalidDatasetSpec("Region {$region->id}: none of its appointment templates has a stage3.kind_weights share above 0.");
+            }
+
+            // Availability id: AP-A-{region}-nnnnnn-1.
+            self::id("AP-A-{$region->id}-000000-1", "Region {$region->id} appointment availability id");
+        }
+
+        $min = intdiv(self::seconds(self::duration($data['booked_ago']['min'] ?? null, 'stage3.booked_ago.min')), 60);
+        $max = intdiv(self::seconds(self::duration($data['booked_ago']['max'] ?? null, 'stage3.booked_ago.max')), 60);
+
+        if ($max < $min) {
+            throw new InvalidDatasetSpec('stage3.booked_ago.min must be no more than booked_ago.max.');
+        }
+
+        return new Stage3Spec($perDay, $days, $mix, $durations, $pools, $weights, ['min' => $min, 'max' => $max]);
     }
 
     private static function boolean(mixed $value, string $path): string

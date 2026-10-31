@@ -5,6 +5,7 @@ namespace App\Support\DatasetBuilder;
 use App\Support\DatasetBuilder\Spec\DatasetSpec;
 use App\Support\DatasetBuilder\Spec\RegionSpec;
 use App\Support\DatasetBuilder\Spec\Stage2Spec;
+use App\Support\DatasetBuilder\Spec\Stage3Spec;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -13,17 +14,29 @@ use Random\Randomizer;
 /**
  * Stage 2: unallocated SLA work. Per region, in its own zone, the next
  * `working_days` weekdays whose FIELD_TECH shift has not ended yet; on them
- * round(jobs per resource per day x home-region resources) jobs a day. The
+ * round(jobs per resource per day x serving resources) jobs a day (home
+ * resources, plus `extra_region_weight` for each one covering the region
+ * through `extra_regions`). The
  * region's total is split by the type mix with largest-remainder rounding;
  * EMERGENCY jobs all land on the first working day and every other type is
  * spread evenly over the days.
  *
  * Each activity gets its own Location (drawn like a home), a Location_Region,
- * at most one skill held by at least two of the region's own resources, two
- * touching start-based SLA rows and a status 0 row. Every draw comes from the
- * seeded Randomizer, in region, day and type order.
+ * at most one skill held by at least two of the region's serving resources,
+ * two touching start-based SLA rows (the first of the type's
+ * `primary_sla_type`) and a status 0 row.
  *
- * Field names are the stage 2 cheat sheet's (docs/dataset-builder/stage2-entity-cheatsheet.md).
+ * Stage 3: booked INSTALL and SURVEY appointments in the region's appointment
+ * template slots, over today (slots starting an hour or more after now) and
+ * the next weekdays; each with one SLA row, an ACCEPTED_APPOINTMENT
+ * Availability and a status row with date_time_earliest, all on the slot.
+ *
+ * Every draw comes from the seeded Randomizer: all stage 2 work first, region
+ * by region (regions with home resources in spec order, then those served only
+ * through `extra_regions`, so their work never moves anyone else's), then all
+ * stage 3 appointments. A later stage's draws never move an earlier stage's.
+ *
+ * Field names are the stage 2 and 3 cheat sheets' (docs/dataset-builder/).
  */
 class ActivityFactory
 {
@@ -41,41 +54,238 @@ class ActivityFactory
     private const string SLA_END = '17:00';
 
     /**
-     * @return list<array{region: string, type: string, date: string, location: array<string, string>, location_region: array<string, string>, activity: array<string, string>, skill: array<string, string>|null, slas: list<array<string, string>>, status: array<string, string>, in_start: DateTimeImmutable, in_end: DateTimeImmutable}>
+     * @return list<array<string, mixed>> region, type, date, kind (stage 3 template kind, else null), location,
+     *                                    location_region, activity, skill, slas, availability (stage 3), status, in_start, in_end
      */
     public static function activities(DatasetSpec $spec, DateTimeImmutable $now, Randomizer $random, LocationFactory $locations): array
     {
         $stage2 = $spec->stage2;
-
-        if ($stage2 === null) {
-            return [];
-        }
-
         $activities = [];
+        /** @var array<string, int> $sequences region => last activity number */
+        $sequences = [];
 
-        foreach ($spec->regions as $region) {
-            $zone = new DateTimeZone($region->timeZone);
-            $days = self::workingDays($spec, $region, $now);
-            $residents = array_values(array_filter($spec->resources, static fn ($resource): bool => $resource->region === $region->id));
-            $perDay = (int) round($stage2->jobsPerResourcePerDay * count($residents));
-            $byType = self::largestRemainder($perDay * count($days), $stage2->mix);
-            $skills = self::sharedSkills($residents);
-            $sequence = 0;
+        if ($stage2 !== null) {
+            foreach (self::stage2RegionOrder($spec) as $region) {
+                $zone = new DateTimeZone($region->timeZone);
+                $days = self::workingDays($spec, $region, $now);
+                $perDay = (int) round($stage2->jobsPerResourcePerDay * $spec->servingResources($region->id));
+                $byType = self::largestRemainder($perDay * count($days), $stage2->mix);
+                $skills = self::sharedSkills($spec->servingResourceList($region->id));
+                $sequences[$region->id] ??= 0;
 
-            foreach ($days as $dayIndex => $day) {
-                foreach ($byType as $type => $count) {
-                    $onDay = $type === self::EMERGENCY
-                        ? ($dayIndex === 0 ? $count : 0)
-                        : self::largestRemainder($count, array_fill(0, count($days), 1))[$dayIndex];
+                foreach ($days as $dayIndex => $day) {
+                    foreach ($byType as $type => $count) {
+                        $onDay = $type === self::EMERGENCY
+                            ? ($dayIndex === 0 ? $count : 0)
+                            : self::largestRemainder($count, array_fill(0, count($days), 1))[$dayIndex];
 
-                    for ($i = 0; $i < $onDay; $i++) {
-                        $activities[] = self::activity($spec, $stage2, $region, $zone, $now, $day, $type, ++$sequence, $skills, $random, $locations);
+                        for ($i = 0; $i < $onDay; $i++) {
+                            $activities[] = self::activity($spec, $stage2, $region, $zone, $now, $day, $type, ++$sequences[$region->id], $skills, $random, $locations);
+                        }
                     }
                 }
             }
         }
 
+        if ($spec->stage3 !== null) {
+            foreach ($spec->regions as $region) {
+                $sequences[$region->id] ??= 0;
+
+                $appointments = self::appointments($spec, $region, $now, $sequences[$region->id], $random, $locations);
+                array_push($activities, ...$appointments);
+                $sequences[$region->id] += count($appointments);
+            }
+        }
+
         return $activities;
+    }
+
+    /**
+     * Stage 2's region order: regions with home resources in spec order, then
+     * those served only through `extra_regions`.
+     *
+     * @return list<RegionSpec>
+     */
+    private static function stage2RegionOrder(DatasetSpec $spec): array
+    {
+        $hasHomes = static fn (RegionSpec $region): bool => array_filter($spec->resources, static fn ($resource): bool => $resource->region === $region->id) !== [];
+
+        return [...array_filter($spec->regions, $hasHomes), ...array_filter($spec->regions, static fn (RegionSpec $region): bool => ! $hasHomes($region))];
+    }
+
+    /**
+     * The region's appointment days: today and the following weekdays, a day
+     * counting only if one of the region's template slots is still open on it
+     * (today: starting an hour or more after now), `working_days` of them.
+     *
+     * @return list<array{day: DateTimeImmutable, slots: array<string, list<array{start: DateTimeImmutable, end: DateTimeImmutable}>>}> slots open per template kind
+     */
+    public static function appointmentDays(DatasetSpec $spec, RegionSpec $region, DateTimeImmutable $now): array
+    {
+        $stage3 = $spec->stage3;
+        $date = ShiftFactory::dayZero($now, new DateTimeZone($region->timeZone));
+        $earliest = $now->modify('+'.Stage3Spec::TODAY_LEAD_MINUTES.' minutes');
+        $days = [];
+
+        for ($guard = 0; count($days) < $stage3->workingDays && $guard < 366; $guard++, $date = $date->modify('+1 day')) {
+            $weekday = (int) $date->format('N');
+
+            if ($weekday > 5) {
+                continue;
+            }
+
+            $slots = [];
+
+            foreach ($region->appointmentTemplates as $kind) {
+                $template = $spec->appointmentTemplateKinds[$kind];
+
+                if (($stage3->kindWeights[$kind] ?? 0) <= 0 || $template['day_pattern'][$weekday - 1] !== 'Y') {
+                    continue;
+                }
+
+                foreach ($template['items'] as $item) {
+                    $start = $date->add(new DateInterval($item['start']));
+
+                    if ($start >= $earliest) {
+                        $slots[$kind][] = ['start' => $start, 'end' => $date->add(new DateInterval($item['end']))];
+                    }
+                }
+            }
+
+            if ($slots !== []) {
+                $days[] = ['day' => $date, 'slots' => $slots];
+            }
+        }
+
+        return $days;
+    }
+
+    /** @return list<array<string, mixed>> the region's stage 3 appointments, numbered on from $sequence */
+    private static function appointments(DatasetSpec $spec, RegionSpec $region, DateTimeImmutable $now, int $sequence, Randomizer $random, LocationFactory $locations): array
+    {
+        $stage3 = $spec->stage3;
+        $perDay = (int) round($stage3->appointmentsPerResourcePerDay * $spec->servingResources($region->id));
+        $byType = self::largestRemainder($perDay, $stage3->mix);
+        $skills = self::sharedSkills($spec->servingResourceList($region->id));
+        $appointments = [];
+
+        foreach (self::appointmentDays($spec, $region, $now) as ['day' => $day, 'slots' => $slots]) {
+            foreach ($byType as $type => $count) {
+                for ($i = 0; $i < $count; $i++) {
+                    $appointments[] = self::appointment($spec, $stage3, $region, $now, $day, $slots, $type, ++$sequence, $skills, $random, $locations);
+                }
+            }
+        }
+
+        return $appointments;
+    }
+
+    /**
+     * @param  array<string, list<array{start: DateTimeImmutable, end: DateTimeImmutable}>>  $slots
+     * @param  list<string>  $skills
+     * @return array<string, mixed>
+     */
+    private static function appointment(DatasetSpec $spec, Stage3Spec $stage3, RegionSpec $region, DateTimeImmutable $now, DateTimeImmutable $day, array $slots, string $type, int $sequence, array $skills, Randomizer $random, LocationFactory $locations): array
+    {
+        // The kind by its weight among the kinds still open that day, then a slot of it, uniformly.
+        $kinds = array_intersect_key($stage3->kindWeights, $slots);
+        $pick = $random->nextFloat() * array_sum($kinds);
+        $kind = array_key_last($kinds);
+
+        foreach ($kinds as $candidate => $weight) {
+            if ($pick < $weight) {
+                $kind = $candidate;
+                break;
+            }
+
+            $pick -= $weight;
+        }
+
+        $slot = $slots[$kind][$random->getInt(0, count($slots[$kind]) - 1)];
+
+        $id = sprintf('A-%s-%06d', $region->id, $sequence);
+        $location = $locations->activity(sprintf('L-%s-%05d', $region->id, $sequence), $region);
+        $minutes = self::drawMinutes($stage3->durations[$type], $random);
+
+        // Booked U(booked_ago) before the slot starts, on the minute, but never after now.
+        $created = min($now, $slot['start']->modify('-'.$random->getInt($stage3->bookedAgo['min'], $stage3->bookedAgo['max']).' minutes'));
+        $createdUtc = ShiftFactory::utc($created);
+        $skill = self::drawSkill($stage3->skills[$type], $skills, $id, $random);
+        $start = ShiftFactory::utc($slot['start']);
+        $end = ShiftFactory::utc($slot['end']);
+
+        return [
+            'region' => $region->id,
+            'type' => $type,
+            'date' => $day->format('Y-m-d'),
+            'kind' => $kind,
+            'location' => $location,
+            'location_region' => ['region_id' => $region->id, 'location_id' => $location['id']],
+            'activity' => [
+                'id' => $id,
+                'activity_class_id' => 'CALL',
+                'activity_type_id' => $type,
+                'location_id' => $location['id'],
+                'description' => "{$type} : {$location['address_line1']}",
+                'duration' => self::isoMinutes($minutes),
+                'base_value' => (string) (int) round(1000 * $minutes / 60),
+                'split_allowed' => 'false',
+                'appointed' => 'true',
+                'do_on_site' => 'false',
+                'auto_duration_enabled' => 'false',
+                'remote_fulfillment' => 'false',
+                'date_time_created' => $createdUtc,
+                'date_time_open' => $createdUtc,
+                'memo' => '.',
+            ],
+            'skill' => $skill,
+            'slas' => [self::sla($spec->activityTypes[$type]['primary_sla_type'], $id, 1, $slot['start'], $slot['end'])],
+            'availability' => [
+                'id' => "AP-{$id}-1",
+                'datetime_start' => $start,
+                'datetime_end' => $end,
+                'activity_id' => $id,
+                'start_based' => 'true',
+                'availability_type' => 'ACCEPTED_APPOINTMENT',
+            ],
+            'status' => [
+                'activity_id' => $id,
+                'status_id' => '0',
+                'visit_id' => '1',
+                'fixed' => 'false',
+                'date_time_status' => $createdUtc,
+                'date_time_stamp' => $createdUtc,
+                'date_time_earliest' => $start,
+            ],
+            'in_start' => $slot['start'],
+            'in_end' => $slot['end'],
+        ];
+    }
+
+    /** @param array{min: int, max: int} $range minutes; the draw rounded to the nearest 15 */
+    private static function drawMinutes(array $range, Randomizer $random): int
+    {
+        $minutes = (int) (round($random->getInt($range['min'], $range['max']) / self::DURATION_STEP_MINUTES) * self::DURATION_STEP_MINUTES);
+
+        return max(self::DURATION_STEP_MINUTES, $minutes);
+    }
+
+    /**
+     * With probability p, one skill from the pool that at least two serving resources hold.
+     *
+     * @param  array{pool: list<string>, p: float}  $rule
+     * @param  list<string>  $skills
+     * @return array<string, string>|null
+     */
+    private static function drawSkill(array $rule, array $skills, string $activityId, Randomizer $random): ?array
+    {
+        $pool = array_values(array_intersect($rule['pool'], $skills));
+
+        if ($random->nextFloat() < $rule['p'] && $pool !== []) {
+            return ['skill_id' => $pool[$random->getInt(0, count($pool) - 1)], 'activity_id' => $activityId, 'share_with_corequisites' => 'false'];
+        }
+
+        return null;
     }
 
     /**
@@ -136,16 +346,14 @@ class ActivityFactory
 
     /**
      * @param  list<string>  $skills  skills held by at least two of the region's own resources
-     * @return array{region: string, type: string, date: string, location: array<string, string>, location_region: array<string, string>, activity: array<string, string>, skill: array<string, string>|null, slas: list<array<string, string>>, status: array<string, string>, in_start: DateTimeImmutable, in_end: DateTimeImmutable}
+     * @return array<string, mixed> one activity, as activities() lists them
      */
     private static function activity(DatasetSpec $spec, Stage2Spec $stage2, RegionSpec $region, DateTimeZone $zone, DateTimeImmutable $now, DateTimeImmutable $day, string $type, int $sequence, array $skills, Randomizer $random, LocationFactory $locations): array
     {
         $id = sprintf('A-%s-%06d', $region->id, $sequence);
         $location = $locations->activity(sprintf('L-%s-%05d', $region->id, $sequence), $region);
 
-        $range = $stage2->durations[$type];
-        $minutes = (int) (round($random->getInt($range['min'], $range['max']) / self::DURATION_STEP_MINUTES) * self::DURATION_STEP_MINUTES);
-        $minutes = max(self::DURATION_STEP_MINUTES, $minutes);
+        $minutes = self::drawMinutes($stage2->durations[$type], $random);
         $value = (int) round(1000 * $minutes / 60 * ($type === self::EMERGENCY ? self::EMERGENCY_VALUE_FACTOR : 1));
 
         // Created up to 72 hours before now, on the minute, but never before midnight of day -1 in the region.
@@ -154,12 +362,7 @@ class ActivityFactory
         $created = max($created, $earliest);
         $createdUtc = ShiftFactory::utc($created);
 
-        $pool = array_values(array_intersect($stage2->skills[$type]['pool'], $skills));
-        $skill = null;
-
-        if ($random->nextFloat() < $stage2->skills[$type]['p'] && $pool !== []) {
-            $skill = ['skill_id' => $pool[$random->getInt(0, count($pool) - 1)], 'activity_id' => $id, 'share_with_corequisites' => 'false'];
-        }
+        $skill = self::drawSkill($stage2->skills[$type], $skills, $id, $random);
 
         // Priority 1 from 08:00 local on the target day (or now, if later); its end snapped to 17:00 local.
         $inStart = max($now, self::at($day, self::SLA_START))->setTimezone($zone);
@@ -168,12 +371,13 @@ class ActivityFactory
             ? self::at($day, self::SLA_END)
             : self::at($inStart->add(new DateInterval($window['in']))->setTime(0, 0), self::SLA_END);
         $outEnd = $inEnd->add(new DateInterval($window['out']));
-        $primary = isset($spec->slaTypes[$type]) ? $type : 'IN_SLA';
+        $primary = $spec->activityTypes[$type]['primary_sla_type'];
 
         return [
             'region' => $region->id,
             'type' => $type,
             'date' => $day->format('Y-m-d'),
+            'kind' => null,
             'location' => $location,
             'location_region' => ['region_id' => $region->id, 'location_id' => $location['id']],
             'activity' => [
@@ -198,6 +402,7 @@ class ActivityFactory
                 self::sla($primary, $id, 1, $inStart, $inEnd),
                 self::sla('OUT_SLA', $id, 2, $inEnd, $outEnd),
             ],
+            'availability' => null,
             'status' => [
                 'activity_id' => $id,
                 'status_id' => '0',
@@ -225,7 +430,7 @@ class ActivityFactory
     }
 
     /**
-     * @param  list<Spec\ResourceSpec>  $residents
+     * @param  list<Spec\ResourceSpec>  $residents  the region's serving resources
      * @return list<string>
      */
     private static function sharedSkills(array $residents): array

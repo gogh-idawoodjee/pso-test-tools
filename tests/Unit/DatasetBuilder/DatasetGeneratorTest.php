@@ -14,13 +14,13 @@ use Illuminate\Support\Facades\File;
 const DATASET_BUILDER_EMIT_ORDER = [
     'Input_Reference', 'Region', 'Location', 'Location_Region', 'Skill', 'Resource_Type', 'Rule', 'Rule_Collection', 'Rule_Collection_Rule',
     'Rule_Parameter', 'SLA_Type', 'Activity_Type', 'Appointment_Template', 'Appointment_Template_Item', 'Resources', 'Resource_Region', 'Resource_Skill', 'Availability', 'Resource_Region_Availability',
-    'Shift', 'Shift_Break', 'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status',
+    'Shift', 'Shift_Break', 'Activity', 'Activity_Skill', 'Activity_SLA', 'Availability', 'Activity_Status',
 ];
 
 /** The LOAD beside modelling data, in emit order. */
 const DATASET_BUILDER_SLIM_EMIT_ORDER = [
     'Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Location', 'Location_Region', 'Shift', 'Shift_Break',
-    'Activity', 'Activity_Skill', 'Activity_SLA', 'Activity_Status',
+    'Activity', 'Activity_Skill', 'Activity_SLA', 'Availability', 'Activity_Status',
 ];
 
 const DATASET_BUILDER_RAM_EMIT_ORDER = [
@@ -216,7 +216,7 @@ it('writes the Input_Reference from now and the spec, and nothing else', functio
 it('covers the whole horizon with each extra region, in that region\'s time zone', function () {
     $path = generateStage1Dataset('DC_US')->path;
 
-    expect(datasetEntity($path, 'Availability'))->toBe([
+    expect(array_values(array_filter(datasetEntity($path, 'Availability'), static fn (array $row): bool => ! isset($row['activity_id']))))->toBe([
         ['id' => 'AV-R-DEN-001-MTN', 'datetime_start' => '2026-10-23T06:00:00+00:00', 'datetime_end' => '2027-02-08T07:00:00+00:00'],
         ['id' => 'AV-R-DEN-002-MTN', 'datetime_start' => '2026-10-23T06:00:00+00:00', 'datetime_end' => '2027-02-08T07:00:00+00:00'],
     ])->and(datasetEntity($path, 'Resource_Region_Availability')[0])->toBe([
@@ -318,7 +318,7 @@ it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data R
         'RAM_Division' => 'Region', 'RAM_Skill' => 'Skill', 'RAM_Resource_Type' => 'Resource_Type',
         'RAM_Rule' => 'Rule', 'RAM_Rule_Collection' => 'Rule_Collection', 'RAM_Rule_Collection_Rule' => 'Rule_Collection_Rule',
         'RAM_Rule_Parameter' => 'Rule_Parameter', 'RAM_Resource' => 'Resources', 'RAM_Resource_Division' => 'Resource_Region',
-        'RAM_Time_Pattern' => 'Availability', 'RAM_Resource_Division_Avail' => 'Resource_Region_Availability', 'RAM_Resource_Skill' => 'Resource_Skill',
+        'RAM_Resource_Division_Avail' => 'Resource_Region_Availability', 'RAM_Resource_Skill' => 'Resource_Skill',
         'RAM_SLA_Type' => 'SLA_Type', 'RAM_Activity_Type' => 'Activity_Type', 'RAM_Appointment_Template' => 'Appointment_Template',
         'RAM_Appointment_Template_Item' => 'Appointment_Template_Item',
     ];
@@ -326,6 +326,8 @@ it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data R
 
     expect(array_intersect(array_map(static fn (string $entity): string => $counterparts[$entity] ?? $entity, $ram), datasetEntityNames($path)))->toBe([])
         ->and(array_intersect($ram, datasetEntityNames($path)))->toBe([])
+        // Availability in the slim LOAD is only ever an activity's accepted appointment; a resource's window is RAM_Time_Pattern.
+        ->and(array_filter(datasetEntity($path, 'Availability'), static fn (array $row): bool => ! isset($row['activity_id'])))->toBe([])
         // Location and RAM_Location both exist, but never for the same place: activity locations are scheduling data, homes and depots RAM's.
         ->and(array_intersect(array_column(datasetEntity($path, 'Location'), 'id'), array_column(datasetEntity($result->modellingPath, 'RAM_Location'), 'id')))->toBe([]);
 
@@ -711,21 +713,21 @@ function activityRows(string $path): array
     return $rows;
 }
 
-it('makes round(2 x home resources) jobs a working day per region, split by the mix, emergencies on the first day only', function (string $id, int $total) {
+it('makes round(2 x serving resources) jobs a working day per region, split by the mix, emergencies on the first day only', function (string $id, int $total) {
     $result = generateDataset($id);
     $spec = app(DatasetSpecRepository::class)->load($id);
-    $activities = collect(datasetEntity($result->path, 'Activity'));
+    $activities = collect(datasetEntity($result->path, 'Activity'))->where('appointed', 'false');
 
     expect($activities)->toHaveCount($total)->and($result->summary['activities'])->toBe($total);
 
     foreach ($spec->regions as $region) {
-        $residents = count(array_filter($spec->resources, static fn ($resource): bool => $resource->region === $region->id));
+        $perDay = (int) round(2 * $spec->servingResources($region->id));
         $days = $result->summary['activity_days'][$region->id] ?? [];
-        $byType = ActivityFactory::largestRemainder((int) round(2 * $residents) * 5, $spec->stage2->mix);
+        $byType = ActivityFactory::largestRemainder($perDay * 5, $spec->stage2->mix);
 
-        expect(array_sum(array_map('array_sum', $days)))->toBe((int) round(2 * $residents) * 5);
+        expect(array_sum(array_map('array_sum', $days)))->toBe($perDay * 5);
 
-        if ($residents === 0) {
+        if ($perDay === 0) {
             continue;
         }
 
@@ -738,7 +740,7 @@ it('makes round(2 x home resources) jobs a working day per region, split by the 
         expect(array_slice(array_column($days, 'EMERGENCY'), 1))->toBe([])
             ->and(array_values($days)[0]['EMERGENCY'] ?? 0)->toBe($byType['EMERGENCY']);
     }
-})->with([['DC_US', 360], ['DC_CA', 120]]);
+})->with([['DC_US', 370], ['DC_CA', 125]]);
 
 it('gives every activity one location in its region, one status, two touching SLA rows and at most one skill two residents hold', function (string $id) {
     $result = generateDataset($id);
@@ -752,7 +754,12 @@ it('gives every activity one location in its region, one status, two touching SL
 
     foreach (activityRows($path) as $activityId => $rows) {
         $activity = $rows['Activity'][0];
-        $region = explode('-', $activityId)[1];
+
+        if ($activity['appointed'] === 'true') {
+            continue;
+        }
+
+        $region = substr($activityId, 2, -7);
         $type = $activity['activity_type_id'];
         $minutes = (new DateTimeImmutable('2000-01-01'))->add(new DateInterval($activity['duration']))->getTimestamp() / 60 - (new DateTimeImmutable('2000-01-01'))->getTimestamp() / 60;
         $range = $spec->stage2->durations[$type];
@@ -796,7 +803,7 @@ it('gives every activity one location in its region, one status, two touching SL
         expect((new DateTimeImmutable($primary['datetime_end']))->setTimezone(new DateTimeZone($spec->regions[$region]->timeZone))->format('H:i'))->toBe('17:00');
 
         foreach ($rows['Activity_Skill'] ?? [] as $skill) {
-            $holders = count(array_filter($spec->resources, static fn ($resource): bool => $resource->region === $region && in_array($skill['skill_id'], $resource->skills, true)));
+            $holders = count(array_filter($spec->servingResourceList($region), static fn ($resource): bool => in_array($skill['skill_id'], $resource->skills, true)));
 
             expect($holders)->toBeGreaterThanOrEqual(2)
                 ->and($skill['skill_id'])->toBeIn($spec->stage2->skills[$type]['pool'])
@@ -828,7 +835,7 @@ it('keeps 17:00 local on both sides of the DST change in a 10-day MAINT window',
 
 it('leaves the .arp exactly as it was before activities: they are scheduling data', function () {
     $data = json_decode((string) file_get_contents(resource_path('datasets/DC_CA.json')), true);
-    unset($data['stage2']);
+    unset($data['stage2'], $data['stage3']);
     $without = generateDataset('DC_CA', directory: datasetBuilderDirectory().'/without', spec: DatasetSpec::fromArray($data));
     $with = generateDataset('DC_CA', directory: datasetBuilderDirectory().'/with');
 
@@ -840,4 +847,150 @@ it('splits a total by largest remainder, exactly', function () {
     expect(ActivityFactory::largestRemainder(90, ['REPAIR' => 0.55, 'MAINT' => 0.30, 'EMERGENCY' => 0.15]))->toBe(['REPAIR' => 50, 'MAINT' => 27, 'EMERGENCY' => 13])
         ->and(ActivityFactory::largestRemainder(13, [1, 1, 1, 1, 1]))->toBe([3, 3, 3, 2, 2])
         ->and(ActivityFactory::largestRemainder(0, ['A' => 1]))->toBe(['A' => 0]);
+});
+
+it('books round(1 x serving resources) appointments a day per region over ten appointment days, split by the mix', function (string $id, int $total) {
+    $result = generateDataset($id);
+    $spec = app(DatasetSpecRepository::class)->load($id);
+
+    expect(collect(datasetEntity($result->path, 'Activity'))->where('appointed', 'true'))->toHaveCount($total)
+        ->and($result->summary['appointments'])->toBe($total);
+
+    foreach ($spec->regions as $region) {
+        $perDay = (int) round($spec->servingResources($region->id));
+        $days = $result->summary['appointment_days'][$region->id];
+
+        expect($days)->toHaveCount(10);
+
+        foreach ($days as $types) {
+            expect(array_map('array_sum', $types))->toBe(array_filter(ActivityFactory::largestRemainder($perDay, $spec->stage3->mix)));
+        }
+    }
+})->with([['DC_US', 370], ['DC_CA', 130]]);
+
+it('gives every appointment one APPOINTMENT SLA row, one accepted-appointment Availability and date_time_earliest, all on a template slot', function (string $id) {
+    $path = generateDataset($id)->path;
+    $spec = app(DatasetSpecRepository::class)->load($id);
+    $now = new DateTimeImmutable('2026-10-30T15:30:00Z');
+    $checked = 0;
+
+    foreach (activityRows($path) as $activityId => $rows) {
+        $activity = $rows['Activity'][0];
+
+        if ($activity['appointed'] !== 'true') {
+            expect($rows)->not->toHaveKey('Availability');
+
+            continue;
+        }
+
+        $region = $spec->regions[substr($activityId, 2, -7)];
+        $zone = new DateTimeZone($region->timeZone);
+        [$sla] = $rows['Activity_SLA'];
+        [$availability] = $rows['Availability'];
+        $status = $rows['Activity_Status'][0];
+        $start = new DateTimeImmutable($sla['datetime_start']);
+        $local = $start->setTimezone($zone);
+        $end = (new DateTimeImmutable($sla['datetime_end']))->setTimezone($zone);
+        $minutes = (new DateTimeImmutable('2000-01-01'))->add(new DateInterval($activity['duration']))->getTimestamp() / 60 - (new DateTimeImmutable('2000-01-01'))->getTimestamp() / 60;
+        $type = $activity['activity_type_id'];
+
+        expect($rows['Activity_SLA'])->toHaveCount(1)
+            ->and($sla)->toMatchArray(['sla_type_id' => 'APPOINTMENT', 'priority' => '1', 'start_based' => 'true'])
+            ->and($rows['Availability'])->toHaveCount(1)
+            ->and($availability)->toBe([
+                'id' => "AP-{$activityId}-1",
+                'datetime_start' => $sla['datetime_start'],
+                'datetime_end' => $sla['datetime_end'],
+                'activity_id' => $activityId,
+                'start_based' => 'true',
+                'availability_type' => 'ACCEPTED_APPOINTMENT',
+            ])
+            ->and(strlen($availability['id']))->toBeLessThanOrEqual(32)
+            ->and($status['date_time_earliest'])->toBe($sla['datetime_start'])
+            ->and($status['status_id'])->toBe('0')
+            ->and($start >= $now->modify('+1 hour'))->toBeTrue()
+            ->and($local->format('N'))->toBeLessThanOrEqual(5)
+            ->and($type)->toBeIn(['INSTALL', 'SURVEY'])
+            ->and((int) $activity['base_value'])->toBe((int) round(1000 * $minutes / 60))
+            ->and($minutes % 15)->toBe(0);
+
+        // The slot is one of the region's template items, in local time.
+        $slots = [];
+
+        foreach ($region->appointmentTemplates as $kind) {
+            foreach ($spec->appointmentTemplateKinds[$kind]['items'] as $item) {
+                $midnight = $local->setTime(0, 0);
+                $slots[] = $midnight->add(new DateInterval($item['start']))->format('H:i').'-'.$midnight->add(new DateInterval($item['end']))->format('H:i');
+            }
+        }
+
+        expect($local->format('H:i').'-'.$end->format('H:i'))->toBeIn($slots);
+
+        $created = new DateTimeImmutable($activity['date_time_created']);
+        $ago = ($start->getTimestamp() - $created->getTimestamp()) / 60;
+
+        expect($created <= $now)->toBeTrue()
+            ->and($created == $now || ($ago >= 1440 && $ago <= 30240))->toBeTrue()
+            ->and($status['date_time_status'])->toBe($activity['date_time_created']);
+
+        if ($type === 'SURVEY') {
+            expect($rows)->not->toHaveKey('Activity_Skill');
+        } else {
+            $skill = $rows['Activity_Skill'][0]['skill_id'];
+
+            expect($skill)->toBeIn(['FIBRE', 'ELEC'])
+                ->and(count(array_filter($spec->servingResourceList($region->id), static fn ($resource): bool => in_array($skill, $resource->skills, true))))->toBeGreaterThanOrEqual(2);
+        }
+
+        $checked++;
+    }
+
+    expect($checked)->toBeGreaterThan(0);
+})->with(['DC_US', 'DC_CA']);
+
+it('counts today only for slots an hour or more away: Toronto starts Monday, Los Angeles books Friday afternoon only', function () {
+    $now = new DateTimeImmutable('2026-10-30T15:30:00Z'); // Fri 11:30 Toronto, 08:30 Los Angeles
+    $ca = app(DatasetSpecRepository::class)->load('DC_CA');
+    $us = app(DatasetSpecRepository::class)->load('DC_US');
+    $tor = ActivityFactory::appointmentDays($ca, $ca->regions['TOR'], $now);
+    $lax = ActivityFactory::appointmentDays($us, $us->regions['LAX'], $now);
+
+    expect($tor[0]['day']->format('D Y-m-d'))->toBe('Mon 2026-11-02')
+        ->and(end($tor)['day']->format('D Y-m-d'))->toBe('Fri 2026-11-13')
+        ->and($lax[0]['day']->format('D Y-m-d'))->toBe('Fri 2026-10-30')
+        ->and(array_keys($lax[0]['slots']))->toBe(['AMPM'])
+        ->and(array_map(static fn (array $slot): string => $slot['start']->format('H:i'), $lax[0]['slots']['AMPM']))->toBe(['12:00'])
+        ->and(array_keys($lax[1]['slots']))->toBe(['AMPM', 'ALLDAY']);
+});
+
+it('puts a Monday 2 November Toronto AM slot at 13:00Z, after the DST change', function () {
+    $rows = collect(activityRows(generateDataset('DC_CA')->path))
+        ->first(static fn (array $rows): bool => isset($rows['Availability']) && $rows['Availability'][0]['datetime_start'] === '2026-11-02T13:00:00+00:00' && $rows['Availability'][0]['datetime_end'] === '2026-11-02T17:00:00+00:00');
+
+    expect($rows)->not->toBeNull()
+        ->and($rows['Activity'][0]['id'])->toStartWith('A-TOR-');
+});
+
+it('gives MTN, served only through extra regions, two SLA jobs a working day and one all-day appointment a day', function () {
+    $result = generateDataset('DC_US');
+    $spec = app(DatasetSpecRepository::class)->load('DC_US');
+
+    expect($spec->servingResources('MTN'))->toBe(1.0)
+        // round(2 x 1.0) = 2 a day, so 10 over the five days; its emergency sits on day 1, as everywhere.
+        ->and(array_sum(array_map('array_sum', $result->summary['activity_days']['MTN'])))->toBe(10)
+        ->and($result->summary['activity_days']['MTN'])->toHaveCount(5)
+        ->and(collect($result->summary['appointment_days']['MTN'])->map(static fn (array $types): array => array_merge(...array_values($types)))->unique()->values()->all())->toBe([['ALLDAY' => 1]]);
+});
+
+it('takes the priority 1 SLA type from the activity type\'s primary_sla_type', function () {
+    $data = json_decode((string) file_get_contents(resource_path('datasets/DC_CA.json')), true);
+    $data['activity_types']['REPAIR']['primary_sla_type'] = 'PROJECT';
+    $path = generateDataset('DC_CA', spec: DatasetSpec::fromArray($data))->path;
+    $activities = collect(datasetEntity($path, 'Activity'))->keyBy('id');
+
+    foreach (datasetEntity($path, 'Activity_SLA') as $sla) {
+        if ($sla['priority'] === '1' && $activities[$sla['activity_id']]['activity_type_id'] === 'REPAIR') {
+            expect($sla['sla_type_id'])->toBe('PROJECT');
+        }
+    }
 });

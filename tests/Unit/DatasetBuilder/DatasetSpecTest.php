@@ -136,6 +136,31 @@ it('refuses a spec it cannot generate from', function (Closure $change, string $
 
         return $data;
     }, 'stage2 REPAIR: durations.min must be at least a minute and no more than durations.max'],
+    'a primary SLA type that is not an SLA type' => [static function (array $data): array {
+        $data['activity_types']['INSTALL']['primary_sla_type'] = 'BOOKED';
+
+        return $data;
+    }, 'Activity type INSTALL: primary_sla_type must be one of the sla_types'],
+    'an unknown work mode' => [static function (array $data): array {
+        $data['activity_types']['INSTALL']['work_mode'] = 'booked';
+
+        return $data;
+    }, 'Activity type INSTALL: work_mode must be sla or appointment'],
+    'SLA work in the stage 3 mix' => [static function (array $data): array {
+        $data['stage3']['mix']['REPAIR'] = 0.1;
+
+        return $data;
+    }, 'stage3.mix: REPAIR must be an activity type whose work_mode is appointment'],
+    'appointment work in the stage 2 mix' => [static function (array $data): array {
+        $data['stage2']['mix']['SURVEY'] = 0.1;
+
+        return $data;
+    }, 'stage2.mix: activity type SURVEY is appointment work'],
+    'a kind weight for a template kind that does not exist' => [static function (array $data): array {
+        $data['stage3']['kind_weights']['EVENING'] = 0.2;
+
+        return $data;
+    }, 'stage3.kind_weights: EVENING is not in appointment_templates'],
     'shift ending before it starts' => [static function (array $data): array {
         $data['resource_types']['FIELD_TECH']['shift']['end'] = '07:00';
 

@@ -178,6 +178,40 @@
                         </p>
                     </div>
                 @endif
+
+                @if (($summary['appointments'] ?? 0) > 0)
+                    <div>
+                        <h3 class="mb-2 font-medium text-gray-950 dark:text-white">Booked appointments by region, day, type and template kind ({{ number_format($summary['appointments']) }})</h3>
+                        <table class="text-left">
+                            <thead class="text-gray-500 dark:text-gray-400">
+                                <tr>
+                                    <th class="pe-6 font-medium">Region</th>
+                                    <th class="pe-6 font-medium">Day</th>
+                                    @foreach ($summary['appointment_types'] as $type)
+                                        @foreach ($summary['appointment_kinds'] as $kind)
+                                            <th class="pe-6 font-medium">{{ $type }} {{ $kind }}</th>
+                                        @endforeach
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-950 dark:text-white">
+                                @foreach ($summary['appointment_days'] as $region => $days)
+                                    @foreach ($days as $date => $types)
+                                        <tr>
+                                            <td class="pe-6 font-mono">{{ $region }}</td>
+                                            <td class="pe-6">{{ \Carbon\CarbonImmutable::parse($date)->format('D Y-m-d') }}</td>
+                                            @foreach ($summary['appointment_types'] as $type)
+                                                @foreach ($summary['appointment_kinds'] as $kind)
+                                                    <td class="pe-6">{{ $types[$type][$kind] ?? '' }}</td>
+                                                @endforeach
+                                            @endforeach
+                                        </tr>
+                                    @endforeach
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
             </div>
         </x-filament::section>
 

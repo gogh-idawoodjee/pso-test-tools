@@ -191,7 +191,7 @@ class DatasetGenerator
         }
     }
 
-    /** Stage 2's unallocated activities: Activity, then each one's skill, SLA rows and status. */
+    /** The unallocated activities (stage 2 SLA work, stage 3 appointments): Activity, then each one's skill, SLA rows, appointment window and status. */
     private function writeActivities(DsScheduleDataWriter $writer, DatasetModel $model, DatasetSummary $summary): void
     {
         foreach ($model->activities as $activity) {
@@ -208,6 +208,13 @@ class DatasetGenerator
         foreach ($model->activities as $activity) {
             foreach ($activity['slas'] as $sla) {
                 $writer->row('Activity_SLA', $sla);
+            }
+        }
+
+        // Stage 3: each booked appointment's ACCEPTED_APPOINTMENT window (activity-level, so LOAD data).
+        foreach ($model->activities as $activity) {
+            if ($activity['availability'] !== null) {
+                $writer->row('Availability', $activity['availability']);
             }
         }
 

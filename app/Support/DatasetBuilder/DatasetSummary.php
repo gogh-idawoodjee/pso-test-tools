@@ -58,10 +58,20 @@ class DatasetSummary
         $this->extraRegions[] = "{$resource->firstName} {$resource->surname} ({$resource->id}): {$resource->region} + {$regionId}";
     }
 
-    /** @param array{region: string, type: string, date: string, in_start: DateTimeImmutable, in_end: DateTimeImmutable} $activity */
+    /** @var array<string, array<string, array<string, array<string, int>>>> region => local date => type => template kind => appointments */
+    private array $appointmentDays = [];
+
+    /** @param array{region: string, type: string, date: string, kind: string|null, in_start: DateTimeImmutable, in_end: DateTimeImmutable} $activity */
     public function activity(array $activity): void
     {
         $type = $activity['type'];
+
+        if ($activity['kind'] !== null) {
+            $this->appointmentDays[$activity['region']][$activity['date']][$type][$activity['kind']] = ($this->appointmentDays[$activity['region']][$activity['date']][$type][$activity['kind']] ?? 0) + 1;
+
+            return;
+        }
+
         $this->activityDays[$activity['region']][$activity['date']][$type] = ($this->activityDays[$activity['region']][$activity['date']][$type] ?? 0) + 1;
 
         $hours = ($activity['in_end']->getTimestamp() - $activity['in_start']->getTimestamp()) / 3600;
@@ -192,6 +202,10 @@ class DatasetSummary
             'activity_types' => array_keys($this->spec->stage2?->mix ?? []),
             'activity_days' => $this->activityDays,
             'in_sla' => array_values($this->inSla),
+            'appointments' => array_sum(array_map(static fn (array $days): int => array_sum(array_map(static fn (array $types): int => array_sum(array_map('array_sum', $types)), $days)), $this->appointmentDays)),
+            'appointment_types' => array_keys($this->spec->stage3?->mix ?? []),
+            'appointment_kinds' => array_keys($this->spec->stage3?->kindWeights ?? []),
+            'appointment_days' => $this->appointmentDays,
             'modelling' => $modelling === null ? null : [
                 'file' => basename($modelling['path']),
                 'bytes' => $modelling['bytes'],

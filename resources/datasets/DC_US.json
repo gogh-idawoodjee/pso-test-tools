@@ -6,6 +6,7 @@
   "base_time_zone": "America/Chicago",
   "horizon_days": 100,
   "modelling": true,
+  "extra_region_weight": 0.5,
   "activity_cap": 750,
   "input_reference": {
     "duration": "P7D",
@@ -233,7 +234,9 @@
       "split_allowed": false,
       "min_split": "PT1H",
       "cost_of_split": 0,
-      "priority": 1
+      "priority": 1,
+      "work_mode": "sla",
+      "primary_sla_type": "IN_SLA"
     },
     "MAINT": {
       "description": "Preventive maintenance",
@@ -242,7 +245,9 @@
       "split_allowed": false,
       "min_split": "PT1H",
       "cost_of_split": 0,
-      "priority": 1
+      "priority": 1,
+      "work_mode": "sla",
+      "primary_sla_type": "IN_SLA"
     },
     "INSTALL": {
       "description": "Installation",
@@ -251,7 +256,9 @@
       "split_allowed": false,
       "min_split": "PT1H",
       "cost_of_split": 0,
-      "priority": 1
+      "priority": 1,
+      "work_mode": "appointment",
+      "primary_sla_type": "APPOINTMENT"
     },
     "SURVEY": {
       "description": "Site survey",
@@ -260,7 +267,9 @@
       "split_allowed": false,
       "min_split": "PT1H",
       "cost_of_split": 0,
-      "priority": 1
+      "priority": 1,
+      "work_mode": "appointment",
+      "primary_sla_type": "APPOINTMENT"
     },
     "PROJECT": {
       "description": "Project work",
@@ -269,7 +278,9 @@
       "split_allowed": true,
       "min_split": "PT2H",
       "cost_of_split": 200,
-      "priority": 1
+      "priority": 1,
+      "work_mode": "sla",
+      "primary_sla_type": "PROJECT"
     },
     "EMERGENCY": {
       "description": "Emergency callout",
@@ -278,7 +289,9 @@
       "split_allowed": false,
       "min_split": "PT1H",
       "cost_of_split": 0,
-      "priority": 1
+      "priority": 1,
+      "work_mode": "sla",
+      "primary_sla_type": "EMERGENCY"
     }
   },
   "appointment_templates": {
@@ -1188,6 +1201,45 @@
         ],
         "p": 1.0
       }
+    }
+  },
+  "stage3": {
+    "appointments_per_resource_per_day": 1,
+    "working_days": 10,
+    "mix": {
+      "INSTALL": 0.7,
+      "SURVEY": 0.3
+    },
+    "durations": {
+      "INSTALL": {
+        "min": "PT1H30M",
+        "max": "PT3H"
+      },
+      "SURVEY": {
+        "min": "PT30M",
+        "max": "PT1H"
+      }
+    },
+    "skills": {
+      "INSTALL": {
+        "pool": [
+          "FIBRE",
+          "ELEC"
+        ],
+        "p": 1.0
+      },
+      "SURVEY": {
+        "pool": [],
+        "p": 0.0
+      }
+    },
+    "kind_weights": {
+      "AMPM": 0.6,
+      "ALLDAY": 0.4
+    },
+    "booked_ago": {
+      "min": "P1D",
+      "max": "P21D"
     }
   },
   "_later_stages": {
