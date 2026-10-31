@@ -161,6 +161,21 @@ it('refuses a spec it cannot generate from', function (Closure $change, string $
 
         return $data;
     }, 'stage3.kind_weights: EVENING is not in appointment_templates'],
+    'a stage 4 skill that is not a skill' => [static function (array $data): array {
+        $data['stage4']['skills']['optional']['WELDING'] = 0.5;
+
+        return $data;
+    }, 'stage4.skills.optional: skill WELDING is not in skills'],
+    'a stage 4 start weekday at the weekend' => [static function (array $data): array {
+        $data['stage4']['start_day_weights']['6'] = 1;
+
+        return $data;
+    }, 'stage4.start_day_weights: 6 must be an ISO weekday from 1 (Monday) to 5 (Friday)'],
+    'stage 4 start_based not a boolean' => [static function (array $data): array {
+        $data['stage4']['sla']['start_based'] = 'no';
+
+        return $data;
+    }, 'stage4.sla.start_based must be true or false'],
     'shift ending before it starts' => [static function (array $data): array {
         $data['resource_types']['FIELD_TECH']['shift']['end'] = '07:00';
 

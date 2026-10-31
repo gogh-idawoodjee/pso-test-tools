@@ -729,7 +729,7 @@ function activityRows(string $path): array
 it('makes round(2 x serving resources) jobs a working day per region, split by the mix, emergencies on the first day only', function (string $id, int $total) {
     $result = generateDataset($id);
     $spec = app(DatasetSpecRepository::class)->load($id);
-    $activities = collect(datasetEntity($result->path, 'Activity'))->where('appointed', 'false');
+    $activities = collect(datasetEntity($result->path, 'Activity'))->where('appointed', 'false')->where('activity_type_id', '!=', 'PROJECT');
 
     expect($activities)->toHaveCount($total)->and($result->summary['activities'])->toBe($total);
 
@@ -768,7 +768,7 @@ it('gives every activity one location in its region, one status, two touching SL
     foreach (activityRows($path) as $activityId => $rows) {
         $activity = $rows['Activity'][0];
 
-        if ($activity['appointed'] === 'true') {
+        if ($activity['appointed'] === 'true' || $activity['activity_type_id'] === 'PROJECT') {
             continue;
         }
 
@@ -848,7 +848,7 @@ it('keeps 17:00 local on both sides of the DST change in a 10-day MAINT window',
 
 it('leaves the .arp exactly as it was before activities: they are scheduling data', function () {
     $data = json_decode((string) file_get_contents(resource_path('datasets/DC_CA.json')), true);
-    unset($data['stage2'], $data['stage3']);
+    unset($data['stage2'], $data['stage3'], $data['stage4']);
     $without = generateDataset('DC_CA', directory: datasetBuilderDirectory().'/without', spec: DatasetSpec::fromArray($data));
     $with = generateDataset('DC_CA', directory: datasetBuilderDirectory().'/with');
 
@@ -1084,4 +1084,80 @@ it('spans each resource\'s rota from day -7 00:00 to midnight after day 100, in 
         ->and($item['start_datetime'])->toBe('2026-11-02T12:30:00+00:00')
         ->and($item['split_priority'])->toBe('0')
         ->and($item['description'])->toBe('Senior Technician Mon-Fri 07:30-16:00');
+});
+
+it('gives projects only to regions with two or more serving holders of the skills: none to MTN, COMMERCIAL only to DFW and IOWA', function () {
+    $us = app(DatasetSpecRepository::class)->load('DC_US');
+    $ca = app(DatasetSpecRepository::class)->load('DC_CA');
+    $skills = static fn (DatasetSpec $spec, string $region): ?array => ActivityFactory::projectSkills($spec, $spec->regions[$region]);
+    $both = ['required' => ['COMMERCIAL'], 'optional' => ['SAFETY_CERT']];
+    $commercial = ['required' => ['COMMERCIAL'], 'optional' => []];
+
+    expect($skills($us, 'MTN'))->toBeNull()
+        ->and($skills($us, 'DFW'))->toBe($commercial)
+        ->and($skills($us, 'IOWA'))->toBe($commercial)
+        ->and($skills($us, 'CHI'))->toBe($both)
+        ->and($skills($us, 'LAX'))->toBe($both)
+        ->and($skills($us, 'DEN'))->toBe($both)
+        ->and($skills($ca, 'TOR'))->toBe($both)
+        ->and($skills($ca, 'ONT_RURAL'))->toBe($both);
+});
+
+it('makes 2 projects a week per metro and 1 per rural region over 2 weeks, split-ready, end-based, staffable', function (string $id, int $total) {
+    $result = generateDataset($id);
+    $spec = app(DatasetSpecRepository::class)->load($id);
+    $now = new DateTimeImmutable('2026-10-30T15:30:00Z');
+    $projects = collect(activityRows($result->path))->filter(static fn (array $rows): bool => $rows['Activity'][0]['activity_type_id'] === 'PROJECT');
+
+    expect($projects)->toHaveCount($total)->and($result->summary['projects'])->toBe($total);
+
+    foreach ($projects as $activityId => $rows) {
+        $activity = $rows['Activity'][0];
+        $region = $spec->regions[substr($activityId, 2, -7)];
+        $zone = new DateTimeZone($region->timeZone);
+        $minutes = (new DateTimeImmutable('2000-01-01'))->add(new DateInterval($activity['duration']))->getTimestamp() / 60 - (new DateTimeImmutable('2000-01-01'))->getTimestamp() / 60;
+        $skills = array_column($rows['Activity_Skill'], 'skill_id');
+        $holders = array_filter($spec->servingResourceList($region->id), static fn ($resource): bool => array_diff($skills, $resource->skills) === []);
+        [$primary, $secondary] = $rows['Activity_SLA'];
+        $start = (new DateTimeImmutable($primary['datetime_start']))->setTimezone($zone);
+
+        expect($activity)->toMatchArray(['split_allowed' => 'true', 'split_minimum_priority' => '1', 'appointed' => 'false', 'activity_class_id' => 'CALL'])
+            ->and(array_keys($activity))->toBe(['id', 'activity_class_id', 'activity_type_id', 'location_id', 'description', 'duration', 'base_value', 'split_allowed', 'split_minimum_priority', 'appointed', 'do_on_site', 'auto_duration_enabled', 'remote_fulfillment', 'date_time_created', 'date_time_open', 'memo'])
+            ->and($minutes)->toBeGreaterThanOrEqual(600)->toBeLessThanOrEqual(960)
+            ->and($minutes % 15)->toBe(0)
+            ->and((int) $activity['base_value'])->toBe((int) round(1000 * $minutes / 60))
+            ->and($skills[0])->toBe('COMMERCIAL')
+            ->and(count($holders))->toBeGreaterThanOrEqual(2)
+            ->and($rows['Activity_SLA'])->toHaveCount(2)
+            ->and($primary)->toMatchArray(['sla_type_id' => 'PROJECT', 'priority' => '1', 'start_based' => 'false'])
+            ->and($secondary)->toMatchArray(['sla_type_id' => 'OUT_SLA', 'priority' => '2', 'start_based' => 'false'])
+            ->and(array_keys($primary))->toBe(['sla_type_id', 'activity_id', 'priority', 'start_based', 'datetime_start', 'datetime_end'])
+            ->and($secondary['datetime_start'])->toBe($primary['datetime_end'])
+            ->and($start->format('H:i'))->toBe('08:00')
+            ->and((int) $start->format('N'))->toBeLessThanOrEqual(5)
+            ->and($start > $now)->toBeTrue()
+            ->and((new DateTimeImmutable($primary['datetime_end']))->setTimezone($zone)->format('H:i'))->toBe('17:00')
+            ->and($rows['Activity_Status'][0])->toMatchArray(['status_id' => '0', 'visit_id' => '1'])
+            ->and($rows['Activity_Status'][0])->not->toHaveKey('duration_override')
+            ->and($rows)->not->toHaveKey('Availability');
+
+        if (in_array('SAFETY_CERT', $skills, true)) {
+            expect($region->id)->not->toBeIn(['DFW', 'IOWA']);
+        }
+    }
+})->with([['DC_US', 18], ['DC_CA', 6]]);
+
+it('starts a Friday Toronto project at 08:00 EST and ends its PROJECT window ten days on at 17:00', function () {
+    $friday = collect(activityRows(generateDataset('DC_CA')->path))
+        ->filter(static fn (array $rows): bool => $rows['Activity'][0]['activity_type_id'] === 'PROJECT' && str_starts_with($rows['Activity'][0]['id'], 'A-TOR-'))
+        ->first(static fn (array $rows): bool => (new DateTimeImmutable($rows['Activity_SLA'][0]['datetime_start']))->setTimezone(new DateTimeZone('America/Toronto'))->format('D') === 'Fri');
+
+    expect($friday)->not->toBeNull();
+
+    $start = (new DateTimeImmutable($friday['Activity_SLA'][0]['datetime_start']))->setTimezone(new DateTimeZone('America/Toronto'));
+    $end = (new DateTimeImmutable($friday['Activity_SLA'][0]['datetime_end']))->setTimezone(new DateTimeZone('America/Toronto'));
+
+    expect($start->format('H:i T'))->toBe('08:00 EST')
+        ->and($end->format('D H:i'))->toBe('Mon 17:00')
+        ->and($start->diff($end)->days)->toBe(10);
 });

@@ -6,6 +6,7 @@ use App\Support\DatasetBuilder\Spec\DatasetSpec;
 use App\Support\DatasetBuilder\Spec\RegionSpec;
 use App\Support\DatasetBuilder\Spec\Stage2Spec;
 use App\Support\DatasetBuilder\Spec\Stage3Spec;
+use App\Support\DatasetBuilder\Spec\Stage4Spec;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -31,10 +32,15 @@ use Random\Randomizer;
  * the next weekdays; each with one SLA row, an ACCEPTED_APPOINTMENT
  * Availability and a status row with date_time_earliest, all on the slot.
  *
+ * Stage 4: splittable PROJECT work, a few a week per region whose serving
+ * resources include two or more holders of the job's skills, starting on a
+ * weighted weekday over the next weeks, with two end-based SLA rows.
+ *
  * Every draw comes from the seeded Randomizer: all stage 2 work first, region
  * by region (regions with home resources in spec order, then those served only
  * through `extra_regions`, so their work never moves anyone else's), then all
- * stage 3 appointments. A later stage's draws never move an earlier stage's.
+ * stage 3 appointments, then all stage 4 projects. A later stage's draws
+ * never move an earlier stage's.
  *
  * Field names are the stage 2 and 3 cheat sheets' (docs/dataset-builder/).
  */
@@ -97,7 +103,162 @@ class ActivityFactory
             }
         }
 
+        if ($spec->stage4 !== null) {
+            foreach ($spec->regions as $region) {
+                $sequences[$region->id] ??= 0;
+                $projects = self::projects($spec, $region, $now, $sequences[$region->id], $random, $locations);
+                array_push($activities, ...$projects);
+                $sequences[$region->id] += count($projects);
+            }
+        }
+
         return $activities;
+    }
+
+    /**
+     * Whether a region can take projects, and which skills a project there may
+     * carry: the required ones need two or more serving holders, else the
+     * region gets none; each optional skill is possible only if the full set
+     * with it still has two or more.
+     *
+     * @return array{required: list<string>, optional: list<string>}|null null when the region gets no projects
+     */
+    public static function projectSkills(DatasetSpec $spec, RegionSpec $region): ?array
+    {
+        $stage4 = $spec->stage4;
+        $serving = $spec->servingResourceList($region->id);
+        $holders = static fn (array $skills): int => count(array_filter($serving, static fn ($resource): bool => array_diff($skills, $resource->skills) === []));
+
+        if ($holders($stage4->requiredSkills) < 2) {
+            return null;
+        }
+
+        $optional = array_values(array_filter(array_keys($stage4->optionalSkills), static fn (string $skill): bool => $holders([...$stage4->requiredSkills, $skill]) >= 2));
+
+        return ['required' => $stage4->requiredSkills, 'optional' => $optional];
+    }
+
+    /** @return list<array<string, mixed>> the region's stage 4 projects, numbered on from $sequence */
+    private static function projects(DatasetSpec $spec, RegionSpec $region, DateTimeImmutable $now, int $sequence, Randomizer $random, LocationFactory $locations): array
+    {
+        $stage4 = $spec->stage4;
+        $skills = self::projectSkills($spec, $region);
+        $count = $stage4->perRegionPerWeek[$region->kind] * $stage4->weeks;
+
+        if ($skills === null || $count === 0) {
+            return [];
+        }
+
+        // Start days: the next weeks x 5 weekdays after today, in the region.
+        $zone = new DateTimeZone($region->timeZone);
+        $days = [];
+
+        for ($date = ShiftFactory::dayZero($now, $zone)->modify('+1 day'); count($days) < $stage4->weeks * 5; $date = $date->modify('+1 day')) {
+            if ((int) $date->format('N') <= 5) {
+                $days[] = $date;
+            }
+        }
+
+        $weights = array_map(static fn (DateTimeImmutable $day): float => $stage4->startDayWeights[(int) $day->format('N')] ?? 0.0, $days);
+        $projects = [];
+
+        for ($i = 0; $i < $count; $i++) {
+            $projects[] = self::project($spec, $stage4, $region, $zone, $now, $days[self::weightedIndex($weights, $random)], $skills, ++$sequence, $random, $locations);
+        }
+
+        return $projects;
+    }
+
+    /**
+     * @param  array{required: list<string>, optional: list<string>}  $skills
+     * @return array<string, mixed>
+     */
+    private static function project(DatasetSpec $spec, Stage4Spec $stage4, RegionSpec $region, DateTimeZone $zone, DateTimeImmutable $now, DateTimeImmutable $day, array $skills, int $sequence, Randomizer $random, LocationFactory $locations): array
+    {
+        $id = sprintf('A-%s-%06d', $region->id, $sequence);
+        $location = $locations->activity(sprintf('L-%s-%05d', $region->id, $sequence), $region);
+        $minutes = self::drawMinutes($stage4->duration, $random);
+
+        // Created as stage 2 work is: up to 72 hours before now, on the minute, never before midnight of day -1.
+        $created = max($now->modify('-'.$random->getInt(0, self::CREATED_UP_TO_HOURS * 60).' minutes'), ShiftFactory::dayZero($now, $zone)->modify('-1 day'));
+        $createdUtc = ShiftFactory::utc($created);
+
+        // Each optional skill drawn by its probability, kept only where the region can staff the full set.
+        $jobSkills = $skills['required'];
+
+        foreach ($stage4->optionalSkills as $skill => $p) {
+            if ($random->nextFloat() < $p && in_array($skill, $skills['optional'], true)) {
+                $jobSkills[] = $skill;
+            }
+        }
+
+        $inStart = self::at($day, self::SLA_START);
+        $inEnd = self::at($inStart->add(new DateInterval($stage4->sla['in']))->setTime(0, 0), self::SLA_END);
+        $outEnd = $inEnd->add(new DateInterval($stage4->sla['out']));
+        $startBased = $stage4->sla['start_based'] ? 'true' : 'false';
+        $slas = [
+            self::sla($spec->activityTypes[Stage4Spec::TYPE]['primary_sla_type'], $id, 1, $inStart, $inEnd),
+            self::sla('OUT_SLA', $id, 2, $inEnd, $outEnd),
+        ];
+
+        return [
+            'stage' => 4,
+            'region' => $region->id,
+            'type' => Stage4Spec::TYPE,
+            'date' => $day->format('Y-m-d'),
+            'kind' => null,
+            'location' => $location,
+            'location_region' => ['region_id' => $region->id, 'location_id' => $location['id']],
+            'activity' => [
+                'id' => $id,
+                'activity_class_id' => 'CALL',
+                'activity_type_id' => Stage4Spec::TYPE,
+                'location_id' => $location['id'],
+                'description' => Stage4Spec::TYPE." : {$location['address_line1']}",
+                'duration' => self::isoMinutes($minutes),
+                'base_value' => (string) (int) round(1000 * $minutes / 60),
+                'split_allowed' => 'true',
+                'split_minimum_priority' => (string) $stage4->splitMinimumPriority,
+                'appointed' => 'false',
+                'do_on_site' => 'false',
+                'auto_duration_enabled' => 'false',
+                'remote_fulfillment' => 'false',
+                'date_time_created' => $createdUtc,
+                'date_time_open' => $createdUtc,
+                'memo' => '.',
+            ],
+            'skills' => array_map(static fn (string $skill): array => ['skill_id' => $skill, 'activity_id' => $id, 'share_with_corequisites' => 'false'], $jobSkills),
+            'skill' => null,
+            'slas' => array_map(static fn (array $sla): array => array_replace($sla, ['start_based' => $startBased]), $slas),
+            'availability' => null,
+            'status' => [
+                'activity_id' => $id,
+                'status_id' => '0',
+                'visit_id' => '1',
+                'fixed' => 'false',
+                'date_time_status' => $createdUtc,
+                'date_time_stamp' => $createdUtc,
+            ],
+            'minutes' => $minutes,
+            'in_start' => $inStart,
+            'in_end' => $inEnd,
+        ];
+    }
+
+    /** @param list<float> $weights an index drawn in proportion to its weight */
+    private static function weightedIndex(array $weights, Randomizer $random): int
+    {
+        $pick = $random->nextFloat() * array_sum($weights);
+
+        foreach ($weights as $index => $weight) {
+            if ($pick < $weight) {
+                return $index;
+            }
+
+            $pick -= $weight;
+        }
+
+        return array_key_last(array_filter($weights, static fn (float $weight): bool => $weight > 0));
     }
 
     /**
@@ -215,6 +376,7 @@ class ActivityFactory
         $end = ShiftFactory::utc($slot['end']);
 
         return [
+            'stage' => 3,
             'region' => $region->id,
             'type' => $type,
             'date' => $day->format('Y-m-d'),
@@ -374,6 +536,7 @@ class ActivityFactory
         $primary = $spec->activityTypes[$type]['primary_sla_type'];
 
         return [
+            'stage' => 2,
             'region' => $region->id,
             'type' => $type,
             'date' => $day->format('Y-m-d'),

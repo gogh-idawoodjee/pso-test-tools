@@ -198,8 +198,8 @@ class DatasetGenerator
         }
 
         foreach ($model->activities as $activity) {
-            if ($activity['skill'] !== null) {
-                $writer->row('Activity_Skill', $activity['skill']);
+            foreach ($activity['skills'] ?? array_filter([$activity['skill']]) as $skill) {
+                $writer->row('Activity_Skill', $skill);
             }
         }
 

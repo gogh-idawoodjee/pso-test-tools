@@ -19,7 +19,8 @@ use Throwable;
  * made per region from the regions' `appointment_templates`); stage 2 the
  * `stage2` block (Stage2Spec), the first activities; stage 3 each activity
  * type's `work_mode` and `primary_sla_type`, `extra_region_weight` and the
- * `stage3` block (Stage3Spec), booked appointments. Everything else
+ * `stage3` block (Stage3Spec), booked appointments; stage 4 the `stage4`
+ * block (Stage4Spec), splittable PROJECT work. Everything else
  * in the file (`_later_stages`, `activity_cap`) is kept in the JSON for later
  * stages and ignored here. Reference data values are kept as the file text
  * they become (numbers without trailing zeros, booleans as true/false).
@@ -77,6 +78,7 @@ readonly class DatasetSpec
         public ?Stage2Spec $stage2 = null,
         public float $extraRegionWeight = 0.5,
         public ?Stage3Spec $stage3 = null,
+        public ?Stage4Spec $stage4 = null,
     ) {}
 
     /**
@@ -266,6 +268,7 @@ readonly class DatasetSpec
             stage2: isset($data['stage2']) ? self::stage2((array) $data['stage2'], $regions, $skills, $resourceTypes, $activityTypes, $slaTypes) : null,
             extraRegionWeight: $extraRegionWeight,
             stage3: isset($data['stage3']) ? self::stage3((array) $data['stage3'], $regions, $skills, $activityTypes, $templateKinds) : null,
+            stage4: isset($data['stage4']) ? self::stage4((array) $data['stage4'], $skills, $activityTypes, $slaTypes) : null,
         );
     }
 
@@ -275,7 +278,7 @@ readonly class DatasetSpec
             $this->datasetId, $this->organisationId, $this->description, $seed, $this->baseTimeZone, $this->horizonDays,
             $this->inputReference, $this->ruleCollection, $this->regions, $this->skills, $this->resourceTypes, $this->resources,
             $this->modelling, $this->slaTypes, $this->activityTypes, $this->appointmentTemplateKinds, $this->stage2,
-            $this->extraRegionWeight, $this->stage3,
+            $this->extraRegionWeight, $this->stage3, $this->stage4,
         );
     }
 
@@ -774,6 +777,114 @@ readonly class DatasetSpec
         }
 
         return new Stage3Spec($perDay, $days, $mix, $durations, $pools, $weights, ['min' => $min, 'max' => $max]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, string>  $skills
+     * @param  array<string, array<string, string>>  $activityTypes
+     * @param  array<string, array<string, string>>  $slaTypes
+     */
+    private static function stage4(array $data, array $skills, array $activityTypes, array $slaTypes): Stage4Spec
+    {
+        if (! isset($activityTypes[Stage4Spec::TYPE])) {
+            throw new InvalidDatasetSpec('stage4 needs the '.Stage4Spec::TYPE.' activity type in activity_types.');
+        }
+
+        if (! isset($slaTypes['OUT_SLA'])) {
+            throw new InvalidDatasetSpec('stage4 needs the OUT_SLA SLA type in sla_types.');
+        }
+
+        $perWeek = [];
+
+        foreach (['metro', 'rural'] as $kind) {
+            $count = $data['projects_per_region_per_week'][$kind] ?? null;
+
+            if (! is_int($count) || $count < 0) {
+                throw new InvalidDatasetSpec("stage4.projects_per_region_per_week.{$kind} must be a whole number, 0 or more.");
+            }
+
+            $perWeek[$kind] = $count;
+        }
+
+        $weeks = $data['weeks'] ?? null;
+
+        if (! is_int($weeks) || $weeks < 1 || $weeks > 8) {
+            throw new InvalidDatasetSpec('stage4.weeks must be a whole number from 1 to 8.');
+        }
+
+        $min = intdiv(self::seconds(self::duration($data['duration']['min'] ?? null, 'stage4.duration.min')), 60);
+        $max = intdiv(self::seconds(self::duration($data['duration']['max'] ?? null, 'stage4.duration.max')), 60);
+
+        if ($min < 1 || $max < $min) {
+            throw new InvalidDatasetSpec('stage4: duration.min must be at least a minute and no more than duration.max.');
+        }
+
+        $required = array_values(array_map('strval', (array) ($data['skills']['required'] ?? [])));
+        $optional = [];
+
+        foreach ($required as $skill) {
+            if (! isset($skills[$skill])) {
+                throw new InvalidDatasetSpec("stage4.skills.required: skill {$skill} is not in skills.");
+            }
+        }
+
+        foreach ((array) ($data['skills']['optional'] ?? []) as $skill => $p) {
+            if (! isset($skills[$skill])) {
+                throw new InvalidDatasetSpec("stage4.skills.optional: skill {$skill} is not in skills.");
+            }
+
+            $optional[(string) $skill] = self::number($p, "stage4.skills.optional.{$skill}");
+
+            if ($optional[(string) $skill] < 0 || $optional[(string) $skill] > 1) {
+                throw new InvalidDatasetSpec("stage4.skills.optional.{$skill} must be from 0 to 1.");
+            }
+        }
+
+        $weights = [];
+
+        foreach ((array) ($data['start_day_weights'] ?? []) as $weekday => $weight) {
+            if (! in_array((string) $weekday, ['1', '2', '3', '4', '5'], true)) {
+                throw new InvalidDatasetSpec("stage4.start_day_weights: {$weekday} must be an ISO weekday from 1 (Monday) to 5 (Friday).");
+            }
+
+            $weights[(int) $weekday] = self::number($weight, "stage4.start_day_weights.{$weekday}");
+
+            if ($weights[(int) $weekday] < 0) {
+                throw new InvalidDatasetSpec("stage4.start_day_weights.{$weekday} must be 0 or more.");
+            }
+        }
+
+        if (array_sum($weights) <= 0) {
+            throw new InvalidDatasetSpec('stage4.start_day_weights must give at least one weekday a weight above 0.');
+        }
+
+        $priority = $data['split_minimum_priority'] ?? null;
+
+        if (! is_int($priority) || $priority < 0) {
+            throw new InvalidDatasetSpec('stage4.split_minimum_priority must be a whole number, 0 or more.');
+        }
+
+        $startBased = $data['sla']['start_based'] ?? null;
+
+        if (! is_bool($startBased)) {
+            throw new InvalidDatasetSpec('stage4.sla.start_based must be true or false.');
+        }
+
+        return new Stage4Spec(
+            perRegionPerWeek: $perWeek,
+            weeks: $weeks,
+            duration: ['min' => $min, 'max' => $max],
+            requiredSkills: $required,
+            optionalSkills: $optional,
+            startDayWeights: $weights,
+            splitMinimumPriority: $priority,
+            sla: [
+                'in' => self::duration($data['sla']['in'] ?? null, 'stage4.sla.in'),
+                'out' => self::duration($data['sla']['out'] ?? null, 'stage4.sla.out'),
+                'start_based' => $startBased,
+            ],
+        );
     }
 
     private static function boolean(mixed $value, string $path): string

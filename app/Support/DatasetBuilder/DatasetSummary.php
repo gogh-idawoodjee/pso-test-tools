@@ -61,10 +61,28 @@ class DatasetSummary
     /** @var array<string, array<string, array<string, array<string, int>>>> region => local date => type => template kind => appointments */
     private array $appointmentDays = [];
 
+    /** @var array<string, array<string, array<string, int>>> region => start weekday => skill set => projects */
+    private array $projectDays = [];
+
+    /** @var array{min: int, max: int}|null project minutes */
+    private ?array $projectMinutes = null;
+
     /** @param array{region: string, type: string, date: string, kind: string|null, in_start: DateTimeImmutable, in_end: DateTimeImmutable} $activity */
     public function activity(array $activity): void
     {
         $type = $activity['type'];
+
+        if (($activity['stage'] ?? 2) === 4) {
+            $weekday = (new DateTimeImmutable($activity['date']))->format('D');
+            $skills = implode(' + ', array_column($activity['skills'], 'skill_id'));
+            $this->projectDays[$activity['region']][$weekday][$skills] = ($this->projectDays[$activity['region']][$weekday][$skills] ?? 0) + 1;
+            $this->projectMinutes = [
+                'min' => min($this->projectMinutes['min'] ?? PHP_INT_MAX, $activity['minutes']),
+                'max' => max($this->projectMinutes['max'] ?? 0, $activity['minutes']),
+            ];
+
+            return;
+        }
 
         if ($activity['kind'] !== null) {
             $this->appointmentDays[$activity['region']][$activity['date']][$type][$activity['kind']] = ($this->appointmentDays[$activity['region']][$activity['date']][$type][$activity['kind']] ?? 0) + 1;
@@ -206,6 +224,9 @@ class DatasetSummary
             'appointment_types' => array_keys($this->spec->stage3?->mix ?? []),
             'appointment_kinds' => array_keys($this->spec->stage3?->kindWeights ?? []),
             'appointment_days' => $this->appointmentDays,
+            'projects' => array_sum(array_map(static fn (array $days): int => array_sum(array_map('array_sum', $days)), $this->projectDays)),
+            'project_days' => $this->projectDays,
+            'project_hours' => $this->projectMinutes === null ? null : ['min' => $this->projectMinutes['min'] / 60, 'max' => $this->projectMinutes['max'] / 60],
             'modelling' => $modelling === null ? null : [
                 'file' => basename($modelling['path']),
                 'bytes' => $modelling['bytes'],

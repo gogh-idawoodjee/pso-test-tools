@@ -1242,6 +1242,38 @@
       "max": "P21D"
     }
   },
+  "stage4": {
+    "projects_per_region_per_week": {
+      "metro": 2,
+      "rural": 1
+    },
+    "weeks": 2,
+    "duration": {
+      "min": "PT10H",
+      "max": "PT16H"
+    },
+    "skills": {
+      "required": [
+        "COMMERCIAL"
+      ],
+      "optional": {
+        "SAFETY_CERT": 0.5
+      }
+    },
+    "start_day_weights": {
+      "1": 1,
+      "2": 1,
+      "3": 1,
+      "4": 2,
+      "5": 2
+    },
+    "split_minimum_priority": 1,
+    "sla": {
+      "in": "P10D",
+      "out": "P7D",
+      "start_based": false
+    }
+  },
   "_later_stages": {
     "note": "Read by stages 2–6 only. Shapes may change before then.",
     "backlog": {},

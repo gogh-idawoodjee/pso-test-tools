@@ -179,6 +179,36 @@
                     </div>
                 @endif
 
+                @if (($summary['projects'] ?? 0) > 0)
+                    <div>
+                        <h3 class="mb-2 font-medium text-gray-950 dark:text-white">Splittable projects by region, start weekday and skills ({{ $summary['projects'] }}, {{ number_format($summary['project_hours']['min'], 2) }} to {{ number_format($summary['project_hours']['max'], 2) }} h)</h3>
+                        <table class="text-left">
+                            <thead class="text-gray-500 dark:text-gray-400">
+                                <tr>
+                                    <th class="pe-6 font-medium">Region</th>
+                                    <th class="pe-6 font-medium">Start</th>
+                                    <th class="pe-6 font-medium">Skills</th>
+                                    <th class="pe-6 font-medium">Projects</th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-gray-950 dark:text-white">
+                                @foreach ($summary['project_days'] as $region => $weekdays)
+                                    @foreach (collect($weekdays)->sortKeysUsing(fn (string $a, string $b): int => array_search($a, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']) <=> array_search($b, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'])) as $weekday => $sets)
+                                        @foreach ($sets as $skills => $count)
+                                            <tr>
+                                                <td class="pe-6 font-mono">{{ $region }}</td>
+                                                <td class="pe-6">{{ $weekday }}</td>
+                                                <td class="pe-6 font-mono">{{ $skills }}</td>
+                                                <td class="pe-6">{{ $count }}</td>
+                                            </tr>
+                                        @endforeach
+                                    @endforeach
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+
                 @if (($summary['appointments'] ?? 0) > 0)
                     <div>
                         <h3 class="mb-2 font-medium text-gray-950 dark:text-white">Booked appointments by region, day, type and template kind ({{ number_format($summary['appointments']) }})</h3>
