@@ -46,8 +46,9 @@ it('POSTs /activity with the required keys and the environment block', function 
         ->and(data_get($request->data(), 'data.priority'))->toEqual(2)
         ->and(data_get($request->data(), 'data.lat'))->toEqual(50.4)
         ->and(data_get($request->data(), 'data.long'))->toEqual(-104.6)
-        ->and(data_get($request->data(), 'data.slaStart'))->toMatch('/^\d{4}-\d{2}-\d{2}T00:00:00$/')
-        ->and(data_get($request->data(), 'data.slaEnd'))->toMatch('/^\d{4}-\d{2}-\d{2}T23:59:59$/');
+        ->and(data_get($request->data(), 'data.slaStart'))->toMatch('/^\d{4}-\d{2}-\d{2}T08:00:00\+00:00$/')
+        ->and(data_get($request->data(), 'data.description'))->toBe('INSTALL : 50.4, -104.6')
+        ->and(data_get($request->data(), 'data.slaEnd'))->toMatch('/^\d{4}-\d{2}-\d{2}T17:00:00\+00:00$/');
 });
 
 it('omits inputDatetime and the optional keys when left blank', function () {
