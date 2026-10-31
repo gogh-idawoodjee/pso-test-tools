@@ -6,7 +6,9 @@ From the PSO 6.18 export; values rewritten. Same conventions as stage 1: UTC `+0
 
 ## LOAD emit order in modelling mode (stage 2)
 
-Input_Reference → Source_Data → Source_Data_Parameter → Location → Location_Region → Shift → Shift_Break → Activity → Activity_Skill → Activity_SLA → Activity_Status
+Input_Reference → Source_Data → Source_Data_Parameter → Location → Location_Region → Activity → Activity_Skill → Activity_SLA → Activity_Status
+
+**1R FIX on #60 (`stage1r-fix-rota.md`):** in modelling mode the shifts are `.arp` rota items; the LOAD never carries `Shift` or `Shift_Break`.
 
 ## Still NEVER emit
 

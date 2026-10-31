@@ -3,9 +3,11 @@
 namespace App\Support\DatasetBuilder;
 
 /**
- * Streams a DsModelling (RAM, .arp) document. Refuses the rota tables and the
- * version history: the planner owns those and their ids, and the rule is no
- * shifts in RAM (docs/dataset-builder/stage1r-ram-entity-cheatsheet.md).
+ * Streams a DsModelling (RAM, .arp) document. Since the 1R FIX on #60 it
+ * carries the master rota (header, membership periods, alterations, items and
+ * their breaks): PSO only hands a resource to scheduling when it has rota
+ * content. Every other rota table, and the version history, stays the
+ * planner's and PSO's own.
  */
 class DsModellingWriter extends XmlRowWriter
 {
@@ -21,9 +23,12 @@ class DsModellingWriter extends XmlRowWriter
         return self::NAMESPACE;
     }
 
+    /** The rota tables generated data may carry. */
+    public const array ROTA = ['RAM_Rota', 'RAM_Rota_Membership_Period', 'RAM_Rota_Alteration', 'RAM_Rota_Item', 'RAM_Rota_Item_Break'];
+
     protected function refusal(string $entity): ?string
     {
-        if (str_starts_with($entity, 'RAM_Rota')) {
+        if (str_starts_with($entity, 'RAM_Rota') && ! in_array($entity, self::ROTA, true)) {
             return "{$entity} is the planner's own rota data and never goes into generated modelling data.";
         }
 

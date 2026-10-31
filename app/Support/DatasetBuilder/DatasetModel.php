@@ -3,7 +3,9 @@
 namespace App\Support\DatasetBuilder;
 
 use App\Support\DatasetBuilder\Spec\DatasetSpec;
+use App\Support\DatasetBuilder\Spec\RegionSpec;
 use App\Support\DatasetBuilder\Spec\ResourceSpec;
+use App\Support\DatasetBuilder\Spec\ResourceTypeSpec;
 use DateTimeImmutable;
 use DateTimeZone;
 use Random\Engine\Mt19937;
@@ -12,7 +14,8 @@ use Random\Randomizer;
 /**
  * Everything one generate run decides, made once: `now` in UTC, the update id
  * both files carry, every home and depot location and (stage 2) the
- * activities. The random draws all come from one seeded engine: homes first in
+ * activities, and every shift (the LOAD's Shift rows without modelling data,
+ * the .arp's rota items with it). The random draws all come from one seeded engine: homes first in
  * spec order, then activities, so adding activities never moves a home. The
  * LOAD and the modelling data are both written from this, so neither
  * re-derives anything.
@@ -23,6 +26,7 @@ readonly class DatasetModel
      * @param  list<array<string, string>>  $locations  Location fields: depots in region order, then homes in resource order
      * @param  array<string, string>  $startLocations  resource id => its start and end location id
      * @param  list<array<string, mixed>>  $activities  ActivityFactory::activities()
+     * @param  list<array{resource: ResourceSpec, type: ResourceTypeSpec, region: RegionSpec, shift: array<string, mixed>}>  $shifts  every resource's shifts (ShiftFactory), resource by resource
      */
     private function __construct(
         public DatasetSpec $spec,
@@ -30,6 +34,7 @@ readonly class DatasetModel
         public array $locations,
         public array $startLocations,
         public array $activities,
+        public array $shifts,
     ) {}
 
     public static function build(DatasetSpec $spec, DateTimeImmutable $now): self
@@ -58,7 +63,19 @@ readonly class DatasetModel
             $startLocations[$resource->id] = $home['id'];
         }
 
-        return new self($spec, $now, $locations, $startLocations, ActivityFactory::activities($spec, $now, $random, $factory));
+        $activities = ActivityFactory::activities($spec, $now, $random, $factory);
+        $shifts = [];
+
+        foreach ($spec->resources as $resource) {
+            $type = $spec->resourceTypes[$resource->resourceType];
+            $region = $spec->regions[$resource->region];
+
+            foreach (ShiftFactory::shifts($resource, $type, $region, $now, $spec->horizonDays) as $shift) {
+                $shifts[] = ['resource' => $resource, 'type' => $type, 'region' => $region, 'shift' => $shift];
+            }
+        }
+
+        return new self($spec, $now, $locations, $startLocations, $activities, $shifts);
     }
 
     /** Input_Reference.id and RAM_Update.id: the run's unix timestamp. */

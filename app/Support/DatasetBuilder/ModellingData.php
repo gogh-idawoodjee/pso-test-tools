@@ -9,10 +9,10 @@ use DateTimeZone;
  * Stage 1R: the modelling (RAM, .arp) side of a dataset, from the same model as
  * its LOAD: divisions, locations, skills, types, the commit rule set,
  * resources, their divisions (an extra region bounded by a time pattern) and
- * skills, per resource type a shift category and a weekly shift template, and
+ * skills, per resource type a shift category and a weekly shift template,
+ * the master rota (every shift as a rota item, since the 1R FIX on #60), and
  * (stage 1R2) the activity reference data: SLA types, activity types and the
- * regions' appointment templates. No rota and no shifts: shifts keep
- * coming from the LOAD, and the planner adds its own on top.
+ * regions' appointment templates. The planner adds its own shifts on top.
  *
  * Field names are the stage 1R cheat sheet's
  * (docs/dataset-builder/stage1r-ram-entity-cheatsheet.md), in its emit order.
@@ -184,6 +184,8 @@ class ModellingData
             }
         }
 
+        self::writeRota($writer, $model);
+
         foreach ($spec->slaTypes as $id => $type) {
             $writer->row('RAM_SLA_Type', [
                 'id' => $id,
@@ -244,6 +246,70 @@ class ModellingData
         $bytes = $writer->finish();
 
         return ['bytes' => $bytes, 'counts' => $writer->counts()];
+    }
+
+    /**
+     * The master rota (1R FIX on #60): one header named after the dataset, and
+     * per resource a membership period and an alteration over the whole shift
+     * span (day -7 00:00 to midnight after day `horizon_days`, in its home
+     * region's zone), then every shift as a rota item with its break. Items
+     * keep the shift ids and instants, and carry the Monday split rule
+     * themselves: the template's one split_priority cannot.
+     */
+    private static function writeRota(DsModellingWriter $writer, DatasetModel $model): void
+    {
+        $spec = $model->spec;
+        $rota = $spec->datasetId;
+
+        $writer->row('RAM_Rota', ['id' => $rota, 'ram_rota_type_id' => 'MASTER', 'modified' => 'false']);
+
+        $spans = [];
+
+        foreach ($spec->resources as $resource) {
+            [$start, $end] = ShiftFactory::window($model->now, new DateTimeZone($spec->regions[$resource->region]->timeZone), $spec->horizonDays);
+            $spans[$resource->id] = ['start_datetime' => ShiftFactory::utc($start), 'end_datetime' => ShiftFactory::utc($end)];
+        }
+
+        foreach ($spec->resources as $resource) {
+            $writer->row('RAM_Rota_Membership_Period', ['ram_rota_id' => $rota, 'id' => "RMP-{$resource->id}", 'ram_resource_id' => $resource->id, ...$spans[$resource->id]]);
+        }
+
+        foreach ($spec->resources as $resource) {
+            $writer->row('RAM_Rota_Alteration', ['ram_rota_id' => $rota, 'id' => $resource->id, 'ram_resource_id' => $resource->id, ...$spans[$resource->id]]);
+        }
+
+        $descriptions = array_map(self::templateDescription(...), $spec->resourceTypes);
+
+        foreach ($model->shifts as $row) {
+            $shift = $row['shift']['shift'];
+
+            $writer->row('RAM_Rota_Item', [
+                'ram_rota_id' => $rota,
+                'id' => $shift['id'],
+                'ram_resource_id' => $shift['resource_id'],
+                'start_datetime' => $shift['start_datetime'],
+                'end_datetime' => $shift['end_datetime'],
+                'ram_shift_category_id' => $row['type']->id,
+                'ram_shift_template_id' => $row['type']->id,
+                'split_allowed' => $shift['split_allowed'],
+                'split_priority' => $shift['split_priority'],
+                'description' => $descriptions[$row['type']->id],
+                'modified' => 'false',
+            ]);
+        }
+
+        foreach ($model->shifts as $row) {
+            $break = $row['shift']['break'];
+
+            $writer->row('RAM_Rota_Item_Break', [
+                'ram_rota_id' => $rota,
+                'id' => $break['id'],
+                'ram_rota_item_id' => $break['shift_id'],
+                'duration' => $break['duration'],
+                'earliest_start' => $break['earliest_start_offset'],
+                'latest_start' => $break['latest_start_offset'],
+            ]);
+        }
     }
 
     /** @return array<int, int> sequence (from 1) => ISO weekday, Monday first */

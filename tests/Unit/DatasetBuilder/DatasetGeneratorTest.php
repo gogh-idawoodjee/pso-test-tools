@@ -19,7 +19,7 @@ const DATASET_BUILDER_EMIT_ORDER = [
 
 /** The LOAD beside modelling data, in emit order. */
 const DATASET_BUILDER_SLIM_EMIT_ORDER = [
-    'Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Location', 'Location_Region', 'Shift', 'Shift_Break',
+    'Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Location', 'Location_Region',
     'Activity', 'Activity_Skill', 'Activity_SLA', 'Availability', 'Activity_Status',
 ];
 
@@ -28,6 +28,7 @@ const DATASET_BUILDER_RAM_EMIT_ORDER = [
     'RAM_Rule_Collection_Rule', 'RAM_Rule_Parameter', 'RAM_Resource', 'RAM_Resource_Division', 'RAM_Time_Pattern',
     'RAM_Resource_Division_Avail', 'RAM_Resource_Skill',
     'RAM_Shift_Category', 'RAM_Shift_Template', 'RAM_Shift_Template_Item', 'RAM_Shift_Template_Item_Break',
+    'RAM_Rota', 'RAM_Rota_Membership_Period', 'RAM_Rota_Alteration', 'RAM_Rota_Item', 'RAM_Rota_Item_Break',
     'RAM_SLA_Type', 'RAM_Activity_Type', 'RAM_Appointment_Template', 'RAM_Appointment_Template_Item',
 ];
 
@@ -54,6 +55,19 @@ function generateStage1Dataset(string $id, string $now = '2026-10-30T15:30:00Z',
     $data['modelling'] = false;
 
     return generateDataset($id, $now, directory: $directory ?? datasetBuilderDirectory()."/{$id}-stage1", spec: DatasetSpec::fromArray($change ? $change($data) : $data));
+}
+
+/** @return list<array<string, string>> the .arp's rota items, as the Shift rows they replace: id, resource, instants, split rule */
+function datasetShifts(GeneratedDataset $result): array
+{
+    return array_map(static fn (array $item): array => [
+        'id' => $item['id'],
+        'resource_id' => $item['ram_resource_id'],
+        'start_datetime' => $item['start_datetime'],
+        'end_datetime' => $item['end_datetime'],
+        'split_allowed' => $item['split_allowed'],
+        'split_priority' => $item['split_priority'],
+    ], datasetEntity($result->modellingPath, 'RAM_Rota_Item'));
 }
 
 /** @return list<string> the entity names in a file, once each, in order */
@@ -113,14 +127,14 @@ it('gives every resource the shifts its type works over the horizon', function (
         ->and($types['INSTALLER']['min'])->toBe(60)->and($types['INSTALLER']['max'])->toBe(60)
         ->and($types['CONTRACTOR']['min'])->toBe(77)->and($types['CONTRACTOR']['max'])->toBe(77);
 
-    $shifts = datasetEntity($result->path, 'Shift');
+    $shifts = datasetShifts($result);
 
     expect($shifts)->toHaveCount($result->summary['shifts'])
-        ->and(datasetEntity($result->path, 'Shift_Break'))->toHaveCount(count($shifts));
+        ->and(datasetEntity($result->modellingPath, 'RAM_Rota_Item_Break'))->toHaveCount(count($shifts));
 })->with(['DC_US', 'DC_CA']);
 
 it('starts shifts at the same local time across the DST change, so the UTC time moves', function (string $id, string $resource, string $friday, string $monday) {
-    $shifts = collect(datasetEntity(generateDataset($id)->path, 'Shift'))->where('resource_id', $resource)->keyBy(static fn (array $shift): string => substr($shift['id'], 3));
+    $shifts = collect(datasetShifts(generateDataset($id)))->where('resource_id', $resource)->keyBy(static fn (array $shift): string => substr($shift['id'], 3));
 
     expect($shifts['20261030']['start_datetime'])->toBe($friday)
         ->and($shifts['20261102']['start_datetime'])->toBe($monday);
@@ -142,7 +156,7 @@ it('shows the DST change as two start bands in the summary', function () {
 it('puts Monday shifts at split priority 0 and every other shift at 1', function () {
     $result = generateDataset('DC_US');
 
-    foreach (datasetEntity($result->path, 'Shift') as $shift) {
+    foreach (datasetShifts($result) as $shift) {
         $monday = (new DateTimeImmutable(substr($shift['id'], 3)))->format('N') === '1';
 
         expect($shift['split_priority'])->toBe($monday ? '0' : '1');
@@ -291,7 +305,7 @@ it('writes the same bytes for the same spec, seed and now, and different homes f
     expect(file_get_contents($first->path))->toBe(file_get_contents($second->path))
         ->and(file_get_contents($first->modellingPath))->toBe(file_get_contents($second->modellingPath))
         ->and(datasetEntity($reseeded->modellingPath, 'RAM_Location'))->not->toBe(datasetEntity($first->modellingPath, 'RAM_Location'))
-        ->and(datasetEntity($reseeded->path, 'Shift'))->toBe(datasetEntity($first->path, 'Shift'));
+        ->and(datasetShifts($reseeded))->toBe(datasetShifts($first));
 });
 
 it('takes day 0 from each region\'s own date, not from the UTC date', function () {
@@ -302,14 +316,14 @@ it('takes day 0 from each region\'s own date, not from the UTC date', function (
     expect($lax['first_local'])->toStartWith('Fri 2026-10-23');
 });
 
-it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data RAM, activity locations, shifts, breaks, activities', function (string $id) {
+it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data RAM, activity locations and activities, no shifts', function (string $id) {
     $result = generateDataset($id);
     $path = $result->path;
     $stage1 = generateStage1Dataset($id)->path;
 
     expect(datasetEntityNames($path))->toBe(DATASET_BUILDER_SLIM_EMIT_ORDER)
-        ->and(datasetEntity($path, 'Shift'))->toBe(datasetEntity($stage1, 'Shift'))
-        ->and(datasetEntity($path, 'Shift_Break'))->toBe(datasetEntity($stage1, 'Shift_Break'))
+        ->and(datasetEntity($path, 'Shift'))->toBe([])
+        ->and(datasetEntity($path, 'Shift_Break'))->toBe([])
         ->and(datasetEntity($path, 'Activity'))->toBe(datasetEntity($stage1, 'Activity'))
         ->and(datasetEntity($path, 'Input_Reference'))->toBe(datasetEntity($stage1, 'Input_Reference'));
 
@@ -320,7 +334,7 @@ it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data R
         'RAM_Rule_Parameter' => 'Rule_Parameter', 'RAM_Resource' => 'Resources', 'RAM_Resource_Division' => 'Resource_Region',
         'RAM_Resource_Division_Avail' => 'Resource_Region_Availability', 'RAM_Resource_Skill' => 'Resource_Skill',
         'RAM_SLA_Type' => 'SLA_Type', 'RAM_Activity_Type' => 'Activity_Type', 'RAM_Appointment_Template' => 'Appointment_Template',
-        'RAM_Appointment_Template_Item' => 'Appointment_Template_Item',
+        'RAM_Appointment_Template_Item' => 'Appointment_Template_Item', 'RAM_Rota_Item' => 'Shift', 'RAM_Rota_Item_Break' => 'Shift_Break',
     ];
     $ram = datasetEntityNames($result->modellingPath);
 
@@ -333,8 +347,7 @@ it('writes a slim LOAD beside the modelling data: Input_Reference, Source_Data R
 
     $resources = array_column(datasetEntity($result->modellingPath, 'RAM_Resource'), 'id');
 
-    expect(array_diff(array_column(datasetEntity($path, 'Shift'), 'resource_id'), $resources))->toBe([])
-        ->and(array_diff(array_column(datasetEntity($path, 'Shift'), 'resource_id'), $resources))->toBe([]);
+    expect(array_diff(array_column(datasetShifts($result), 'resource_id'), $resources))->toBe([]);
 })->with(['DC_US', 'DC_CA']);
 
 it('refuses anything RAM carries in a slim LOAD', function () {
@@ -466,7 +479,7 @@ it('has templates that reproduce the first week of each type\'s loaded shifts, i
     $spec = app(DatasetSpecRepository::class)->load($id);
     $templates = collect(datasetEntity($result->modellingPath, 'RAM_Shift_Template'))->keyBy('id');
     $items = collect(datasetEntity($result->modellingPath, 'RAM_Shift_Template_Item'))->groupBy('ram_shift_template_id');
-    $shifts = collect(datasetEntity($result->path, 'Shift'))->groupBy('resource_id');
+    $shifts = collect(datasetShifts($result))->groupBy('resource_id');
     $checked = 0;
 
     foreach ($spec->resources as $resource) {
@@ -543,11 +556,11 @@ it('builds the INSTALLER and CONTRACTOR templates the brief spells out', functio
         ]);
 });
 
-it('never writes rota data into the .arp', function () {
+it('writes only the five master rota tables into the .arp, never the planner\'s other rota data', function () {
     File::ensureDirectoryExists(datasetBuilderDirectory());
     $writer = new DsModellingWriter(datasetBuilderDirectory().'/never.arp');
 
-    expect(fn () => $writer->row('RAM_Rota_Item', ['id' => 'x']))->toThrow(RuntimeException::class)
+    expect(fn () => $writer->row('RAM_Rota_Shift_Request', ['id' => 'x']))->toThrow(RuntimeException::class)
         ->and(fn () => $writer->row('RAM_Version_History', ['id' => 'x']))->toThrow(RuntimeException::class);
 });
 
@@ -993,4 +1006,82 @@ it('takes the priority 1 SLA type from the activity type\'s primary_sla_type', f
             expect($sla['sla_type_id'])->toBe('PROJECT');
         }
     }
+});
+
+it('carries every stage 1 shift as a rota item with the same instants, and the Monday rule per item', function (string $id) {
+    $result = generateDataset($id);
+    $spec = app(DatasetSpecRepository::class)->load($id);
+    $stage1 = collect(datasetEntity(generateStage1Dataset($id)->path, 'Shift'))->keyBy('id');
+    $stage1Breaks = collect(datasetEntity(generateStage1Dataset($id, directory: datasetBuilderDirectory()."/{$id}-stage1b")->path, 'Shift_Break'))->keyBy('id');
+    $items = collect(datasetEntity($result->modellingPath, 'RAM_Rota_Item'));
+    $breaks = collect(datasetEntity($result->modellingPath, 'RAM_Rota_Item_Break'));
+    $templates = collect(datasetEntity($result->modellingPath, 'RAM_Shift_Template'))->pluck('description', 'id');
+    $types = collect($spec->resources)->mapWithKeys(static fn ($resource): array => [$resource->id => $resource->resourceType]);
+
+    expect($items)->toHaveCount($stage1->count())
+        ->and($items->pluck('id')->sort()->values()->all())->toBe($stage1->keys()->sort()->values()->all())
+        ->and(datasetEntity($result->modellingPath, 'RAM_Rota'))->toBe([['id' => $id, 'ram_rota_type_id' => 'MASTER', 'modified' => 'false']]);
+
+    foreach ($items as $item) {
+        $shift = $stage1[$item['id']];
+        $type = $types[$item['ram_resource_id']];
+
+        expect($item)->toBe([
+            'ram_rota_id' => $id,
+            'id' => $shift['id'],
+            'ram_resource_id' => $shift['resource_id'],
+            'start_datetime' => $shift['start_datetime'],
+            'end_datetime' => $shift['end_datetime'],
+            'ram_shift_category_id' => $type,
+            'ram_shift_template_id' => $type,
+            'split_allowed' => 'true',
+            'split_priority' => $shift['split_priority'],
+            'description' => $templates[$type],
+            'modified' => 'false',
+        ]);
+    }
+
+    expect($breaks)->toHaveCount($items->count());
+
+    foreach ($breaks as $break) {
+        $old = $stage1Breaks[$break['id']];
+
+        expect($break)->toBe([
+            'ram_rota_id' => $id,
+            'id' => $old['id'],
+            'ram_rota_item_id' => $old['shift_id'],
+            'duration' => $old['duration'],
+            'earliest_start' => $old['earliest_start_offset'],
+            'latest_start' => $old['latest_start_offset'],
+        ]);
+    }
+
+    $memberships = collect(datasetEntity($result->modellingPath, 'RAM_Rota_Membership_Period'));
+    $alterations = collect(datasetEntity($result->modellingPath, 'RAM_Rota_Alteration'));
+
+    expect($memberships->pluck('ram_resource_id')->all())->toBe(array_map(static fn ($resource): string => $resource->id, $spec->resources))
+        ->and($alterations->pluck('id')->all())->toBe(array_map(static fn ($resource): string => $resource->id, $spec->resources))
+        ->and($memberships->pluck('id')->every(static fn (string $value): bool => str_starts_with($value, 'RMP-')))->toBeTrue();
+})->with(['DC_US', 'DC_CA']);
+
+it('spans each resource\'s rota from day -7 00:00 to midnight after day 100, in its home zone', function () {
+    $path = generateDataset('DC_CA')->modellingPath;
+    $tor = collect(datasetEntity($path, 'RAM_Rota_Membership_Period'))->firstWhere('ram_resource_id', 'R-TOR-001');
+    $item = collect(datasetEntity($path, 'RAM_Rota_Item'))->firstWhere('id', '00120261102');
+
+    expect($tor)->toBe([
+        'ram_rota_id' => 'DC_CA',
+        'id' => 'RMP-R-TOR-001',
+        'ram_resource_id' => 'R-TOR-001',
+        'start_datetime' => '2026-10-23T04:00:00+00:00',
+        'end_datetime' => '2027-02-08T05:00:00+00:00',
+    ])
+        ->and(collect(datasetEntity($path, 'RAM_Rota_Alteration'))->firstWhere('id', 'R-TOR-001'))->toBe([
+            'ram_rota_id' => 'DC_CA', 'id' => 'R-TOR-001', 'ram_resource_id' => 'R-TOR-001',
+            'start_datetime' => '2026-10-23T04:00:00+00:00', 'end_datetime' => '2027-02-08T05:00:00+00:00',
+        ])
+        // Clark Kent, SENIOR_TECH: Mon 2 Nov 07:30 EST.
+        ->and($item['start_datetime'])->toBe('2026-11-02T12:30:00+00:00')
+        ->and($item['split_priority'])->toBe('0')
+        ->and($item['description'])->toBe('Senior Technician Mon-Fri 07:30-16:00');
 });

@@ -73,7 +73,9 @@ All datetimes are built in the region zone and output in UTC, same as shifts.
 
 ## 4. Writers
 
-**Building:** the scheduling writer in modelling mode now emits, in this order: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Location`, `Location_Region`, `Shift`, `Shift_Break`, `Activity`, `Activity_Skill`, `Activity_SLA`, `Activity_Status`. Activity locations are scheduling data. They are not in the ARP, and resource home/depot locations stay ARP-only. The "no entity type in both files" test still holds (`Location` ≠ `RAM_Location`). Non-modelling mode gets the same activity entities on top of its stage 1 + 1R2 content.
+**Building:** the scheduling writer in modelling mode now emits, in this order: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Location`, `Location_Region`, `Activity`, `Activity_Skill`, `Activity_SLA`, `Activity_Status`. Activity locations are scheduling data. They are not in the ARP, and resource home/depot locations stay ARP-only. The "no entity type in both files" test still holds (`Location` ≠ `RAM_Location`). Non-modelling mode gets the same activity entities on top of its stage 1 + 1R2 content.
+
+**1R FIX on #60 (`stage1r-fix-rota.md`):** in modelling mode the shifts are `.arp` rota items; the LOAD never carries `Shift` or `Shift_Break`.
 
 The summary panel adds: activities by region × type × target day (local date), and the IN_SLA window range per type.
 

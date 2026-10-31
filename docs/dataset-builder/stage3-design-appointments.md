@@ -74,7 +74,9 @@ The three rows (SLA, Availability, `date_time_earliest`) must agree to the secon
 
 ### 5. Writers
 
-**Building:** slim LOAD emit order becomes: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Location`, `Location_Region`, `Shift`, `Shift_Break`, `Activity`, `Activity_Skill`, `Activity_SLA`, `Availability`, `Activity_Status`. In the slim LOAD, `Availability` only ever carries `activity_id` rows. A test asserts there is no resource-type `Availability` row in modelling mode. Non-modelling mode gets the same activity rows on top of what it has. The ARP is unchanged.
+**Building:** slim LOAD emit order becomes: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Location`, `Location_Region`, `Activity`, `Activity_Skill`, `Activity_SLA`, `Availability`, `Activity_Status`. In the slim LOAD, `Availability` only ever carries `activity_id` rows. A test asserts there is no resource-type `Availability` row in modelling mode. Non-modelling mode gets the same activity rows on top of what it has. The ARP is unchanged.
+
+**1R FIX on #60 (`stage1r-fix-rota.md`):** in modelling mode the shifts are `.arp` rota items; the LOAD never carries `Shift` or `Shift_Break`.
 
 Summary panel: appointments by region × type × day × template kind.
 

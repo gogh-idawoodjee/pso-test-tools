@@ -14,9 +14,9 @@ class DsScheduleDataWriter extends XmlRowWriter
     /** PSO's own output: never part of a LOAD. */
     private const array NEVER = ['Plan', 'Plan_Resource', 'Plan_Route', 'Allocation', 'Allocation_Data', 'Schedule_Exception', 'Schedule_Exception_Data', 'Schedule_Event'];
 
-    /** A LOAD beside modelling data: everything else is RAM's (stage 1R cheat sheet, slim mode; stage 2 adds the activities and their locations, stage 3 their accepted-appointment Availability). */
+    /** A LOAD beside modelling data: everything else is RAM's (stage 1R cheat sheet, slim mode; stage 2 adds the activities and their locations, stage 3 their accepted-appointment Availability; the 1R FIX moved Shift and Shift_Break to the .arp's rota). */
     public const array SLIM = [
-        'Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Location', 'Location_Region', 'Shift', 'Shift_Break',
+        'Input_Reference', 'Source_Data', 'Source_Data_Parameter', 'Location', 'Location_Region',
         'Activity', 'Activity_Skill', 'Activity_SLA', 'Availability', 'Activity_Status',
     ];
 

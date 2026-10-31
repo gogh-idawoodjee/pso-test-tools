@@ -455,6 +455,7 @@ readonly class DatasetSpec
         }
 
         self::id("H-{$id}", "Resource {$id} home location id");
+        self::id("RMP-{$id}", "Resource {$id} rota membership period id");
 
         foreach (array_keys(self::OVERRIDABLE) as $field) {
             if (array_key_exists($field, $resource)) {

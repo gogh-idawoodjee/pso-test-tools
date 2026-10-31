@@ -47,6 +47,8 @@ Entity by entity, from the same in-memory model the scheduling writer uses:
 
 **Not emitted:** anything rota-related, `RAM_Version_History`, anything activity-related (later stages mirror `Activity_Type`, `SLA_Type`, appointment templates into RAM the same way).
 
+**1R FIX on #60 (`stage1r-fix-rota.md`):** in modelling mode the shifts are `.arp` rota items; the LOAD never carries `Shift` or `Shift_Break`.
+
 **Scheduling writer change:** when `modelling` is true the LOAD goes **slim** — only `Input_Reference`, `Source_Data` + `Source_Data_Parameter rota_id={dataset_id}`, `Shift`, `Shift_Break`. Everything RAM carries is dropped from the LOAD (full list in the cheat sheet's slim-mode section). The writer's allow-list depends on the flag; when `modelling` is false the stage 1 LOAD is unchanged. Add a test that no entity type appears in both files.
 
 ---

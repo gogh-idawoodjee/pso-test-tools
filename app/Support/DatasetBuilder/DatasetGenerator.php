@@ -12,9 +12,9 @@ use Illuminate\Support\Facades\File;
  * resource types, the commit rule set, resources, their regions, skills and
  * extra-region availability, shifts and breaks. No activities.
  * Stage 1R: when the spec says `modelling`, the matching modelling data
- * (ModellingData, an .arp) from the same model, and a slim LOAD that carries
- * only what RAM does not: Input_Reference, Source_Data RAM, shifts, breaks and
- * (stage 2) the activities and their locations. No Object_Group in either
+ * (ModellingData, an .arp) from the same model, shifts included as rota items,
+ * and a slim LOAD that carries only what RAM does not: Input_Reference,
+ * Source_Data RAM and (stage 2) the activities and their locations. No Object_Group in either
  * mode (FIX on #60).
  *
  * Entities go out in the cheat sheet's emit order
@@ -75,21 +75,19 @@ class DatasetGenerator
             $this->writeResourceModel($writer, $model);
         }
 
-        $breaks = [];
-
-        foreach ($spec->resources as $resource) {
-            $type = $spec->resourceTypes[$resource->resourceType];
-            $region = $spec->regions[$resource->region];
-
-            foreach (ShiftFactory::shifts($resource, $type, $region, $now, $spec->horizonDays) as $shift) {
-                $writer->row('Shift', $shift['shift']);
-                $breaks[] = $shift['break'];
-                $summary->shift($resource, $type, $region, $shift);
-            }
+        foreach ($model->shifts as $row) {
+            $summary->shift($row['resource'], $row['type'], $row['region'], $row['shift']);
         }
 
-        foreach ($breaks as $break) {
-            $writer->row('Shift_Break', $break);
+        // With modelling data the shifts are its rota items (1R FIX on #60); without, they are the LOAD's.
+        if (! $spec->modelling) {
+            foreach ($model->shifts as $row) {
+                $writer->row('Shift', $row['shift']['shift']);
+            }
+
+            foreach ($model->shifts as $row) {
+                $writer->row('Shift_Break', $row['shift']['break']);
+            }
         }
 
         $this->writeActivities($writer, $model, $summary);

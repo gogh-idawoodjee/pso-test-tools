@@ -10,6 +10,8 @@ RAM_Update → RAM_Division → RAM_Location → RAM_Skill → RAM_Resource_Type
 
 ## NEVER emit
 
+**1R FIX on #60 (`stage1r-fix-rota.md`):** in modelling mode the shifts are `.arp` rota items; the LOAD never carries `Shift` or `Shift_Break`. Of the rota tables only `RAM_Rota`, `RAM_Rota_Membership_Period`, `RAM_Rota_Alteration`, `RAM_Rota_Item` and `RAM_Rota_Item_Break` are emitted; the line below is superseded for those five.
+
 `RAM_Rota`, `RAM_Rota_Item`, `RAM_Rota_Item_Break`, `RAM_Rota_Membership_Period`, `RAM_Rota_Alteration`, `RAM_Rota_*` of any kind (planner-owned, internal ids), `RAM_Version_History` (PSO writes it). Not in 1R: `RAM_Activity_Type`, `RAM_SLA_Type`, `RAM_Appointment_Template*`, `RAM_Slot_Usage_*`, `RAM_Part`, `RAM_Capacity*`, `RAM_Unavailability` — later stages.
 
 ---
@@ -204,7 +206,7 @@ The four templates from the spec:
 
 ## Scheduling LOAD when `modelling: true` — slim mode
 
-**Nothing the `.arp` carries goes in the LOAD.** The LOAD contains exactly: `Input_Reference`, `Source_Data`, `Source_Data_Parameter`, `Shift`, `Shift_Break` (stage 2 adds the activities and their locations; no `Object_Group`, FIX on #60). Everything else from the stage 1 cheat sheet (`Region`, `Location`, `Skill`, `Resource_Type`, `Rule*`, `Resources`, `Resource_Region`, `Resource_Skill`, `Availability`, `Resource_Region_Availability`) is RAM's and is **not** emitted. When `modelling: false`, the stage 1 LOAD is unchanged. A test must assert no entity type appears in both files.
+**Nothing the `.arp` carries goes in the LOAD.** The LOAD contains exactly: `Input_Reference`, `Source_Data`, `Source_Data_Parameter` (no `Shift`/`Shift_Break` since the 1R FIX; stage 2 adds the activities and their locations; no `Object_Group`, FIX on #60). Everything else from the stage 1 cheat sheet (`Region`, `Location`, `Skill`, `Resource_Type`, `Rule*`, `Resources`, `Resource_Region`, `Resource_Skill`, `Availability`, `Resource_Region_Availability`) is RAM's and is **not** emitted. When `modelling: false`, the stage 1 LOAD is unchanged. A test must assert no entity type appears in both files.
 
 Add to the slim LOAD:
 ```xml
